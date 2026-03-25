@@ -1,0 +1,139 @@
+-- name: test_java_varargs_udf @no_arrow_flight_sql
+
+-- Setup: create a test table
+CREATE TABLE `t_varargs` (
+  `c0` int(11) NULL COMMENT "",
+  `c1` int(11) NULL COMMENT "",
+  `c2` varchar(64) NULL COMMENT ""
+) ENGINE=OLAP
+DUPLICATE KEY(`c0`)
+COMMENT "OLAP"
+PROPERTIES (
+"replication_num" = "1"
+);
+-- result:
+-- !result
+insert into t_varargs VALUES
+  (1, 10, 'hello'),
+  (2, 20, 'world'),
+  (3, 30, 'foo'),
+  (null, null, null);
+-- result:
+-- !result
+
+-- Test 1: Register varargs UDF
+CREATE FUNCTION echoint_va(int, ...)
+RETURNS int
+symbol = "Echoint"
+type = "StarrocksJar"
+file = "${udf_url}/starrocks-jdbc/udf.jar";
+-- result:
+-- !result
+
+-- Test 2: Call varargs UDF with exactly the declared arg count (1 int)
+select echoint_va(42);
+-- result:
+42
+-- !result
+select c0, echoint_va(c0) from t_varargs order by c0;
+-- result:
+None	None
+1	1
+2	2
+3	3
+-- !result
+
+-- Test 3: Call varargs UDF with extra args of matching type
+select echoint_va(5, 10);
+-- result:
+5
+-- !result
+select echoint_va(5, 10, 15, 20);
+-- result:
+5
+-- !result
+select c0, echoint_va(c0, c1) from t_varargs order by c0;
+-- result:
+None	None
+1	1
+2	2
+3	3
+-- !result
+
+-- Test 4: Varargs UDF with NULL handling
+select echoint_va(null);
+-- result:
+None
+-- !result
+select echoint_va(1, null);
+-- result:
+1
+-- !result
+
+-- Test 5: Type mismatch in extra varargs arg should be rejected by FE
+select echoint_va(1, [1,2,3]);
+-- result:
+[REGEX].*Variadic function echoint_va.*can't support type.*
+-- !result
+
+-- Test 6: Too few args (zero args when at least one int required) → FE error
+select echoint_va();
+-- result:
+[REGEX].*No matching function with signature: echoint_va\(\).*
+-- !result
+
+-- Test 7: Varargs UDF in aggregation context
+select sum(echoint_va(c0)) from t_varargs;
+-- result:
+6
+-- !result
+select sum(echoint_va(c0, c1)) from t_varargs;
+-- result:
+6
+-- !result
+
+-- Test 8: Varargs UDF in WHERE clause
+select c0 from t_varargs where echoint_va(c0) > 1 order by c0;
+-- result:
+2
+3
+-- !result
+select c0 from t_varargs where echoint_va(c0, c1) > 1 order by c0;
+-- result:
+2
+3
+-- !result
+
+-- Test 9: Attempt to register a two-arg varargs UDF using a one-param class
+-- Echoint.evaluate(Integer) has 1 param; echoint_va2(int, int, ...) declares 2.
+CREATE FUNCTION echoint_va2(int, int, ...)
+RETURNS int
+symbol = "Echoint"
+type = "StarrocksJar"
+file = "${udf_url}/starrocks-jdbc/udf.jar";
+-- result:
+[REGEX].*expect argument count 2.*
+-- !result
+select echoint_va2(1);
+-- result:
+[REGEX].*No matching function with signature: echoint_va2.*
+-- !result
+select echoint_va2(5, 10);
+-- result:
+[REGEX].*No matching function with signature: echoint_va2.*
+-- !result
+select echoint_va2(5, 10, 15);
+-- result:
+[REGEX].*No matching function with signature: echoint_va2.*
+-- !result
+
+-- Cleanup
+DROP FUNCTION IF EXISTS echoint_va(int, ...);
+-- result:
+-- !result
+DROP FUNCTION IF EXISTS echoint_va2(int, int, ...);
+-- result:
+-- !result
+DROP TABLE IF EXISTS t_varargs;
+-- result:
+-- !result

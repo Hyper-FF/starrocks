@@ -1,0 +1,138 @@
+-- name: test_java_varargs_udf @no_arrow_flight_sql
+
+-- ============================================================
+-- Test: Java UDF with varargs (variable argument) declaration
+-- ============================================================
+-- A Java UDF declared with "..." allows the function to be called
+-- with additional arguments beyond the fixed declared types.
+-- The Java evaluate() method handles the declared parameter count;
+-- extra arguments matching the varargs type are accepted by the FE.
+--
+-- We reuse the existing Echoint UDF class (evaluate(Integer) -> Integer)
+-- and declare it twice: once as a regular single-arg UDF and once as
+-- a varargs UDF. This demonstrates the varargs declaration syntax and
+-- behavior.
+-- ============================================================
+
+-- Setup: create a test table
+CREATE TABLE `t_varargs` (
+  `c0` int(11) NULL COMMENT "",
+  `c1` int(11) NULL COMMENT "",
+  `c2` varchar(64) NULL COMMENT ""
+) ENGINE=OLAP
+DUPLICATE KEY(`c0`)
+COMMENT "OLAP"
+PROPERTIES (
+"replication_num" = "1"
+);
+
+insert into t_varargs VALUES
+  (1, 10, 'hello'),
+  (2, 20, 'world'),
+  (3, 30, 'foo'),
+  (null, null, null);
+
+-- ============================================================
+-- Test 1: Register the same JAR class as a varargs UDF
+-- The Echoint class has evaluate(Integer) method.
+-- Declaring as echoint_va(int, ...) means: requires 1 int, accepts more.
+-- ============================================================
+
+CREATE FUNCTION echoint_va(int, ...)
+RETURNS int
+symbol = "Echoint"
+type = "StarrocksJar"
+file = "${udf_url}/starrocks-jdbc/udf.jar";
+
+-- ============================================================
+-- Test 2: Call varargs UDF with exactly the declared arg count (1 int)
+-- ============================================================
+
+-- Calling with minimum required args (same as non-varargs call)
+select echoint_va(42);
+
+-- Calling from a table column
+select c0, echoint_va(c0) from t_varargs order by c0;
+
+-- ============================================================
+-- Test 3: Call varargs UDF with extra args of matching type
+-- Extra args (matching varargs element type = int) are accepted by FE.
+-- The Java evaluate(Integer) method only processes the first arg.
+-- ============================================================
+
+-- One extra int arg
+select echoint_va(5, 10);
+
+-- Multiple extra int args
+select echoint_va(5, 10, 15, 20);
+
+-- Column-based call with extra column arg
+select c0, echoint_va(c0, c1) from t_varargs order by c0;
+
+-- ============================================================
+-- Test 4: Varargs UDF with NULL handling
+-- ============================================================
+
+-- NULL as the required first arg → returns null (Echoint returns null for null input)
+select echoint_va(null);
+
+-- NULL as an extra varargs arg → accepted
+select echoint_va(1, null);
+
+-- ============================================================
+-- Test 5: Type mismatch in extra varargs arg should be rejected by FE
+-- ============================================================
+
+-- array<int> cannot be cast to int (varargs element type) → FE error
+select echoint_va(1, [1,2,3]);
+
+-- ============================================================
+-- Test 6: Too few args (zero args when at least one int required) → FE error
+-- ============================================================
+
+select echoint_va();
+
+-- ============================================================
+-- Test 7: Varargs UDF in aggregation context
+-- ============================================================
+
+select sum(echoint_va(c0)) from t_varargs;
+select sum(echoint_va(c0, c1)) from t_varargs;
+
+-- ============================================================
+-- Test 8: Varargs UDF in WHERE clause
+-- ============================================================
+
+select c0 from t_varargs where echoint_va(c0) > 1 order by c0;
+select c0 from t_varargs where echoint_va(c0, c1) > 1 order by c0;
+
+-- ============================================================
+-- Test 9: Attempt to register a two-arg varargs UDF using a one-param class
+-- Echoint.evaluate(Integer) has exactly 1 parameter.
+-- Declaring echoint_va2(int, int, ...) requires 2 declared arg types,
+-- so the FE should reject the registration (argument count mismatch).
+-- Subsequent calls all fail because the function was never registered.
+-- ============================================================
+
+CREATE FUNCTION echoint_va2(int, int, ...)
+RETURNS int
+symbol = "Echoint"
+type = "StarrocksJar"
+file = "${udf_url}/starrocks-jdbc/udf.jar";
+
+-- Registration failed → function does not exist
+select echoint_va2(1);
+
+-- Still not found
+select echoint_va2(5, 10);
+
+-- Still not found
+select echoint_va2(5, 10, 15);
+
+-- ============================================================
+-- Cleanup
+-- ============================================================
+
+DROP FUNCTION IF EXISTS echoint_va(int, ...);
+DROP FUNCTION IF EXISTS echoint_va2(int, int, ...);
+DROP TABLE IF EXISTS t_varargs;
