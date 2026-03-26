@@ -71,7 +71,7 @@ void RepeatNode::close(RuntimeState* state) {
     ExecNode::close(state);
 }
 
-std::vector<std::shared_ptr<pipeline::OperatorFactory> > RepeatNode::decompose_to_pipeline(
+StatusOr<pipeline::OpFactories> RepeatNode::decompose_to_pipeline(
         pipeline::PipelineBuilderContext* context) {
     using namespace pipeline;
 
