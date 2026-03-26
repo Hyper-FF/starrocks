@@ -54,6 +54,14 @@ public class JavaVarArgsUDFTest extends PlanTestBase {
             "CREATE FUNCTION db1.mixed_varargs(int, string, ...) RETURNS string " +
                     "PROPERTIES ('symbol'='MixedVarArgs', 'type'='StarrocksJar', 'file'='test.jar')";
 
+    private static final String ARRAY_VARARGS_FUNC =
+            "CREATE FUNCTION db1.array_varargs(array<int>, ...) RETURNS array<int> " +
+                    "PROPERTIES ('symbol'='ArrayVarArgs', 'type'='StarrocksJar', 'file'='test.jar')";
+
+    private static final String MAP_VARARGS_FUNC =
+            "CREATE FUNCTION db1.map_varargs(map<int,string>, ...) RETURNS map<int,string> " +
+                    "PROPERTIES ('symbol'='MapVarArgs', 'type'='StarrocksJar', 'file'='test.jar')";
+
     @BeforeAll
     public static void beforeClass() throws Exception {
         PlanTestBase.beforeClass();
@@ -63,6 +71,8 @@ public class JavaVarArgsUDFTest extends PlanTestBase {
         starRocksAssert.withFunction(INT_VARARGS_FUNC);
         starRocksAssert.withFunction(STR_VARARGS_FUNC);
         starRocksAssert.withFunction(MIXED_VARARGS_FUNC);
+        starRocksAssert.withFunction(ARRAY_VARARGS_FUNC);
+        starRocksAssert.withFunction(MAP_VARARGS_FUNC);
         Config.enable_udf = true;
     }
 
@@ -72,6 +82,8 @@ public class JavaVarArgsUDFTest extends PlanTestBase {
         dropFunctionIfExists("db1.int_varargs(int, ...)");
         dropFunctionIfExists("db1.str_varargs(string, string, ...)");
         dropFunctionIfExists("db1.mixed_varargs(int, string, ...)");
+        dropFunctionIfExists("db1.array_varargs(array<int>, ...)");
+        dropFunctionIfExists("db1.map_varargs(map<int,string>, ...)");
         Config.enable_udf = false;
     }
 
@@ -312,5 +324,111 @@ public class JavaVarArgsUDFTest extends PlanTestBase {
         // tinyint can be cast to int (the varargs type), so this should succeed
         String plan = getFragmentPlan("SELECT int_varargs(1, cast(2 as tinyint))");
         assertContains(plan, "int_varargs");
+    }
+
+    // -------------------------------------------------------------------------
+    // Tests: array_varargs(array<int>, ...)
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testArrayVarArgsMinimumArgs() throws Exception {
+        String plan = getFragmentPlan("SELECT array_varargs([1,2,3])");
+        assertContains(plan, "array_varargs");
+    }
+
+    @Test
+    public void testArrayVarArgsWithExtraArrayArg() throws Exception {
+        // Extra array<int> arg matches the varargs element type
+        String plan = getFragmentPlan("SELECT array_varargs([1,2,3], [4,5,6])");
+        assertContains(plan, "array_varargs");
+    }
+
+    @Test
+    public void testArrayVarArgsWithMultipleExtraArgs() throws Exception {
+        String plan = getFragmentPlan("SELECT array_varargs([1,2,3], [4,5], [6,7,8,9])");
+        assertContains(plan, "array_varargs");
+    }
+
+    @Test
+    public void testArrayVarArgsNullExtraAccepted() throws Exception {
+        // null is castable to any type, including array<int>
+        String plan = getFragmentPlan("SELECT array_varargs([1,2,3], null)");
+        assertContains(plan, "array_varargs");
+    }
+
+    @Test
+    public void testArrayVarArgsWrongTypeScalar() {
+        // int scalar cannot be cast to array<int>
+        Assertions.assertThrows(SemanticException.class, () ->
+                getFragmentPlan("SELECT array_varargs([1,2,3], 42)")
+        );
+    }
+
+    @Test
+    public void testArrayVarArgsWrongTypeMap() {
+        // map type cannot be cast to array<int>
+        Assertions.assertThrows(SemanticException.class, () ->
+                getFragmentPlan("SELECT array_varargs([1,2,3], map(1,'a'))")
+        );
+    }
+
+    @Test
+    public void testArrayVarArgsTooFewArgs() {
+        Assertions.assertThrows(SemanticException.class, () ->
+                getFragmentPlan("SELECT array_varargs()")
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Tests: map_varargs(map<int,string>, ...)
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testMapVarArgsMinimumArgs() throws Exception {
+        String plan = getFragmentPlan("SELECT map_varargs(map(1,'a'))");
+        assertContains(plan, "map_varargs");
+    }
+
+    @Test
+    public void testMapVarArgsWithExtraMapArg() throws Exception {
+        // Extra map<int,string> arg matches the varargs element type
+        String plan = getFragmentPlan("SELECT map_varargs(map(1,'a'), map(2,'b'))");
+        assertContains(plan, "map_varargs");
+    }
+
+    @Test
+    public void testMapVarArgsWithMultipleExtraMaps() throws Exception {
+        String plan = getFragmentPlan("SELECT map_varargs(map(1,'a'), map(2,'b'), map(3,'c'))");
+        assertContains(plan, "map_varargs");
+    }
+
+    @Test
+    public void testMapVarArgsNullExtraAccepted() throws Exception {
+        // null is castable to any type, including map<int,string>
+        String plan = getFragmentPlan("SELECT map_varargs(map(1,'a'), null)");
+        assertContains(plan, "map_varargs");
+    }
+
+    @Test
+    public void testMapVarArgsWrongTypeScalar() {
+        // int scalar cannot be cast to map<int,string>
+        Assertions.assertThrows(SemanticException.class, () ->
+                getFragmentPlan("SELECT map_varargs(map(1,'a'), 42)")
+        );
+    }
+
+    @Test
+    public void testMapVarArgsWrongTypeArray() {
+        // array type cannot be cast to map<int,string>
+        Assertions.assertThrows(SemanticException.class, () ->
+                getFragmentPlan("SELECT map_varargs(map(1,'a'), [1,2,3])")
+        );
+    }
+
+    @Test
+    public void testMapVarArgsTooFewArgs() {
+        Assertions.assertThrows(SemanticException.class, () ->
+                getFragmentPlan("SELECT map_varargs()")
+        );
     }
 }

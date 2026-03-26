@@ -127,6 +127,134 @@ select echoint_va2(5, 10, 15);
 [REGEX].*No matching function with signature: echoint_va2.*
 -- !result
 
+-- Test 10: Array-typed varargs UDF
+CREATE TABLE `t_complex` (
+  `c0` int(11) NULL COMMENT "",
+  `c1` array<int> NULL,
+  `c2` map<int, string> NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`c0`)
+COMMENT "OLAP"
+PROPERTIES (
+"replication_num" = "1"
+);
+-- result:
+-- !result
+insert into t_complex VALUES
+  (1, [1,2,3], map(1,'a',2,'b')),
+  (2, [4,5], map(3,'c')),
+  (3, null, null);
+-- result:
+-- !result
+CREATE FUNCTION echo_array_va(array<int>, ...)
+RETURNS array<int>
+symbol = "EchoArray"
+type = "StarrocksJar"
+file = "${udf_url}/starrocks-jdbc/ArrayMap.jar";
+-- result:
+-- !result
+select echo_array_va([1,2,3]);
+-- result:
+[1,2,3]
+-- !result
+select echo_array_va([1,2,3], [4,5,6]);
+-- result:
+[1,2,3]
+-- !result
+select echo_array_va([1,2,3], [4,5,6], [7,8,9]);
+-- result:
+[1,2,3]
+-- !result
+select echo_array_va([1,2,3], null);
+-- result:
+[1,2,3]
+-- !result
+select echo_array_va(null);
+-- result:
+None
+-- !result
+select echo_array_va([1,2,3], 42);
+-- result:
+[REGEX].*Variadic function echo_array_va.*can't support type.*
+-- !result
+select echo_array_va([1,2,3], map(1,'a'));
+-- result:
+[REGEX].*Variadic function echo_array_va.*can't support type.*
+-- !result
+select echo_array_va();
+-- result:
+[REGEX].*No matching function with signature: echo_array_va\(\).*
+-- !result
+select c0, echo_array_va(c1) from t_complex order by c0;
+-- result:
+1	[1,2,3]
+2	[4,5]
+3	None
+-- !result
+select c0, echo_array_va(c1, [10,20]) from t_complex order by c0;
+-- result:
+1	[1,2,3]
+2	[4,5]
+3	None
+-- !result
+select echo_array_va(c1, c0) from t_complex;
+-- result:
+[REGEX].*Variadic function echo_array_va.*can't support type.*
+-- !result
+
+-- Test 11: Map-typed varargs UDF
+CREATE FUNCTION echo_map_va(map<int,string>, ...)
+RETURNS map<int,string>
+symbol = "EchoMap"
+type = "StarrocksJar"
+file = "${udf_url}/starrocks-jdbc/ArrayMap.jar";
+-- result:
+-- !result
+select echo_map_va(map(1,'a',2,'b'));
+-- result:
+{1:"a",2:"b"}
+-- !result
+select echo_map_va(map(1,'a'), map(2,'b'));
+-- result:
+{1:"a"}
+-- !result
+select echo_map_va(map(1,'a'), map(2,'b'), map(3,'c'));
+-- result:
+{1:"a"}
+-- !result
+select echo_map_va(map(1,'a'), null);
+-- result:
+{1:"a"}
+-- !result
+select echo_map_va(null);
+-- result:
+None
+-- !result
+select echo_map_va(map(1,'a'), 42);
+-- result:
+[REGEX].*Variadic function echo_map_va.*can't support type.*
+-- !result
+select echo_map_va(map(1,'a'), [1,2,3]);
+-- result:
+[REGEX].*Variadic function echo_map_va.*can't support type.*
+-- !result
+select echo_map_va();
+-- result:
+[REGEX].*No matching function with signature: echo_map_va\(\).*
+-- !result
+select c0, echo_map_va(c2) from t_complex order by c0;
+-- result:
+1	{1:"a",2:"b"}
+2	{3:"c"}
+3	None
+-- !result
+select c0, echo_map_va(c2, map(99,'x')) from t_complex order by c0;
+-- result:
+1	{1:"a",2:"b"}
+2	{3:"c"}
+3	None
+-- !result
+
 -- Cleanup
 DROP FUNCTION IF EXISTS echoint_va(int, ...);
 -- result:
@@ -134,6 +262,15 @@ DROP FUNCTION IF EXISTS echoint_va(int, ...);
 DROP FUNCTION IF EXISTS echoint_va2(int, int, ...);
 -- result:
 -- !result
+DROP FUNCTION IF EXISTS echo_array_va(array<int>, ...);
+-- result:
+-- !result
+DROP FUNCTION IF EXISTS echo_map_va(map<int,string>, ...);
+-- result:
+-- !result
 DROP TABLE IF EXISTS t_varargs;
+-- result:
+-- !result
+DROP TABLE IF EXISTS t_complex;
 -- result:
 -- !result

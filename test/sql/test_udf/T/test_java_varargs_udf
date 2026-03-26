@@ -130,9 +130,117 @@ select echoint_va2(5, 10);
 select echoint_va2(5, 10, 15);
 
 -- ============================================================
+-- Test 10: Array-typed varargs UDF
+-- EchoArray.evaluate(List<Integer>) echoes back the first array<int> arg.
+-- Declaring echo_array_va(array<int>, ...) means extra array<int> args
+-- are accepted by the FE; the BE ignores them.
+-- ============================================================
+
+CREATE TABLE `t_complex` (
+  `c0` int(11) NULL COMMENT "",
+  `c1` array<int> NULL,
+  `c2` map<int, string> NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`c0`)
+COMMENT "OLAP"
+PROPERTIES (
+"replication_num" = "1"
+);
+
+insert into t_complex VALUES
+  (1, [1,2,3], map(1,'a',2,'b')),
+  (2, [4,5], map(3,'c')),
+  (3, null, null);
+
+CREATE FUNCTION echo_array_va(array<int>, ...)
+RETURNS array<int>
+symbol = "EchoArray"
+type = "StarrocksJar"
+file = "${udf_url}/starrocks-jdbc/ArrayMap.jar";
+
+-- Minimum required args (exactly one array<int>)
+select echo_array_va([1,2,3]);
+
+-- With one extra array arg of the same type
+select echo_array_va([1,2,3], [4,5,6]);
+
+-- With multiple extra array args
+select echo_array_va([1,2,3], [4,5,6], [7,8,9]);
+
+-- With null as extra vararg (null is castable to any type)
+select echo_array_va([1,2,3], null);
+
+-- NULL as first (required) arg
+select echo_array_va(null);
+
+-- Wrong type: int scalar as extra arg → FE error (int cannot cast to array<int>)
+select echo_array_va([1,2,3], 42);
+
+-- Wrong type: map as extra arg → FE error (map cannot cast to array<int>)
+select echo_array_va([1,2,3], map(1,'a'));
+
+-- Too few args → FE error
+select echo_array_va();
+
+-- Column-based: single arg
+select c0, echo_array_va(c1) from t_complex order by c0;
+
+-- Column-based: extra matching-type arg
+select c0, echo_array_va(c1, [10,20]) from t_complex order by c0;
+
+-- Wrong type: int column as extra arg for array vararg → FE error
+select echo_array_va(c1, c0) from t_complex;
+
+-- ============================================================
+-- Test 11: Map-typed varargs UDF
+-- EchoMap.evaluate(Map<Integer,String>) echoes back the first map arg.
+-- Declaring echo_map_va(map<int,string>, ...) means extra map args
+-- are accepted by the FE; the BE ignores them.
+-- ============================================================
+
+CREATE FUNCTION echo_map_va(map<int,string>, ...)
+RETURNS map<int,string>
+symbol = "EchoMap"
+type = "StarrocksJar"
+file = "${udf_url}/starrocks-jdbc/ArrayMap.jar";
+
+-- Minimum required args (exactly one map<int,string>)
+select echo_map_va(map(1,'a',2,'b'));
+
+-- With one extra map arg of the same type
+select echo_map_va(map(1,'a'), map(2,'b'));
+
+-- With multiple extra map args
+select echo_map_va(map(1,'a'), map(2,'b'), map(3,'c'));
+
+-- With null as extra vararg
+select echo_map_va(map(1,'a'), null);
+
+-- NULL as first (required) arg
+select echo_map_va(null);
+
+-- Wrong type: int scalar as extra arg → FE error
+select echo_map_va(map(1,'a'), 42);
+
+-- Wrong type: array as extra arg → FE error
+select echo_map_va(map(1,'a'), [1,2,3]);
+
+-- Too few args → FE error
+select echo_map_va();
+
+-- Column-based: single arg
+select c0, echo_map_va(c2) from t_complex order by c0;
+
+-- Column-based: extra matching-type arg
+select c0, echo_map_va(c2, map(99,'x')) from t_complex order by c0;
+
+-- ============================================================
 -- Cleanup
 -- ============================================================
 
 DROP FUNCTION IF EXISTS echoint_va(int, ...);
 DROP FUNCTION IF EXISTS echoint_va2(int, int, ...);
+DROP FUNCTION IF EXISTS echo_array_va(array<int>, ...);
+DROP FUNCTION IF EXISTS echo_map_va(map<int,string>, ...);
 DROP TABLE IF EXISTS t_varargs;
+DROP TABLE IF EXISTS t_complex;
