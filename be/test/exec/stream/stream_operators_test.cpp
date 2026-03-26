@@ -367,7 +367,9 @@ TEST_F(StreamOperatorsTest, binlog_dop_1) {
             ASSERT_TRUE(binlog_scan_node->init(*tnode, _runtime_state).ok());
             auto scan_ranges = _create_binlog_scan_ranges(_degree_of_parallelism);
             _generate_morse_queue(binlog_scan_node.get(), scan_ranges, _degree_of_parallelism);
-            ASSIGN_OR_RETURN(auto op_factories, binlog_scan_node->decompose_to_pipeline(_pipeline_context));
+            auto _op_or = binlog_scan_node->decompose_to_pipeline(_pipeline_context);
+            DCHECK(_op_or.ok()) << _op_or.status().message();
+            auto op_factories = std::move(_op_or).value();
             for (int i = 0; i < _degree_of_parallelism; i++) {
                 _tablet_ids.emplace_back(i);
             }
@@ -399,7 +401,9 @@ TEST_F(StreamOperatorsTest, binlog_dop_1_multi_epoch) {
             Status status = binlog_scan_node->init(*tnode, _runtime_state);
             auto scan_ranges = _create_binlog_scan_ranges(_degree_of_parallelism);
             _generate_morse_queue(binlog_scan_node.get(), scan_ranges, _degree_of_parallelism);
-            ASSIGN_OR_RETURN(auto op_factories, binlog_scan_node->decompose_to_pipeline(_pipeline_context));
+            auto _op_or2 = binlog_scan_node->decompose_to_pipeline(_pipeline_context);
+            DCHECK(_op_or2.ok()) << _op_or2.status().message();
+            auto op_factories = std::move(_op_or2).value();
             for (int i = 0; i < _degree_of_parallelism; i++) {
                 _tablet_ids.emplace_back(i);
             }
@@ -407,7 +411,6 @@ TEST_F(StreamOperatorsTest, binlog_dop_1_multi_epoch) {
             op_factories.emplace_back(
                     std::make_shared<PrinterStreamSinkOperatorFactory>(next_operator_id(), next_plan_node_id()));
             _pipelines.emplace_back(std::make_shared<pipeline::Pipeline>(next_pipeline_id(), op_factories, exec_group));
-            return Status::OK();
         };
         return Status::OK();
     }));
