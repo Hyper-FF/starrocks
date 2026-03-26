@@ -608,8 +608,9 @@ void PipelineBuilderContext::_subscribe_pipeline_event(Pipeline* pipeline) {
     }
 }
 
-OpFactories PipelineBuilder::decompose_exec_node_to_pipeline(const FragmentContext& fragment, ExecNode* exec_node) {
-    pipeline::OpFactories operators = exec_node->decompose_to_pipeline(&_context);
+StatusOr<OpFactories> PipelineBuilder::decompose_exec_node_to_pipeline(const FragmentContext& fragment,
+                                                                       ExecNode* exec_node) {
+    ASSIGN_OR_RETURN(pipeline::OpFactories operators, exec_node->decompose_to_pipeline(&_context));
     operators = _context.maybe_interpolate_grouped_exchange(exec_node->id(), operators);
     return operators;
 }

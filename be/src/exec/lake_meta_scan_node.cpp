@@ -75,7 +75,7 @@ Status LakeMetaScanNode::get_next(RuntimeState* state, ChunkPtr* chunk, bool* eo
     return Status::OK();
 }
 
-std::vector<std::shared_ptr<pipeline::OperatorFactory>> LakeMetaScanNode::decompose_to_pipeline(
+StatusOr<pipeline::OpFactories> LakeMetaScanNode::decompose_to_pipeline(
         pipeline::PipelineBuilderContext* context) {
     auto exec_group = context->find_exec_group_by_plan_node_id(_id);
     context->set_current_execution_group(exec_group);

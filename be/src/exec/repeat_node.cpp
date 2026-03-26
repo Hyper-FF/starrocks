@@ -75,7 +75,7 @@ std::vector<std::shared_ptr<pipeline::OperatorFactory> > RepeatNode::decompose_t
         pipeline::PipelineBuilderContext* context) {
     using namespace pipeline;
 
-    OpFactories operators = _children[0]->decompose_to_pipeline(context);
+    ASSIGN_OR_RETURN(auto operators, _children[0]->decompose_to_pipeline(context));
 
     operators.emplace_back(std::make_shared<RepeatOperatorFactory>(
             context->next_operator_id(), id(), std::move(_slot_id_set_list), std::move(_all_slot_ids),

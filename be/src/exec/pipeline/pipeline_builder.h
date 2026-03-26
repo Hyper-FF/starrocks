@@ -225,7 +225,7 @@ public:
     explicit PipelineBuilder(PipelineBuilderContext& context) : _context(context) {}
 
     // Build pipeline from exec node tree
-    OpFactories decompose_exec_node_to_pipeline(const FragmentContext& fragment, ExecNode* exec_node);
+    StatusOr<OpFactories> decompose_exec_node_to_pipeline(const FragmentContext& fragment, ExecNode* exec_node);
 
     std::pair<ExecutionGroups, Pipelines> build();
 

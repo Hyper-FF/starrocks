@@ -299,7 +299,7 @@ Status SchemaScanNode::set_scan_ranges(const std::vector<TScanRangeParams>& scan
     return Status::OK();
 }
 
-std::vector<std::shared_ptr<pipeline::OperatorFactory>> SchemaScanNode::decompose_to_pipeline(
+StatusOr<pipeline::OpFactories> SchemaScanNode::decompose_to_pipeline(
         pipeline::PipelineBuilderContext* context) {
     auto exec_group = context->find_exec_group_by_plan_node_id(_id);
     context->set_current_execution_group(exec_group);
