@@ -203,6 +203,8 @@ private:
     Pipelines _pipelines;
     ExecutionGroups _execution_groups;
     std::unordered_map<int32_t, ExecutionGroupPtr> _group_id_to_colocate_groups;
+    // Reverse map from plan_node_id to colocate group for O(1) lookup.
+    std::unordered_map<int32_t, ExecutionGroupRawPtr> _plan_node_to_colocate_group;
     ExecutionGroupRawPtr _normal_exec_group = nullptr;
     ExecutionGroupRawPtr _current_execution_group = nullptr;
 
