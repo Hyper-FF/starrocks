@@ -23,6 +23,7 @@
 #include "base/testutil/assert.h"
 #include "base/utility/defer_op.h"
 #include "butil/time.h"
+#include "column/column_viewer.h"
 #include "column/const_column.h"
 #include "column/map_column.h"
 #include "column/nullable_column.h"
@@ -689,5 +690,116 @@ INSTANTIATE_TEST_SUITE_P(FlatJsonPathDeriver, FlatJsonDeriverPaths,
 
 ));
 // clang-format on
+
+// Tests for issue #70521: flat JSON with variable/dynamic paths inside lambda expressions.
+// When get_json_string/json_query is called with a non-constant path column on a flat JSON
+// column (e.g., inside array_map with dynamic paths), the query should fall back to the
+// full JSON path and return correct results instead of crashing or returning an error.
+class FlatJsonVariablePathTest : public ::testing::Test {
+    void SetUp() override { config::enable_json_flat_complex_type = true; }
+    void TearDown() override { config::enable_json_flat_complex_type = false; }
+};
+
+TEST_F(FlatJsonVariablePathTest, variable_path_json_query) {
+    std::unique_ptr<FunctionContext> ctx(FunctionContext::create_test_context());
+
+    // Build 3-row JSON column
+    auto json_col = JsonColumn::create();
+    const char* json_strs[] = {R"({"k1": 1, "k2": "hello"})", R"({"k1": 2, "k2": "world"})",
+                                R"({"k1": 3, "k2": "foo"})"};
+    for (auto* s : json_strs) {
+        JsonValue json;
+        ASSERT_TRUE(JsonValue::parse(s, &json).ok());
+        json_col->append(&json);
+    }
+
+    // Flatten into a flat JSON column (simulates storage-level flat JSON)
+    std::vector<std::string> flat_paths = {"k1", "k2"};
+    std::vector<LogicalType> flat_types = {TYPE_BIGINT, TYPE_VARCHAR};
+    JsonFlattener jf(flat_paths, flat_types, false);
+    jf.flatten(json_col.get());
+
+    auto flat_json = JsonColumn::create();
+    flat_json->set_flat_columns(flat_paths, flat_types, jf.mutable_result());
+
+    // Create a non-constant path column: different path per row
+    auto path_col = BinaryColumn::create();
+    path_col->append("$.k1"); // row 0: access k1 → 1
+    path_col->append("$.k2"); // row 1: access k2 → "world"
+    path_col->append("$.k1"); // row 2: access k1 → 3
+
+    Columns columns{std::move(flat_json), std::move(path_col)};
+
+    // Path is non-constant, so native_json_path_prepare stores empty json_path
+    std::ignore = JsonFunctions::native_json_path_prepare(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL);
+
+    // With the fix, this should fall back to full JSON reconstruction and succeed.
+    // Before the fix, this returned Status::JsonFormatError("flat json doesn't support variables json path").
+    ASSIGN_OR_ABORT(ColumnPtr result, JsonFunctions::json_query(ctx.get(), columns));
+    ASSERT_TRUE(!!result);
+    ASSERT_EQ(3, result->size());
+
+    // Row 0: k1 = 1
+    ASSERT_FALSE(result->get(0).is_null());
+    ASSERT_EQ("1", result->get(0).get_json()->to_string().value());
+
+    // Row 1: k2 = "world"
+    ASSERT_FALSE(result->get(1).is_null());
+    ASSERT_EQ("\"world\"", result->get(1).get_json()->to_string().value());
+
+    // Row 2: k1 = 3
+    ASSERT_FALSE(result->get(2).is_null());
+    ASSERT_EQ("3", result->get(2).get_json()->to_string().value());
+
+    ASSERT_TRUE(JsonFunctions::native_json_path_close(
+                        ctx.get(), FunctionContext::FunctionContext::FunctionStateScope::FRAGMENT_LOCAL)
+                        .ok());
+}
+
+TEST_F(FlatJsonVariablePathTest, variable_path_get_native_json_string) {
+    std::unique_ptr<FunctionContext> ctx(FunctionContext::create_test_context());
+
+    auto json_col = JsonColumn::create();
+    const char* json_strs[] = {R"({"k1": 1, "k2": "hello"})", R"({"k1": 2, "k2": "world"})"};
+    for (auto* s : json_strs) {
+        JsonValue json;
+        ASSERT_TRUE(JsonValue::parse(s, &json).ok());
+        json_col->append(&json);
+    }
+
+    std::vector<std::string> flat_paths = {"k1", "k2"};
+    std::vector<LogicalType> flat_types = {TYPE_BIGINT, TYPE_VARCHAR};
+    JsonFlattener jf(flat_paths, flat_types, false);
+    jf.flatten(json_col.get());
+
+    auto flat_json = JsonColumn::create();
+    flat_json->set_flat_columns(flat_paths, flat_types, jf.mutable_result());
+
+    // Different path per row
+    auto path_col = BinaryColumn::create();
+    path_col->append("$.k2"); // row 0: access k2 → "hello"
+    path_col->append("$.k1"); // row 1: access k1 → 2
+
+    Columns columns{std::move(flat_json), std::move(path_col)};
+
+    std::ignore = JsonFunctions::native_json_path_prepare(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL);
+
+    ASSIGN_OR_ABORT(ColumnPtr result, JsonFunctions::get_native_json_string(ctx.get(), columns));
+    ASSERT_TRUE(!!result);
+    ASSERT_EQ(2, result->size());
+
+    ColumnViewer<TYPE_VARCHAR> viewer(result);
+    // Row 0: k2 = "hello"
+    ASSERT_FALSE(viewer.is_null(0));
+    ASSERT_EQ("hello", viewer.value(0).to_string());
+
+    // Row 1: k1 = 2
+    ASSERT_FALSE(viewer.is_null(1));
+    ASSERT_EQ("2", viewer.value(1).to_string());
+
+    ASSERT_TRUE(JsonFunctions::native_json_path_close(
+                        ctx.get(), FunctionContext::FunctionContext::FunctionStateScope::FRAGMENT_LOCAL)
+                        .ok());
+}
 
 } // namespace starrocks

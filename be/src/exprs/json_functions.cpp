@@ -499,13 +499,53 @@ StatusOr<ColumnPtr> JsonFunctions::json_query(FunctionContext* context, const Co
     return _json_query_impl<TYPE_JSON>(context, columns);
 }
 
+// Reconstruct a full (non-flat) JSON column from a flat JSON column.
+// This is used as a fallback when the flat JSON path cannot handle a query
+// (e.g., variable/dynamic paths inside lambda expressions).
+static StatusOr<ColumnPtr> _reconstruct_json_from_flat(const ColumnPtr& column) {
+    bool is_const = column->is_constant();
+    size_t const_size = is_const ? column->size() : 0;
+
+    ColumnPtr col = is_const ? down_cast<const ConstColumn*>(column.get())->data_column() : column;
+
+    NullColumnPtr null_col;
+    ColumnPtr json_data = col;
+    if (col->is_nullable()) {
+        auto* nullable = down_cast<NullableColumn*>(col.get());
+        null_col = ColumnHelper::as_column<NullColumn>(nullable->null_column());
+        json_data = nullable->data_column();
+    }
+
+    auto* json_col = down_cast<JsonColumn*>(json_data.get());
+    DCHECK(json_col->is_flat_json());
+
+    JsonMerger merger(json_col->flat_column_paths(), json_col->flat_column_types(), json_col->has_remain());
+    ColumnPtr merged = merger.merge(json_col->get_flat_fields());
+
+    ColumnPtr result = std::move(merged);
+    if (null_col != nullptr) {
+        result = NullableColumn::create(std::move(result), null_col);
+    }
+    if (is_const) {
+        result = ConstColumn::create(std::move(result), const_size);
+    }
+    return result;
+}
+
 template <LogicalType ResultType>
 StatusOr<ColumnPtr> JsonFunctions::_json_query_impl(FunctionContext* context, const Columns& columns) {
     RETURN_IF_COLUMNS_ONLY_NULL(columns);
     const auto* cc = ColumnHelper::get_data_column(columns[0].get());
     const JsonColumn* js = down_cast<const JsonColumn*>(cc);
     if (js->is_flat_json()) {
-        return _flat_json_query_impl<ResultType>(context, columns);
+        auto result = _flat_json_query_impl<ResultType>(context, columns);
+        if (result.ok()) {
+            return result;
+        }
+        // Flat JSON path failed (e.g., variable/dynamic paths in lambda expressions).
+        // Reconstruct full JSON from flat columns and fall back to the regular query path.
+        ASSIGN_OR_RETURN(auto full_json, _reconstruct_json_from_flat(columns[0]));
+        return _full_json_query_impl<ResultType>(context, Columns{full_json, columns[1]});
     }
     return _full_json_query_impl<ResultType>(context, columns);
 }
@@ -515,7 +555,14 @@ StatusOr<ColumnPtr> JsonFunctions::_json_query_scalar_impl(FunctionContext* cont
     const auto* cc = ColumnHelper::get_data_column(columns[0].get());
     const JsonColumn* js = down_cast<const JsonColumn*>(cc);
     if (js->is_flat_json()) {
-        return _flat_json_query_impl<TYPE_VARCHAR>(context, columns, true);
+        auto result = _flat_json_query_impl<TYPE_VARCHAR>(context, columns, true);
+        if (result.ok()) {
+            return result;
+        }
+        // Flat JSON path failed (e.g., variable/dynamic paths in lambda expressions).
+        // Reconstruct full JSON from flat columns and fall back to the regular query path.
+        ASSIGN_OR_RETURN(auto full_json, _reconstruct_json_from_flat(columns[0]));
+        return _full_json_query_impl<TYPE_VARCHAR>(context, Columns{full_json, columns[1]}, true);
     }
     return _full_json_query_impl<TYPE_VARCHAR>(context, columns, true);
 }
