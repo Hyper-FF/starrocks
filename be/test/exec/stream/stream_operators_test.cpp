@@ -367,7 +367,7 @@ TEST_F(StreamOperatorsTest, binlog_dop_1) {
             ASSERT_TRUE(binlog_scan_node->init(*tnode, _runtime_state).ok());
             auto scan_ranges = _create_binlog_scan_ranges(_degree_of_parallelism);
             _generate_morse_queue(binlog_scan_node.get(), scan_ranges, _degree_of_parallelism);
-            OpFactories op_factories = binlog_scan_node->decompose_to_pipeline(_pipeline_context);
+            ASSIGN_OR_RETURN(auto op_factories, binlog_scan_node->decompose_to_pipeline(_pipeline_context));
             for (int i = 0; i < _degree_of_parallelism; i++) {
                 _tablet_ids.emplace_back(i);
             }
@@ -399,7 +399,7 @@ TEST_F(StreamOperatorsTest, binlog_dop_1_multi_epoch) {
             Status status = binlog_scan_node->init(*tnode, _runtime_state);
             auto scan_ranges = _create_binlog_scan_ranges(_degree_of_parallelism);
             _generate_morse_queue(binlog_scan_node.get(), scan_ranges, _degree_of_parallelism);
-            OpFactories op_factories = binlog_scan_node->decompose_to_pipeline(_pipeline_context);
+            ASSIGN_OR_RETURN(auto op_factories, binlog_scan_node->decompose_to_pipeline(_pipeline_context));
             for (int i = 0; i < _degree_of_parallelism; i++) {
                 _tablet_ids.emplace_back(i);
             }
