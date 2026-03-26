@@ -30,8 +30,7 @@ public:
             : ExecNode(pool, tnode, descs), _tnode(tnode) {}
     ~StreamAggregateNode() override = default;
     Status init(const TPlanNode& tnode, RuntimeState* state) override;
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 private:
     const TPlanNode& _tnode;

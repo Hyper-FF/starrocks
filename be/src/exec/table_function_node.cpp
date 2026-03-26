@@ -84,8 +84,7 @@ void TableFunctionNode::close(RuntimeState* state) {
     ExecNode::close(state);
 }
 
-StatusOr<pipeline::OpFactories> TableFunctionNode::decompose_to_pipeline(
-        pipeline::PipelineBuilderContext* context) {
+StatusOr<pipeline::OpFactories> TableFunctionNode::decompose_to_pipeline(pipeline::PipelineBuilderContext* context) {
     using namespace pipeline;
     ASSIGN_OR_RETURN(auto operators, _children[0]->decompose_to_pipeline(context));
 

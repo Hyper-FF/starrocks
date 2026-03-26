@@ -72,8 +72,7 @@ public:
     // recorded in TPlanNode, and before calling prepare()
     void set_num_senders(int num_senders) { _num_senders = num_senders; }
 
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 protected:
     void debug_string(int indentation_level, std::stringstream* out) const override;

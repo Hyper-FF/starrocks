@@ -53,8 +53,7 @@ public:
     // this is no use in this class
     Status set_scan_ranges(const std::vector<TScanRangeParams>& scan_ranges) override;
 
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
     bool accept_empty_scan_ranges() const override { return false; }
 

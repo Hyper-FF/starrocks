@@ -39,8 +39,8 @@ namespace starrocks {
 
 template <class AggFactory, class SourceFactory, class SinkFactory>
 StatusOr<pipeline::OpFactories> DistinctBlockingNode::_decompose_to_pipeline(pipeline::OpFactories& ops_with_sink,
-                                                                   pipeline::PipelineBuilderContext* context,
-                                                                   bool per_bucket_optimize) {
+                                                                             pipeline::PipelineBuilderContext* context,
+                                                                             bool per_bucket_optimize) {
     using namespace pipeline;
 
     auto workgroup = context->fragment_context()->workgroup();
@@ -147,28 +147,30 @@ StatusOr<pipeline::OpFactories> DistinctBlockingNode::decompose_to_pipeline(pipe
     OpFactories ops_with_source;
 
     if (sorted_streaming_aggregate) {
-        ASSIGN_OR_RETURN(ops_with_source,
+        ASSIGN_OR_RETURN(
+                ops_with_source,
                 (_decompose_to_pipeline<StreamingAggregatorFactory, SortedAggregateStreamingSourceOperatorFactory,
                                         SortedAggregateStreamingSinkOperatorFactory>(ops_with_sink, context, false)));
     } else {
         if (runtime_state()->enable_spill() && runtime_state()->enable_agg_distint_spill()) {
             if (runtime_state()->enable_spill_partitionwise_agg()) {
-                ASSIGN_OR_RETURN(ops_with_source,
+                ASSIGN_OR_RETURN(
+                        ops_with_source,
                         (_decompose_to_pipeline<AggregatorFactory, SpillablePartitionWiseDistinctSourceOperatorFactory,
                                                 SpillablePartitionWiseDistinctSinkOperatorFactory>(ops_with_sink,
                                                                                                    context, false)));
             } else {
                 ASSIGN_OR_RETURN(ops_with_source,
-                        (_decompose_to_pipeline<AggregatorFactory,
-                                                SpillableAggregateDistinctBlockingSourceOperatorFactory,
-                                                SpillableAggregateDistinctBlockingSinkOperatorFactory>(
-                                ops_with_sink, context, false)));
+                                 (_decompose_to_pipeline<AggregatorFactory,
+                                                         SpillableAggregateDistinctBlockingSourceOperatorFactory,
+                                                         SpillableAggregateDistinctBlockingSinkOperatorFactory>(
+                                         ops_with_sink, context, false)));
             }
         } else {
             ASSIGN_OR_RETURN(ops_with_source,
-                    (_decompose_to_pipeline<AggregatorFactory, AggregateDistinctBlockingSourceOperatorFactory,
-                                            AggregateDistinctBlockingSinkOperatorFactory>(
-                            ops_with_sink, context, use_per_bucket_optimize)));
+                             (_decompose_to_pipeline<AggregatorFactory, AggregateDistinctBlockingSourceOperatorFactory,
+                                                     AggregateDistinctBlockingSinkOperatorFactory>(
+                                     ops_with_sink, context, use_per_bucket_optimize)));
         }
     }
 

@@ -133,8 +133,7 @@ StatusOr<std::list<ExprContext*>> CrossJoinNode::rewrite_runtime_filter(
 }
 
 template <class BuildFactory, class ProbeFactory>
-StatusOr<pipeline::OpFactories> CrossJoinNode::_decompose_to_pipeline(
-        pipeline::PipelineBuilderContext* context) {
+StatusOr<pipeline::OpFactories> CrossJoinNode::_decompose_to_pipeline(pipeline::PipelineBuilderContext* context) {
     using namespace pipeline;
 
     // step 0: construct pipeline end with cross join right operator.

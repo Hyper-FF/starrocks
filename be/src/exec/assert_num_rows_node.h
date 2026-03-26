@@ -42,8 +42,7 @@ public:
     Status init(const TPlanNode& tnode, RuntimeState* state = nullptr) override;
     void close(RuntimeState* state) override;
 
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 private:
     int64_t _desired_num_rows;

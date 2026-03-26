@@ -47,8 +47,7 @@ public:
     bool accept_empty_scan_ranges() const override;
 
     // for pipline APIs
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
     connector::DataSourceProvider* data_source_provider() { return _data_source_provider.get(); }
     connector::ConnectorType connector_type() { return _connector_type; }

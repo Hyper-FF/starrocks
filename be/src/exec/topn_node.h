@@ -37,14 +37,14 @@ public:
 
     void close(RuntimeState* state) override;
 
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 private:
     template <class ContextFactory, class SinkFactory, class SourceFactory>
-    StatusOr<pipeline::OpFactories> _decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context, bool is_partition_topn, bool is_partition_skewed,
-            bool is_merging, bool enable_parallel_merge, bool is_per_pipeline);
+    StatusOr<pipeline::OpFactories> _decompose_to_pipeline(pipeline::PipelineBuilderContext* context,
+                                                           bool is_partition_topn, bool is_partition_skewed,
+                                                           bool is_merging, bool enable_parallel_merge,
+                                                           bool is_per_pipeline);
 
     const TPlanNode& _tnode;
 

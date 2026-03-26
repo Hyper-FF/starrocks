@@ -42,8 +42,7 @@ public:
 
     void close(RuntimeState* state) override;
 
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 protected:
     void debug_string(int indentation_level, std::stringstream* out) const override { *out << "DictDecodeNode"; }

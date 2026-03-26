@@ -40,8 +40,7 @@ public:
     void push_down_tuple_slot_mappings(RuntimeState* state,
                                        const std::vector<TupleSlotMapping>& parent_mappings) override;
 
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 private:
     std::vector<SlotId> _slot_ids;

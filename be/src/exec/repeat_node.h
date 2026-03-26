@@ -30,8 +30,7 @@ public:
     RepeatNode(ObjectPool* pool, const TPlanNode& tnode, const DescriptorTbl& descs);
     void close(RuntimeState* state) override;
 
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 private:
     static ColumnPtr generate_null_column(int64_t num_rows) {

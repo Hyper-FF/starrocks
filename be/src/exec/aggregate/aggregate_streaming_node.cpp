@@ -22,7 +22,8 @@
 
 namespace starrocks {
 
-StatusOr<pipeline::OpFactories> AggregateStreamingNode::decompose_to_pipeline(pipeline::PipelineBuilderContext* context) {
+StatusOr<pipeline::OpFactories> AggregateStreamingNode::decompose_to_pipeline(
+        pipeline::PipelineBuilderContext* context) {
     using namespace pipeline;
 
     ASSIGN_OR_RETURN(auto ops_with_sink, _children[0]->decompose_to_pipeline(context));

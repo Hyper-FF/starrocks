@@ -50,8 +50,7 @@ public:
 
     Status init(const TPlanNode& tnode, RuntimeState* state) override;
     void close(RuntimeState* state) override;
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 private:
     std::map<SlotId, ExprContext*> _common_expr_ctxs;

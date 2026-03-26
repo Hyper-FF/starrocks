@@ -36,8 +36,7 @@ public:
         *out << "vectorized:OlapMetaScanNode";
     }
 
-    StatusOr<pipeline::OpFactories> decompose_to_pipeline(
-            pipeline::PipelineBuilderContext* context) override;
+    StatusOr<pipeline::OpFactories> decompose_to_pipeline(pipeline::PipelineBuilderContext* context) override;
 
 private:
     friend class OlapMetaScanner;

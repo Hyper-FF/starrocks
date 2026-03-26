@@ -32,8 +32,7 @@ Status StreamAggregateNode::init(const TPlanNode& tnode, RuntimeState* state) {
     return Status::OK();
 }
 
-StatusOr<pipeline::OpFactories> StreamAggregateNode::decompose_to_pipeline(
-        pipeline::PipelineBuilderContext* context) {
+StatusOr<pipeline::OpFactories> StreamAggregateNode::decompose_to_pipeline(pipeline::PipelineBuilderContext* context) {
     ASSIGN_OR_RETURN(auto operators_with_sink, _children[0]->decompose_to_pipeline(context));
     // We cannot get degree of parallelism from PipelineBuilderContext, of which is only a suggest value
     // and we may set other parallelism for source operator in many special cases
