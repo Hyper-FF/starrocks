@@ -407,6 +407,7 @@ TEST_F(StreamOperatorsTest, binlog_dop_1_multi_epoch) {
             op_factories.emplace_back(
                     std::make_shared<PrinterStreamSinkOperatorFactory>(next_operator_id(), next_plan_node_id()));
             _pipelines.emplace_back(std::make_shared<pipeline::Pipeline>(next_pipeline_id(), op_factories, exec_group));
+            return Status::OK();
         };
         return Status::OK();
     }));
