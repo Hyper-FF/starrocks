@@ -167,7 +167,7 @@ public class CreateFunctionAnalyzer {
 
             checksum = Hex.encodeHexString(digest.digest());
         } catch (IOException | NoSuchAlgorithmException e) {
-            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "cannot to compute object's checksum", e);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e, "cannot to compute object's checksum");
         }
 
         String md5sum = properties.get(CreateFunctionStmt.MD5_CHECKSUM);
@@ -204,14 +204,14 @@ public class CreateFunctionAnalyzer {
                 }
 
             } catch (IOException e) {
-                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                        "Failed to load object_file: " + objectFile, e);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e,
+                        "Failed to load object_file: " + objectFile);
             } catch (ClassNotFoundException e) {
-                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                        "Class '" + className + "' not found in object_file :" + objectFile, e);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e,
+                        "Class '" + className + "' not found in object_file :" + objectFile);
             } catch (Exception e) {
-                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                        "other exception when load class. exception:", e);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e,
+                        "other exception when load class");
             }
         } finally {
             System.setSecurityManager(null);

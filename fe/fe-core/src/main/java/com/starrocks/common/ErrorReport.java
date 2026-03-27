@@ -67,12 +67,21 @@ public class ErrorReport {
         return reportSemanticException(null, errorCode, objs);
     }
 
+    public static SemanticException reportSemanticException(ErrorCode errorCode, Throwable cause, Object... objs) {
+        throw new SemanticException(reportCommon(null, errorCode, objs), cause);
+    }
+
     public static SemanticException buildSemanticException(ErrorCode errorCode, Object... objs) {
         return new SemanticException(reportCommon(null, errorCode, objs));
     }
 
     public static SemanticException reportSemanticException(String pattern, ErrorCode errorCode, Object... objs) {
         throw new SemanticException(reportCommon(pattern, errorCode, objs));
+    }
+
+    public static SemanticException reportSemanticException(String pattern, ErrorCode errorCode, Throwable cause,
+            Object... objs) {
+        throw new SemanticException(reportCommon(pattern, errorCode, objs), cause);
     }
 
     public static void reportAnalysisException(String pattern, ErrorCode errorCode, Object... objs)
