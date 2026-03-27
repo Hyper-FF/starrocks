@@ -1,16 +1,24 @@
--- name: test_flat_json_variable_path @system
+-- name: test_flat_json_variable_path @sequential
+-- Regression test for issue #70521:
+-- array_map with a variable JSON path inside a lambda must work correctly
+-- when the source JSON column uses flat storage.
+
+-- Force flat JSON to be enabled globally (the table property alone may not be
+-- enough if the cluster has the global flag explicitly disabled).
+update information_schema.be_configs set value = 'true' where name = 'enable_json_flat';
+
 create database test_db_${uuid0};
 use test_db_${uuid0};
 
--- Create a table with flat JSON optimization enabled.
--- Low sparsity/null thresholds ensure the key1/key2 fields are flattened.
+-- 1 bucket keeps all rows in a single segment so flat JSON is always created
+-- on the first INSERT without needing compaction.
 CREATE TABLE `js_src` (
   `id` bigint(20) NOT NULL,
   `j1` json NULL,
   `arr` array<varchar(65533)> NULL
 ) ENGINE=OLAP
 DUPLICATE KEY(`id`)
-DISTRIBUTED BY HASH(`id`) BUCKETS 4
+DISTRIBUTED BY HASH(`id`) BUCKETS 1
 PROPERTIES (
 "replication_num" = "1",
 "flat_json.enable" = "true",
@@ -19,34 +27,29 @@ PROPERTIES (
 "flat_json.column.max" = "20"
 );
 
--- Insert rows where every JSON object has the same keys so flat JSON kicks in,
--- but each row's `arr` column lists those keys in a different order so that
--- inside the lambda the path argument varies across rows.
+-- Rows with consistent JSON structure so that key1/key2 are flattened.
+-- The elements of `arr` alternate order so that inside the lambda
+-- `concat('$.', k)` produces *different* paths for adjacent elements,
+-- which is exactly the condition that triggered the original bug.
 INSERT INTO js_src VALUES
-(1,  parse_json('{"key1": "val11",  "key2": "val12"}'),  ['key1', 'key2']),
-(2,  parse_json('{"key1": "val21",  "key2": "val22"}'),  ['key2', 'key1']),
-(3,  parse_json('{"key1": "val31",  "key2": "val32"}'),  ['key1', 'key2']),
-(4,  parse_json('{"key1": "val41",  "key2": "val42"}'),  ['key2', 'key1']),
-(5,  parse_json('{"key1": "val51",  "key2": "val52"}'),  ['key1', 'key2']),
-(6,  parse_json('{"key1": "val61",  "key2": "val62"}'),  ['key1', 'key2']),
-(7,  parse_json('{"key1": "val71",  "key2": "val72"}'),  ['key2', 'key1']),
-(8,  parse_json('{"key1": "val81",  "key2": "val82"}'),  ['key1', 'key2']),
-(9,  parse_json('{"key1": "val91",  "key2": "val92"}'),  ['key2', 'key1']),
-(10, parse_json('{"key1": "val101", "key2": "val102"}'), ['key1', 'key2']);
+(1, parse_json('{"key1": "val11", "key2": "val12"}'), ['key1', 'key2']),
+(2, parse_json('{"key1": "val21", "key2": "val22"}'), ['key2', 'key1']),
+(3, parse_json('{"key1": "val31", "key2": "val32"}'), ['key1', 'key2']),
+(4, parse_json('{"key1": "val41", "key2": "val42"}'), ['key2', 'key1']),
+(5, parse_json('{"key1": "val51", "key2": "val52"}'), ['key1', 'key2']);
 
--- Amplify data to ensure flat JSON optimisation triggers during segment writes.
-insert into js_src select * from js_src;
-insert into js_src select * from js_src;
-insert into js_src select * from js_src;
+-- Diagnostic: verify that flat JSON sub-columns were actually created.
+-- The metadata string is implementation-dependent so we do not validate it,
+-- but running this confirms that [_META_] queries work and flat JSON is set up.
+[UC]select flat_json_meta(j1) from js_src [_META_];
 
--- Regression test for issue #70521:
--- array_map with a variable (per-element) JSON path on a flat-JSON column.
--- Before the fix this raised "flat json doesn't support variables json path".
--- After the fix the engine reconstructs the full JSON from flat sub-columns and
--- falls back to the normal per-row path evaluation.
+-- Core regression test: array_map with a dynamic path must succeed.
+-- Before the fix, get_native_json_string (called for JSON-typed first argument)
+-- raised "flat json doesn't support variables json path" when the lambda
+-- expanded all array elements into a single batch and each element produced
+-- a different path value.
 SELECT id, array_map(k -> get_json_string(j1, concat('$.', k)), arr)
 FROM js_src
-ORDER BY id
-LIMIT 2;
+ORDER BY id;
 
 drop database test_db_${uuid0};

@@ -1,4 +1,7 @@
--- name: test_flat_json_variable_path @system
+-- name: test_flat_json_variable_path @sequential
+update information_schema.be_configs set value = 'true' where name = 'enable_json_flat';
+-- result:
+-- !result
 create database test_db_${uuid0};
 -- result:
 -- !result
@@ -11,7 +14,7 @@ CREATE TABLE `js_src` (
   `arr` array<varchar(65533)> NULL
 ) ENGINE=OLAP
 DUPLICATE KEY(`id`)
-DISTRIBUTED BY HASH(`id`) BUCKETS 4
+DISTRIBUTED BY HASH(`id`) BUCKETS 1
 PROPERTIES (
 "replication_num" = "1",
 "flat_json.enable" = "true",
@@ -22,34 +25,23 @@ PROPERTIES (
 -- result:
 -- !result
 INSERT INTO js_src VALUES
-(1,  parse_json('{"key1": "val11",  "key2": "val12"}'),  ['key1', 'key2']),
-(2,  parse_json('{"key1": "val21",  "key2": "val22"}'),  ['key2', 'key1']),
-(3,  parse_json('{"key1": "val31",  "key2": "val32"}'),  ['key1', 'key2']),
-(4,  parse_json('{"key1": "val41",  "key2": "val42"}'),  ['key2', 'key1']),
-(5,  parse_json('{"key1": "val51",  "key2": "val52"}'),  ['key1', 'key2']),
-(6,  parse_json('{"key1": "val61",  "key2": "val62"}'),  ['key1', 'key2']),
-(7,  parse_json('{"key1": "val71",  "key2": "val72"}'),  ['key2', 'key1']),
-(8,  parse_json('{"key1": "val81",  "key2": "val82"}'),  ['key1', 'key2']),
-(9,  parse_json('{"key1": "val91",  "key2": "val92"}'),  ['key2', 'key1']),
-(10, parse_json('{"key1": "val101", "key2": "val102"}'), ['key1', 'key2']);
+(1, parse_json('{"key1": "val11", "key2": "val12"}'), ['key1', 'key2']),
+(2, parse_json('{"key1": "val21", "key2": "val22"}'), ['key2', 'key1']),
+(3, parse_json('{"key1": "val31", "key2": "val32"}'), ['key1', 'key2']),
+(4, parse_json('{"key1": "val41", "key2": "val42"}'), ['key2', 'key1']),
+(5, parse_json('{"key1": "val51", "key2": "val52"}'), ['key1', 'key2']);
 -- result:
 -- !result
-insert into js_src select * from js_src;
--- result:
--- !result
-insert into js_src select * from js_src;
--- result:
--- !result
-insert into js_src select * from js_src;
--- result:
--- !result
+[UC]select flat_json_meta(j1) from js_src [_META_];
 SELECT id, array_map(k -> get_json_string(j1, concat('$.', k)), arr)
 FROM js_src
-ORDER BY id
-LIMIT 2;
+ORDER BY id;
 -- result:
 1	["val11","val12"]
-1	["val11","val12"]
+2	["val22","val21"]
+3	["val31","val32"]
+4	["val42","val41"]
+5	["val51","val52"]
 -- !result
 drop database test_db_${uuid0};
 -- result:
