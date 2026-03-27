@@ -33,28 +33,28 @@ public class FunctionRefAnalyzer {
         List<String> parts = functionRef.getFnName().getParts();
         String fullFunctionName = functionRef.getFnName().toString().toLowerCase();
         if (parts.size() > 2) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "Function names must be all alphanumeric or underscore. Invalid name: " + fullFunctionName);
         }
         String db = functionRef.getDbName();
         String fn = functionRef.getFunctionName();
 
         if (fn.isEmpty()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
         }
         for (int i = 0; i < fn.length(); ++i) {
             if (!isValidCharacter(fn.charAt(i))) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Function names must be all alphanumeric or underscore. " +
                                 "Invalid name: " + fn);
             }
         }
         if (Character.isDigit(fn.charAt(0))) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "Function cannot start with a digit: " + fn);
         }
         if (db == null && Strings.isNullOrEmpty(defaultDb)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
         }
     }
 
@@ -73,7 +73,7 @@ public class FunctionRefAnalyzer {
         FunctionName functionName = FunctionName.createFnName(functionRef.getFnName().toString());
         if (functionRef.isGlobalFunction()) {
             if (!Strings.isNullOrEmpty(functionName.getDb())) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Invalid function name: " + functionRef.getFnName().toString().toLowerCase());
             }
             functionName.setAsGlobalFunction();

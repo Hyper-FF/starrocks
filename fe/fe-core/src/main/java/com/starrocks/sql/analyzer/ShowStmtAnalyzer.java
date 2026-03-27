@@ -127,7 +127,7 @@ public class ShowStmtAnalyzer {
             }
 
             if (!GlobalStateMgr.getCurrentState().getCatalogMgr().catalogExists(catalogName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
             }
             String db = node.getDb();
             db = getDatabaseName(db, context);
@@ -176,14 +176,14 @@ public class ShowStmtAnalyzer {
                 if (Strings.isNullOrEmpty(dbName)) {
                     dbName = context.getDatabase();
                     if (Strings.isNullOrEmpty(dbName)) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                     }
                 }
                 node.setDbName(dbName);
             }
 
             if (node.getExpr() != null) {
-                ErrorReport.reportSemanticException(ERR_UNSUPPORTED_SQL_PATTERN);
+                throw ErrorReport.reportSemanticException(ERR_UNSUPPORTED_SQL_PATTERN);
             }
             return null;
         }
@@ -200,7 +200,7 @@ public class ShowStmtAnalyzer {
                 catalogName = context.getCurrentCatalog();
             }
             if (!GlobalStateMgr.getCurrentState().getCatalogMgr().catalogExists(catalogName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
             }
             return null;
         }
@@ -208,7 +208,7 @@ public class ShowStmtAnalyzer {
         @Override
         public Void visitShowCreateTableStatement(ShowCreateTableStmt node, ConnectContext context) {
             if (node.getTableRef() == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_TABLES_USED);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_TABLES_USED);
             }
             node.setTableRef(AnalyzerUtils.normalizedTableRef(node.getTableRef(), context));
             return null;
@@ -223,7 +223,7 @@ public class ShowStmtAnalyzer {
                 catalogName = context.getCurrentCatalog();
             }
             if (!GlobalStateMgr.getCurrentState().getCatalogMgr().catalogExists(catalogName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
             }
             return null;
         }
@@ -304,7 +304,7 @@ public class ShowStmtAnalyzer {
             if (Strings.isNullOrEmpty(db)) {
                 db = session.getDatabase();
                 if (Strings.isNullOrEmpty(db)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                 }
             }
             return db;
@@ -322,7 +322,7 @@ public class ShowStmtAnalyzer {
         public Void visitShowDataDistributionStatement(ShowDataDistributionStmt node, ConnectContext context) {
             String db = context.getDatabase();
             if (Strings.isNullOrEmpty(db)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
             return null;
         }
@@ -336,7 +336,7 @@ public class ShowStmtAnalyzer {
 
             TableRef tableRef = node.getTableRef();
             if (tableRef == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_TABLES_USED);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_TABLES_USED);
             }
             tableRef = AnalyzerUtils.normalizedTableRef(tableRef, context);
             node.setTableRef(tableRef);
@@ -350,7 +350,7 @@ public class ShowStmtAnalyzer {
             CatalogMgr catalogMgr = GlobalStateMgr.getCurrentState().getCatalogMgr();
 
             if (!catalogMgr.catalogExists(catalogName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
             }
 
             if (CatalogMgr.isInternalCatalog(catalogName)) {
@@ -382,7 +382,7 @@ public class ShowStmtAnalyzer {
         private void descInternalCatalogTable(DescribeStmt node, ConnectContext context) {
             Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(node.getDb());
             if (db == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, node.getDb());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, node.getDb());
             }
             Locker locker = new Locker();
             locker.lockDatabase(db.getId(), LockType.READ);
@@ -434,7 +434,7 @@ public class ShowStmtAnalyzer {
                             }
                         }
                     }
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, node.getTableName());
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, node.getTableName());
                 }
 
                 if (table.getType() == Table.TableType.HIVE || table.getType() == Table.TableType.HUDI
@@ -527,7 +527,7 @@ public class ShowStmtAnalyzer {
                                 mysqlTable.getCatalogTableName());
                         node.getTotalRows().add(row);
                     } else {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_STORAGE_ENGINE, table.getType());
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_STORAGE_ENGINE, table.getType());
                     }
                 }
             } finally {
@@ -601,7 +601,7 @@ public class ShowStmtAnalyzer {
                 List<OrderByPair> orderByPairs = new ArrayList<>();
                 for (OrderByElement orderByElement : orderByElements) {
                     if (!(orderByElement.getExpr() instanceof SlotRef)) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Show stmt only support order by column");
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Show stmt only support order by column");
                     }
                     SlotRef slotRef = (SlotRef) orderByElement.getExpr();
                     int index = meta.getColumnIdx(slotRef.getColumnName().toLowerCase());
@@ -633,7 +633,7 @@ public class ShowStmtAnalyzer {
             }
             Database db = GlobalStateMgr.getCurrentState().getMetadataMgr().getDb(context, catalogName, dbName);
             if (db == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
             }
 
             final String tableName = tableRef.getTableName();
@@ -752,7 +752,7 @@ public class ShowStmtAnalyzer {
         public Void visitShowCreateExternalCatalogStatement(ShowCreateExternalCatalogStmt node, ConnectContext context) {
             String catalogName = node.getCatalogName();
             if (!GlobalStateMgr.getCurrentState().getCatalogMgr().catalogExists(catalogName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
             }
             return null;
         }
@@ -809,7 +809,7 @@ public class ShowStmtAnalyzer {
                 List<OrderByPair> orderByPairs = new ArrayList<>();
                 for (OrderByElement orderByElement : orderByElements) {
                     if (!(orderByElement.getExpr() instanceof SlotRef)) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
                     }
                     SlotRef slotRef = (SlotRef) orderByElement.getExpr();
                     int index = metaData.getColumnIdx(slotRef.getColumnName());

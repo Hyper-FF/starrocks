@@ -653,7 +653,7 @@ public class StatisticUtils {
         Preconditions.checkState(parts.length >= 1);
         Column base = table.getColumn(parts[0]);
         if (base == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_FIELD_ERROR, column, table.getName());
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_FIELD_ERROR, column, table.getName());
         }
 
         Type baseColumnType = base.getType();

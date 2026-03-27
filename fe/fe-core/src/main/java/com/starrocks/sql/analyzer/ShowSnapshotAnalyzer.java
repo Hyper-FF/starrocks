@@ -48,7 +48,7 @@ public class ShowSnapshotAnalyzer {
             Repository repo =
                     GlobalStateMgr.getCurrentState().getBackupHandler().getRepoMgr().getRepo(repoName);
             if (repo == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Repository [" + repoName + "] does not exist");
             }
 

@@ -64,7 +64,7 @@ public class ViewAnalyzer {
             if (!MapUtils.isEmpty(stmt.getProperties())) {
                 if (Strings.isNullOrEmpty(catalog) ||
                         !GlobalStateMgr.getCurrentState().getCatalogMgr().catalogExists(catalog)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalog);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalog);
                 }
                 if (CatalogMgr.isInternalCatalog(catalog) ||
                         ConnectorType.from(GlobalStateMgr.getCurrentState().getCatalogMgr().getCatalogType(catalog)) !=
@@ -164,7 +164,7 @@ public class ViewAnalyzer {
             // to user-specified column information.
             if (colWithComments != null) {
                 if (colWithComments.size() != viewColumns.size()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_VIEW_WRONG_LIST);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_VIEW_WRONG_LIST);
                 }
                 for (int i = 0; i < colWithComments.size(); ++i) {
                     Column col = viewColumns.get(i);

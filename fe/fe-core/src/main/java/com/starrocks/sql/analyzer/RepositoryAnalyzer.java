@@ -60,7 +60,7 @@ public class RepositoryAnalyzer {
                 FsBroker brokerAddr = context.getGlobalStateMgr().getBrokerMgr().getBroker(brokerName, location);
 
                 if (brokerAddr == null) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "failed to get address of broker " + brokerName);
                 }
             }
@@ -75,7 +75,7 @@ public class RepositoryAnalyzer {
             Repository repo =
                     GlobalStateMgr.getCurrentState().getBackupHandler().getRepoMgr().getRepo(repoName);
             if (repo == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Repository does not exist");
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Repository does not exist");
             }
 
             return null;
@@ -84,7 +84,7 @@ public class RepositoryAnalyzer {
 
     public static void checkRepoName(String repoName) {
         if (Strings.isNullOrEmpty(repoName)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Repository does not empty");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Repository does not empty");
         }
         FeNameFormat.checkCommonName("repository", repoName);
     }

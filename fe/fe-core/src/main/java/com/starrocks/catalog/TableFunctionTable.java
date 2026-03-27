@@ -493,7 +493,7 @@ public class TableFunctionTable extends Table {
             misMatchFillValue = MisMatchFillValue.fromString(property);
             if (misMatchFillValue == null) {
                 String msg = String.format("%s (case insensitive)", String.join(", ", MisMatchFillValue.getCandidates()));
-                ErrorReport.reportSemanticException(
+                throw ErrorReport.reportSemanticException(
                         ErrorCode.ERR_INVALID_VALUE, PROPERTY_FILL_MISMATCH_COLUMN_WITH, property, msg);
             }
         }
@@ -941,7 +941,7 @@ public class TableFunctionTable extends Table {
         if (properties.containsKey(PROPERTY_PARQUET_VERSION)) {
             String versionStr = properties.get(PROPERTY_PARQUET_VERSION);
             if (!SUPPORTED_PARQUET_VERSIONS.contains(versionStr)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_VALUE, PROPERTY_PARQUET_VERSION, versionStr,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_VALUE, PROPERTY_PARQUET_VERSION, versionStr,
                         String.join(", ", SUPPORTED_PARQUET_VERSIONS));
             }
             parquetVersion = versionStr;

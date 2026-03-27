@@ -64,16 +64,16 @@ public class MetaUtils {
 
     public static void checkCatalogExistAndReport(String catalogName) {
         if (catalogName == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, "");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, "");
         }
         if (!GlobalStateMgr.getCurrentState().getCatalogMgr().catalogExists(catalogName)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
         }
     }
 
     public static void checkDbNullAndReport(Database db, String name) {
         if (db == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, name);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, name);
         }
     }
 

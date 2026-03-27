@@ -75,16 +75,16 @@ public class ExportStmtAnalyzer {
             if (table.getType() == Table.TableType.OLAP &&
                     (((OlapTable) table).getState() == OlapTable.OlapTableState.RESTORE ||
                             ((OlapTable) table).getState() == OlapTable.OlapTableState.RESTORE_WITH_LOAD)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_STATE, "RESTORING");
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_STATE, "RESTORING");
             }
             if (table.isTemporaryTable()) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Do not support exporting temporary table");
             }
             PartitionRef partitionRef = tableRef.getPartitionRef();
             if (partitionRef != null) {
                 if (partitionRef.isTemp()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "Do not support exporting temporary partitions");
                 }
                 statement.setPartitions(partitionRef.getPartitionNames());
@@ -211,14 +211,14 @@ public class ExportStmtAnalyzer {
                 ArrayList<OrderByPair> orderByPairs = new ArrayList<>();
                 for (OrderByElement orderByElement : orderByElements) {
                     if (!(orderByElement.getExpr() instanceof SlotRef)) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
                     }
                     SlotRef slotRef = (SlotRef) orderByElement.getExpr();
                     int index = 0;
                     try {
                         index = ExportProcNode.analyzeColumn(slotRef.getColumnName());
                     } catch (AnalysisException e) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
                     }
                     OrderByPair orderByPair = new OrderByPair(index, !orderByElement.getIsAsc());
                     orderByPairs.add(orderByPair);
@@ -230,14 +230,14 @@ public class ExportStmtAnalyzer {
 
         private UUID analyzeQueryID(Expr whereExpr, SemanticException exception) {
             if (!(whereExpr.getChild(1) instanceof StringLiteral)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, exception.getMessage());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, exception.getMessage());
             }
             UUID uuid = null;
             String value = ((StringLiteral) whereExpr.getChild(1)).getStringValue();
             try {
                 uuid = UUID.fromString(value);
             } catch (IllegalArgumentException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Invalid UUID string as queryid: " + value);
             }
             return uuid;
@@ -247,7 +247,7 @@ public class ExportStmtAnalyzer {
             if (Strings.isNullOrEmpty(dbName)) {
                 dbName = context.getDatabase();
                 if (Strings.isNullOrEmpty(dbName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                 }
             }
             return dbName;
@@ -258,10 +258,10 @@ public class ExportStmtAnalyzer {
             if (whereExpr instanceof BinaryPredicate) {
                 BinaryPredicate binaryPredicate = (BinaryPredicate) whereExpr;
                 if (binaryPredicate.getOp() != BinaryType.EQ) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, exception.getMessage());
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, exception.getMessage());
                 }
             } else {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, exception.getMessage());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, exception.getMessage());
             }
         }
     }

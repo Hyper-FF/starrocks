@@ -642,7 +642,7 @@ public class MaterializedViewAnalyzer {
             List<Field> relationFields = queryScope.getRelationFields().getAllFields();
             if (colWithComments != null) {
                 if (colWithComments.size() != relationFields.size()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_VIEW_WRONG_LIST);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_VIEW_WRONG_LIST);
                 }
                 for (ColWithComment colWithComment : colWithComments) {
                     FeNameFormat.checkColumnName(colWithComment.getColName());
@@ -1403,7 +1403,7 @@ public class MaterializedViewAnalyzer {
             Set<String> columnSet = Sets.newTreeSet(String.CASE_INSENSITIVE_ORDER);
             for (Column columnDef : mvColumnItems) {
                 if (!columnSet.add(columnDef.getName())) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, columnDef.getName());
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, columnDef.getName());
                 }
             }
             DistributionDescAnalyzer.analyze(distributionDesc, columnSet);

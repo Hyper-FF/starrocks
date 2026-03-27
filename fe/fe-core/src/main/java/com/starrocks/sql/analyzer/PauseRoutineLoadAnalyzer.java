@@ -27,7 +27,7 @@ public class PauseRoutineLoadAnalyzer {
         if (Strings.isNullOrEmpty(db)) {
             db = context.getDatabase();
             if (Strings.isNullOrEmpty(db)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
         }
         statement.setLabelName(new LabelName(db, statement.getName()));

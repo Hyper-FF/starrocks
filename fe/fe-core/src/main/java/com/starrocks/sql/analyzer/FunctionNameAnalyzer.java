@@ -32,29 +32,29 @@ public class FunctionNameAnalyzer {
     public static void analyzeAndNormalize(QualifiedName qualifiedName, Database defaultDb) {
         List<String> parts = qualifiedName.getParts();
         if (parts.isEmpty()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
         }
 
         // Only support [fn] or [db, fn]
         if (parts.size() > 2) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "Invalid function name: " + qualifiedName.toString());
         }
 
         String functionName = parts.get(parts.size() - 1).toLowerCase();
         if (functionName.isEmpty()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
         }
         // Validate characters
         for (int i = 0; i < functionName.length(); ++i) {
             char c = functionName.charAt(i);
             if (!(Character.isLetterOrDigit(c) || c == '_')) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Function names must be all alphanumeric or underscore. Invalid name: " + functionName);
             }
         }
         if (Character.isDigit(functionName.charAt(0))) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "Function cannot start with a digit: " + functionName);
         }
 
@@ -63,13 +63,13 @@ public class FunctionNameAnalyzer {
         if (dbName == null) {
             dbName = defaultDb == null ? null : defaultDb.getFullName();
             if (Strings.isNullOrEmpty(dbName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
         }
 
         List<Function> functionList = defaultDb.getFunctionsByName(functionName);
         if (functionList.isEmpty()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "Invalid backup function(s), function name: " + functionName);
         }
     }

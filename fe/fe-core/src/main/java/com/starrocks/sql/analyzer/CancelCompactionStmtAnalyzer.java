@@ -84,7 +84,7 @@ public class CancelCompactionStmtAnalyzer {
             } while (false);
 
             if (!valid) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Where clause should looks like: TXN_ID = compaction_txn_id");
             }
 

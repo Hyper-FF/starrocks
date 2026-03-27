@@ -200,7 +200,7 @@ public class SimpleQueryAnalyzer {
         @Override
         public Void visitSubqueryRelation(SubqueryRelation subquery, Void context) {
             if (subquery.getResolveTableName() != null && subquery.getResolveTableName().getTbl() == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_DERIVED_MUST_HAVE_ALIAS);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_DERIVED_MUST_HAVE_ALIAS);
             }
 
             process(subquery.getQueryStatement());

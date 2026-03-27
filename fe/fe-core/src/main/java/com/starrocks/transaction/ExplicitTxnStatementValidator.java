@@ -51,11 +51,11 @@ public final class ExplicitTxnStatementValidator {
         boolean isTransactionStmt = statement instanceof BeginStmt
                 || statement instanceof CommitStmt || statement instanceof RollbackStmt;
         if (!(isSet || isDml || isSelect || isTransactionStmt)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_EXPLICIT_TXN_NOT_SUPPORT_STMT);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_EXPLICIT_TXN_NOT_SUPPORT_STMT);
         }
 
         if (statement instanceof InsertStmt insertStmt && insertStmt.isOverwrite()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_EXPLICIT_TXN_NOT_SUPPORT_STMT);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_EXPLICIT_TXN_NOT_SUPPORT_STMT);
         }
 
         // We validate two categories:
@@ -89,7 +89,7 @@ public final class ExplicitTxnStatementValidator {
                 continue;
             }
             if (modifiedTableIds.contains(table.getId())) {
-                ErrorReport.reportSemanticException(
+                throw ErrorReport.reportSemanticException(
                         ErrorCode.ERR_EXPLICIT_TXN_SELECT_ON_MODIFIED_TABLE, table.getName());
             }
         }

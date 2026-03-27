@@ -51,7 +51,7 @@ public class AlterTableStatementAnalyzer {
 
         List<AlterClause> alterClauseList = statement.getAlterClauseList();
         if (alterClauseList == null || alterClauseList.isEmpty()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_NO_ALTER_OPERATION);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_ALTER_OPERATION);
         }
 
         checkAlterOpConflict(alterClauseList);

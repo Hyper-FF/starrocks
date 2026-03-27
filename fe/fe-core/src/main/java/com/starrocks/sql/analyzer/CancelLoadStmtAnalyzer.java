@@ -56,7 +56,7 @@ public class CancelLoadStmtAnalyzer {
             if (Strings.isNullOrEmpty(dbName)) {
                 dbName = context.getDatabase();
                 if (Strings.isNullOrEmpty(dbName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                 }
             }
             statement.setDbName(dbName);
@@ -106,7 +106,7 @@ public class CancelLoadStmtAnalyzer {
             } while (false);
 
             if (!valid) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Where clause should looks like: LABEL = \"your_load_label\"");
             }
 

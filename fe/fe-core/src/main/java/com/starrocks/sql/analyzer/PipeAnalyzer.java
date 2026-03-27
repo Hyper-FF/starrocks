@@ -74,7 +74,7 @@ public class PipeAnalyzer {
     public static void analyzePipeName(PipeName pipeName, String defaultDbName) {
         if (Strings.isNullOrEmpty(pipeName.getDbName())) {
             if (Strings.isNullOrEmpty(defaultDbName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
             defaultDbName = normalizeName(defaultDbName);
             pipeName.setDbName(defaultDbName);
@@ -99,12 +99,12 @@ public class PipeAnalyzer {
                 // Task execution variable
                 String taskVariableName = StringUtils.removeStartIgnoreCase(propertyName, TASK_VARIABLES_PREFIX);
                 if (!GlobalStateMgr.getCurrentState().getVariableMgr().containsVariable(taskVariableName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PROPERTY, propertyName);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PROPERTY, propertyName);
                 }
                 continue;
             }
             if (!SUPPORTED_PROPERTIES.contains(propertyName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PROPERTY, propertyName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PROPERTY, propertyName);
             }
             String valueStr = properties.get(propertyName);
             switch (propertyName.toLowerCase()) {
@@ -115,7 +115,7 @@ public class PipeAnalyzer {
                     } catch (NumberFormatException ignored) {
                     }
                     if (value < 1 || value > Pipe.MAX_POLL_INTERVAL) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                                 String.format("%s should in [1, %d]", PROPERTY_POLL_INTERVAL, Pipe.MAX_POLL_INTERVAL));
                     }
                     break;
@@ -127,7 +127,7 @@ public class PipeAnalyzer {
                     } catch (Exception ignored) {
                     }
                     if (value < 0) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                                 PROPERTY_BATCH_SIZE + " should be greater than 0");
                     }
                     break;
@@ -139,7 +139,7 @@ public class PipeAnalyzer {
                     } catch (NumberFormatException ignored) {
                     }
                     if (value < 1 || value > 1024) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                                 PROPERTY_BATCH_FILES + " should in [1, 1024]");
                     }
                     break;
@@ -177,35 +177,35 @@ public class PipeAnalyzer {
         analyzePipeName(stmt.getPipeName(), insertStmt.getDbName());
 
         if (!stmt.getPipeName().getDbName().equalsIgnoreCase(insertStmt.getDbName())) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT,
                     String.format("pipe's database [%s] and target table's database [%s] should be the same",
                             stmt.getPipeName().getDbName(), insertStmt.getDbName()));
         }
 
         // Must be the form: insert into <target_table> select <projection> from <source_table> [where_clause]
         if (!Strings.isNullOrEmpty(insertStmt.getLabel())) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "INSERT INTO cannot with label");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "INSERT INTO cannot with label");
         }
         if (insertStmt.isOverwrite()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "INSERT INTO cannot be OVERWRITE");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "INSERT INTO cannot be OVERWRITE");
         }
         QueryStatement queryStatement = insertStmt.getQueryStatement();
         if (!(queryStatement.getQueryRelation() instanceof SelectRelation)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "must be select statement");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "must be select statement");
         }
         SelectRelation selectRelation = (SelectRelation) queryStatement.getQueryRelation();
         if (selectRelation.hasAggregation() || selectRelation.hasOrderByClause() || selectRelation.hasLimit()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT,
                     "must be a vanilla select statement." +
                             " Aggregation, order by clause, limit clause are not supported yet.");
         }
         if (!(selectRelation.getRelation() instanceof FileTableFunctionRelation)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "only support FileTableFunction");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "only support FileTableFunction");
         }
         FileTableFunctionRelation tableFunctionRelation = (FileTableFunctionRelation) selectRelation.getRelation();
         Table rawTable = tableFunctionRelation.getTable();
         if (rawTable == null || rawTable.getType() != Table.TableType.TABLE_FUNCTION) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "only support FileTableFunction");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_PIPE_STATEMENT, "only support FileTableFunction");
         }
 
         TableFunctionTable sourceTable = (TableFunctionTable) rawTable;
@@ -220,7 +220,7 @@ public class PipeAnalyzer {
     public static void analyze(ShowPipeStmt stmt, ConnectContext context) {
         if (Strings.isNullOrEmpty(stmt.getDbName())) {
             if (Strings.isNullOrEmpty(context.getDatabase())) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
             stmt.setDbName(context.getDatabase());
         }
@@ -231,7 +231,7 @@ public class PipeAnalyzer {
             List<OrderByPair> orderByPairs = new ArrayList<>();
             for (OrderByElement element : stmt.getOrderBy()) {
                 if (!(element.getExpr() instanceof SlotRef)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "only support order by specific column");
                 }
                 SlotRef slot = (SlotRef) element.getExpr();

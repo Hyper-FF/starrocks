@@ -2419,7 +2419,7 @@ public class AuthorizerStmtVisitor implements AstVisitorExtendInterface<Void, Co
         exportJob = GlobalStateMgr.getCurrentState().getExportMgr().getExportJob(statement.getDbName(),
                 statement.getQueryId());
         if (null == exportJob) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_EXPORT_JOB_NOT_FOUND,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_EXPORT_JOB_NOT_FOUND,
                     statement.getQueryId().toString());
         }
         try {
@@ -2584,7 +2584,7 @@ public class AuthorizerStmtVisitor implements AstVisitorExtendInterface<Void, Co
             job = GlobalStateMgr.getCurrentState().getBackupHandler().getAbstractJob(statement.isExternalCatalog(),
                     statement.getDbName());
         } catch (DdlException e) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, statement.getDbName());
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, statement.getDbName());
         }
         if (null == job) {
             return null;
@@ -3165,15 +3165,15 @@ public class AuthorizerStmtVisitor implements AstVisitorExtendInterface<Void, Co
         try {
             job = context.getGlobalStateMgr().getRoutineLoadMgr().getJob(dbName, labelName);
         } catch (MetaNotFoundException e) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_ROUTINELODE_JOB_NOT_FOUND, labelName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_ROUTINELODE_JOB_NOT_FOUND, labelName);
         }
         if (null == job) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_ROUTINELODE_JOB_NOT_FOUND, labelName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_ROUTINELODE_JOB_NOT_FOUND, labelName);
         }
         try {
             tableName = job.getTableName();
         } catch (MetaNotFoundException e) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_TABLE_NOT_FOUND);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_TABLE_NOT_FOUND);
         }
         return tableName;
     }
@@ -3182,7 +3182,7 @@ public class AuthorizerStmtVisitor implements AstVisitorExtendInterface<Void, Co
         GlobalStateMgr globalStateMgr = context.getGlobalStateMgr();
         Database db = globalStateMgr.getLocalMetastore().getDb(dbName);
         if (db == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_DB_NOT_FOUND, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_PRIVILEGE_DB_NOT_FOUND, dbName);
         }
         List<LoadJob> loadJobs = globalStateMgr.getLoadMgr().
                 getLoadJobsByDb(db.getId(), label, false);

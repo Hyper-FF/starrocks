@@ -81,7 +81,7 @@ public class DropStmtAnalyzer {
             // check database
             Database db = GlobalStateMgr.getCurrentState().getMetadataMgr().getDb(context, catalogName, dbName);
             if (db == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
             }
             Table table = null;
             String tableNameStr = statement.getTableName();
@@ -96,7 +96,7 @@ public class DropStmtAnalyzer {
                     LOG.info("drop table[{}] which does not exist", tableNameStr);
                     return null;
                 } else {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableNameStr);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableNameStr);
                 }
             } else {
                 if (table instanceof MaterializedView) {
@@ -112,11 +112,11 @@ public class DropStmtAnalyzer {
             // Check if a view
             if (statement.isView()) {
                 if (!table.isView()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_OBJECT, db.getOriginName(), tableNameStr, "VIEW");
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_OBJECT, db.getOriginName(), tableNameStr, "VIEW");
                 }
             } else {
                 if (table.isView()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_OBJECT, db.getOriginName(), tableNameStr, "TABLE");
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_OBJECT, db.getOriginName(), tableNameStr, "TABLE");
                 }
             }
             // Check mv dependency
@@ -159,7 +159,7 @@ public class DropStmtAnalyzer {
             // check database
             Database db = GlobalStateMgr.getCurrentState().getMetadataMgr().getDb(context, catalogName, dbName);
             if (db == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
             }
             statement.setSessionId(context.getSessionId());
             String tableName = statement.getTableName();
@@ -173,7 +173,7 @@ public class DropStmtAnalyzer {
                 } else {
                     LOG.info("drop temporary table[{}.{}] in session[{}] which does not exist",
                             dbName, tableName, sessionId);
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableName);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableName);
                 }
             }
             return null;
@@ -233,7 +233,7 @@ public class DropStmtAnalyzer {
             }
 
             if (func == null && !statement.dropIfExists()) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_FUNC_ERROR, funcDesc.toString());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_FUNC_ERROR, funcDesc.toString());
             }
 
             return null;

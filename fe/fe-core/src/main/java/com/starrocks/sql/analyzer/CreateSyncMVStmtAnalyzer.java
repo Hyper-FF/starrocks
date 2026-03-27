@@ -354,7 +354,7 @@ public class CreateSyncMVStmtAnalyzer {
 
                 mvColumnItem = buildAggColumnItem(context, stmt.isReplay(), selectListItem, slots);
                 if (!mvColumnNameSet.add(mvColumnItem.getName())) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, mvColumnItem.getName());
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, mvColumnItem.getName());
                 }
                 mvColumnItemList.add(mvColumnItem);
             } else {
@@ -370,7 +370,7 @@ public class CreateSyncMVStmtAnalyzer {
 
                 mvColumnItem = buildNonAggColumnItem(selectListItem, slots);
                 if (!mvColumnNameSet.add(mvColumnItem.getName())) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, mvColumnItem.getName());
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, mvColumnItem.getName());
                 }
 
                 mvColumnItemList.add(mvColumnItem);

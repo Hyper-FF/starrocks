@@ -3978,7 +3978,7 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     public void setInsertMaxFilterRatio(double insertMaxFilterRatio) {
         if (insertMaxFilterRatio < 0 || insertMaxFilterRatio > 1) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_VALUE, SessionVariable.INSERT_MAX_FILTER_RATIO,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_VALUE, SessionVariable.INSERT_MAX_FILTER_RATIO,
                     insertMaxFilterRatio, "between 0.0 and 1.0");
         }
         this.insertMaxFilterRatio = insertMaxFilterRatio;

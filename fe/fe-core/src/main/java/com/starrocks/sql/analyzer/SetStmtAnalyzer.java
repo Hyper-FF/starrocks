@@ -103,7 +103,7 @@ public class SetStmtAnalyzer {
         // Validate that the variable exists
         if (!GlobalStateMgr.getCurrentState().getVariableMgr().containsVariable(variable)) {
             String similarVars = GlobalStateMgr.getCurrentState().getVariableMgr().findSimilarVarNames(variable);
-            ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_SYSTEM_VARIABLE, variable, similarVars);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_SYSTEM_VARIABLE, variable, similarVars);
         }
 
         Expr unResolvedExpression = var.getUnResolvedExpression();
@@ -132,7 +132,7 @@ public class SetStmtAnalyzer {
         if (variable.equalsIgnoreCase("prefer_join_method")) {
             String value = resolvedExpression.getStringValue();
             if (!value.equalsIgnoreCase("broadcast") && !value.equalsIgnoreCase("shuffle")) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_VALUE_FOR_VAR, "prefer_join_method", value);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_VALUE_FOR_VAR, "prefer_join_method", value);
             }
         }
 
@@ -529,7 +529,7 @@ public class SetStmtAnalyzer {
         }
 
         if (!charset.equalsIgnoreCase(SetNamesVar.DEFAULT_NAMES) && !charset.equalsIgnoreCase(SetNamesVar.GBK_NAMES)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_CHARACTER_SET, charset);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_CHARACTER_SET, charset);
         }
         // be is not supported yet,so Display unsupported information to the user
         if (!charset.equalsIgnoreCase(SetNamesVar.DEFAULT_NAMES)) {

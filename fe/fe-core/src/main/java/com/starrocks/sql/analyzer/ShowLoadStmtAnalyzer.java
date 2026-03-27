@@ -71,7 +71,7 @@ public class ShowLoadStmtAnalyzer {
             if (Strings.isNullOrEmpty(dbName)) {
                 dbName = context.getDatabase();
                 if (Strings.isNullOrEmpty(dbName) && !statement.isAll()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                 }
             }
             statement.setDbName(dbName);
@@ -93,14 +93,14 @@ public class ShowLoadStmtAnalyzer {
                 ArrayList<OrderByPair> orderByPairs = new ArrayList<>();
                 for (OrderByElement orderByElement : orderByElements) {
                     if (!(orderByElement.getExpr() instanceof SlotRef)) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
                     }
                     SlotRef slotRef = (SlotRef) orderByElement.getExpr();
                     int index = 0;
                     try {
                         index = LoadProcDir.analyzeColumn(slotRef.getColumnName());
                     } catch (AnalysisException e) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
                     }
                     OrderByPair orderByPair = new OrderByPair(index, !orderByElement.getIsAsc());
                     orderByPairs.add(orderByPair);
@@ -117,7 +117,7 @@ public class ShowLoadStmtAnalyzer {
             if (expr instanceof CompoundPredicate) {
                 CompoundPredicate cp = (CompoundPredicate) expr;
                 if (cp.getOp() != CompoundPredicate.Operator.AND) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "Only allow compound predicate with operator AND");
                 }
 
@@ -200,7 +200,7 @@ public class ShowLoadStmtAnalyzer {
             }
 
             if (!valid) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Where clause should looks like: LABEL = \"your_load_label\","
                                 + " or LABEL LIKE \"matcher\", "
                                 + " or STATE = \"PENDING|ETL|LOADING|FINISHED|CANCELLED|QUEUEING\", "

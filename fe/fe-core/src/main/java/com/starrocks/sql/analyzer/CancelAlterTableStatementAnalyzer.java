@@ -30,7 +30,7 @@ public class CancelAlterTableStatementAnalyzer {
         statement.setTableRef(tableRef);
         // Check db.
         if (context.getGlobalStateMgr().getLocalMetastore().getDb(statement.getDbName()) == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, statement.getDbName());
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, statement.getDbName());
         }
     }
 }

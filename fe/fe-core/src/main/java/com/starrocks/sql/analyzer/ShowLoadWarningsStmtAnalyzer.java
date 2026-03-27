@@ -73,18 +73,18 @@ public class ShowLoadWarningsStmtAnalyzer {
             // http://be_ip:be_http_port/api/_load_error_log?file=__shard_xxx/error_log_xxx
             String rawUrl = statement.getRawUrl();
             if (rawUrl.isEmpty()) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_MISSING_PARAM, "Error load url is missing");
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_MISSING_PARAM, "Error load url is missing");
             }
             if (statement.getDbName() != null || statement.getWhereClause() != null
                     || statement.getLimitElement() != null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Can not set database, where or limit clause if getting error log from url");
             }
             try {
                 URL url = new URL(rawUrl);
                 statement.setUrl(url);
             } catch (MalformedURLException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Invalid url: " + e.getMessage());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Invalid url: " + e.getMessage());
             }
         }
 
@@ -93,7 +93,7 @@ public class ShowLoadWarningsStmtAnalyzer {
             if (Strings.isNullOrEmpty(dbName)) {
                 dbName = context.getDatabase();
                 if (Strings.isNullOrEmpty(dbName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                 }
             }
             statement.setDbName(dbName);
@@ -108,7 +108,7 @@ public class ShowLoadWarningsStmtAnalyzer {
 
         private void analyzeSubPredicate(Expr subExpr) {
             if (subExpr == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "should supply condition like: LABEL = \"your_load_label\","
                                 + " or LOAD_JOB_ID = $job_id");
             }
@@ -116,7 +116,7 @@ public class ShowLoadWarningsStmtAnalyzer {
             if (subExpr instanceof CompoundPredicate) {
                 CompoundPredicate cp = (CompoundPredicate) subExpr;
                 if (cp.getOp() != CompoundPredicate.Operator.AND) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "Only allow compound predicate with operator AND");
                 }
 
@@ -188,7 +188,7 @@ public class ShowLoadWarningsStmtAnalyzer {
             } while (false);
 
             if (!valid) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Where clause should looks like: LABEL = \"your_load_label\","
                                 + " or LOAD_JOB_ID = $job_id");
             }

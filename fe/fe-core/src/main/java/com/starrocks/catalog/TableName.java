@@ -127,7 +127,7 @@ public class TableName implements Writable, GsonPreProcessable, GsonPostProcessa
     public void normalization(ConnectContext connectContext) {
         if (Strings.isNullOrEmpty(catalog)) {
             if (Strings.isNullOrEmpty(connectContext.getCurrentCatalog())) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalog);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalog);
             }
             catalog = normalizeName(connectContext.getCurrentCatalog());
         }
@@ -135,7 +135,7 @@ public class TableName implements Writable, GsonPreProcessable, GsonPostProcessa
         if (Strings.isNullOrEmpty(db)) {
             db = normalizeName(connectContext.getDatabase());
             if (Strings.isNullOrEmpty(db)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
         }
 

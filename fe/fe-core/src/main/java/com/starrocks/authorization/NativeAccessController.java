@@ -373,7 +373,7 @@ public class NativeAccessController implements AccessController {
             Database database = GlobalStateMgr.getCurrentState().getMetadataMgr()
                     .getDb(context, InternalCatalog.DEFAULT_INTERNAL_CATALOG_NAME, dbName);
             if (database == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
             }
             databaseId = database.getId();
         }

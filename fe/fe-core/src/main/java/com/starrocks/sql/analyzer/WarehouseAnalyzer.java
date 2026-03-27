@@ -49,7 +49,7 @@ public class WarehouseAnalyzer {
         public Void visitCreateWarehouseStatement(CreateWarehouseStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
             FeNameFormat.checkWarehouseName(whName);
             return null;
@@ -59,7 +59,7 @@ public class WarehouseAnalyzer {
         public Void visitSuspendWarehouseStatement(SuspendWarehouseStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
             return null;
         }
@@ -67,7 +67,7 @@ public class WarehouseAnalyzer {
         public Void visitResumeWarehouseStatement(ResumeWarehouseStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
             return null;
         }
@@ -76,7 +76,7 @@ public class WarehouseAnalyzer {
         public Void visitDropWarehouseStatement(DropWarehouseStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
 
             if (whName.equals(WarehouseManager.DEFAULT_WAREHOUSE_NAME)) {
@@ -89,12 +89,12 @@ public class WarehouseAnalyzer {
         @Override
         public Void visitSetWarehouseStatement(SetWarehouseStmt statement, ConnectContext context) {
             if (RunMode.getCurrentRunMode() == RunMode.SHARED_NOTHING) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NOT_SUPPORTED_STATEMENT_IN_SHARED_NOTHING_MODE);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NOT_SUPPORTED_STATEMENT_IN_SHARED_NOTHING_MODE);
             }
 
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
             FeNameFormat.checkWarehouseName(whName);
             return null;
@@ -109,7 +109,7 @@ public class WarehouseAnalyzer {
         public Void visitAlterWarehouseStatement(AlterWarehouseStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
 
             return null;
@@ -119,11 +119,11 @@ public class WarehouseAnalyzer {
         public Void visitCreateCNGroupStatement(CreateCnGroupStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
             String cnName = statement.getCnGroupName();
             if (Strings.isNullOrEmpty(cnName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_CNGROUP_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_CNGROUP_NAME);
             }
             FeNameFormat.checkCNGroupName(cnName);
             return null;
@@ -133,11 +133,11 @@ public class WarehouseAnalyzer {
         public Void visitDropCNGroupStatement(DropCnGroupStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
             String cnName = statement.getCnGroupName();
             if (Strings.isNullOrEmpty(cnName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_CNGROUP_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_CNGROUP_NAME);
             }
             return null;
         }
@@ -146,11 +146,11 @@ public class WarehouseAnalyzer {
         public Void visitEnableDisableCNGroupStatement(EnableDisableCnGroupStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
             String cnName = statement.getCnGroupName();
             if (Strings.isNullOrEmpty(cnName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_CNGROUP_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_CNGROUP_NAME);
             }
             return null;
         }
@@ -159,11 +159,11 @@ public class WarehouseAnalyzer {
         public Void visitAlterCNGroupStatement(AlterCnGroupStmt statement, ConnectContext context) {
             String whName = statement.getWarehouseName();
             if (Strings.isNullOrEmpty(whName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_WAREHOUSE_NAME);
             }
             String cnName = statement.getCnGroupName();
             if (Strings.isNullOrEmpty(cnName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_CNGROUP_NAME);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_CNGROUP_NAME);
             }
             return null;
         }

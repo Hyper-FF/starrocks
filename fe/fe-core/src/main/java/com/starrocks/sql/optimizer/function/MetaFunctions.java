@@ -159,7 +159,7 @@ public class MetaFunctions {
         Database db = dbTable.getLeft();
         Table table = dbTable.getRight();
         if (!table.isMaterializedView()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     tableName + " is not materialized view");
         }
         Locker locker = new Locker();
@@ -211,14 +211,14 @@ public class MetaFunctions {
     @ConstantFunction(name = "inspect_mv_refresh_info", argTypes = {VARCHAR}, returnType = VARCHAR, isMetaFunction = true)
     public static ConstantOperator inspectMVRefreshInfo(ConstantOperator mvName) {
         if (mvName == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, mvName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, mvName);
         }
         TableName tableName = TableName.fromString(mvName.getVarchar());
         Pair<Database, Table> dbTable = inspectTable(tableName);
         Database db = dbTable.getLeft();
         Table table = dbTable.getRight();
         if (!table.isMaterializedView()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     tableName + " is not materialized view");
         }
         MaterializedView mv = (MaterializedView) table;
@@ -294,14 +294,14 @@ public class MetaFunctions {
     @ConstantFunction(name = "inspect_table_partition_info", argTypes = {VARCHAR}, returnType = VARCHAR, isMetaFunction = true)
     public static ConstantOperator inspectTablePartitionInfo(ConstantOperator input) {
         if (input == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, input);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, input);
         }
         TableName tableName = TableName.fromString(input.getVarchar());
         Pair<Database, Table> dbTable = inspectTable(tableName);
         Database db = dbTable.getLeft();
         Table table = dbTable.getRight();
         if (table == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     tableName + " is not a table");
         }
         Locker locker = new Locker();
@@ -491,7 +491,7 @@ public class MetaFunctions {
     public static ConstantOperator inspectMemory(ConstantOperator moduleName) {
         Map<String, MemoryTrackable> statMap = MemoryUsageTracker.REFERENCE.get(moduleName.getVarchar());
         if (statMap == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     "Module " + moduleName + " not found.");
         }
         long estimateSize = 0;
@@ -508,7 +508,7 @@ public class MetaFunctions {
     public static ConstantOperator inspectMemoryDetail(ConstantOperator moduleName, ConstantOperator clazzInfo) {
         Map<String, MemoryTrackable> statMap = MemoryUsageTracker.REFERENCE.get(moduleName.getVarchar());
         if (statMap == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     "Module " + moduleName + " not found.");
         }
         String classInfo = clazzInfo.getVarchar();
@@ -522,7 +522,7 @@ public class MetaFunctions {
         }
         MemoryTrackable memoryTrackable = statMap.get(clazzName);
         if (memoryTrackable == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     "In module " + moduleName + " - " + clazzName + " not found.");
         }
         long estimateSize = 0;
@@ -535,10 +535,10 @@ public class MetaFunctions {
                 Object object = field.get(memoryTrackable);
                 estimateSize = SizeEstimator.estimate(object);
             } catch (NoSuchFieldException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                         "In module " + moduleName + " - " + clazzName + " field " + fieldName  + " not found.");
             } catch (IllegalAccessException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                         "Get module " + moduleName + " - " + clazzName + " field " + fieldName  + " error.");
             }
         }
@@ -563,7 +563,7 @@ public class MetaFunctions {
         Pair<Database, Table> dbTable = inspectTable(tableName);
         Table table = dbTable.getRight();
         if (!table.isMaterializedView()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     tableName + " is not materialized view");
         }
         try {
@@ -598,7 +598,7 @@ public class MetaFunctions {
         com.starrocks.common.Pair<HttpResponseStatus, String> statusAndRes =
                 QueryDumper.dumpQuery("", "", query.getVarchar(), enableMock.getBoolean());
         if (statusAndRes.first != HttpResponseStatus.OK) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "get_query_dump: " + statusAndRes.second);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "get_query_dump: " + statusAndRes.second);
         }
         return ConstantOperator.createVarchar(statusAndRes.second);
     }
@@ -654,14 +654,14 @@ public class MetaFunctions {
                 .getTable(new ConnectContext(), tableNameValue);
         maybeTable.orElseThrow(() -> ErrorReport.buildSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableNameValue));
         if (!(maybeTable.get() instanceof OlapTable)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "must be OLAP_TABLE");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "must be OLAP_TABLE");
         }
         OlapTable table = (OlapTable) maybeTable.get();
         if (table.getKeysType() != KeysType.PRIMARY_KEYS) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "must be PRIMARY_KEY");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "must be PRIMARY_KEY");
         }
         if (table.getKeysNum() > 1) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "too many key columns");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "too many key columns");
         }
         Column keyColumn = table.getKeyColumns().get(0);
 
@@ -697,7 +697,7 @@ public class MetaFunctions {
                 .getTable(new ConnectContext(), tableNameValue);
         maybeTable.orElseThrow(() -> ErrorReport.buildSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableNameValue));
         if (!(maybeTable.get() instanceof OlapTable)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "must be OLAP_TABLE");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, "must be OLAP_TABLE");
         }
         OlapTable table = (OlapTable) maybeTable.get();
         String column = columnName.getVarchar();

@@ -69,7 +69,7 @@ public class PipeManager {
             boolean existed = nameToId.containsKey(dbIdAndName);
             if (existed) {
                 if (!stmt.isIfNotExists() && !stmt.isReplace()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_PIPE_EXISTS);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_PIPE_EXISTS);
                 }
                 if (stmt.isIfNotExists()) {
                     return;
@@ -104,7 +104,7 @@ public class PipeManager {
                 if (stmt.isIfExists()) {
                     return;
                 }
-                ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PIPE, stmt.getPipeName());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PIPE, stmt.getPipeName());
             }
             pipe = pipeMap.get(nameToId.get(dbAndName));
 

@@ -107,14 +107,14 @@ public class CreateTableAnalyzer {
 
         Database dbObj = GlobalStateMgr.getCurrentState().getMetadataMgr().getDb(context, catalogName, db);
         if (dbObj == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, db);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, db);
         }
         if (statement instanceof CreateTemporaryTableStmt) {
             analyzeTemporaryTable(statement, context, catalogName, dbObj, tableName);
         } else {
             if (GlobalStateMgr.getCurrentState().getMetadataMgr()
                     .tableExists(context, catalogName, db, tableName) && !statement.isSetIfNotExists()) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_TABLE_EXISTS_ERROR, tableName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_TABLE_EXISTS_ERROR, tableName);
             }
         }
 
@@ -155,7 +155,7 @@ public class CreateTableAnalyzer {
         UUID sessionId = context.getSessionId();
         TemporaryTableMgr temporaryTableMgr = GlobalStateMgr.getCurrentState().getTemporaryTableMgr();
         if (temporaryTableMgr.tableExists(sessionId, db.getId(), tableName) && !stmt.isSetIfNotExists()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_TABLE_EXISTS_ERROR, tableName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_TABLE_EXISTS_ERROR, tableName);
         }
     }
 
@@ -213,17 +213,17 @@ public class CreateTableAnalyzer {
     private static void preCheckColumnRef(CreateTableStmt statement) {
         List<ColumnDef> columnDefs = statement.getColumnDefs();
         if (columnDefs == null || columnDefs.isEmpty()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_TABLE_MUST_HAVE_COLUMNS);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_TABLE_MUST_HAVE_COLUMNS);
         }
 
         if (columnDefs.size() > Config.max_column_number_per_table) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_TOO_MANY_COLUMNS, Config.max_column_number_per_table);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_TOO_MANY_COLUMNS, Config.max_column_number_per_table);
         }
 
         Set<String> columnSet = Sets.newTreeSet(String.CASE_INSENSITIVE_ORDER);
         for (ColumnDef columnDef : columnDefs) {
             if (!columnSet.add(columnDef.getName())) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, columnDef.getName());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, columnDef.getName());
             }
 
             if (columnDef.getAggregateType() != null && columnDef.getAggregateType().isReplaceFamily()) {
@@ -740,7 +740,7 @@ public class CreateTableAnalyzer {
             }
             if (distributionDesc.getBuckets() > Config.max_bucket_number_per_partition && stmt.isOlapEngine()
                     && stmt.getPartitionDesc() != null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_TOO_MANY_BUCKETS, Config.max_bucket_number_per_partition);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_TOO_MANY_BUCKETS, Config.max_bucket_number_per_partition);
             }
             Set<String> columnSet = Sets.newTreeSet(String.CASE_INSENSITIVE_ORDER);
             columnSet.addAll(columnDefs.stream().map(ColumnDef::getName).collect(Collectors.toSet()));

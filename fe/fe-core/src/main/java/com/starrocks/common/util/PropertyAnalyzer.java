@@ -2033,7 +2033,7 @@ public class PropertyAnalyzer {
                     GlobalStateMgr.getCurrentState().getStorageVolumeMgr()
                             .unbindTableToStorageVolume(materializedView.getId());
                 }
-                ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, e.getMessage());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, e.getMessage());
             }
         }
     }
@@ -2041,7 +2041,7 @@ public class PropertyAnalyzer {
     public static boolean analyzeCloudNativeFastSchemaEvolutionV2(Table.TableType tableType,
             Map<String, String> properties, boolean removeFromProperties) throws SemanticException {
         if (tableType != Table.TableType.CLOUD_NATIVE) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     String.format("Property %s only supports cloud-native tables, but table type is %s",
                             PropertyAnalyzer.PROPERTIES_CLOUD_NATIVE_FAST_SCHEMA_EVOLUTION_V2, tableType.name()));
         }
@@ -2098,7 +2098,7 @@ public class PropertyAnalyzer {
             dataProperty = PropertyAnalyzer.analyzeDataProperty(properties,
                     DataProperty.getInferredDefaultDataProperty(), false);
         } catch (AnalysisException e) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, e.getMessage());
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, e.getMessage());
             return null;
         }
         if (hasMedium && dataProperty.getStorageMedium() == TStorageMedium.SSD) {
@@ -2140,7 +2140,7 @@ public class PropertyAnalyzer {
         } else if ("false".equalsIgnoreCase(value)) {
             ret = false;
         } else {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_VALUE, property, value, "'true' or 'false'");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_VALUE, property, value, "'true' or 'false'");
         }
         return ret;
     }

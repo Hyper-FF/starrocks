@@ -90,7 +90,7 @@ public class BackupRestoreAnalyzer {
                 }
 
                 if (backupStmt.getExternalCatalogRefs().isEmpty()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "No external catalog can be backed up");
                 }
 
@@ -189,12 +189,12 @@ public class BackupRestoreAnalyzer {
             for (CatalogRef catalogRef : catalogRefs) {
                 String catalogName = catalogRef.getCatalogName();
                 if (catalogName.equalsIgnoreCase(InternalCatalog.DEFAULT_INTERNAL_CATALOG_NAME)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "Do not support Backup/Restore the entire default catalog");
                 }
 
                 if (!GlobalStateMgr.getCurrentState().getCatalogMgr().catalogExists(catalogName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "external catalog " + catalogName + " does not existed.");
                 }
             }
@@ -219,7 +219,7 @@ public class BackupRestoreAnalyzer {
                                     BackupStmt.BackupType.valueOf(value.toUpperCase());
                             backupStmt.setType(type);
                         } catch (Exception e) {
-                            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                                     "Invalid backup job type: "
                                             + value);
                         }
@@ -233,7 +233,7 @@ public class BackupRestoreAnalyzer {
 
             backupStmt.setTimeoutMs(timeoutMs);
             if (!copiedProperties.isEmpty()) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Unknown backup job properties: " + copiedProperties.keySet());
             }
         }
@@ -368,7 +368,7 @@ public class BackupRestoreAnalyzer {
                         } else if ("false".equalsIgnoreCase(value)) {
                             allowLoad = false;
                         } else {
-                            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                                     "Invalid allow load value: "
                                             + copiedProperties.get(PROP_ALLOW_LOAD));
                         }
@@ -400,13 +400,13 @@ public class BackupRestoreAnalyzer {
             restoreStmt.setMetaVersion(metaVersion);
             restoreStmt.setStarrocksMetaVersion(starrocksMetaVersion);
             if (null == backupTimestamp) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Missing " + PROP_BACKUP_TIMESTAMP + " property");
             }
 
             restoreStmt.setBackupTimestamp(backupTimestamp);
             if (!copiedProperties.isEmpty()) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Unknown restore job properties: " + copiedProperties.keySet());
             }
 
@@ -435,24 +435,24 @@ public class BackupRestoreAnalyzer {
     public static Database getDatabase(String dbName, ConnectContext context) {
         Database db = context.getGlobalStateMgr().getLocalMetastore().getDb(dbName);
         if (db == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
         }
         return db;
     }
 
     public static void analyzeLabelAndRepo(String label, String repoName) {
         if (Strings.isNullOrEmpty(label)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_LABEL_NAME, label);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_LABEL_NAME, label);
         }
 
         if (Strings.isNullOrEmpty(repoName)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Repository is empty");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Repository is empty");
         }
 
         Repository repo =
                 GlobalStateMgr.getCurrentState().getBackupHandler().getRepoMgr().getRepo(repoName);
         if (null == repo) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "Repository [" + repoName + "] does not exist");
         }
     }
@@ -473,7 +473,7 @@ public class BackupRestoreAnalyzer {
         if (!tableName.equalsIgnoreCase(alias)) {
             Table tblAlias = GlobalStateMgr.getCurrentState().getLocalMetastore().getTable(db.getFullName(), alias);
             if (tblAlias != null && tbl != tblAlias) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "table [" + alias + "] existed");
             }
         }
@@ -496,7 +496,7 @@ public class BackupRestoreAnalyzer {
         if (tableRef.getPartitionRef() != null) {
             List<String> partitionNames = tableRef.getPartitionRef().getPartitionNames();
             if (!tbl.isNativeTableOrMaterializedView()) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_TABLE_NAME, tableName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_TABLE_NAME, tableName);
             }
             OlapTable olapTbl = (OlapTable) tbl;
             for (String partName : partitionNames) {
@@ -521,13 +521,13 @@ public class BackupRestoreAnalyzer {
         try {
             timeoutMs = Long.parseLong(value);
         } catch (NumberFormatException e) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "Invalid timeout format: "
                             + value);
         }
 
         if (timeoutMs * 1000 < defaultTimeout) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "timeout must be at least 10 min");
         }
         return timeoutMs * 1000;
@@ -538,7 +538,7 @@ public class BackupRestoreAnalyzer {
         try {
             res = Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "Invalid meta version format: "
                             + value);
         }

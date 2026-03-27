@@ -232,7 +232,7 @@ public class InsertAnalyzer {
             Set<String> selectColumnNames = Sets.newTreeSet(String.CASE_INSENSITIVE_ORDER);
             for (String colName : query.getColumnOutputNames()) {
                 if (!selectColumnNames.add(colName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, colName);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, colName);
                 }
             }
 
@@ -278,7 +278,7 @@ public class InsertAnalyzer {
                     throw new SemanticException("generated column '%s' can not be specified", colName);
                 }
                 if (!mentionedColumns.add(colName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, colName);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, colName);
                 }
                 requiredKeyColumns.remove(colName.toLowerCase());
                 targetColumns.add(column);
@@ -288,7 +288,7 @@ public class InsertAnalyzer {
                 if (olapTable.getKeysType().equals(KeysType.PRIMARY_KEYS)) {
                     if (!requiredKeyColumns.isEmpty()) {
                         String missingKeyColumns = String.join(",", requiredKeyColumns);
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_MISSING_KEY_COLUMNS, missingKeyColumns);
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_MISSING_KEY_COLUMNS, missingKeyColumns);
                     }
                     if (targetColumns.size() < olapTable.getBaseSchemaWithoutGeneratedColumn().size() && 
                             session.getSessionVariable().isEnableInsertPartialUpdate()) {
@@ -337,7 +337,7 @@ public class InsertAnalyzer {
 
         // check target and source columns match
         if (query.getRelationFields().size() != mentionedColumnSize) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INSERT_COLUMN_COUNT_MISMATCH, mentionedColumnSize,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INSERT_COLUMN_COUNT_MISMATCH, mentionedColumnSize,
                     query.getRelationFields().size());
         }
 
@@ -392,7 +392,7 @@ public class InsertAnalyzer {
         try {
             LoadStmt.checkProperties(properties);
         } catch (DdlException e) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
         }
 
         // push down some properties to file table function
@@ -438,7 +438,7 @@ public class InsertAnalyzer {
 
         Database database = GlobalStateMgr.getCurrentState().getMetadataMgr().getDb(session, catalogName, dbName);
         if (database == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
         }
 
         QueryRelation queryRelation = insertStmt.getQueryStatement().getQueryRelation();
@@ -625,7 +625,7 @@ public class InsertAnalyzer {
 
         Database database = GlobalStateMgr.getCurrentState().getMetadataMgr().getDb(session, catalogName, dbName);
         if (database == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
         }
         TableName tableNameObj = new TableName(catalogName, dbName, tableName, tableRef.getPos());
         Table table = MetaUtils.getSessionAwareTable(session, database, tableNameObj);

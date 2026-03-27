@@ -855,7 +855,7 @@ public class ShowExecutor {
                 Table table = MetaUtils.getSessionAwareTable(connectContext, db, tableName);
                 if (table == null) {
                     if (showStmt.getType() != ShowCreateTableStmt.CreateTableType.MATERIALIZED_VIEW) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, showStmt.getTable());
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, showStmt.getTable());
                     } else {
                         // For Sync Materialized View, it is a mv index inside OLAP table,
                         // so we can not get it from database.
@@ -887,7 +887,7 @@ public class ShowExecutor {
                                 }
                             }
                         }
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, showStmt.getTable());
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, showStmt.getTable());
                     }
                 }
 
@@ -899,7 +899,7 @@ public class ShowExecutor {
 
                 if (table instanceof View) {
                     if (showStmt.getType() == ShowCreateTableStmt.CreateTableType.MATERIALIZED_VIEW) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_OBJECT, showStmt.getDb(),
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_OBJECT, showStmt.getDb(),
                                 showStmt.getTable(), "MATERIALIZED VIEW");
                     }
                     rows.add(Lists.newArrayList(table.getName(), createTableStmt.get(0), "utf8", "utf8_general_ci"));
@@ -936,7 +936,7 @@ public class ShowExecutor {
                     }
                 } else {
                     if (showStmt.getType() != ShowCreateTableStmt.CreateTableType.TABLE) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_OBJECT, showStmt.getDb(),
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_OBJECT, showStmt.getDb(),
                                 showStmt.getTable(), showStmt.getType().getValue());
                     }
                     rows.add(Lists.newArrayList(table.getName(), createTableStmt.get(0)));
@@ -958,11 +958,11 @@ public class ShowExecutor {
             MetadataMgr metadataMgr = GlobalStateMgr.getCurrentState().getMetadataMgr();
             Database db = metadataMgr.getDb(context, catalogName, dbName);
             if (db == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
             }
             Table table = metadataMgr.getTable(context, catalogName, dbName, tableName);
             if (table == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableName);
             }
 
             List<List<String>> rows = Lists.newArrayList();
@@ -1218,7 +1218,7 @@ public class ShowExecutor {
             Table table = GlobalStateMgr.getCurrentState().getMetadataMgr()
                     .getTable(context, catalogName, dbName, tableRef.getTableName());
             if (table == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR,
                         dbName + "." + tableRef.getTableName());
             }
 
@@ -1568,7 +1568,7 @@ public class ShowExecutor {
             try {
                 procNodeI = ProcService.getInstance().open(procPath);
             } catch (AnalysisException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_PROC_PATH, procPath);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_PROC_PATH, procPath);
                 return null;
             }
 
@@ -1601,7 +1601,7 @@ public class ShowExecutor {
             if (dbName == null) {
                 dbName = context.getDatabase();
                 if (Strings.isNullOrEmpty(dbName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                 }
             }
 
@@ -1631,7 +1631,7 @@ public class ShowExecutor {
             Database db = GlobalStateMgr.getCurrentState().getMetadataMgr()
                     .getDb(context, InternalCatalog.DEFAULT_INTERNAL_CATALOG_NAME, dbName);
             if (db == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
             }
             Locker locker = new Locker();
             locker.lockDatabase(db.getId(), LockType.READ);
@@ -1969,10 +1969,10 @@ public class ShowExecutor {
                             context, db, new TableName(tableRef.getCatalogName(), tableRef.getDbName(),
                                     tableRef.getTableName()));
                     if (table == null) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, statement.getTableName());
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, statement.getTableName());
                     }
                     if (!table.isNativeTableOrMaterializedView()) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_NOT_OLAP_TABLE, statement.getTableName());
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_NOT_OLAP_TABLE, statement.getTableName());
                     }
 
                     Pair<Boolean, Boolean> privResult = Authorizer.checkPrivForShowTablet(
@@ -2014,7 +2014,7 @@ public class ShowExecutor {
                         indexMetaId = olapTable.getIndexMetaIdByName(indexName);
                         if (indexMetaId == null) {
                             // invalid indexName
-                            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, statement.getIndexName());
+                            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, statement.getIndexName());
                         }
                     }
                     for (Partition partition : partitions) {
@@ -2364,13 +2364,13 @@ public class ShowExecutor {
             String dbName = statement.getDbName() != null ? statement.getDbName() : context.getDatabase();
             Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(dbName);
             if (db == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
             }
 
             String tableName = statement.getTblName();
             Table table = db.getTable(tableName);
             if (table == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableName);
             }
 
             if (!table.isCloudNativeTableOrMaterializedView()) {
@@ -2554,7 +2554,7 @@ public class ShowExecutor {
             TableName tableName = new TableName(catalogName, dbName, tableRef.getTableName(), tableRef.getPos());
             Table table = MetaUtils.getSessionAwareTable(context, db, tableName);
             if (table == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR,
                         db.getOriginName() + "." + tableName.toString());
             }
 
@@ -2874,7 +2874,7 @@ public class ShowExecutor {
 
             Catalog catalog = context.getGlobalStateMgr().getCatalogMgr().getCatalogByName(catalogName);
             if (catalog == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
             }
 
             // Create external catalog catalogName (

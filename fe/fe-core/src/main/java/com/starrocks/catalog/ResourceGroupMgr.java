@@ -178,7 +178,7 @@ public class ResourceGroupMgr implements Writable {
 
     public List<List<String>> showResourceGroup(ShowResourceGroupStmt stmt) {
         if (stmt.getName() != null && !resourceGroupMap.containsKey(stmt.getName())) {
-            ErrorReport.reportSemanticException(ErrorCode.ERROR_NO_RG_ERROR, stmt.getName());
+            throw ErrorReport.reportSemanticException(ErrorCode.ERROR_NO_RG_ERROR, stmt.getName());
         }
 
         List<List<String>> rows;

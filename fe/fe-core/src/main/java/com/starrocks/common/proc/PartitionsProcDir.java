@@ -482,7 +482,7 @@ public class PartitionsProcDir implements ProcDirInterface {
                 return i;
             }
         }
-        ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_COLUMN_NAME, columnName);
+        throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_COLUMN_NAME, columnName);
         return -1;
     }
 }

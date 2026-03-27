@@ -182,7 +182,7 @@ public class AdminStmtAnalyzer {
                 }
 
                 if (!properties.isEmpty()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PROPERTY, properties);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PROPERTY, properties);
                 }
             }
 
@@ -231,7 +231,7 @@ public class AdminStmtAnalyzer {
                 adminRepairTableStmt.setDryRun(dryRun);
 
                 if (!properties.isEmpty()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PROPERTY, properties);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_PROPERTY, properties);
                 }
             }
             return null;

@@ -3156,7 +3156,7 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                 try {
                     randomizeStart = Integer.parseInt(properties.get((PropertyAnalyzer.PROPERTY_MV_RANDOMIZE_START)));
                 } catch (NumberFormatException e) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                             PropertyAnalyzer.PROPERTY_MV_RANDOMIZE_START + " only accept integer as parameter");
                 }
                 // remove this transient variable

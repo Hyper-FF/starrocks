@@ -269,7 +269,7 @@ public class InsertPlanner {
                         continue;
                     case NONE_DEPEND_ON_TARGET_COLUMNS: // TODO: handle this case
                     case PARTIALLY_DEPEND_ON_TARGET_COLUMNS:
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_MISSING_DEPENDENCY_FOR_GENERATED_COLUMN,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_MISSING_DEPENDENCY_FOR_GENERATED_COLUMN,
                                 column.getName());
                 }
             }

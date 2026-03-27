@@ -39,11 +39,11 @@ public class CreateRoutineLoadAnalyzer {
         if (Strings.isNullOrEmpty(dbName)) {
             dbName = context.getDatabase();
             if (Strings.isNullOrEmpty(dbName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
         }
         if (Strings.isNullOrEmpty(statement.getTableName())) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR);
         }
         statement.setDBName(dbName);
         statement.setName(label.getLabelName());

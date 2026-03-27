@@ -177,7 +177,7 @@ public class AnalyzerUtils {
         if (Strings.isNullOrEmpty(dbName)) {
             dbName = context.getDatabase();
             if (Strings.isNullOrEmpty(dbName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
         }
 

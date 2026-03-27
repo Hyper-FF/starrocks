@@ -71,7 +71,7 @@ public class LoadStmtAnalyzer {
             if (Strings.isNullOrEmpty(dbName)) {
                 dbName = context.getDatabase();
                 if (Strings.isNullOrEmpty(dbName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                 }
             }
             label.setDbName(dbName);
@@ -84,7 +84,7 @@ public class LoadStmtAnalyzer {
             ResourceDesc resourceDesc = statement.getResourceDesc();
             LabelName label = statement.getLabel();
             if (CollectionUtils.isEmpty(dataDescriptions)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "No data file in load statement.");
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "No data file in load statement.");
             }
             try {
                 boolean isLoadFromTable = false;
@@ -100,11 +100,11 @@ public class LoadStmtAnalyzer {
                 }
                 if (isLoadFromTable) {
                     if (dataDescriptions.size() > 1) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                                 "Only support one olap table load from one external table");
                     }
                     if (resourceDesc == null) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                                 "Load from table should use Spark Load");
                     }
                 }
@@ -148,7 +148,7 @@ public class LoadStmtAnalyzer {
                             if (table.isOlapOrCloudNativeTable()) {
                                 OlapTable olapTable = (OlapTable) table;
                                 if (olapTable.getPartitionInfo().getType() == PartitionType.EXPR_RANGE) {
-                                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                                             "Currently spark load does not support automatic partition tables");
                                 }
                             }
@@ -160,7 +160,7 @@ public class LoadStmtAnalyzer {
 
                 statement.setEtlJobType(etlJobType);
             } catch (AnalysisException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
             }
         }
 
@@ -169,7 +169,7 @@ public class LoadStmtAnalyzer {
             try {
                 LoadStmt.checkProperties(properties);
             } catch (DdlException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
             }
 
             if (properties == null) {
@@ -177,7 +177,7 @@ public class LoadStmtAnalyzer {
             }
             final String versionProperty = properties.get(VERSION);
             if (versionProperty != null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Do not support VERSION property");
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Do not support VERSION property");
             }
             statement.setUser(ConnectContext.get().getQualifiedUser());
         }

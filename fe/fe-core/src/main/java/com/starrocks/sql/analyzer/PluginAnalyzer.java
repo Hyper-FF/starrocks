@@ -33,7 +33,7 @@ public class PluginAnalyzer {
         @Override
         public Void visitInstallPluginStatement(InstallPluginStmt statement, ConnectContext context) {
             if (!Config.plugin_enable) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_OPERATION_DISABLED, "INSTALL PLUGIN",
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_OPERATION_DISABLED, "INSTALL PLUGIN",
                         "Please enable it by setting 'plugin_enable' = 'true'");
             }
             return null;
@@ -42,7 +42,7 @@ public class PluginAnalyzer {
         @Override
         public Void visitUninstallPluginStatement(UninstallPluginStmt statement, ConnectContext context) {
             if (!Config.plugin_enable) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_OPERATION_DISABLED, "INSTALL PLUGIN",
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_OPERATION_DISABLED, "INSTALL PLUGIN",
                         "Please enable it by setting 'plugin_enable' = 'true'");
             }
             return null;

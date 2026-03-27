@@ -84,7 +84,7 @@ public class CreateFunctionAnalyzer {
             } else if (CreateFunctionStmt.TYPE_STARROCKS_PYTHON.equalsIgnoreCase(langType)) {
                 analyzePython(stmt, context);
             } else {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "unknown lang type");
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "unknown lang type");
             }
         }
     }
@@ -146,7 +146,7 @@ public class CreateFunctionAnalyzer {
 
         String objectFile = properties.get(CreateFunctionStmt.FILE_KEY);
         if (Strings.isNullOrEmpty(objectFile)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "No 'object_file' in properties");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "No 'object_file' in properties");
         }
 
         try {
@@ -167,12 +167,12 @@ public class CreateFunctionAnalyzer {
 
             checksum = Hex.encodeHexString(digest.digest());
         } catch (IOException | NoSuchAlgorithmException e) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "cannot to compute object's checksum", e);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "cannot to compute object's checksum", e);
         }
 
         String md5sum = properties.get(CreateFunctionStmt.MD5_CHECKSUM);
         if (md5sum != null && !md5sum.equalsIgnoreCase(checksum)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "library's checksum is not equal with input, checksum=" + checksum);
         }
 
@@ -183,7 +183,7 @@ public class CreateFunctionAnalyzer {
         Map<String, String> properties = stmt.getProperties();
         String className = properties.get(CreateFunctionStmt.SYMBOL_KEY);
         if (Strings.isNullOrEmpty(className)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     "No '" + CreateFunctionStmt.SYMBOL_KEY + "' in properties");
         }
         String objectFile = properties.get(CreateFunctionStmt.FILE_KEY);
@@ -204,13 +204,13 @@ public class CreateFunctionAnalyzer {
                 }
 
             } catch (IOException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Failed to load object_file: " + objectFile, e);
             } catch (ClassNotFoundException e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Class '" + className + "' not found in object_file :" + objectFile, e);
             } catch (Exception e) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "other exception when load class. exception:", e);
             }
         } finally {
@@ -271,7 +271,7 @@ public class CreateFunctionAnalyzer {
         Class<?> stateClass = udafStateClass.clazz;
         if (!Modifier.isPublic(stateClass.getModifiers()) ||
                 !Modifier.isStatic(stateClass.getModifiers())) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     String.format("UDAF '%s' should have one public & static 'State' class",
                             mainClass.getCanonicalName()));
         }
@@ -483,7 +483,7 @@ public class CreateFunctionAnalyzer {
                 if (methods.containsKey(name)) {
                     String errMsg = String.format(
                             "UDF class '%s' has more than one method '%s' ", clazz.getCanonicalName(), name);
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, errMsg);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, errMsg);
                 }
                 methods.put(name, m);
             }
@@ -492,7 +492,7 @@ public class CreateFunctionAnalyzer {
         public Method getMethod(String name, boolean required) {
             Method m = methods.get(name);
             if (m == null && required) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s must have method '%s'", clazz.getCanonicalName(), name));
             }
             return m;
@@ -500,12 +500,12 @@ public class CreateFunctionAnalyzer {
 
         public void checkMethodNonStaticAndPublic(Method method) {
             if (Modifier.isStatic(method.getModifiers())) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' should be non-static", clazz.getCanonicalName(),
                                 method.getName()));
             }
             if (!Modifier.isPublic(method.getModifiers())) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' should be public", clazz.getCanonicalName(),
                                 method.getName()));
             }
@@ -524,7 +524,7 @@ public class CreateFunctionAnalyzer {
                 String errMsg = String.format("UDF class '%s' method '%s' parameter %s[%s] expect type %s",
                         clazz.getCanonicalName(), method.getName(), pname, ptype.getCanonicalName(),
                         expType.getCanonicalName());
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, errMsg);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, errMsg);
             }
         }
 
@@ -532,7 +532,7 @@ public class CreateFunctionAnalyzer {
             if (method.getParameters().length != argumentCount) {
                 String errMsg = String.format("UDF class '%s' method '%s' expect argument count %d",
                         clazz.getCanonicalName(), method.getName(), argumentCount);
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, errMsg);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, errMsg);
             }
         }
 
@@ -554,17 +554,17 @@ public class CreateFunctionAnalyzer {
             } else if (expType instanceof ArrayType) {
                 cls = List.class;
             } else {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' does not support type '%s'",
                                 clazz.getCanonicalName(), method.getName(), expType));
             }
             if (cls == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' does not support type '%s'",
                                 clazz.getCanonicalName(), method.getName(), expType));
             }
             if (!cls.equals(ptype)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' parameter %s[%s] type does not match %s",
                                 clazz.getCanonicalName(), method.getName(), pname, ptype.getCanonicalName(),
                                 cls.getCanonicalName()));
@@ -579,7 +579,7 @@ public class CreateFunctionAnalyzer {
             if (!(expType instanceof ScalarType)) {
                 if (expType.isArrayType()) {
                     if (!ptype.equals(JAVA_ARRAY_CLASS_TYPE)) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                                 String.format("UDF class '%s' method '%s' parameter %s[%s] type does not match %s",
                                         clazz.getCanonicalName(), method.getName(), pname, ptype.getCanonicalName(),
                                         JAVA_ARRAY_CLASS_TYPE.getCanonicalName()));
@@ -593,7 +593,7 @@ public class CreateFunctionAnalyzer {
                 if (expType.isMapType()) {
                     MapType mapType = (MapType) expType;
                     if (!ptype.equals(JAVA_MAP_CLASS_TYPE)) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                                 String.format("UDF class '%s' method '%s' parameter %s[%s] type does not match %s",
                                         clazz.getCanonicalName(), method.getName(), pname, ptype.getCanonicalName(),
                                         JAVA_ARRAY_CLASS_TYPE.getCanonicalName()));
@@ -603,19 +603,19 @@ public class CreateFunctionAnalyzer {
                         return;
                     }
                 }
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' does not support non-scalar type '%s'",
                                 clazz.getCanonicalName(), method.getName(), expType));
             }
             ScalarType scalarType = (ScalarType) expType;
             Class<?> cls = PRIMITIVE_TYPE_TO_JAVA_CLASS_TYPE.get(scalarType.getPrimitiveType());
             if (cls == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' does not support type '%s'",
                                 clazz.getCanonicalName(), method.getName(), scalarType));
             }
             if (!cls.equals(ptype)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' parameter %s[%s] type does not match %s",
                                 clazz.getCanonicalName(), method.getName(), pname, ptype.getCanonicalName(),
                                 cls.getCanonicalName()));
@@ -637,14 +637,14 @@ public class CreateFunctionAnalyzer {
         String objectFile = stmt.getProperties().get(CreateFunctionStmt.FILE_KEY);
 
         if (isInline && !StringUtils.equalsIgnoreCase(objectFile, "inline")) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "inline function file should be 'inline'");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "inline function file should be 'inline'");
         }
         if (isInline) {
             objectFile = "inline";
         }
 
         if (!inputType.equalsIgnoreCase("arrow") && !inputType.equalsIgnoreCase("scalar")) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "unknown input type:" + inputType);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "unknown input type:" + inputType);
         }
 
         FunctionName functionName = FunctionRefAnalyzer.resolveFunctionName(

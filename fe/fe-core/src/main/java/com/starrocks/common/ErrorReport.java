@@ -63,15 +63,15 @@ public class ErrorReport {
         reportAnalysisException(null, errorCode, objs);
     }
 
-    public static void reportSemanticException(ErrorCode errorCode, Object... objs) {
-        reportSemanticException(null, errorCode, objs);
+    public static SemanticException reportSemanticException(ErrorCode errorCode, Object... objs) {
+        return reportSemanticException(null, errorCode, objs);
     }
 
     public static SemanticException buildSemanticException(ErrorCode errorCode, Object... objs) {
         return new SemanticException(reportCommon(null, errorCode, objs));
     }
 
-    public static void reportSemanticException(String pattern, ErrorCode errorCode, Object... objs) {
+    public static SemanticException reportSemanticException(String pattern, ErrorCode errorCode, Object... objs) {
         throw new SemanticException(reportCommon(pattern, errorCode, objs));
     }
 

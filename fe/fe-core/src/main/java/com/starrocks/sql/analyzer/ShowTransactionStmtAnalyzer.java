@@ -55,7 +55,7 @@ public class ShowTransactionStmtAnalyzer {
             if (Strings.isNullOrEmpty(dbName)) {
                 dbName = context.getDatabase();
                 if (Strings.isNullOrEmpty(dbName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
                 }
             }
             statement.setDbName(dbName);
@@ -68,7 +68,7 @@ public class ShowTransactionStmtAnalyzer {
 
         private void analyzeSubPredicate(ShowTransactionStmt statement, Expr subExpr) {
             if (subExpr == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "should supply condition like: ID = $transaction_id");
             }
 
@@ -118,7 +118,7 @@ public class ShowTransactionStmtAnalyzer {
             } while (false);
 
             if (!valid) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "Where clause should looks like: ID = $transaction_id");
             }
         }

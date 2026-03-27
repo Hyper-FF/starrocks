@@ -83,37 +83,37 @@ public class FeNameFormat {
     // The length of db name is 256.
     public static void checkDbName(String dbName) {
         if (Strings.isNullOrEmpty(dbName)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_DB_NAME, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_DB_NAME, dbName);
         }
 
         if (!dbName.matches(DB_NAME_REGEX)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_DB_NAME, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_DB_NAME, dbName);
         }
     }
 
     public static void checkNamespace(String dbName) {
         if (Strings.isNullOrEmpty(dbName)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_DB_NAME, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_DB_NAME, dbName);
         }
 
         if (!dbName.matches(ICEBERG_NAMESPACE_REGEX)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_DB_NAME, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_DB_NAME, dbName);
         }
     }
 
     public static void checkTableName(String tableName) {
         if (Strings.isNullOrEmpty(tableName) || !tableName.matches(TABLE_NAME_REGEX)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_TABLE_NAME, tableName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_TABLE_NAME, tableName);
         }
     }
 
     public static void checkPartitionName(String partitionName) throws AnalysisException {
         if (Strings.isNullOrEmpty(partitionName) || !partitionName.matches(COMMON_NAME_REGEX)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_PARTITION_NAME, partitionName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_PARTITION_NAME, partitionName);
         }
 
         if (partitionName.startsWith(FORBIDDEN_PARTITION_NAME)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_PARTITION_NAME, partitionName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_PARTITION_NAME, partitionName);
         }
     }
 
@@ -123,7 +123,7 @@ public class FeNameFormat {
 
     public static void checkColumnName(String columnName, boolean isPartitionColumn) {
         if (Strings.isNullOrEmpty(columnName)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_COLUMN_NAME, columnName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_COLUMN_NAME, columnName);
         }
         String pattern;
         if (RunMode.isSharedNothingMode()) {
@@ -133,11 +133,11 @@ public class FeNameFormat {
         }
 
         if (!columnName.matches(pattern)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_COLUMN_NAME, columnName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_COLUMN_NAME, columnName);
         }
 
         if (columnName.startsWith(SchemaChangeHandler.SHADOW_NAME_PREFIX)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_COLUMN_NAME, columnName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_COLUMN_NAME, columnName);
         }
 
         if (!Config.allow_system_reserved_names) {
@@ -194,7 +194,7 @@ public class FeNameFormat {
 
     public static void checkCommonName(String type, String name) {
         if (Strings.isNullOrEmpty(name) || !name.matches(COMMON_NAME_REGEX)) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_NAME_FORMAT, type, name);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_WRONG_NAME_FORMAT, type, name);
         }
     }
 }

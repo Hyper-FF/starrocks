@@ -51,13 +51,13 @@ public class RefreshTableStatementAnalyzer {
             String tblName = tableRef.getTableName();
 
             if (!GlobalStateMgr.getCurrentState().getCatalogMgr().catalogExists(catalogName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalogName);
             }
             if (metadataMgr.getDb(context, catalogName, dbName) == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, dbName);
             }
             if (metadataMgr.getTable(context, catalogName, dbName, tblName) == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tblName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tblName);
             }
 
             return null;

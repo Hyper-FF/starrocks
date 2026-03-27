@@ -41,7 +41,7 @@ public class TaskAnalyzer {
         if (Strings.isNullOrEmpty(dbName)) {
             dbName = session.getDatabase();
             if (Strings.isNullOrEmpty(dbName)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
         }
         submitTaskStmt.setCatalogName(catalogName);
@@ -62,7 +62,7 @@ public class TaskAnalyzer {
         }
         long seconds = schedule.getTimeUnit().toSeconds(schedule.getPeriod());
         if (seconds < Config.task_min_schedule_interval_s) {
-            ErrorReport.reportSemanticException("schedule interval is too small, the minimum value is %d SECONDS",
+            throw ErrorReport.reportSemanticException("schedule interval is too small, the minimum value is %d SECONDS",
                     ErrorCode.ERR_INVALID_PARAMETER,
                     Config.task_min_schedule_interval_s);
         }
@@ -77,7 +77,7 @@ public class TaskAnalyzer {
         }
         String value = properties.get(SessionVariable.WAREHOUSE_NAME);
         if (value != null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, SessionVariable.WAREHOUSE_NAME);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER, SessionVariable.WAREHOUSE_NAME);
         }
     }
 

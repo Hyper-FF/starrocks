@@ -359,7 +359,7 @@ public class QueryAnalyzer {
             for (CTERelation withQuery : stmt.getCteRelations()) {
                 String cteName = withQuery.getName();
                 if (cteNames.contains(cteName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NONUNIQ_TABLE, cteName);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NONUNIQ_TABLE, cteName);
                 }
                 cteNames.add(cteName);
             }
@@ -390,7 +390,7 @@ public class QueryAnalyzer {
                 withQuery.setColumnOutputNames(Lists.newArrayList(anchor.getColumnOutputNames()));
             } else {
                 if (withQuery.getColumnOutputNames().size() != anchor.getColumnOutputNames().size()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_VIEW_WRONG_LIST);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_VIEW_WRONG_LIST);
                 }
             }
 
@@ -449,7 +449,7 @@ public class QueryAnalyzer {
                 withQuery.setColumnOutputNames(new ArrayList<>(query.getColumnOutputNames()));
             } else {
                 if (withQuery.getColumnOutputNames().size() != query.getColumnOutputNames().size()) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_VIEW_WRONG_LIST);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_VIEW_WRONG_LIST);
                 }
             }
 
@@ -678,7 +678,7 @@ public class QueryAnalyzer {
                 TableName resolveTableName = relation.getResolveTableName();
                 resolveTableName.normalization(session);
                 if (aliasSet.contains(resolveTableName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NONUNIQ_TABLE,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NONUNIQ_TABLE,
                             relation.getResolveTableName().getTbl());
                 } else {
                     aliasSet.add(new TableName(resolveTableName.getCatalog(),
@@ -760,7 +760,7 @@ public class QueryAnalyzer {
             } else {
                 if (relation.getResolveTableName() != null) {
                     if (aliasSet.contains(relation.getResolveTableName())) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_NONUNIQ_TABLE,
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_NONUNIQ_TABLE,
                                 relation.getResolveTableName().getTbl());
                     } else {
                         aliasSet.add(relation.getResolveTableName());
@@ -1373,7 +1373,7 @@ public class QueryAnalyzer {
         @Override
         public Scope visitSubqueryRelation(SubqueryRelation subquery, Scope context) {
             if (subquery.getResolveTableName() != null && subquery.getResolveTableName().getTbl() == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_DERIVED_MUST_HAVE_ALIAS);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_DERIVED_MUST_HAVE_ALIAS);
             }
 
             Scope queryOutputScope = process(subquery.getQueryStatement(), context);

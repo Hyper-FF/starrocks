@@ -116,7 +116,7 @@ public class ParseUtil {
                 || value.equalsIgnoreCase("0")) {
             return false;
         }
-        ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_VALUE, name, value,
+        throw ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_VALUE, name, value,
                 "1, 0, on, off, true, or false (case insensitive)");
         return false;
     }

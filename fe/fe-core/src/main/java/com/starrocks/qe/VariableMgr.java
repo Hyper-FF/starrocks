@@ -546,7 +546,7 @@ public class VariableMgr {
     public void fillValue(SessionVariable var, VariableExpr desc) {
         VarContext ctx = getVarContext(desc.getName());
         if (ctx == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_SYSTEM_VARIABLE, desc.getName(),
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_SYSTEM_VARIABLE, desc.getName(),
                     findSimilarVarNames(desc.getName()));
         }
 
@@ -611,7 +611,7 @@ public class VariableMgr {
     public String getValue(SessionVariable var, VariableExpr desc) {
         VarContext ctx = getVarContext(desc.getName());
         if (ctx == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_SYSTEM_VARIABLE, desc.getName(),
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_SYSTEM_VARIABLE, desc.getName(),
                     findSimilarVarNames(desc.getName()));
         }
 
@@ -821,13 +821,13 @@ public class VariableMgr {
     public String getDefaultValue(String variable) {
         VarContext ctx = getVarContext(variable);
         if (ctx == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_SYSTEM_VARIABLE, variable,
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_UNKNOWN_SYSTEM_VARIABLE, variable,
                     findSimilarVarNames(variable));
         }
 
         String value = ctx.getDefaultValue();
         if (value == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DEFAULT, variable);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DEFAULT, variable);
         }
         return value;
     }

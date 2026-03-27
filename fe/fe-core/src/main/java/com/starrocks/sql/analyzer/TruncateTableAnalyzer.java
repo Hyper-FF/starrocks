@@ -78,7 +78,7 @@ public class TruncateTableAnalyzer {
         if (Strings.isNullOrEmpty(catalog)) {
             catalog = context.getCurrentCatalog();
             if (Strings.isNullOrEmpty(catalog)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalog);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_CATALOG_ERROR, catalog);
             }
         }
 
@@ -87,7 +87,7 @@ public class TruncateTableAnalyzer {
         if (Strings.isNullOrEmpty(db)) {
             db = context.getDatabase();
             if (Strings.isNullOrEmpty(db)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR);
             }
         }
 

@@ -64,7 +64,7 @@ public class CreateTableLikeAnalyzer {
         AstToStringBuilder.getDdlStmt(targetTableName.getDb(), table, createTableStmt, null,
                 null, false, false, stmt instanceof CreateTemporaryTableLikeStmt);
         if (createTableStmt.isEmpty()) {
-            ErrorReport.reportSemanticException(ErrorCode.ERROR_CREATE_TABLE_LIKE_EMPTY, "CREATE");
+            throw ErrorReport.reportSemanticException(ErrorCode.ERROR_CREATE_TABLE_LIKE_EMPTY, "CREATE");
         }
 
         StatementBase statementBase =
@@ -93,7 +93,7 @@ public class CreateTableLikeAnalyzer {
             com.starrocks.sql.analyzer.Analyzer.analyze(parsedCreateTableStmt, context);
             stmt.setCreateTableStmt(parsedCreateTableStmt);
         } else {
-            ErrorReport.reportSemanticException(ErrorCode.ERROR_CREATE_TABLE_LIKE_UNSUPPORTED_VIEW);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERROR_CREATE_TABLE_LIKE_UNSUPPORTED_VIEW);
         }
     }
 }

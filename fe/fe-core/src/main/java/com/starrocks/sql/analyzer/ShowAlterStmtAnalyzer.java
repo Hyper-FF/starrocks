@@ -88,13 +88,13 @@ public class ShowAlterStmtAnalyzer {
             if (Strings.isNullOrEmpty(dbName)) {
                 dbName = context.getDatabase();
                 if (Strings.isNullOrEmpty(dbName)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR, dbName);
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_NO_DB_ERROR, dbName);
                 }
             }
             statement.setDbName(dbName);
             // Check db.
             if (context.getGlobalStateMgr().getLocalMetastore().getDb(dbName) == null) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
             }
 
             ShowAlterStmt.AlterType type = statement.getType();
@@ -113,14 +113,14 @@ public class ShowAlterStmtAnalyzer {
                 ArrayList<OrderByPair> orderByPairs = new ArrayList<OrderByPair>();
                 for (OrderByElement orderByElement : orderByElements) {
                     if (!(orderByElement.getExpr() instanceof SlotRef)) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Should order by column");
                     }
                     SlotRef slotRef = (SlotRef) orderByElement.getExpr();
                     int index = 0;
                     try {
                         index = SchemaChangeProcDir.analyzeColumn(slotRef.getColumnName());
                     } catch (AnalysisException e) {
-                        ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
+                        throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
                     }
                     OrderByPair orderByPair = new OrderByPair(index, !orderByElement.getIsAsc());
                     orderByPairs.add(orderByPair);
@@ -131,24 +131,24 @@ public class ShowAlterStmtAnalyzer {
 
         private void getPredicateValue(Expr subExpr) {
             if (!(subExpr instanceof BinaryPredicate)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "The operator =|>=|<=|>|<|!= are supported.");
             }
             BinaryPredicate binaryPredicate = (BinaryPredicate) subExpr;
             if (!(subExpr.getChild(0) instanceof SlotRef)) {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Only support column = xxx syntax.");
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, "Only support column = xxx syntax.");
             }
             String leftKey = ((SlotRef) subExpr.getChild(0)).getColumnName().toLowerCase();
             if (leftKey.equals("tablename") || leftKey.equals("state")) {
                 if (!(subExpr.getChild(1) instanceof StringLiteral) ||
                         binaryPredicate.getOp() != BinaryType.EQ) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "Where clause : TableName = \"table1\" or "
                                     + "State = \"FINISHED|CANCELLED|RUNNING|PENDING|WAITING_TXN\"");
                 }
             } else if (leftKey.equals("createtime") || leftKey.equals("finishtime")) {
                 if (!(subExpr.getChild(1) instanceof StringLiteral)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "Where clause : CreateTime/FinishTime =|>=|<=|>|<|!= "
                                     + "\"2019-12-02|2019-12-02 14:54:00\"");
                 }
@@ -156,10 +156,10 @@ public class ShowAlterStmtAnalyzer {
                     subExpr.setChild(1,
                             ExprCastFunction.castTo((StringLiteral) subExpr.getChild(1), DateType.DATETIME));
                 } catch (AnalysisException e) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR, e.getMessage());
                 }
             } else {
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         "The columns of TableName/CreateTime/FinishTime/State are supported.");
             }
             filterMap.put(leftKey, subExpr);
@@ -172,7 +172,7 @@ public class ShowAlterStmtAnalyzer {
             if (subExpr instanceof CompoundPredicate) {
                 CompoundPredicate cp = (CompoundPredicate) subExpr;
                 if (cp.getOp() != CompoundPredicate.Operator.AND) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    throw ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             "Only allow compound predicate with operator AND");
                 }
                 analyzeSubPredicate(cp.getChild(0));

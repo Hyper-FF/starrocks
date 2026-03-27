@@ -562,7 +562,7 @@ public class StatementPlanner {
 
         Database db = GlobalStateMgr.getCurrentState().getMetadataMgr().getDb(session, catalogName, dbName);
         if (db == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
         }
         TableName tableNameObj = TableName.fromTableRef(tableRef);
         Table targetTable = MetaUtils.getSessionAwareTable(session, db, tableNameObj);
@@ -652,7 +652,7 @@ public class StatementPlanner {
         String dbName = tableRef.getDbName();
         Database db = GlobalStateMgr.getCurrentState().getMetadataMgr().getDb(session, catalogName, dbName);
         if (db == null) {
-            ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
+            throw ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, dbName);
         }
         TableName tableNameObj = TableName.fromTableRef(tableRef);
         Table targetTable = MetaUtils.getSessionAwareTable(session, db, tableNameObj);
