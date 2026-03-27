@@ -1,0 +1,56 @@
+-- name: test_flat_json_variable_path @system
+create database test_db_${uuid0};
+-- result:
+-- !result
+use test_db_${uuid0};
+-- result:
+-- !result
+CREATE TABLE `js_src` (
+  `id` bigint(20) NOT NULL,
+  `j1` json NULL,
+  `arr` array<varchar(65533)> NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`id`)
+DISTRIBUTED BY HASH(`id`) BUCKETS 4
+PROPERTIES (
+"replication_num" = "1",
+"flat_json.enable" = "true",
+"flat_json.null.factor" = "0.3",
+"flat_json.sparsity.factor" = "0.2",
+"flat_json.column.max" = "20"
+);
+-- result:
+-- !result
+INSERT INTO js_src VALUES
+(1,  parse_json('{"key1": "val11",  "key2": "val12"}'),  ['key1', 'key2']),
+(2,  parse_json('{"key1": "val21",  "key2": "val22"}'),  ['key2', 'key1']),
+(3,  parse_json('{"key1": "val31",  "key2": "val32"}'),  ['key1', 'key2']),
+(4,  parse_json('{"key1": "val41",  "key2": "val42"}'),  ['key2', 'key1']),
+(5,  parse_json('{"key1": "val51",  "key2": "val52"}'),  ['key1', 'key2']),
+(6,  parse_json('{"key1": "val61",  "key2": "val62"}'),  ['key1', 'key2']),
+(7,  parse_json('{"key1": "val71",  "key2": "val72"}'),  ['key2', 'key1']),
+(8,  parse_json('{"key1": "val81",  "key2": "val82"}'),  ['key1', 'key2']),
+(9,  parse_json('{"key1": "val91",  "key2": "val92"}'),  ['key2', 'key1']),
+(10, parse_json('{"key1": "val101", "key2": "val102"}'), ['key1', 'key2']);
+-- result:
+-- !result
+insert into js_src select * from js_src;
+-- result:
+-- !result
+insert into js_src select * from js_src;
+-- result:
+-- !result
+insert into js_src select * from js_src;
+-- result:
+-- !result
+SELECT id, array_map(k -> get_json_string(j1, concat('$.', k)), arr)
+FROM js_src
+ORDER BY id
+LIMIT 2;
+-- result:
+1	["val11","val12"]
+1	["val11","val12"]
+-- !result
+drop database test_db_${uuid0};
+-- result:
+-- !result
