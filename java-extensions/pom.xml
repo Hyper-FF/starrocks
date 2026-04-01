@@ -32,7 +32,7 @@
         <hikaricp.version>7.0.2</hikaricp.version>
         <compiler-plugin.version>3.13.0</compiler-plugin.version>
         <java-extensions.home>${basedir}</java-extensions.home>
-        <aws-v2-sdk.version>2.42.1</aws-v2-sdk.version>
+        <aws-v2-sdk.version>2.42.25</aws-v2-sdk.version>
         <hadoop.version>3.4.3</hadoop.version>
         <zookeeper.version>3.8.6</zookeeper.version>
         <iceberg.version>1.10.0</iceberg.version>
