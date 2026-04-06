@@ -471,7 +471,10 @@ std::string JDBCTableDescriptor::debug_string() const {
 
 Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescriptorTable& thrift_tbl,
                              DescriptorTbl** tbl, int32_t chunk_size) {
-    MemPool* mp = state != nullptr ? state->fragment_mem_pool() : nullptr;
+    // Only use fragment MemPool when pool is the fragment-level ObjectPool.
+    // When pool is query-level (e.g. _query_ctx->object_pool()), descriptors may
+    // outlive the fragment, so they must be heap-allocated to avoid use-after-free.
+    MemPool* mp = (state != nullptr && pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
 
 // Placement-new T into fragment MemPool; fall back to heap when unavailable.
 #define ALLOC_DESC(T, ...)                                                                      \

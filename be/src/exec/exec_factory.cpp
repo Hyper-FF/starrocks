@@ -82,9 +82,11 @@ namespace starrocks {
 
 namespace {
 
-// Get the fragment-level MemPool from RuntimeState (nullptr when unavailable).
-inline MemPool* get_fragment_mem_pool(RuntimeState* state) {
-    return state != nullptr ? state->fragment_mem_pool() : nullptr;
+// Get the fragment-level MemPool, but only when |pool| belongs to the same
+// fragment.  If pool is query-level, descriptors may outlive the fragment
+// MemPool → use-after-free.  Return nullptr to fall back to heap allocation.
+inline MemPool* get_fragment_mem_pool(RuntimeState* state, ObjectPool* pool) {
+    return (state != nullptr && pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
 }
 
 // Allocate sizeof(T) bytes with proper alignment from |mem_pool|.
@@ -200,7 +202,7 @@ Status ExecFactory::create_tree(RuntimeState* state, ObjectPool* pool, const TPl
 
 Status ExecFactory::create_vectorized_node(RuntimeState* state, ObjectPool* pool, const TPlanNode& tnode,
                                            const DescriptorTbl& descs, ExecNode** node) {
-    MemPool* mp = get_fragment_mem_pool(state);
+    MemPool* mp = get_fragment_mem_pool(state, pool);
 
 // Placement-new T into fragment MemPool and register destructor in ObjectPool.
 // Falls back to heap when no MemPool is available (e.g. unit tests).
