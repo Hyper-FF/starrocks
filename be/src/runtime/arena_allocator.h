@@ -40,9 +40,7 @@ public:
     MemPool* pool() const noexcept { return _pool; }
 
 private:
-    void* do_allocate(size_t bytes, size_t alignment) override {
-        return _pool->allocate_aligned(bytes, alignment);
-    }
+    void* do_allocate(size_t bytes, size_t alignment) override { return _pool->allocate_aligned(bytes, alignment); }
 
     void do_deallocate(void* /*p*/, size_t /*bytes*/, size_t /*alignment*/) override {
         // No-op: MemPool owns all memory and frees it in bulk.

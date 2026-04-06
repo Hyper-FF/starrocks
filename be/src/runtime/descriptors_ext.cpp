@@ -22,7 +22,6 @@
 #include "base/time/timezone_utils.h"
 #include "common/object_pool.h"
 #include "common/status.h"
-#include "runtime/mem_pool.h"
 #include "common/util/thrift_util.h"
 #include "exprs/base64.h"
 #include "exprs/expr.h"
@@ -30,6 +29,7 @@
 #include "exprs/expr_factory.h"
 #include "gen_cpp/Descriptors_types.h"
 #include "gen_cpp/PlanNodes_types.h"
+#include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
 #include "util/compression/block_compression.h"
 
@@ -474,7 +474,7 @@ Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescr
     MemPool* mp = state != nullptr ? state->fragment_mem_pool() : nullptr;
 
 // Placement-new T into fragment MemPool; fall back to heap when unavailable.
-#define ALLOC_DESC(T, ...)                                                \
+#define ALLOC_DESC(T, ...)                                                                      \
     (mp != nullptr ? pool->emplace<T>(mp->allocate_aligned(sizeof(T), alignof(T)), __VA_ARGS__) \
                    : pool->add(new T(__VA_ARGS__)))
 

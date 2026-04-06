@@ -18,8 +18,6 @@
 #include <unordered_map>
 
 #include "base/hash/hash_std.hpp"
-#include "runtime/arena_allocator.h"
-#include "runtime/mem_pool.h"
 #include "base/time/time.h"
 #include "base/uid_util.h"
 #include "exec/exec_node.h"
@@ -41,6 +39,8 @@
 #include "gen_cpp/PlanNodes_types.h"
 #include "gen_cpp/QueryPlanExtra_types.h"
 #include "gen_cpp/Types_types.h"
+#include "runtime/arena_allocator.h"
+#include "runtime/mem_pool.h"
 #include "runtime/profile_report_worker.h"
 #include "runtime/runtime_filter_worker.h"
 #include "runtime/runtime_state.h"
