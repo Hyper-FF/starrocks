@@ -39,8 +39,7 @@ DEFINE_FAIL_POINT(parquet_chunk_writer_init_failed);
 
 namespace {
 
-FieldPtr build_field_from_type_desc(const TypeDescriptor& type_desc, std::string_view name, int32_t id,
-                                    bool nullable) {
+FieldPtr build_field_from_type_desc(const TypeDescriptor& type_desc, std::string_view name, int32_t id, bool nullable) {
     TypeInfoPtr type_info = get_type_info(type_desc);
     DCHECK(type_info != nullptr);
 
