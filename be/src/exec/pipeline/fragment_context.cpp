@@ -64,7 +64,7 @@ private:
     DataStreamMgr* _stream_mgr;
     TUniqueId _query_id;
 };
-  
+
 FragmentContext::FragmentContext()
         : _fragment_mem_pool(std::make_unique<MemPool>()),
           _mem_resource(_fragment_mem_pool.get()),
