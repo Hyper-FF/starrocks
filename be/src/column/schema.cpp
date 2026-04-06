@@ -284,7 +284,7 @@ void Schema::_build_index_map(const Fields& fields) {
     }
 }
 
-size_t Schema::get_field_index_by_name(const std::string& name) const {
+size_t Schema::get_field_index_by_name(std::string_view name) const {
     DCHECK(_name_to_index != nullptr);
     auto p = _name_to_index->find(name);
     if (p == _name_to_index->end()) {
