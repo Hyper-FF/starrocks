@@ -215,7 +215,7 @@ Status IcebergTableSink::create_delete_sink_context(
         const auto& expr = output_exprs[i];
         for (const auto& node : expr.nodes) {
             if (node.node_type == TExprNodeType::SLOT_REF && node.__isset.slot_ref) {
-                delete_sink_ctx->column_slot_map[slot->col_name()] = node;
+                delete_sink_ctx->column_slot_map[std::string(slot->col_name())] = node;
                 break;
             }
         }

@@ -375,7 +375,8 @@ void FileScanner::merge_schema(const std::vector<std::vector<SlotDescriptor>>& i
     std::map<std::string, size_t> merged_schema_index;
     for (const auto& schema : input) {
         for (const auto& slot : schema) {
-            auto itr = merged_schema_index.find(slot.col_name());
+            auto col = std::string(slot.col_name());
+            auto itr = merged_schema_index.find(col);
             if (itr == merged_schema_index.end()) {
                 merged_schema.emplace_back(
                         std::make_shared<SlotDescriptor>(merged_schema.size(), slot.col_name(), slot.type()));
