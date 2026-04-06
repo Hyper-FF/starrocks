@@ -380,7 +380,7 @@ void FileScanner::merge_schema(const std::vector<std::vector<SlotDescriptor>>& i
             if (itr == merged_schema_index.end()) {
                 merged_schema.emplace_back(
                         std::make_shared<SlotDescriptor>(merged_schema.size(), slot.col_name(), slot.type()));
-                merged_schema_index.insert({slot.col_name(), merged_schema.size() - 1});
+                merged_schema_index.emplace(std::string(slot.col_name()), merged_schema.size() - 1);
             } else {
                 const auto& merged_type = merged_schema[itr->second]->type();
                 const auto& slot_type = slot.type();

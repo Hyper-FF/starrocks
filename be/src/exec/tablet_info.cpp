@@ -97,7 +97,7 @@ Status OlapTableSchemaParam::init(const POlapTableSchemaParam& pschema) {
     for (auto& p_slot_desc : pschema.slot_descs()) {
         auto slot_desc = _obj_pool.add(new SlotDescriptor(p_slot_desc));
         _tuple_desc->add_slot(slot_desc);
-        slots_map.emplace(slot_desc->col_name(), slot_desc);
+        slots_map.emplace(std::string(slot_desc->col_name()), slot_desc);
     }
     for (auto& p_index : pschema.indexes()) {
         auto index = _obj_pool.add(new OlapTableIndexSchema());
@@ -159,7 +159,7 @@ Status OlapTableSchemaParam::init(const TOlapTableSchemaParam& tschema, RuntimeS
     for (auto& t_slot_desc : tschema.slot_descs) {
         auto slot_desc = _obj_pool.add(new SlotDescriptor(t_slot_desc));
         _tuple_desc->add_slot(slot_desc);
-        slots_map.emplace(slot_desc->col_name(), slot_desc);
+        slots_map.emplace(std::string(slot_desc->col_name()), slot_desc);
     }
     for (auto& t_index : tschema.indexes) {
         auto index = _obj_pool.add(new OlapTableIndexSchema());
@@ -252,7 +252,7 @@ OlapTablePartitionParam::~OlapTablePartitionParam() = default;
 Status OlapTablePartitionParam::init(RuntimeState* state) {
     std::map<std::string, SlotDescriptor*> slots_map;
     for (auto slot_desc : _schema->tuple_desc()->slots()) {
-        slots_map.emplace(slot_desc->col_name(), slot_desc);
+        slots_map.emplace(std::string(slot_desc->col_name()), slot_desc);
     }
 
     for (auto& part_col : _t_param.partition_columns) {
