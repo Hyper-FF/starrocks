@@ -150,6 +150,14 @@ void RuntimeState::set_fragment_ctx(pipeline::FragmentContext* fragment_ctx) {
     }
 }
 
+MemPool* RuntimeState::fragment_mem_pool() {
+    return _fragment_ctx != nullptr ? _fragment_ctx->fragment_mem_pool() : nullptr;
+}
+
+std::pmr::memory_resource* RuntimeState::mem_resource() {
+    return _fragment_ctx != nullptr ? _fragment_ctx->mem_resource() : nullptr;
+}
+
 void RuntimeState::_init(const TUniqueId& fragment_instance_id, const TQueryOptions& query_options,
                          const TQueryGlobals& query_globals, ExecEnv* exec_env) {
     _fragment_instance_id = fragment_instance_id;

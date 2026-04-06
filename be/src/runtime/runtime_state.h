@@ -38,6 +38,7 @@
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <memory_resource>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -142,6 +143,14 @@ public:
     ExecEnv* exec_env() { return _exec_env; }
     MemTracker* instance_mem_tracker() { return _instance_mem_tracker.get(); }
     MemPool* instance_mem_pool() { return _instance_mem_pool.get(); }
+
+    // Returns the fragment-level shared MemPool. Its lifetime is the FragmentContext's
+    // lifetime, which outlives all ExecNodes.
+    MemPool* fragment_mem_pool();
+
+    // Returns the PMR memory resource backed by the fragment MemPool.
+    // nullptr when no FragmentContext is set.
+    std::pmr::memory_resource* mem_resource();
     std::shared_ptr<MemTracker> query_mem_tracker_ptr() { return _query_mem_tracker; }
     void set_query_mem_tracker(const std::shared_ptr<MemTracker>& query_mem_tracker) {
         _query_mem_tracker = query_mem_tracker;
