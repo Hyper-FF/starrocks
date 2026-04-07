@@ -148,6 +148,7 @@ public:
 private:
     friend class DescriptorTbl;
     friend class OlapTableSchemaParam;
+    friend class ObjectPool;
 
     const TupleId _id;
     TableDescriptor* _table_desc;
@@ -190,6 +191,8 @@ private:
     SlotDescriptorMap _slot_with_column_name_map;
 
     DescriptorTbl() = default;
+
+    friend class ObjectPool;
 };
 
 // Records positions of tuples within row produced by ExecNode.

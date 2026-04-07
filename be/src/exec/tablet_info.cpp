@@ -78,7 +78,7 @@ void OlapTableIndexSchema::to_protobuf(POlapTableIndexSchema* pindex) const {
     pindex->set_schema_id(schema_id);
     pindex->set_is_shadow(is_shadow);
     for (auto slot : slots) {
-        pindex->add_columns(slot->col_name());
+        pindex->add_columns(std::string(slot->col_name()));
     }
     if (column_param != nullptr) {
         column_param->to_protobuf(pindex->mutable_column_param());

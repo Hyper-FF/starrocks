@@ -48,7 +48,8 @@ Status append_iceberg_sink_column(const SlotDescriptor* slot,
         return Status::InternalError("Iceberg sink columns do not match output expressions");
     }
 
-    column_names->emplace_back(slot->col_name());
+    const std::string col_name(slot->col_name());
+    column_names->emplace_back(col_name);
 
     auto it = field_ids_by_name.find(col_name);
     if (it != field_ids_by_name.end()) {

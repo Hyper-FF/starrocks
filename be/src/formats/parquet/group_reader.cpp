@@ -705,7 +705,7 @@ StatusOr<Datum> GroupReader::_get_extended_bigint_value(SlotId slot_id) const {
     return Datum(node.int_literal.value);
 }
 
-VariantShreddedReadHints GroupReader::_get_variant_shredded_hints(const std::string& column_name) const {
+VariantShreddedReadHints GroupReader::_get_variant_shredded_hints(std::string_view column_name) const {
     VariantShreddedReadHints hints;
     if (_param.column_access_paths == nullptr || _param.column_access_paths->empty()) {
         return hints;

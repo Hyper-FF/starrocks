@@ -264,7 +264,7 @@ std::vector<ColumnId> Schema::field_column_ids(bool use_rowstore) const {
     return column_ids;
 }
 
-FieldPtr Schema::get_field_by_name(const std::string& name) const {
+FieldPtr Schema::get_field_by_name(std::string_view name) const {
     size_t idx = get_field_index_by_name(name);
     return idx == -1 ? nullptr : _fields[idx];
 }

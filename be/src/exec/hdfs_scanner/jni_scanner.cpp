@@ -406,11 +406,16 @@ StatusOr<size_t> JniScanner::fill_empty_chunk(ChunkPtr* chunk) {
     return status;
 }
 
-static void build_nested_fields(const TypeDescriptor& type, const std::string& parent, std::string* sb) {
+static void build_nested_fields(const TypeDescriptor& type, std::string_view parent, std::string* sb) {
     for (int i = 0; i < type.children.size(); i++) {
         const auto& t = type.children[i];
         if (t.is_unknown_type()) continue;
-        std::string p = parent + "." + (type.is_struct_type() ? type.field_names[i] : fmt::format("${}", i));
+        std::string p;
+        if (type.is_struct_type()) {
+            p = fmt::format("{}.{}", parent, type.field_names[i]);
+        } else {
+            p = fmt::format("{}.${}", parent, i);
+        }
         if (t.is_complex_type()) {
             build_nested_fields(t, p, sb);
         } else {

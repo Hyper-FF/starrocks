@@ -96,7 +96,7 @@ public:
     std::vector<ColumnId> value_field_column_ids() const;
 
     // return null if name not found
-    FieldPtr get_field_by_name(const std::string& name) const;
+    FieldPtr get_field_by_name(std::string_view name) const;
 
     void set_field_by_name(FieldPtr field, const std::string& name);
 
