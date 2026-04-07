@@ -83,8 +83,9 @@ namespace starrocks {
 namespace {
 
 // Get the fragment-level MemPool, but only when |pool| belongs to the same
-// fragment.  If pool is query-level, descriptors may outlive the fragment
-// MemPool → use-after-free.  Return nullptr to fall back to heap allocation.
+// fragment. If |pool| is query-level, ExecNodes / plan nodes allocated here
+// may outlive the fragment MemPool and cause use-after-free. Return nullptr
+// to fall back to heap allocation.
 inline MemPool* get_fragment_mem_pool(RuntimeState* state, ObjectPool* pool) {
     return (state != nullptr && pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
 }
