@@ -93,7 +93,9 @@ inline MemPool* get_fragment_mem_pool(RuntimeState* state, ObjectPool* pool) {
 // Allocate sizeof(T) bytes with proper alignment from |mem_pool|.
 template <typename T>
 void* alloc_from(MemPool* mem_pool) {
-    return mem_pool->allocate_aligned(sizeof(T), alignof(T));
+    void* ptr = mem_pool->allocate_aligned(sizeof(T), alignof(T));
+    DCHECK(ptr != nullptr);
+    return ptr;
 }
 
 Status check_tuple_ids_in_descs(const DescriptorTbl& descs, const TPlanNode& plan_node) {
