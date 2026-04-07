@@ -18,6 +18,8 @@
 
 #include <rapidjson/writer.h>
 
+#include <chrono>
+#include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -28,9 +30,8 @@
 #include "base/compiler_util.h"
 #include "base/concurrency/spinlock.h"
 #include "base/debug/trace_metrics.h"
-#include "base/gutil/ref_counted.h"
+#include "base/ref_counted.h"
 #include "base/gutil/threading/thread_collision_warner.h"
-#include "base/gutil/walltime.h"
 
 namespace starrocks {
 class Trace;
@@ -246,15 +247,25 @@ private:
 // Implementation for TRACE_COUNTER_SCOPE_LATENCY_US(...) macro above.
 class ScopedTraceLatencyCounter {
 public:
-    explicit ScopedTraceLatencyCounter(const char* counter) : counter_(counter), start_time_(GetCurrentTimeMicros()) {}
+    explicit ScopedTraceLatencyCounter(const char* counter)
+            : counter_(counter),
+              start_time_(std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::system_clock::now().time_since_epoch())
+                                  .count()) {}
 
-    ~ScopedTraceLatencyCounter() { TRACE_COUNTER_INCREMENT(counter_, GetCurrentTimeMicros() - start_time_); }
+    ~ScopedTraceLatencyCounter() {
+        TRACE_COUNTER_INCREMENT(counter_,
+                                std::chrono::duration_cast<std::chrono::microseconds>(
+                                        std::chrono::system_clock::now().time_since_epoch())
+                                                .count() -
+                                        start_time_);
+    }
     ScopedTraceLatencyCounter(const ScopedTraceLatencyCounter&) = delete;
     const ScopedTraceLatencyCounter& operator=(const ScopedTraceLatencyCounter&) = delete;
 
 private:
     const char* const counter_;
-    MicrosecondsInt64 start_time_;
+    int64_t start_time_;
 };
 
 } // namespace starrocks

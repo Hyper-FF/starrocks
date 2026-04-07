@@ -26,8 +26,8 @@
 #include <vector>
 
 #include "base/concurrency/countdown_latch.h"
-#include "base/gutil/basictypes.h"
-#include "base/gutil/ref_counted.h"
+#include "base/compiler_util.h"
+#include "base/ref_counted.h"
 #include "common/logging.h"
 #include "common/runtime_profile.h"
 #include "common/status.h"

@@ -21,7 +21,7 @@
 #include <sstream>
 #include <string>
 
-#include "base/gutil/ref_counted.h"
+#include "base/ref_counted.h"
 #include "base/uid_util.h"
 #include "column/vectorized_fwd.h"
 #include "common/status.h"

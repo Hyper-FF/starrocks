@@ -38,7 +38,7 @@
 #include <memory>
 #include <string>
 
-#include "base/gutil/hash/string_hash.h"
+#include "base/hash/string_hash.h"
 #include "base/phmap/phmap.h"
 #include "gen_cpp/segment.pb.h"
 #include "runtime/mem_pool.h"

@@ -48,7 +48,7 @@
 #include <vector>
 
 #include "base/concurrency/countdown_latch.h"
-#include "base/gutil/ref_counted.h"
+#include "base/ref_counted.h"
 #include "common/status.h"
 #include "common/thread/thread_info.h"
 

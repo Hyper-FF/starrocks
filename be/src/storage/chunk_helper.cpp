@@ -17,7 +17,7 @@
 #include <numeric>
 #include <utility>
 
-#include "base/gutil/strings/fastmem.h"
+#include "base/strings/fastmem.h"
 #include "column/adaptive_nullable_column.h"
 #include "column/array_column.h"
 #include "column/chunk.h"

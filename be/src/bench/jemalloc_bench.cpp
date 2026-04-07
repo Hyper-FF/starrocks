@@ -19,7 +19,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "base/gutil/strings/fastmem.h"
+#include "base/strings/fastmem.h"
 
 namespace starrocks {
 

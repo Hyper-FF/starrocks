@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "base/debug/trace.h"
-#include "base/gutil/ref_counted.h"
+#include "base/ref_counted.h"
 #include "base/uid_util.h"
 #include "common/status.h"
 #include "common/thread/threadpool.h"

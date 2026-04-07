@@ -46,7 +46,7 @@
 #include <utility>
 #include <vector>
 
-#include "base/gutil/strings/numbers.h"
+#include "base/strings/numbers.h"
 #include "base/hash/unaligned_access.h"
 #include "base/string/slice.h"
 #include "base/types/decimal12.h"

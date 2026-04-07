@@ -39,8 +39,8 @@
 
 #include "absl/strings/substitute.h"
 #include "base/compiler_util.h"
-#include "base/gutil/map_util.h"
-#include "base/gutil/sysinfo.h"
+#include "base/map_util.h"
+#include "base/sysinfo.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "base/utility/scoped_cleanup.h"

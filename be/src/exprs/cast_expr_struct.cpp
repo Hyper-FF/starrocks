@@ -14,7 +14,7 @@
 
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
-#include "base/gutil/strings/strip.h"
+#include "base/strings/strip.h"
 #include "base/string/slice.h"
 #include "column/array_column.h"
 #include "column/column_builder.h"

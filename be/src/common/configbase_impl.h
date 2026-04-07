@@ -33,7 +33,7 @@
 
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
-#include "base/gutil/strings/strip.h"
+#include "base/strings/strip.h"
 
 namespace starrocks::config {
 

@@ -18,7 +18,7 @@
 #include <queue>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/stl_util.h"
+#include "base/stl_util.h"
 #include "base/utility/pretty_printer.h"
 #include "column/binary_column.h"
 #include "common/config_compaction_fwd.h"

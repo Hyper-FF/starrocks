@@ -20,7 +20,7 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "base/gutil/map_util.h"
+#include "base/map_util.h"
 #include "base/string/string_parser.hpp"
 #include "cache/data_cache_hit_rate_counter.hpp"
 #include "column/column.h"

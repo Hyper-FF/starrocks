@@ -37,7 +37,7 @@
 #include <functional>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/stl_util.h"
+#include "base/stl_util.h"
 #include "base/template/mustache/mustache.h"
 #include "common/system/cpu_info.h"
 #include "common/system/disk_info.h"

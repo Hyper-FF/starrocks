@@ -14,7 +14,7 @@
 // This file is based on code available under the Apache license here:
 //  https://github.com/ClickHouse/ClickHouse/blob/master/src/Functions/FunctionsStringSimilarity.cpp
 
-#include "base/gutil/strings/fastmem.h"
+#include "base/strings/fastmem.h"
 #include "column/column_hash.h"
 #include "exprs/function_context.h"
 #include "exprs/string_functions.h"

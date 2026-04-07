@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "base/gutil/endian.h"
-#include "base/gutil/stringprintf.h"
+#include "base/endian.h"
+#include "base/stringprintf.h"
 #include "column/field.h"
 #include "column/vectorized_fwd.h"
 #include "common/status.h"

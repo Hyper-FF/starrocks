@@ -38,7 +38,7 @@
 
 #include <memory>
 
-#include "base/gutil/int128.h"
+#include <cstdint>
 #include "base/types/int128.h"
 #include "column/column_helper.h"
 #include "column/column_viewer.h"

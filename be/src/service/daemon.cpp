@@ -58,7 +58,7 @@
 #include <cstring>
 #include <filesystem>
 
-#include "base/gutil/cpu.h"
+#include "base/cpu.h"
 #include "base/network/network_util.h"
 #include "base/time/monotime.h"
 #include "base/time/time.h"

@@ -32,7 +32,8 @@
 #include <utility>
 #include <vector>
 
-#include "base/gutil/walltime.h"
+#include <chrono>
+
 #include "base/logging.h"
 
 using std::pair;
@@ -45,7 +46,7 @@ __thread Trace* Trace::threadlocal_trace_;
 
 // Struct which precedes each entry in the trace.
 struct TraceEntry {
-    MicrosecondsInt64 timestamp_micros;
+    int64_t timestamp_micros;
 
     // The source file and line number which generated the trace message.
     const char* file_path;
@@ -79,7 +80,7 @@ static const char* const_basename(const char* filepath) {
     return base ? (base + 1) : filepath;
 }
 
-static std::string format_timestamp_for_log(MicrosecondsInt64 micros_since_epoch) {
+static std::string format_timestamp_for_log(int64_t micros_since_epoch) {
     time_t secs_since_epoch = micros_since_epoch / 1000000;
     int64_t usecs = micros_since_epoch % 1000000;
     struct tm tm_time;
@@ -103,7 +104,7 @@ TraceEntry* Trace::NewEntry(int msg_len, const char* file_path, int line_number)
     //uint8_t* dst = reinterpret_cast<uint8_t*>(arena_->AllocateBytes(size));
     auto* dst = reinterpret_cast<uint8_t*>(malloc(size));
     auto* entry = reinterpret_cast<TraceEntry*>(dst);
-    entry->timestamp_micros = GetCurrentTimeMicros();
+    entry->timestamp_micros = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     entry->message_len = msg_len;
     entry->file_path = file_path;
     entry->line_number = line_number;

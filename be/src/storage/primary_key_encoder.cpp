@@ -40,8 +40,8 @@
 #include <numeric>
 #include <type_traits>
 
-#include "base/gutil/endian.h"
-#include "base/gutil/stringprintf.h"
+#include "base/endian.h"
+#include "base/stringprintf.h"
 #include "column/binary_column.h"
 #include "column/chunk.h"
 #include "column/fixed_length_column.h"

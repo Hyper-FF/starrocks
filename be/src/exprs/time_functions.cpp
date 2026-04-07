@@ -22,7 +22,7 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "base/gutil/port.h"
+#include "base/compiler_util.h"
 #include "column/column_helper.h"
 #include "column/column_viewer.h"
 

@@ -48,7 +48,7 @@
 #include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/failpoint/fail_point.h"
-#include "base/gutil/strings/numbers.h"
+#include "base/strings/numbers.h"
 #include "base/url_coding.h"
 #include "base/utility/defer_op.h"
 #include "common/compiler_util.h"

@@ -15,7 +15,7 @@
 #pragma once
 
 #include "base/decimal_types.h"
-#include "base/gutil/strings/fastmem.h>
+#include "base/strings/fastmem.h"
 #include "column/column_builder.h"
 #include "exprs/overflow.h"
 #include "types/decimalv3.h"

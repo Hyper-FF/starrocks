@@ -25,9 +25,11 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "base/gutil/port.h"
-#include "base/gutil/strings/fastmem.h"
+#include <cstring>
+
+#include "base/compiler_util.h"
 #include "base/simd/simd_utils.h"
+#include "base/strings/fastmem.h"
 
 namespace starrocks {
 
@@ -88,7 +90,8 @@ inline void avx2_select_if(uint8_t*& selector, T*& dst, const T*& a, const T*& b
     const T* dst_end = dst + size;
 
     while (dst + 8 < dst_end) {
-        uint64_t value = UNALIGNED_LOAD64(selector);
+        uint64_t value;
+        memcpy(&value, selector, sizeof(value));
         __m128i v = _mm_set1_epi64x(value);
         __m256i loaded_mask = _mm256_cvtepi8_epi32(v);
         __m256i cond = _mm256_cmpeq_epi8(loaded_mask, _mm256_setzero_si256());

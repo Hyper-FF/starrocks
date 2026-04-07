@@ -17,7 +17,7 @@
 #include <simdjson.h>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/strings/numbers.h"
+#include "base/strings/numbers.h"
 #include "base/metrics.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"

@@ -40,7 +40,7 @@
 #include <mutex>
 #include <vector>
 
-#include "base/gutil/port.h"
+#include "base/compiler_util.h"
 #include "common/compiler_util.h"
 
 namespace starrocks::config {

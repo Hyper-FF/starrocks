@@ -24,7 +24,7 @@
 #include "base/container/raw_container.h"
 #include "base/debug/trace.h"
 #include "base/failpoint/fail_point.h"
-#include "base/gutil/strings/util.h"
+#include "base/strings/util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/compiler_util.h"

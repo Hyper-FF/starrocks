@@ -20,7 +20,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "base/gutil/macros.h>
+#include "base/compiler_util.h"
 namespace starrocks::query_cache {
 class LaneArbiter;
 using LaneArbiterRawPtr = LaneArbiter*;

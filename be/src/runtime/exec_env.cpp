@@ -42,7 +42,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "agent/agent_server.h"
-#include "base/gutil/strings/strip.h"
+#include "base/strings/strip.h"
 #include "base/string/parse_util.h"
 #include "base/time/time.h"
 #include "base/utility/pretty_printer.h"

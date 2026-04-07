@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/stl_util.h"
+#include "base/stl_util.h"
 #include "column/column_access_path.h"
 #include "column/datum_convert.h"
 #include "common/config_json_flat_fwd.h"

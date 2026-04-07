@@ -25,7 +25,7 @@
 #include <cpuid.h>
 #endif
 
-#include "base/gutil/endian.h"
+#include "base/endian.h"
 #include "base/utility/defer_op.h"
 #include "fmt/format.h"
 #include "fs/encrypt_file.h"

@@ -18,7 +18,7 @@
 #include <unordered_map>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/hash/hash.h"
+#include "base/hash/hash.h"
 #include "column/chunk.h"
 #include "common/config_exec_flow_fwd.h"
 #include "common/runtime_profile.h"

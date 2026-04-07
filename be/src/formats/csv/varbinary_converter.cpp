@@ -16,7 +16,7 @@
 
 #include <iostream>
 
-#include "base/gutil/strings/escaping.h"
+#include "base/strings/escaping.h"
 #include "base/string/string_parser.hpp"
 #include "base/utility/defer_op.h"
 #include "column/binary_column.h"

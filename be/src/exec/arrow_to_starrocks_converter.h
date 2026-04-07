@@ -18,7 +18,7 @@
 #include <arrow/status.h>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/strings/fastmem.h"
+#include "base/strings/fastmem.h"
 #include "base/utility/meta_macro.h"
 #include "column/array_column.h"
 #include "column/nullable_column.h"

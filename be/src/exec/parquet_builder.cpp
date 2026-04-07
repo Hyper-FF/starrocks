@@ -17,7 +17,7 @@
 #include <arrow/buffer.h>
 #include <parquet/arrow/writer.h>
 
-#include "base/gutil/endian.h"
+#include "base/endian.h"
 #include "column/array_column.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"

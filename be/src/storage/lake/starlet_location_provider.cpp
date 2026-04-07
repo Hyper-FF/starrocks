@@ -19,7 +19,7 @@
 
 #include <unordered_map>
 
-#include "base/gutil/strings/util.h"
+#include "base/strings/util.h"
 #include "common/logging.h"
 #include "fs/fs_starlet.h"
 #include "service/staros_worker.h"

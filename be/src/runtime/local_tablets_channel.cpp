@@ -26,7 +26,7 @@
 #include "absl/strings/str_join.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "base/failpoint/fail_point.h"
-#include "base/gutil/ref_counted.h"
+#include "base/ref_counted.h"
 #include "base/string/faststring.h"
 #include "column/chunk.h"
 #include "common/brpc_helper.h"

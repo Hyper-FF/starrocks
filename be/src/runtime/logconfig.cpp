@@ -43,9 +43,9 @@
 #include <memory>
 #include <mutex>
 
-#include "base/gutil/endian.h"
-#include "base/gutil/stringprintf.h"
-#include "base/gutil/sysinfo.h"
+#include "base/endian.h"
+#include "base/stringprintf.h"
+#include "base/sysinfo.h"
 #include "base/process/lite_exec.h"
 #include "cache/datacache.h"
 #include "cache/mem_cache/page_cache.h"

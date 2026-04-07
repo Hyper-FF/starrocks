@@ -45,7 +45,7 @@
 
 #include "absl/strings/substitute.h"
 #include "base/coding.h"
-#include "base/gutil/port.h"
+#include "base/compiler_util.h"
 #include "base/string/faststring.h"
 #include "base/string/slice.h"
 #include "column/fixed_length_column.h"

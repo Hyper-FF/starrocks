@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "base/gutil/stringprintf.h"
+#include "base/stringprintf.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "column/schema.h"

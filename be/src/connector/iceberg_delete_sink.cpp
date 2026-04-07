@@ -20,7 +20,7 @@
 #include <future>
 #include <unordered_map>
 
-#include "base/gutil/strings/fastmem.h"
+#include "base/strings/fastmem.h"
 #include "base/url_coding.h"
 #include "column/column_helper.h"
 #include "common/config_exec_fwd.h"

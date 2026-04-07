@@ -18,7 +18,7 @@
 #include <chrono>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/bits.h>
+#include "base/bits.h"
 #include "base/phmap/phmap.h"
 #include "column/vectorized_fwd.h"
 #include "common/statusor.h"

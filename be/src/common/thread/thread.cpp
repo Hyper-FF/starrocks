@@ -54,9 +54,8 @@
 #include <string>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/atomicops.h"
-#include "base/gutil/dynamic_annotations.h"
-#include "base/gutil/once.h"
+#include <atomic>
+#include "base/once.h"
 #include "base/utility/scoped_cleanup.h"
 #include "common/logging.h"
 

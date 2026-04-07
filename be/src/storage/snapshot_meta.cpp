@@ -16,7 +16,7 @@
 
 #include "base/coding.h"
 #include "base/container/raw_container.h"
-#include "base/gutil/endian.h"
+#include "base/endian.h"
 #include "fmt/format.h"
 #include "fs/output_stream_wrapper.h"
 

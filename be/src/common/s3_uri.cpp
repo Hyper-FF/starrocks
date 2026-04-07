@@ -20,7 +20,7 @@
 
 #include <algorithm>
 
-#include "base/gutil/strings/util.h>
+#include "base/strings/util.h"
 
 namespace starrocks {
 

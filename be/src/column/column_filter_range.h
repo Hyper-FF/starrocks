@@ -16,7 +16,7 @@
 
 #include <cstddef>
 
-#include "base/gutil/cpu.h"
+#include "base/cpu.h"
 #include "column/vectorized_fwd.h"
 #include "common/memory/column_allocator.h"
 

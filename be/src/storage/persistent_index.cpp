@@ -25,7 +25,7 @@
 #include "base/concurrency/stopwatch.hpp"
 #include "base/container/raw_container.h"
 #include "base/failpoint/fail_point.h"
-#include "base/gutil/strings/escaping.h"
+#include "base/strings/escaping.h"
 #include "base/hash/crc32c.h"
 #include "base/hash/xxh3.h"
 #include "base/path/filesystem_util.h"

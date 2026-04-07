@@ -16,7 +16,7 @@
 
 #include <optional>
 
-#include "base/gutil/port.h"
+#include "base/compiler_util.h"
 #include "base/types/int128.h"
 #include "gtest/gtest.h"
 #include "types/constexpr.h"

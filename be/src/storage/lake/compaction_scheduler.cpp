@@ -22,7 +22,7 @@
 #include <chrono>
 #include <thread>
 
-#include "base/gutil/stl_util.h"
+#include "base/stl_util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/config_compaction_fwd.h"

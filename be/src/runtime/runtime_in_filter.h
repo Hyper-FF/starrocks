@@ -18,7 +18,7 @@
 #include <optional>
 #include <stdexcept>
 
-#include "base/gutil/port.h"
+#include "base/compiler_util.h"
 #include "base/hash/unaligned_access.h"
 #include "base/string/slice.h"
 #include "column/column_helper.h"
@@ -218,7 +218,7 @@ public:
         ScopedPtr ptr;
         CHECK(_values.Read(&ptr) == 0);
 
-        UNALIGNED_STORE32(data + offset, ptr->size());
+        starrocks::unaligned_store<int32_t>(data + offset, static_cast<int32_t>(ptr->size()));
         offset += sizeof(int32_t);
 
         if constexpr (IsSlice<CppType>) {
@@ -246,7 +246,7 @@ public:
         auto ltype = to_thrift(Type);
         memcpy(&ltype, data + offset, sizeof(ltype));
         offset += sizeof(ltype);
-        int32_t element_size = UNALIGNED_LOAD32(data + offset);
+        int32_t element_size = starrocks::unaligned_load<int32_t>(data + offset);
         offset += sizeof(int32_t);
         for (size_t i = 0; i < element_size; ++i) {
             if constexpr (IsSlice<CppType>) {

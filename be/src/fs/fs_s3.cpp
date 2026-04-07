@@ -32,7 +32,7 @@
 #include <ctime>
 #include <limits>
 
-#include "base/gutil/strings/util.h"
+#include "base/strings/util.h"
 #include "common/config_object_storage_fwd.h"
 #include "common/http/content_type.h"
 #include "common/s3_uri.h"

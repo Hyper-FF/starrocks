@@ -14,8 +14,8 @@
 
 #include "exprs/literal.h"
 
-#include "base/gutil/port.h"
-#include "base/gutil/strings/fastmem.h"
+#include "base/compiler_util.h"
+#include "base/strings/fastmem.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "column/const_column.h"

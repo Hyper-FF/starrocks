@@ -34,7 +34,7 @@
 
 #include "http_service.h"
 
-#include "base/gutil/stl_util.h"
+#include "base/stl_util.h"
 #include "cache/datacache.h"
 #include "common/config_ingest_fwd.h"
 #include "common/config_path_fwd.h"

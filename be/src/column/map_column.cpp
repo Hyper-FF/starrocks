@@ -19,8 +19,8 @@
 #include <numeric>
 #include <set>
 
-#include "base/gutil/bits.h"
-#include "base/gutil/strings/fastmem.h"
+#include "base/bits.h"
+#include "base/strings/fastmem.h"
 #include "column/column_helper.h"
 #include "column/fixed_length_column.h"
 #include "column/mysql_row_buffer.h"

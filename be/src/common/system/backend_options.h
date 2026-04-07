@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "base/gutil/macros.h>
+#include "base/compiler_util.h"
 #include "gen_cpp/Types_types.h"
 
 namespace starrocks {
