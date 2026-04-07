@@ -25,7 +25,6 @@
 #include "base/bthreads/util.h"
 #include "base/concurrency/await.h"
 #include "base/concurrency/countdown_latch.h"
-#include "base/gutil/strings/util.h"
 #include "base/testutil/assert.h"
 #include "base/testutil/id_generator.h"
 #include "base/testutil/sync_point.h"

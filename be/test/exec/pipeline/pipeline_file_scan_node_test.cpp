@@ -20,7 +20,6 @@
 #include <random>
 #include <utility>
 
-#include "base/gutil/map_util.h"
 #include "base/testutil/assert.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"

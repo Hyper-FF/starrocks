@@ -17,7 +17,6 @@
 #include <future>
 #include <utility>
 
-#include "base/gutil/stl_util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "column/datum_convert.h"
@@ -292,7 +291,8 @@ void TabletReader::close() {
         _collect_iter->close();
         _collect_iter.reset();
     }
-    STLDeleteElements(&_predicate_free_list);
+    for (auto* p : _predicate_free_list) delete p;
+    _predicate_free_list.clear();
     _rowsets.clear();
     _obj_pool.clear();
 }

@@ -19,7 +19,8 @@
 #include <limits>
 #include <memory>
 
-#include "base/gutil/stringprintf.h"
+#include <fmt/format.h>
+
 #include "column/binary_column.h"
 #include "column/chunk.h"
 #include "column/schema.h"
@@ -35,7 +36,7 @@ static unique_ptr<Schema> create_key_schema(const vector<LogicalType>& types) {
     Fields fields;
     std::vector<ColumnId> sort_key_idxes(types.size());
     for (int i = 0; i < types.size(); i++) {
-        string name = StringPrintf("col%d", i);
+        string name = fmt::format("col{}", i);
         auto fd = new Field(i, name, types[i], false);
         fd->set_is_key(true);
         fd->set_aggregate_method(STORAGE_AGGREGATE_NONE);
@@ -103,7 +104,7 @@ TEST(PrimaryKeyEncoderTest, testEncodeComposite) {
         Datum tmp;
         tmp.set_int32(i * 2343);
         pchunk->mutable_columns()[0]->append_datum(tmp);
-        string tmpstr = StringPrintf("slice000%d", i * 17);
+        string tmpstr = fmt::format("slice000{}", i * 17);
         if (i % 5 == 0) {
             // set some '\0'
             tmpstr[rand() % tmpstr.size()] = '\0';
@@ -477,7 +478,7 @@ TEST(PrimaryKeyEncoderTest, testV2EncodingRoundTripForCompositeIntVarchar) {
         pchunk->mutable_columns()[0]->append_datum(d_int);
 
         Datum d_str;
-        std::string s = StringPrintf("key_%04d", i);
+        std::string s = fmt::format("key_{:04d}", i);
         if (i % 3 == 0) {
             // inject \0 byte to test escape handling
             s[2] = '\0';
@@ -541,7 +542,7 @@ TEST(PrimaryKeyEncoderTest, testV2EncodingRoundTripForCompositeAllTypes) {
         d.set_int64(static_cast<int64_t>(i) * 10000 - 20000);
         pchunk->mutable_columns()[4]->append_datum(d);
 
-        std::string s = StringPrintf("val_%d", i);
+        std::string s = fmt::format("val_{}", i);
         d.set_slice(Slice(s));
         pchunk->mutable_columns()[5]->append_datum(d);
     }
@@ -557,7 +558,7 @@ TEST(PrimaryKeyEncoderTest, testV2EncodeSelectiveRoundTrip) {
         d_int.set_int32(i * 111);
         pchunk->mutable_columns()[0]->append_datum(d_int);
         Datum d_str;
-        std::string s = StringPrintf("s%d", i);
+        std::string s = fmt::format("s{}", i);
         d_str.set_slice(Slice(s));
         pchunk->mutable_columns()[1]->append_datum(d_str);
     }

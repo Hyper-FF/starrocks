@@ -47,9 +47,10 @@
 
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
+#include <cstdlib>
+
 #include "base/coding.h"
 #include "base/endian.h"
-#include "base/gutil/strings/numbers.h"
 #include "base/hash/crc32c.h"
 #include "base/path/path_util.h"
 #include "column/datum_convert.h"
@@ -704,15 +705,19 @@ void batch_delete_meta(const std::string& tablet_file) {
         }
 
         // 2. get tablet id/schema_hash
-        int64_t tablet_id;
-        if (!safe_strto64(v[1].c_str(), &tablet_id)) {
+        char* endptr = nullptr;
+        errno = 0;
+        int64_t tablet_id = std::strtoll(v[1].c_str(), &endptr, 10);
+        if (errno != 0 || endptr == v[1].c_str() || *endptr != '\0') {
             std::cout << "invalid tablet id: " << line << std::endl;
             err_num++;
             continue;
         }
         if (v.size() == 3) {
-            int64_t schema_hash;
-            if (!safe_strto64(v[2].c_str(), &schema_hash)) {
+            char* endptr2 = nullptr;
+            errno = 0;
+            int64_t schema_hash = std::strtoll(v[2].c_str(), &endptr2, 10);
+            if (errno != 0 || endptr2 == v[2].c_str() || *endptr2 != '\0') {
                 std::cout << "invalid schema hash: " << line << std::endl;
                 err_num++;
                 continue;

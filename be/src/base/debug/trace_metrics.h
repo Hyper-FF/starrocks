@@ -40,7 +40,6 @@
 
 #include "base/compiler_util.h"
 #include "base/concurrency/spinlock.h"
-#include "base/gutil/map_util.h"
 
 namespace starrocks {
 
@@ -100,7 +99,8 @@ inline std::map<const char*, int64_t> TraceMetrics::Get() const {
 
 inline int64_t TraceMetrics::GetMetric(const char* name) const {
     std::lock_guard<SpinLock> l(lock_);
-    return FindWithDefault(counters_, name, 0);
+    auto it = counters_.find(name);
+    return it != counters_.end() ? it->second : 0;
 }
 
 } // namespace starrocks

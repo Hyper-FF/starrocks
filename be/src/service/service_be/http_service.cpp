@@ -34,7 +34,6 @@
 
 #include "http_service.h"
 
-#include "base/gutil/stl_util.h"
 #include "cache/datacache.h"
 #include "common/config_ingest_fwd.h"
 #include "common/config_path_fwd.h"
@@ -87,7 +86,8 @@ HttpServiceBE::HttpServiceBE(DataCache* cache_env, ExecEnv* env, int port, int n
 HttpServiceBE::~HttpServiceBE() {
     _ev_http_server.reset();
     _web_page_handler.reset();
-    STLDeleteElements(&_http_handlers);
+    for (auto* p : _http_handlers) delete p;
+    _http_handlers.clear();
 }
 
 void HttpServiceBE::stop() {

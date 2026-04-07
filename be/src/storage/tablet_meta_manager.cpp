@@ -46,10 +46,10 @@
 #include <vector>
 
 #include "absl/strings/substitute.h"
+#include "absl/strings/numbers.h"
 #include "base/coding.h"
 #include "base/endian.h"
 #include "base/failpoint/fail_point.h"
-#include "base/gutil/strings/numbers.h"
 #include "base/url_coding.h"
 #include "base/utility/defer_op.h"
 #include "common/compiler_util.h"
@@ -110,12 +110,12 @@ static bool decode_tablet_meta_key(std::string_view key, TTabletId* tablet_id, T
     if (UNLIKELY(sep == nullptr)) {
         return false;
     }
-    if (!safe_strto64(str, sep - str, tablet_id)) {
+    if (!absl::SimpleAtoi(std::string_view(str, sep - str), tablet_id)) {
         return false;
     }
     str = sep + 1;
     // |key| is not a zero terminated string, cannot use std::strtol here.
-    return safe_strto32(str, end - str, schema_hash);
+    return absl::SimpleAtoi(std::string_view(str, end - str), schema_hash);
 }
 
 Status TabletMetaManager::get_primary_meta(KVStore* meta, TTabletId tablet_id, TabletMetaPB& tablet_meta_pb,

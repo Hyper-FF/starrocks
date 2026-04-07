@@ -47,8 +47,9 @@
 #ifdef USE_STAROS
 #include "fslib/star_cache_handler.h"
 #endif
+#include <cstdlib>
+
 #include "absl/strings/str_split.h" // for string split
-#include "base/gutil/strtoint.h"
 #include "base/metrics.h"
 #include "cache/mem_cache/page_cache.h"
 #include "common/config_cache_fwd.h"
@@ -655,10 +656,10 @@ void SystemMetrics::_update_snmp_metrics() {
         fclose(fp);
         return;
     }
-    int64_t retrans_segs = atoi64(metrics[header_map["RetransSegs"]]);
-    int64_t in_errs = atoi64(metrics[header_map["InErrs"]]);
-    int64_t in_segs = atoi64(metrics[header_map["InSegs"]]);
-    int64_t out_segs = atoi64(metrics[header_map["OutSegs"]]);
+    int64_t retrans_segs = std::strtoll(metrics[header_map["RetransSegs"]].c_str(), nullptr, 10);
+    int64_t in_errs = std::strtoll(metrics[header_map["InErrs"]].c_str(), nullptr, 10);
+    int64_t in_segs = std::strtoll(metrics[header_map["InSegs"]].c_str(), nullptr, 10);
+    int64_t out_segs = std::strtoll(metrics[header_map["OutSegs"]].c_str(), nullptr, 10);
     _snmp_metrics->tcp_retrans_segs.set_value(retrans_segs);
     _snmp_metrics->tcp_in_errs.set_value(in_errs);
     _snmp_metrics->tcp_in_segs.set_value(in_segs);

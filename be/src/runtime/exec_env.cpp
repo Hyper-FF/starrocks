@@ -42,7 +42,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "agent/agent_server.h"
-#include "base/gutil/strings/strip.h"
+#include "absl/strings/ascii.h"
 #include "base/string/parse_util.h"
 #include "base/time/time.h"
 #include "base/utility/pretty_printer.h"
@@ -336,9 +336,7 @@ int64_t GlobalEnv::calc_max_query_memory(int64_t process_mem_limit, int64_t perc
 
 bool parse_resource_str(const string& str, string* value) {
     if (!str.empty()) {
-        std::string tmp_str = str;
-        StripLeadingWhiteSpace(&tmp_str);
-        StripTrailingWhitespace(&tmp_str);
+        std::string tmp_str = std::string(absl::StripAsciiWhitespace(str));
         if (tmp_str.empty()) {
             return false;
         } else {

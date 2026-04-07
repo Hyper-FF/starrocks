@@ -42,7 +42,6 @@
 #include <utility>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/map_util.h"
 #include "base/utility/pretty_printer.h"
 #include "common/object_pool.h"
 

@@ -58,7 +58,6 @@
 #include <cstring>
 #include <filesystem>
 
-#include "base/gutil/cpu.h"
 #include "base/network/network_util.h"
 #include "base/time/monotime.h"
 #include "base/time/time.h"
@@ -456,7 +455,6 @@ void Daemon::init(bool as_cn, const std::vector<StorePath>& paths) {
     LOG(INFO) << CpuInfo::debug_string();
     LOG(INFO) << DiskInfo::debug_string();
     LOG(INFO) << MemInfo::debug_string();
-    LOG(INFO) << base::CPU::instance()->debug_string();
     LOG(INFO) << "openssl aesni support: " << openssl_supports_aesni();
     auto unsupported_flags = CpuInfo::unsupported_cpu_flags_from_current_env();
     if (!unsupported_flags.empty()) {

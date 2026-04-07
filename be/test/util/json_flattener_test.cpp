@@ -27,7 +27,6 @@
 #include <string>
 #include <vector>
 
-#include "base/gutil/strings/strip.h"
 #include "base/string/slice.h"
 #include "base/testutil/assert.h"
 #include "column/column.h"

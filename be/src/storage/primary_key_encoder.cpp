@@ -40,8 +40,9 @@
 #include <numeric>
 #include <type_traits>
 
+#include <fmt/format.h>
+
 #include "absl/base/internal/endian.h"
-#include "base/gutil/stringprintf.h"
 #include "column/binary_column.h"
 #include "column/chunk.h"
 #include "column/fixed_length_column.h"
@@ -298,7 +299,7 @@ Status PrimaryKeyEncoder::create_column(const Schema& schema, MutableColumnPtr* 
             }
             break;
         default:
-            return Status::NotSupported(StringPrintf("primary key type not support: %s", logical_type_to_string(type)));
+            return Status::NotSupported(fmt::format("primary key type not support: {}", logical_type_to_string(type)));
         }
     } else {
         // composite keys encoding to binary

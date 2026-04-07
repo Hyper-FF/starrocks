@@ -37,7 +37,6 @@
 #include <functional>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/stl_util.h"
 #include "base/template/mustache/mustache.h"
 #include "common/system/cpu_info.h"
 #include "common/system/disk_info.h"
@@ -71,7 +70,8 @@ WebPageHandler::WebPageHandler(EvHttpServer* server) : _http_server(server) {
 }
 
 WebPageHandler::~WebPageHandler() {
-    STLDeleteValues(&_page_map);
+    for (auto& [k, v] : _page_map) delete v;
+    _page_map.clear();
 }
 
 void WebPageHandler::register_template_page(const std::string& path, const string& alias,

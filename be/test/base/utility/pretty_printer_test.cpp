@@ -20,7 +20,9 @@
 #include <string>
 #include <vector>
 
-#include "base/gutil/sysinfo.h"
+namespace base {
+double CyclesPerSecond();
+} // namespace base
 
 namespace starrocks {
 namespace {

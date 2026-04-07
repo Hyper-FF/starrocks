@@ -37,7 +37,6 @@
 #include <memory>
 #include <utility>
 
-#include "base/gutil/map_util.h"
 #include "base/string/parse_util.h"
 #include "base/uid_util.h"
 #include "common/logging.h"
@@ -145,7 +144,8 @@ Status PlanFragmentExecutor::prepare(const TExecPlanFragmentParams& request) {
     _plan->collect_nodes(TPlanNodeType::EXCHANGE_NODE, &exch_nodes);
     for (auto* exch_node : exch_nodes) {
         DCHECK_EQ(exch_node->type(), TPlanNodeType::EXCHANGE_NODE);
-        int num_senders = FindWithDefault(params.per_exch_num_senders, exch_node->id(), 0);
+        auto it_exch = params.per_exch_num_senders.find(exch_node->id());
+        int num_senders = it_exch != params.per_exch_num_senders.end() ? it_exch->second : 0;
         DCHECK_GT(num_senders, 0);
         static_cast<ExchangeNode*>(exch_node)->set_num_senders(num_senders);
     }
@@ -158,8 +158,9 @@ Status PlanFragmentExecutor::prepare(const TExecPlanFragmentParams& request) {
 
     for (auto& i : scan_nodes) {
         auto* scan_node = static_cast<ScanNode*>(i);
+        auto it_scan = params.per_node_scan_ranges.find(scan_node->id());
         const std::vector<TScanRangeParams>& scan_ranges =
-                FindWithDefault(params.per_node_scan_ranges, scan_node->id(), no_scan_ranges);
+                it_scan != params.per_node_scan_ranges.end() ? it_scan->second : no_scan_ranges;
         (void)scan_node->set_scan_ranges(scan_ranges);
         VLOG(2) << "scan_node_Id=" << scan_node->id() << " size=" << scan_ranges.size();
     }

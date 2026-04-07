@@ -19,7 +19,6 @@
 #include <unordered_set>
 
 #include "base/failpoint/fail_point.h"
-#include "base/gutil/map_util.h"
 #include "base/time/time.h"
 #include "base/uid_util.h"
 #include "common/config_exec_flow_fwd.h"
@@ -71,7 +70,8 @@ const std::vector<TScanRangeParams> UnifiedExecPlanFragmentParams::_no_scan_rang
 const PerDriverScanRangesMap UnifiedExecPlanFragmentParams::_no_scan_ranges_per_driver_seq;
 
 const std::vector<TScanRangeParams>& UnifiedExecPlanFragmentParams::scan_ranges_of_node(TPlanNodeId node_id) const {
-    return FindWithDefault(_unique_request.params.per_node_scan_ranges, node_id, _no_scan_ranges);
+    auto it = _unique_request.params.per_node_scan_ranges.find(node_id);
+    return it != _unique_request.params.per_node_scan_ranges.end() ? it->second : _no_scan_ranges;
 }
 
 const PerDriverScanRangesMap& UnifiedExecPlanFragmentParams::per_driver_seq_scan_ranges_of_node(
@@ -80,8 +80,9 @@ const PerDriverScanRangesMap& UnifiedExecPlanFragmentParams::per_driver_seq_scan
         return _no_scan_ranges_per_driver_seq;
     }
 
-    return FindWithDefault(_unique_request.params.node_to_per_driver_seq_scan_ranges, node_id,
-                           _no_scan_ranges_per_driver_seq);
+    auto it = _unique_request.params.node_to_per_driver_seq_scan_ranges.find(node_id);
+    return it != _unique_request.params.node_to_per_driver_seq_scan_ranges.end() ? it->second
+                                                                                 : _no_scan_ranges_per_driver_seq;
 }
 
 const TDataSink& UnifiedExecPlanFragmentParams::output_sink() const {
@@ -486,14 +487,16 @@ Status FragmentExecutor::_prepare_exec_plan(ExecEnv* exec_env, const UnifiedExec
     std::vector<ExecNode*> exch_nodes;
     plan->collect_nodes(TPlanNodeType::EXCHANGE_NODE, &exch_nodes);
     for (auto* exch_node : exch_nodes) {
-        int num_senders = FindWithDefault(params.per_exch_num_senders, exch_node->id(), 0);
+        auto it_exch = params.per_exch_num_senders.find(exch_node->id());
+        int num_senders = it_exch != params.per_exch_num_senders.end() ? it_exch->second : 0;
         static_cast<ExchangeNode*>(exch_node)->set_num_senders(num_senders);
     }
 
     std::vector<ExecNode*> lookup_nodes;
     plan->collect_nodes(TPlanNodeType::LOOKUP_NODE, &lookup_nodes);
     for (auto* lookup_node : lookup_nodes) {
-        int num_senders = FindWithDefault(params.per_look_up_num_fetchers, lookup_node->id(), 0);
+        auto it_lookup = params.per_look_up_num_fetchers.find(lookup_node->id());
+        int num_senders = it_lookup != params.per_look_up_num_fetchers.end() ? it_lookup->second : 0;
         static_cast<LookUpNode*>(lookup_node)->set_num_fetchers(num_senders);
     }
 

@@ -30,8 +30,15 @@
 #include "base/compiler_util.h"
 #include "base/concurrency/spinlock.h"
 #include "base/debug/trace_metrics.h"
-#include "base/gutil/threading/thread_collision_warner.h"
 #include "base/ref_counted.h"
+
+// No-op macros replacing base/gutil/threading/thread_collision_warner.h
+#ifndef DFAKE_MUTEX
+#define DFAKE_MUTEX(obj) typedef void InternalFakeMutexType##obj
+#endif
+#ifndef DFAKE_SCOPED_LOCK_THREAD_LOCKED
+#define DFAKE_SCOPED_LOCK_THREAD_LOCKED(obj) ((void)0)
+#endif
 
 namespace starrocks {
 class Trace;

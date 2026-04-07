@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/stl_util.h"
 #include "column/column_access_path.h"
 #include "column/datum_convert.h"
 #include "common/config_json_flat_fwd.h"
@@ -95,7 +94,8 @@ void TabletReader::close() {
         _collect_iter->close();
         _collect_iter.reset();
     }
-    STLDeleteElements(&_predicate_free_list);
+    for (auto* p : _predicate_free_list) delete p;
+    _predicate_free_list.clear();
     Rowset::release_readers(_rowsets);
     _rowsets.clear();
     _obj_pool.clear();

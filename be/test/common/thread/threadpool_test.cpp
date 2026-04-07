@@ -41,8 +41,6 @@
 #include "base/concurrency/await.h"
 #include "base/concurrency/countdown_latch.h"
 #include "base/concurrency/spinlock.h"
-#include "base/gutil/sysinfo.h"
-#include "base/gutil/walltime.h"
 #include "base/metrics.h"
 #include "base/random/random.h"
 #include "base/ref_counted.h"

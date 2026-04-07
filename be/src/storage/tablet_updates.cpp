@@ -25,7 +25,6 @@
 #include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/failpoint/fail_point.h"
-#include "base/gutil/stl_util.h"
 #include "base/utility/defer_op.h"
 #include "base/utility/pretty_printer.h"
 #include "base/utility/scoped_cleanup.h"
@@ -5038,9 +5037,9 @@ Status TabletUpdates::load_snapshot(const SnapshotMeta& snapshot_meta, bool rest
             VLOG(2) << "mark rowset " << tablet_id << "@" << rssid << "@" << rowset->rowset_id() << " as unused";
             (void)_unused_rowsets.blocking_put(std::move(rowset));
         }
-        STLClearObject(&_edit_version_infos);
-        STLClearObject(&_rowsets);
-        STLClearObject(&_rowset_stats);
+        { decltype(_edit_version_infos)().swap(_edit_version_infos); }
+        { decltype(_rowsets)().swap(_rowsets); }
+        { decltype(_rowset_stats)().swap(_rowset_stats); }
 
         _apply_version_idx = 0;
         _rowsets = std::move(new_rowsets);
@@ -5214,10 +5213,10 @@ Status TabletUpdates::clear_meta() {
     // There maybe other thread still use primary index for example ingestion and schema change concurrently
     // If that, the primary index will be release by evict thread.
     StorageEngine::instance()->update_manager()->index_cache().try_remove_by_key(_tablet.tablet_id());
-    STLClearObject(&_rowsets);
-    STLClearObject(&_rowset_stats);
+    { decltype(_rowsets)().swap(_rowsets); }
+    { decltype(_rowset_stats)().swap(_rowset_stats); }
     // If this get cleared, every other thread that uses variable should recheck it's valid state after acquiring _lock
-    STLClearObject(&_edit_version_infos);
+    { decltype(_edit_version_infos)().swap(_edit_version_infos); }
     return Status::OK();
 }
 

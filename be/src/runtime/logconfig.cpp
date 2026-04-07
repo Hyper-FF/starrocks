@@ -43,9 +43,10 @@
 #include <memory>
 #include <mutex>
 
+#include <sys/resource.h>
+
 #include "absl/base/internal/endian.h"
-#include "base/gutil/stringprintf.h"
-#include "base/gutil/sysinfo.h"
+#include <fmt/format.h>
 #include "base/process/lite_exec.h"
 #include "cache/datacache.h"
 #include "cache/mem_cache/page_cache.h"
@@ -199,7 +200,11 @@ static void dontdump_unused_pages() {
 
 static void failure_handler_after_output_log() {
     static bool start_dump = false;
-    if (!start_dump && config::enable_core_file_size_optimization && base::get_cur_core_file_limit() != 0) {
+    auto get_cur_core_file_limit = []() -> int {
+        struct rlimit rlim;
+        return (getrlimit(RLIMIT_CORE, &rlim) == 0) ? rlim.rlim_cur : 0;
+    };
+    if (!start_dump && config::enable_core_file_size_optimization && get_cur_core_file_limit() != 0) {
         set_process_is_crashing();
 
         ExecEnv::GetInstance()->try_release_resource_before_core_dump();
@@ -464,8 +469,8 @@ std::string FormatTimestampForLog(int64_t micros_since_epoch) {
     struct tm tm_time;
     localtime_r(&secs_since_epoch, &tm_time);
 
-    return StringPrintf("%02d%02d %02d:%02d:%02d.%06" PRId64, 1 + tm_time.tm_mon, tm_time.tm_mday, tm_time.tm_hour,
-                        tm_time.tm_min, tm_time.tm_sec, usecs);
+    return fmt::format("{:02d}{:02d} {:02d}:{:02d}:{:02d}.{:06d}", 1 + tm_time.tm_mon, tm_time.tm_mday,
+                       tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec, usecs);
 }
 
 void update_logging() {

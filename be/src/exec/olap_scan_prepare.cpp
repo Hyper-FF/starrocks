@@ -17,7 +17,6 @@
 #include <boost/variant/static_visitor.hpp>
 #include <variant>
 
-#include "base/gutil/map_util.h"
 #include "base/orlp/pdqsort.h"
 #include "column/runtime_type_traits.h"
 #include "common/config_scan_io_fwd.h"

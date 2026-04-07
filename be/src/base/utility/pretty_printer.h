@@ -22,8 +22,11 @@
 #include <sstream>
 
 #include "absl/strings/str_join.h"
-#include "base/gutil/sysinfo.h"
 #include "base/logging.h"
+
+namespace base {
+double CyclesPerSecond();
+} // namespace base
 #include "base/utility/template_util.h"
 #include "gen_cpp/RuntimeProfile_types.h"
 

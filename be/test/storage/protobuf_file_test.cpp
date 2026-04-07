@@ -18,7 +18,6 @@
 
 #include <filesystem>
 
-#include "base/gutil/strings/util.h"
 #include "base/testutil/assert.h"
 #include "base/testutil/sync_point.h"
 #include "base/uid_util.h"

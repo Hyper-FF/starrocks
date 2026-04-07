@@ -39,8 +39,6 @@
 
 #include "absl/strings/substitute.h"
 #include "base/compiler_util.h"
-#include "base/gutil/map_util.h"
-#include "base/gutil/sysinfo.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "base/utility/scoped_cleanup.h"
@@ -356,7 +354,7 @@ void ThreadPool::shutdown() {
 std::unique_ptr<ThreadPoolToken> ThreadPool::new_token(ExecutionMode mode) {
     std::lock_guard unique_lock(_lock);
     std::unique_ptr<ThreadPoolToken> t(new ThreadPoolToken(this, mode));
-    InsertOrDie(&_tokens, t.get());
+    CHECK(_tokens.emplace(t.get()).second);
     return t;
 }
 
@@ -570,7 +568,7 @@ void ThreadPool::bind_cpus(const CpuUtil::CpuIds& cpuids, const std::vector<CpuU
 void ThreadPool::dispatch_thread() {
     std::unique_lock l(_lock);
     auto current_thread = Thread::current_thread();
-    InsertOrDie(&_threads, current_thread);
+    CHECK(_threads.emplace(current_thread).second);
     DCHECK_GT(_num_threads_pending_start, 0);
     _num_threads++;
     _num_threads_pending_start--;
@@ -738,7 +736,7 @@ Status ThreadPool::create_thread() {
 
 void ThreadPool::check_not_pool_thread_unlocked() {
     Thread* current = Thread::current_thread();
-    if (ContainsKey(_threads, current)) {
+    if (_threads.count(current) > 0) {
         LOG(FATAL) << absl::Substitute(
                 "Thread belonging to thread pool '$0' with "
                 "name '$1' called pool function that would result in deadlock",

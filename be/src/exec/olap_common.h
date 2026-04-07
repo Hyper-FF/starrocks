@@ -44,7 +44,6 @@
 #include <variant>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/stl_util.h"
 #include "base/string/slice.h"
 #include "column/runtime_type_traits.h"
 #include "exec/olap_utils.h"

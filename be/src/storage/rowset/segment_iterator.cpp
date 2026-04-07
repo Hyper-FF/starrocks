@@ -20,7 +20,6 @@
 #include <utility>
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/stl_util.h"
 #include "base/simd/simd.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
@@ -3617,8 +3616,8 @@ void SegmentIterator::close() {
         }
     }
 
-    STLClearObject(&_selection);
-    STLClearObject(&_selected_idx);
+    { decltype(_selection)().swap(_selection); }
+    { decltype(_selected_idx)().swap(_selected_idx); }
 
     _bitmap_index_evaluator.close();
 

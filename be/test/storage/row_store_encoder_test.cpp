@@ -16,7 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include "base/gutil/stringprintf.h"
+#include <fmt/format.h>
+
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "column/schema.h"
@@ -32,7 +33,7 @@ namespace starrocks {
 static unique_ptr<Schema> create_schema(const vector<pair<LogicalType, bool>>& types) {
     Fields fields;
     for (int i = 0; i < types.size(); i++) {
-        string name = StringPrintf("col%d", i);
+        string name = fmt::format("col{}", i);
         auto fd = new Field(i, name, types[i].first, false);
         fd->set_is_key(types[i].second);
         fd->set_aggregate_method(STORAGE_AGGREGATE_NONE);
@@ -66,7 +67,7 @@ void common_encode_decode(RowStoreEncoderPtr& row_encoder, std::unique_ptr<Schem
                                                      &read_value_columns);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQ((*(read_value_columns[0])).get(i).get_slice().to_string(), StringPrintf("slice000%d", i * 17));
+        ASSERT_EQ((*(read_value_columns[0])).get(i).get_slice().to_string(), fmt::format("slice000{}", i * 17));
         ASSERT_EQ((*(read_value_columns[1])).get(i).get_int32(), i * 2343);
         ASSERT_EQ((*(read_value_columns[2])).get(i).get_uint8(), i % 2);
     }
@@ -118,7 +119,7 @@ TEST(RowStoreEncoderTest, testEncodeFullRowColumn) {
     size_t ss = 0;
     for (int i = 0; i < n; i++) {
         Datum tmp;
-        string tmpstr = StringPrintf("slice000%d", i * 17);
+        string tmpstr = fmt::format("slice000{}", i * 17);
         tmp.set_int32(i * 2343);
         pchunk->mutable_columns()[0]->append_datum(tmp);
         tmp.set_slice(tmpstr);

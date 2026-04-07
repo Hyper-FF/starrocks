@@ -14,8 +14,8 @@
 
 #include "cache/datacache.h"
 
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_split.h"
-#include "base/gutil/strings/strip.h"
 #include "base/string/parse_util.h"
 #include "cache/datacache_utils.h"
 #include "cache/disk_space_monitor.h"
@@ -243,9 +243,7 @@ StatusOr<DiskCacheOptions> DataCache::_init_disk_cache_options() {
 
 static bool parse_resource_str(const string& str, string* value) {
     if (!str.empty()) {
-        std::string tmp_str = str;
-        StripLeadingWhiteSpace(&tmp_str);
-        StripTrailingWhitespace(&tmp_str);
+        std::string tmp_str = std::string(absl::StripAsciiWhitespace(str));
         if (tmp_str.empty()) {
             return false;
         } else {
