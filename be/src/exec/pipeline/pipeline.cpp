@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "exec/pipeline/pipeline.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "exec/pipeline/adaptive/event.h"
 #include "exec/pipeline/group_execution/execution_group.h"
 #include "exec/pipeline/operator.h"

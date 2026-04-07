@@ -35,7 +35,6 @@
 #pragma once
 
 #include <glog/logging.h>
-#include "absl/strings/substitute.h"
 #include <sys/types.h>
 
 #include <algorithm>
@@ -44,6 +43,7 @@
 #include <memory>
 #include <ostream>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/string/faststring.h"
 #include "base/string/slice.h"

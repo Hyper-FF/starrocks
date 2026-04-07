@@ -29,10 +29,11 @@
  */
 
 #include "util/compression/compression_context_pool_singletons.h"
-#include "absl/strings/substitute.h"
 
 #include <cstdlib>
 #include <memory>
+
+#include "absl/strings/substitute.h"
 
 namespace starrocks::compression {
 

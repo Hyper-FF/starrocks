@@ -33,11 +33,11 @@
 // under the License.
 
 #include "storage/rowset/segment_writer.h"
-#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/hash/crc32c.h"
 #include "base/string/faststring.h"
 #include "column/binary_column.h"
@@ -259,7 +259,7 @@ Status SegmentWriter::init(const std::vector<uint32_t>& column_indexes, bool has
                 // So the all sort key columns should be found in `_column_indexes` so far.
                 std::string err_msg =
                         absl::Substitute("column[$0]: $1 is sort key but not find while init segment writer",
-                                            column_idx, _tablet_schema->column(column_idx).name().data());
+                                         column_idx, _tablet_schema->column(column_idx).name().data());
                 return Status::InternalError(err_msg);
             }
         }
@@ -313,7 +313,7 @@ Status SegmentWriter::finalize_columns(uint64_t* index_size) {
         _num_rows = _num_rows_written;
     } else if (_num_rows != _num_rows_written) {
         return Status::InternalError(absl::Substitute("num rows written $0 is not equal to segment num rows $1",
-                                                         _num_rows_written, _num_rows));
+                                                      _num_rows_written, _num_rows));
     }
     _num_rows_written = 0;
 

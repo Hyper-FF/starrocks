@@ -13,11 +13,11 @@
 // limitations under the License.
 
 #include "exec/pipeline/exchange/local_exchange.h"
-#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <unordered_map>
 
+#include "absl/strings/substitute.h"
 #include "column/chunk.h"
 #include "common/config_exec_flow_fwd.h"
 #include "common/runtime_profile.h"

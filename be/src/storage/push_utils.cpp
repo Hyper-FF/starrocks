@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "storage/push_utils.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "column/column_builder.h"
 #include "column/column_helper.h"
 #include "column/column_viewer.h"

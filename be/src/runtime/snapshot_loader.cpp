@@ -33,12 +33,12 @@
 // under the License.
 
 #include "runtime/snapshot_loader.h"
-#include "absl/strings/substitute.h"
 
 #include <cstdint>
 #include <filesystem>
 #include <set>
 
+#include "absl/strings/substitute.h"
 #include "common/config_ingest_fwd.h"
 #include "common/config_rpc_client_fwd.h"
 #include "common/logging.h"

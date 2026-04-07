@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "storage/lake/update_manager.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/container/lru_cache.h"
 #include "base/debug/trace.h"
 #include "base/failpoint/fail_point.h"
@@ -195,8 +195,7 @@ StatusOr<IndexEntry*> UpdateManager::prepare_primary_index(
         // If prepare failed, release lock guard and remove index entry
         guard.reset(nullptr);
         _index_cache.remove(index_entry);
-        std::string msg =
-                absl::Substitute("prepare_primary_index: prepare primary index failed: $0", st.to_string());
+        std::string msg = absl::Substitute("prepare_primary_index: prepare primary index failed: $0", st.to_string());
         LOG(ERROR) << msg;
         return Status::InternalError(msg);
     }
@@ -1903,11 +1902,11 @@ void UpdateManager::preload_update_state(const TxnLog& txnlog, Tablet* tablet) {
         if (!st.ok()) {
             _update_state_cache.remove(state_entry);
             if (!st.is_uninitialized() && !st.is_cancelled()) {
-                LOG(ERROR) << absl::Substitute("lake primary table preload_update_state id:$0 error:$1",
-                                                  tablet->id(), st.to_string());
+                LOG(ERROR) << absl::Substitute("lake primary table preload_update_state id:$0 error:$1", tablet->id(),
+                                               st.to_string());
             } else {
-                LOG(INFO) << absl::Substitute("lake primary table preload_update_state id:$0 failed:$1",
-                                                 tablet->id(), st.to_string());
+                LOG(INFO) << absl::Substitute("lake primary table preload_update_state id:$0 failed:$1", tablet->id(),
+                                              st.to_string());
             }
             // not return error even it fail, because we can load update state in publish again.
         } else {
@@ -1961,7 +1960,7 @@ void UpdateManager::preload_compaction_state(const TxnLog& txnlog, const Tablet&
     if (!st.ok()) {
         _compaction_cache.remove(compaction_entry);
         LOG(ERROR) << absl::Substitute("lake primary table preload_compaction_state id:$0 error:$1", tablet.id(),
-                                          st.to_string());
+                                       st.to_string());
         // not return error even it fail, because we can load compaction state in publish again.
     } else {
         // just release it, will use it again in publish

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "storage/lake/primary_key_compaction_policy.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "common/config_compaction_fwd.h"
 #include "common/config_storage_fwd.h"
 #include "gutil/strings/join.h"

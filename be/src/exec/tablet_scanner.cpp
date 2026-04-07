@@ -13,11 +13,11 @@
 // limitations under the License.
 
 #include "exec/tablet_scanner.h"
-#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "column/vectorized_fwd.h"
 #include "common/runtime_profile.h"
 #include "common/status.h"
@@ -87,7 +87,7 @@ Status TabletScanner::init(RuntimeState* runtime_state, const TabletScannerParam
     Status st = _reader->prepare();
     if (!st.ok()) {
         std::string msg = absl::Substitute("Fail to scan tablet. error: $0, backend: $1", st.message(),
-                                              BackendOptions::get_localhost());
+                                           BackendOptions::get_localhost());
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     } else {
@@ -103,7 +103,7 @@ Status TabletScanner::open([[maybe_unused]] RuntimeState* runtime_state) {
         Status st = _reader->open(_params);
         if (!st.ok()) {
             auto msg = absl::Substitute("Fail to scan tablet. error: $0, backend: $1", st.message(),
-                                           BackendOptions::get_localhost());
+                                        BackendOptions::get_localhost());
             st = Status::InternalError(msg);
             LOG(WARNING) << st;
         } else {

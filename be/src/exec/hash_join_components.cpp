@@ -13,12 +13,12 @@
 // limitations under the License.
 
 #include "exec/hash_join_components.h"
-#include "absl/strings/substitute.h"
 
 #include <deque>
 #include <memory>
 #include <numeric>
 
+#include "absl/strings/substitute.h"
 #include "column/vectorized_fwd.h"
 #include "common/config_exec_flow_fwd.h"
 #include "common/logging.h"

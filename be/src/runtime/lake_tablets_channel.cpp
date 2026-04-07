@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <brpc/controller.h>
-#include "absl/strings/substitute.h"
 #include <bthread/condition_variable.h>
 #include <bthread/mutex.h>
 #include <fmt/format.h>
@@ -21,6 +20,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/bthread_shared_mutex.h"
 #include "base/concurrency/countdown_latch.h"
 #include "base/macros.h"

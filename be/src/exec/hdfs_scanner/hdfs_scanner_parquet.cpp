@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "exec/hdfs_scanner/hdfs_scanner_parquet.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "common/runtime_profile.h"
 #include "connector/deletion_vector/deletion_vector.h"
 #include "exec/hdfs_scanner/hdfs_scanner.h"
@@ -43,7 +43,7 @@ Status HdfsParquetScanner::do_init(RuntimeState* runtime_state, const HdfsScanne
                 RETURN_IF_ERROR(iceberg_delete_builder->build_parquet(*delete_file));
             } else {
                 const auto s = absl::Substitute("Unsupported iceberg file content: $0 in the scanner thread",
-                                                   delete_file->file_content);
+                                                delete_file->file_content);
                 LOG(WARNING) << s;
                 return Status::InternalError(s);
             }

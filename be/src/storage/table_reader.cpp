@@ -13,11 +13,11 @@
 // limitations under the License.
 
 #include "storage/table_reader.h"
-#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <queue>
 
+#include "absl/strings/substitute.h"
 #include "base/brpc/ref_count_closure.h"
 #include "exec/tablet_info.h"
 #include "runtime/current_thread.h"
@@ -231,7 +231,7 @@ Status TableReader::_tablet_multi_get_remote(int64_t tablet_id, int64_t version,
             auto stub = ExecEnv::GetInstance()->brpc_stub_cache()->get_stub(node_info->host, node_info->brpc_port);
             if (stub == nullptr) {
                 string msg = absl::Substitute("multi_get fail to get brpc stub for $0:$1 tablet:$2", node_info->host,
-                                                 node_info->brpc_port, tablet_id);
+                                              node_info->brpc_port, tablet_id);
                 LOG(WARNING) << msg;
                 st = Status::InternalError(msg);
             } else {

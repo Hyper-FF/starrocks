@@ -13,13 +13,13 @@
 // limitations under the License.
 
 #include "segment_iterator.h"
-#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <memory>
 #include <unordered_map>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/simd/simd.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"

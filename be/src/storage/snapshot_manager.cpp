@@ -33,7 +33,6 @@
 // under the License.
 
 #include "storage/snapshot_manager.h"
-#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
@@ -42,6 +41,7 @@
 #include <set>
 
 #include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "common/config_storage_fwd.h"
 #include "fs/fs.h"
 #include "gen_cpp/Types_constants.h"
@@ -115,9 +115,9 @@ Status SnapshotManager::make_snapshot(const TSnapshotRequest& request, string* s
         res = snapshot_incremental(tablet, request.missing_version, timeout_s);
     } else if (request.__isset.missing_version_ranges) {
         if (tablet->updates() == nullptr) {
-            string msg = absl::Substitute(
-                    "non-primary tablet does not support snapshot by missing_version_ranges tablet:$0",
-                    request.tablet_id);
+            string msg =
+                    absl::Substitute("non-primary tablet does not support snapshot by missing_version_ranges tablet:$0",
+                                     request.tablet_id);
             LOG(INFO) << msg;
             return Status::NotSupported(msg);
         }
@@ -385,8 +385,7 @@ StatusOr<std::string> SnapshotManager::snapshot_incremental(const TabletSharedPt
         } else if (rowset == nullptr) {
             return Status::RuntimeError(absl::Substitute("no incremental rowset $0", v));
         } else if (rowset->rowset_meta()->partial_schema_change()) {
-            return Status::RuntimeError(
-                    absl::Substitute("rowset with version $0 has done partial schema change", v));
+            return Status::RuntimeError(absl::Substitute("rowset with version $0 has done partial schema change", v));
         }
         snapshot_rowsets.emplace_back(std::move(rowset));
     }
@@ -810,7 +809,7 @@ Status SnapshotManager::assign_new_rowset_id(SnapshotMeta* snapshot_meta, const 
                                 PLOG(WARNING) << "Fail to link " << src_absolute_path << " to " << dst_absolute_path;
                                 return Status::RuntimeError(
                                         absl::Substitute("Fail to link index inverted file from $0 to $1",
-                                                            src_absolute_path, dst_absolute_path));
+                                                         src_absolute_path, dst_absolute_path));
                             }
                         }
                     } else if (index.index_type() == VECTOR) {

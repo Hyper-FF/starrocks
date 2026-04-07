@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "exec/iceberg/iceberg_delete_builder.h"
-#include "absl/strings/substitute.h"
 
 #include <storage/chunk_helper.h>
 
+#include "absl/strings/substitute.h"
 #include "column/vectorized_fwd.h"
 #include "common/config_scan_io_fwd.h"
 #include "formats/orc/orc_chunk_reader.h"
@@ -175,8 +175,7 @@ Status IcebergDeleteBuilder::build_orc(const TIcebergDeleteFile& delete_file) co
         orc::ReaderOptions options;
         reader = createReader(std::move(input_stream), options);
     } catch (std::exception& e) {
-        auto s =
-                absl::Substitute("ORCPositionDeleteBuilder::build create orc::Reader failed. reason = $0", e.what());
+        auto s = absl::Substitute("ORCPositionDeleteBuilder::build create orc::Reader failed. reason = $0", e.what());
         LOG(WARNING) << s;
         return Status::InternalError(s);
     }

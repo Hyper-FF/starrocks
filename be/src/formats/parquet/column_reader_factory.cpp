@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "formats/parquet/column_reader_factory.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "column/variant_path_parser.h"
 #include "formats/parquet/complex_column_reader.h"
@@ -131,7 +131,7 @@ static Status build_array_typed_value_reader(const ColumnReaderOptions& opts, co
     if (!typed_reader_or.ok()) {
         return Status::InternalError(
                 absl::Substitute("build variant typed array reader failed, path=$0, type=$1, err=$2", full_path,
-                                    array_read_type.debug_string(), typed_reader_or.status().to_string()));
+                                 array_read_type.debug_string(), typed_reader_or.status().to_string()));
     }
     node->typed_value_reader = std::move(typed_reader_or).value();
     return Status::OK();
@@ -236,8 +236,8 @@ static Status build_scalar_reader_for_variant_node(const ColumnReaderOptions& op
     auto typed_reader_or = ColumnReaderFactory::create(opts, typed_field, *node->typed_value_read_type);
     if (!typed_reader_or.ok()) {
         return Status::InternalError(absl::Substitute("build variant typed reader failed, path=$0, type=$1, err=$2",
-                                                         full_path, file_type.debug_string(),
-                                                         typed_reader_or.status().to_string()));
+                                                      full_path, file_type.debug_string(),
+                                                      typed_reader_or.status().to_string()));
     }
     node->typed_value_reader = std::move(typed_reader_or).value();
     return Status::OK();
@@ -285,7 +285,7 @@ Status collect_variant_shredded_fields(const ColumnReaderOptions& opts, const Pa
         auto parsed_path = VariantPathParser::parse_shredded_path(std::string_view(node.full_path));
         if (!parsed_path.ok()) {
             return Status::InvalidArgument(absl::Substitute("failed to parse shredded path at key=$0, path=$1",
-                                                               field_node.name, node.full_path));
+                                                            field_node.name, node.full_path));
         }
         node.parsed_full_path = std::move(parsed_path).value();
         if (fallback_field != nullptr) {
@@ -333,7 +333,7 @@ StatusOr<ColumnReaderPtr> ColumnReaderFactory::create(const ColumnReaderOptions&
     if ((field->is_complex_type() || col_type.is_complex_type()) && !field->has_same_complex_type(col_type)) {
         return Status::InternalError(
                 absl::Substitute("ParquetField '$0' file's type $1 is different from table's type $2", field->name,
-                                    column_type_to_string(field->type), logical_type_to_string(col_type.type)));
+                                 column_type_to_string(field->type), logical_type_to_string(col_type.type)));
     }
     if (field->type == ColumnType::ARRAY) {
         ASSIGN_OR_RETURN(ColumnReaderPtr child_reader,
@@ -401,7 +401,7 @@ StatusOr<ColumnReaderPtr> ColumnReaderFactory::create(const ColumnReaderOptions&
     if ((field->is_complex_type() || col_type.is_complex_type()) && !field->has_same_complex_type(col_type)) {
         return Status::InternalError(
                 absl::Substitute("ParquetField '$0' file's type $1 is different from table's type $2", field->name,
-                                    column_type_to_string(field->type), logical_type_to_string(col_type.type)));
+                                 column_type_to_string(field->type), logical_type_to_string(col_type.type)));
     }
     DCHECK(lake_schema_field != nullptr);
     if (field->type == ColumnType::ARRAY) {
@@ -503,9 +503,9 @@ StatusOr<ColumnReaderPtr> ColumnReaderFactory::create_variant_column_reader(cons
             root_typed_value_type = std::make_unique<TypeDescriptor>(file_type);
             auto root_reader_or = ColumnReaderFactory::create(opts, typed_value_field, *root_typed_value_type);
             if (!root_reader_or.ok()) {
-                return Status::InternalError(
-                        absl::Substitute("build root variant typed reader failed, type=$0, err=$1",
-                                            file_type.debug_string(), root_reader_or.status().to_string()));
+                return Status::InternalError(absl::Substitute("build root variant typed reader failed, type=$0, err=$1",
+                                                              file_type.debug_string(),
+                                                              root_reader_or.status().to_string()));
             }
             root_typed_value_reader = std::move(root_reader_or).value();
         }

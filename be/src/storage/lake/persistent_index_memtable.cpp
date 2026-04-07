@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "storage/lake/persistent_index_memtable.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/string/string_util.h"
 #include "common/config_primary_key_fwd.h"

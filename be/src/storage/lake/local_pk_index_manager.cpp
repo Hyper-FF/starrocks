@@ -14,11 +14,11 @@
 
 #ifdef USE_STAROS
 #include "storage/lake/local_pk_index_manager.h"
-#include "absl/strings/substitute.h"
 
 #include <chrono>
 
 #include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/config_lake_fwd.h"

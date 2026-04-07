@@ -13,13 +13,13 @@
 // limitations under the License.
 
 #include "aggregator.h"
-#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <memory>
 #include <type_traits>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "column/vectorized_fwd.h"

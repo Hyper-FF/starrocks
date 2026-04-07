@@ -13,12 +13,12 @@
 // limitations under the License.
 
 #include "exprs/ai_functions.h"
-#include "absl/strings/substitute.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include "absl/strings/substitute.h"
 #include "column/column_viewer.h"
 #include "column/json_converter.h"
 #include "common/status.h"
@@ -162,7 +162,7 @@ StatusOr<ColumnPtr> AiFunctions::ai_query(FunctionContext* context, const starro
             auto status_or_config = parse_model_config(*json_value);
             if (!status_or_config.ok()) {
                 return Status::InvalidArgument(absl::Substitute("Failed to parse config at row $0: $1", row,
-                                                                   status_or_config.status().to_string()));
+                                                                status_or_config.status().to_string()));
             }
             config = status_or_config.value();
             timeout_ms_row[row] = config.timeout_ms;

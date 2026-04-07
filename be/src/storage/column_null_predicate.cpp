@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include <cstring>
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "column/column.h"
 #include "column/nullable_column.h"
 #include "gutil/casts.h"

@@ -33,7 +33,6 @@
 // under the License.
 
 #include "storage/rowset/rowset_writer.h"
-#include "absl/strings/substitute.h"
 
 #include <butil/iobuf.h>
 #include <butil/reader_writer.h>
@@ -42,6 +41,7 @@
 #include <ctime>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/pretty_printer.h"
 #include "column/chunk.h"
 #include "common/config_compaction_fwd.h"

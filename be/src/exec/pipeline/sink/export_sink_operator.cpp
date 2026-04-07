@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "exec/pipeline/sink/export_sink_operator.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/uid_util.h"
 #include "exec/data_sink.h"
 #include "exec/file_builder.h"

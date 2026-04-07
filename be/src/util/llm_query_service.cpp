@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "util/llm_query_service.h"
-#include "absl/strings/substitute.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -21,6 +20,7 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "common/config_llm_fwd.h"
 #include "common/thread/threadpool.h"
 #include "exprs/ai_functions.h"

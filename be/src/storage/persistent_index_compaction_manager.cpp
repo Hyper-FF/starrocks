@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "storage/persistent_index_compaction_manager.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "common/config_primary_key_fwd.h"
 #include "common/thread/threadpool.h"

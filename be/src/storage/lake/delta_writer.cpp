@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "storage/lake/delta_writer.h"
-#include "absl/strings/substitute.h"
 
 #include <bthread/bthread.h>
 #include <fmt/format.h>
@@ -22,6 +21,7 @@
 #include <shared_mutex>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "column/chunk.h"
 #include "column/column.h"
 #include "common/config_ingest_fwd.h"

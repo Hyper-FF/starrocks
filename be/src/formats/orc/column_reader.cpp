@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "formats/orc/column_reader.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "common/statusor.h"
 #include "formats/orc/orc_chunk_reader.h"
 #include "formats/orc/utils.h"
@@ -240,9 +240,9 @@ Status IntColumnReader<Type>::_fill_int_column_with_null_from_cvb(OrcColumnVecto
                     if (!reported) {
                         reported = true;
                         auto slot = _reader->get_current_slot();
-                        std::string error_msg = absl::Substitute(
-                                "Value '$0' is out of range. The type of '$1' is $2'", std::to_string(value),
-                                slot->col_name(), slot->type().debug_string());
+                        std::string error_msg =
+                                absl::Substitute("Value '$0' is out of range. The type of '$1' is $2'",
+                                                 std::to_string(value), slot->col_name(), slot->type().debug_string());
                         _reader->report_error_message(error_msg);
                     }
                 }
@@ -298,9 +298,9 @@ Status IntColumnReader<Type>::_fill_int_column_from_cvb(OrcColumnVectorBatch* da
                     if (!reported) {
                         reported = true;
                         auto slot = _reader->get_current_slot();
-                        std::string error_msg = absl::Substitute(
-                                "Value '$0' is out of range. The type of '$1' is $2'", std::to_string(value),
-                                slot->col_name(), slot->type().debug_string());
+                        std::string error_msg =
+                                absl::Substitute("Value '$0' is out of range. The type of '$1' is $2'",
+                                                 std::to_string(value), slot->col_name(), slot->type().debug_string());
                         _reader->report_error_message(error_msg);
                     }
                 }
@@ -598,7 +598,7 @@ Status StringColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, si
                             auto slot = _reader->get_current_slot();
                             std::string error_msg =
                                     absl::Substitute("String '$0' is too long. The type of '$1' is $2'", raw_data,
-                                                        slot->col_name(), slot->type().debug_string());
+                                                     slot->col_name(), slot->type().debug_string());
                             _reader->report_error_message(error_msg);
                         }
                     }
@@ -623,7 +623,7 @@ Status StringColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, si
                         auto slot = _reader->get_current_slot();
                         std::string error_msg =
                                 absl::Substitute("String '$0' is too long. The type of '$1' is $2'", raw_data,
-                                                    slot->col_name(), slot->type().debug_string());
+                                                 slot->col_name(), slot->type().debug_string());
                         _reader->report_error_message(error_msg);
                     }
                 }
