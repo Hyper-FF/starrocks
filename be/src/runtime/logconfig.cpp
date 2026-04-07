@@ -45,8 +45,8 @@
 
 #include "absl/base/internal/endian.h"
 #include "base/process/lite_exec.h"
-#include "base/stringprintf.h"
-#include "base/sysinfo.h"
+#include "base/gutil/stringprintf.h"
+#include "base/gutil/sysinfo.h"
 #include "cache/datacache.h"
 #include "cache/mem_cache/page_cache.h"
 #include "common/config_diagnostic_fwd.h"

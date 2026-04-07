@@ -46,7 +46,7 @@
 #include <string_view>
 
 #include "base/status.h"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "base/time/timezone_utils.h"
 
 namespace starrocks {

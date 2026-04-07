@@ -40,7 +40,7 @@
 #include <libgen.h>
 
 #include "absl/strings/str_split.h"
-#include "base/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 
 using std::string;
 using std::vector;

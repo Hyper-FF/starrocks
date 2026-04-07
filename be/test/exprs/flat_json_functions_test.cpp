@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "base/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "base/testutil/assert.h"
 #include "base/utility/defer_op.h"
 #include "butil/time.h"

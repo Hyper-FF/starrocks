@@ -17,7 +17,7 @@
 #include <future>
 #include <utility>
 
-#include "base/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "column/datum_convert.h"

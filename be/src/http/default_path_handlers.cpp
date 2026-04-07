@@ -42,7 +42,7 @@
 #include <vector>
 
 #include "absl/strings/substitute.h"
-#include "base/strings/numbers.h"
+#include "base/gutil/strings/numbers.h"
 #include "base/utility/pretty_printer.h"
 #include "common/config_diagnostic_fwd.h"
 #include "common/config_path_fwd.h"

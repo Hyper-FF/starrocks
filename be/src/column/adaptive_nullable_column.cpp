@@ -15,7 +15,7 @@
 #include "column/adaptive_nullable_column.h"
 
 #include "base/simd/simd.h"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "column/column_helper.h"
 #include "column/mysql_row_buffer.h"
 

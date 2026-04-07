@@ -16,7 +16,7 @@
 
 #include <type_traits>
 
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "column/array_column.h"
 #include "column/runtime_type_traits.h"
 #include "types/logical_type.h"

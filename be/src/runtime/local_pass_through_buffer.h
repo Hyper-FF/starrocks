@@ -15,7 +15,7 @@
 #pragma once
 #include <map>
 
-#include "base/hash/hash.h"
+#include "base/gutil/hash/hash.h"
 #include "base/hash/hash_std.hpp"
 #include "base/uid_util.h"
 #include "column/column_hash.h"

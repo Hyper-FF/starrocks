@@ -16,7 +16,7 @@
 
 #include "absl/strings/str_split.h"
 #include "base/string/parse_util.h"
-#include "base/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "cache/datacache_utils.h"
 #include "cache/disk_space_monitor.h"
 #include "cache/mem_cache/lrucache_engine.h"

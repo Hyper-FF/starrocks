@@ -21,7 +21,7 @@
 #include <unordered_map>
 
 #include "base/concurrency/spinlock.h"
-#include "base/hash/hash.h"
+#include "base/gutil/hash/hash.h"
 #include "base/hash/hash_std.hpp"
 #include "base/time/time.h"
 #include "base/uid_util.h"

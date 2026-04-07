@@ -17,7 +17,7 @@
 #include <filesystem>
 
 #include "base/path/filesystem_util.h"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "cache/cache_metrics.h"
 #include "cache/disk_space_monitor.h"
 #include "cache/status.h"

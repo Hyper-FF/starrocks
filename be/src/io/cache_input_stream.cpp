@@ -20,7 +20,7 @@
 
 #include "absl/strings/str_split.h"
 #include "base/hash/hash_std.hpp"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "common/config_network_fwd.h"
 #include "common/runtime_profile.h"
 #include "common/system/backend_options.h"

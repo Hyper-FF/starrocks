@@ -30,7 +30,7 @@
 #include "base/concurrency/stopwatch.hpp"
 #include "base/container/lru_cache.h"
 #include "base/string/string_parser.hpp"
-#include "base/strings/util.h"
+#include "base/gutil/strings/util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/config_starlet_fwd.h"

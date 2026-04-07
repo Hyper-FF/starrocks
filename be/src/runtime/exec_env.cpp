@@ -43,7 +43,7 @@
 #include "absl/strings/substitute.h"
 #include "agent/agent_server.h"
 #include "base/string/parse_util.h"
-#include "base/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "base/time/time.h"
 #include "base/utility/pretty_printer.h"
 #include "common/config_exec_env_fwd.h"

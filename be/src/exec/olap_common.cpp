@@ -40,7 +40,7 @@
 #include <vector>
 
 #include "absl/strings/substitute.h"
-#include "base/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "base/types/int128.h"
 #include "common/logging.h"
 #include "exec/filter_condition.h"

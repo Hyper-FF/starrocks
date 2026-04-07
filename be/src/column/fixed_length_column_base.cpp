@@ -17,7 +17,7 @@
 #include "absl/strings/substitute.h"
 #include "base/hash/hash_util.hpp"
 #include "base/simd/gather.h"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "base/types/decimal12.h"
 #include "base/types/int128.h"
 #include "base/types/int256.h"

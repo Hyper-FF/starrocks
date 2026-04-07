@@ -21,7 +21,7 @@
 
 #include "absl/strings/substitute.h"
 #include "base/simd/simd.h"
-#include "base/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"

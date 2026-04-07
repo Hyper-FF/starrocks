@@ -43,7 +43,7 @@
 #include "absl/strings/substitute.h"
 #include "agent/utils.h"
 #include "base/simd/simd.h"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "base/uid_util.h"
 #include "base/utility/defer_op.h"
 #include "column/binary_column.h"

@@ -14,7 +14,7 @@
 
 #include "cache/disk_cache/io_buffer.h"
 
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 

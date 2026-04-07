@@ -38,7 +38,7 @@
 #include <cstring>
 #include <memory>
 
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "base/testutil/sync_point.h"
 #include "common/logging.h"
 #include "common/statusor.h"

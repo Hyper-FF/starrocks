@@ -41,7 +41,7 @@
 #include "base/compiler_util.h"
 #include "base/string/posion.h"
 #include "base/string/slice.h"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 

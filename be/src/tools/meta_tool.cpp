@@ -51,7 +51,7 @@
 #include "base/coding.h"
 #include "base/hash/crc32c.h"
 #include "base/path/path_util.h"
-#include "base/strings/numbers.h"
+#include "base/gutil/strings/numbers.h"
 #include "column/datum_convert.h"
 #include "common/config_exec_fwd.h"
 #include "common/config_storage_fwd.h"

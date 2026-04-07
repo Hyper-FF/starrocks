@@ -49,7 +49,7 @@
 #endif
 #include "absl/strings/str_split.h" // for string split
 #include "base/metrics.h"
-#include "base/strings/strtoint.h"
+#include "base/gutil/strtoint.h"
 #include "cache/mem_cache/page_cache.h"
 #include "common/config_cache_fwd.h"
 #include "exec/query_cache/cache_manager.h"

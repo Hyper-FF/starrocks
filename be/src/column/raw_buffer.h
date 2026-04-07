@@ -26,7 +26,7 @@
 #include <utility>
 
 #include "base/memory/memory_allocator.h"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "common/logging.h"
 #include "fmt/format.h"
 

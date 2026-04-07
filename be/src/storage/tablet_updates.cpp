@@ -25,7 +25,7 @@
 #include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/failpoint/fail_point.h"
-#include "base/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "base/utility/defer_op.h"
 #include "base/utility/pretty_printer.h"
 #include "base/utility/scoped_cleanup.h"

@@ -17,7 +17,7 @@
 #include <utility>
 
 #include "base/phmap/phmap.h"
-#include "base/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "column/chunk.h"
 #include "column/column_hash.h"
 #include "column/column_helper.h"
