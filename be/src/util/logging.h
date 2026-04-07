@@ -17,9 +17,9 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 
-#include "base/walltime.h"
 #include "common/logging.h"
 
 namespace starrocks {
@@ -33,7 +33,7 @@ bool init_glog(const char* basename, bool install_signal_handler = false);
 void shutdown_logging();
 
 // Format a timestamp in the same format as used by GLog.
-std::string FormatTimestampForLog(MicrosecondsInt64 micros_since_epoch);
+std::string FormatTimestampForLog(int64_t micros_since_epoch);
 
 void update_logging();
 

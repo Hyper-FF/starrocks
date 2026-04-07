@@ -589,7 +589,7 @@ Status S3FileSystem::iterate_dir(const std::string& dir, const std::function<boo
     if (!uri.parse(dir)) {
         return Status::InvalidArgument(fmt::format("Invalid S3 URI {}", dir));
     }
-    if (!uri.key().empty() && !HasSuffixString(uri.key(), "/")) {
+    if (!uri.key().empty() && !uri.key().ends_with("/")) {
         uri.key().reserve(uri.key().size() + 1);
         uri.key().push_back('/');
     }
@@ -617,8 +617,8 @@ Status S3FileSystem::iterate_dir(const std::string& dir, const std::function<boo
         directory_exist |= !result.GetCommonPrefixes().empty();
         directory_exist |= !result.GetContents().empty();
         for (auto&& cp : result.GetCommonPrefixes()) {
-            DCHECK(HasPrefixString(cp.GetPrefix(), uri.key())) << cp.GetPrefix() << " " << uri.key();
-            DCHECK(HasSuffixString(cp.GetPrefix(), "/")) << cp.GetPrefix();
+            DCHECK(cp.GetPrefix().starts_with(uri.key())) << cp.GetPrefix() << " " << uri.key();
+            DCHECK(cp.GetPrefix().ends_with("/")) << cp.GetPrefix();
             const auto& full_name = cp.GetPrefix();
             std::string_view name(full_name.data() + uri.key().size(), full_name.size() - uri.key().size() - 1);
             if (!cb(name)) {
@@ -629,7 +629,7 @@ Status S3FileSystem::iterate_dir(const std::string& dir, const std::function<boo
             if (obj.GetKey() == uri.key()) {
                 continue;
             }
-            DCHECK(HasPrefixString(obj.GetKey(), uri.key()));
+            DCHECK(obj.GetKey().starts_with(uri.key()));
             std::string_view obj_key(obj.GetKey());
             if (obj_key.back() == '/') {
                 obj_key = std::string_view(obj_key.data(), obj_key.size() - 1);
@@ -648,7 +648,7 @@ Status S3FileSystem::iterate_dir_v1(const std::string& dir, const std::function<
     if (!uri.parse(dir)) {
         return Status::InvalidArgument(fmt::format("Invalid S3 URI {}", dir));
     }
-    if (!uri.key().empty() && !HasSuffixString(uri.key(), "/")) {
+    if (!uri.key().empty() && !uri.key().ends_with("/")) {
         uri.key().reserve(uri.key().size() + 1);
         uri.key().push_back('/');
     }
@@ -676,8 +676,8 @@ Status S3FileSystem::iterate_dir_v1(const std::string& dir, const std::function<
         directory_exist |= !result.GetCommonPrefixes().empty();
         directory_exist |= !result.GetContents().empty();
         for (auto&& cp : result.GetCommonPrefixes()) {
-            DCHECK(HasPrefixString(cp.GetPrefix(), uri.key())) << cp.GetPrefix() << " " << uri.key();
-            DCHECK(HasSuffixString(cp.GetPrefix(), "/")) << cp.GetPrefix();
+            DCHECK(cp.GetPrefix().starts_with(uri.key())) << cp.GetPrefix() << " " << uri.key();
+            DCHECK(cp.GetPrefix().ends_with("/")) << cp.GetPrefix();
             const auto& full_name = cp.GetPrefix();
             std::string_view name(full_name.data() + uri.key().size(), full_name.size() - uri.key().size() - 1);
             if (!cb(name)) {
@@ -688,7 +688,7 @@ Status S3FileSystem::iterate_dir_v1(const std::string& dir, const std::function<
             if (obj.GetKey() == uri.key()) {
                 continue;
             }
-            DCHECK(HasPrefixString(obj.GetKey(), uri.key()));
+            DCHECK(obj.GetKey().starts_with(uri.key()));
             std::string_view obj_key(obj.GetKey());
             if (obj_key.back() == '/') {
                 obj_key = std::string_view(obj_key.data(), obj_key.size() - 1);
@@ -711,7 +711,7 @@ Status S3FileSystem::iterate_dir2(const std::string& dir, const std::function<bo
     if (!uri.parse(dir)) {
         return Status::InvalidArgument(fmt::format("Invalid S3 URI {}", dir));
     }
-    if (!uri.key().empty() && !HasSuffixString(uri.key(), "/")) {
+    if (!uri.key().empty() && !uri.key().ends_with("/")) {
         uri.key().reserve(uri.key().size() + 1);
         uri.key().push_back('/');
     }
@@ -732,8 +732,8 @@ Status S3FileSystem::iterate_dir2(const std::string& dir, const std::function<bo
         directory_exist |= !result.GetCommonPrefixes().empty();
         directory_exist |= !result.GetContents().empty();
         for (auto&& cp : result.GetCommonPrefixes()) {
-            DCHECK(HasPrefixString(cp.GetPrefix(), uri.key())) << cp.GetPrefix() << " " << uri.key();
-            DCHECK(HasSuffixString(cp.GetPrefix(), "/")) << cp.GetPrefix();
+            DCHECK(cp.GetPrefix().starts_with(uri.key())) << cp.GetPrefix() << " " << uri.key();
+            DCHECK(cp.GetPrefix().ends_with("/")) << cp.GetPrefix();
             const auto& full_name = cp.GetPrefix();
 
             std::string_view name(full_name.data() + uri.key().size(), full_name.size() - uri.key().size() - 1);
@@ -746,7 +746,7 @@ Status S3FileSystem::iterate_dir2(const std::string& dir, const std::function<bo
             if (obj.GetKey() == uri.key()) {
                 continue;
             }
-            DCHECK(HasPrefixString(obj.GetKey(), uri.key()));
+            DCHECK(obj.GetKey().starts_with(uri.key()));
 
             std::string_view obj_key(obj.GetKey());
             DirEntry entry;
@@ -780,7 +780,7 @@ Status S3FileSystem::iterate_dir2_v1(const std::string& dir, const std::function
     if (!uri.parse(dir)) {
         return Status::InvalidArgument(fmt::format("Invalid S3 URI {}", dir));
     }
-    if (!uri.key().empty() && !HasSuffixString(uri.key(), "/")) {
+    if (!uri.key().empty() && !uri.key().ends_with("/")) {
         uri.key().reserve(uri.key().size() + 1);
         uri.key().push_back('/');
     }
@@ -801,8 +801,8 @@ Status S3FileSystem::iterate_dir2_v1(const std::string& dir, const std::function
         directory_exist |= !result.GetCommonPrefixes().empty();
         directory_exist |= !result.GetContents().empty();
         for (auto&& cp : result.GetCommonPrefixes()) {
-            DCHECK(HasPrefixString(cp.GetPrefix(), uri.key())) << cp.GetPrefix() << " " << uri.key();
-            DCHECK(HasSuffixString(cp.GetPrefix(), "/")) << cp.GetPrefix();
+            DCHECK(cp.GetPrefix().starts_with(uri.key())) << cp.GetPrefix() << " " << uri.key();
+            DCHECK(cp.GetPrefix().ends_with("/")) << cp.GetPrefix();
             const auto& full_name = cp.GetPrefix();
 
             std::string_view name(full_name.data() + uri.key().size(), full_name.size() - uri.key().size() - 1);
@@ -815,7 +815,7 @@ Status S3FileSystem::iterate_dir2_v1(const std::string& dir, const std::function
             if (obj.GetKey() == uri.key()) {
                 continue;
             }
-            DCHECK(HasPrefixString(obj.GetKey(), uri.key()));
+            DCHECK(obj.GetKey().starts_with(uri.key()));
 
             std::string_view obj_key(obj.GetKey());
             DirEntry entry;
@@ -913,7 +913,7 @@ StatusOr<bool> S3FileSystem::is_directory(const std::string& path) {
     request.SetContinuationToken(result.GetNextContinuationToken());
     std::string dirname = uri.key() + "/";
     for (auto&& obj : result.GetContents()) {
-        if (HasPrefixString(obj.GetKey(), dirname)) {
+        if (obj.GetKey().starts_with(dirname)) {
             return true;
         }
         if (obj.GetKey() == uri.key()) {
@@ -943,7 +943,7 @@ StatusOr<bool> S3FileSystem::is_directory_v1(const std::string& path) {
     request.SetMarker(result.GetNextMarker());
     std::string dirname = uri.key() + "/";
     for (auto&& obj : result.GetContents()) {
-        if (HasPrefixString(obj.GetKey(), dirname)) {
+        if (obj.GetKey().starts_with(dirname)) {
             return true;
         }
         if (obj.GetKey() == uri.key()) {
@@ -1046,7 +1046,7 @@ Status S3FileSystem::delete_dir(const std::string& dirname) {
     if (uri.key().empty()) {
         return Status::NotSupported("Cannot delete root directory of S3");
     }
-    if (!HasSuffixString(uri.key(), "/")) {
+    if (!uri.key().ends_with("/")) {
         uri.key().push_back('/');
     }
 
@@ -1090,7 +1090,7 @@ Status S3FileSystem::delete_dir_v1(const std::string& dirname) {
     if (uri.key().empty()) {
         return Status::NotSupported("Cannot delete root directory of S3");
     }
-    if (!HasSuffixString(uri.key(), "/")) {
+    if (!uri.key().ends_with("/")) {
         uri.key().push_back('/');
     }
 

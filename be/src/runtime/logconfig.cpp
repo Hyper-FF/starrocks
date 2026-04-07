@@ -458,7 +458,7 @@ void shutdown_logging() {
     google::ShutdownGoogleLogging();
 }
 
-std::string FormatTimestampForLog(MicrosecondsInt64 micros_since_epoch) {
+std::string FormatTimestampForLog(int64_t micros_since_epoch) {
     time_t secs_since_epoch = micros_since_epoch / 1000000;
     int64_t usecs = micros_since_epoch % 1000000;
     struct tm tm_time;

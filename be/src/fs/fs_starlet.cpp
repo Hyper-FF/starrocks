@@ -74,7 +74,7 @@ static const std::string kFileTagTypeMeta = "meta";
 static const std::string kFileTagTypeTxnLog = "txnlog";
 
 bool is_starlet_uri(std::string_view uri) {
-    return HasPrefixString(uri, "staros://");
+    return uri.starts_with("staros://");
 }
 
 std::string build_starlet_uri(int64_t shard_id, std::string_view path) {
@@ -87,7 +87,7 @@ std::string build_starlet_uri(int64_t shard_id, std::string_view path) {
 // Expected format of uri: staros://ShardID/path/to/file
 StatusOr<std::pair<std::string, int64_t>> parse_starlet_uri(std::string_view uri) {
     std::string_view path = uri;
-    if (!HasPrefixString(path, "staros://")) {
+    if (!path.starts_with("staros://")) {
         return Status::InvalidArgument(fmt::format("Invalid starlet URI: {}", uri));
     }
     path.remove_prefix(sizeof("staros://") - 1);

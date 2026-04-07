@@ -16,8 +16,9 @@
 
 #include <cstring>
 
-#include "base/container/raw_container.h"
 #include "base/compiler_util.h"
+#include "base/container/raw_container.h"
+#include "base/hash/unaligned_access.h"
 #include "common/config_exec_flow_fwd.h"
 #include "common/statusor.h"
 #include "exec/spill/options.h"
@@ -115,7 +116,7 @@ Status ColumnarSerde::serialize(RuntimeState* state, SerdeContext& ctx, const Ch
         // header|attachment...
         // i32 sequence_id|i64 chunk size|encode level|attachment(column data)...
         char header_buffer[HEADER_SIZE];
-        UNALIGNED_STORE32(header_buffer + SEQUENCE_OFFSET, SEQUENCE_MAGIC_ID);
+        starrocks::unaligned_store<uint32_t>(header_buffer + SEQUENCE_OFFSET, SEQUENCE_MAGIC_ID);
 
         size_t encode_level_sizes = columns.size() * sizeof(int32_t);
         size_t max_serialized_size = _max_serialized_size(chunk);
@@ -128,7 +129,7 @@ Status ColumnarSerde::serialize(RuntimeState* state, SerdeContext& ctx, const Ch
         {
             buf = buf + HEADER_SIZE;
             for (auto encode_level : encode_levels) {
-                UNALIGNED_STORE32(buf, encode_level);
+                starrocks::unaligned_store<uint32_t>(buf, encode_level);
                 buf += sizeof(uint32_t);
             }
         }
@@ -156,7 +157,7 @@ Status ColumnarSerde::serialize(RuntimeState* state, SerdeContext& ctx, const Ch
         size_t content_length = buf - head;
         auto align_size = ALIGN_UP(content_length + padding_size, ALIGNED_SIZE);
         serialize_buffer.resize(align_size);
-        UNALIGNED_STORE64(header_buffer + ATTACHMENT_SIZE_OFFSET, align_size - HEADER_SIZE);
+        starrocks::unaligned_store<uint64_t>(header_buffer + ATTACHMENT_SIZE_OFFSET, align_size - HEADER_SIZE);
         memcpy(serialize_buffer.data(), header_buffer, HEADER_SIZE);
     }
     size_t written_bytes = serialize_buffer.size();
@@ -169,8 +170,8 @@ StatusOr<ChunkUniquePtr> ColumnarSerde::deserialize(SerdeContext& ctx, BlockRead
     char header_buffer[HEADER_SIZE];
     RETURN_IF_ERROR(reader->read_fully(header_buffer, HEADER_SIZE));
 
-    int32_t sequence_id = UNALIGNED_LOAD32(header_buffer + SEQUENCE_OFFSET);
-    size_t attachment_size = UNALIGNED_LOAD64(header_buffer + ATTACHMENT_SIZE_OFFSET);
+    int32_t sequence_id = starrocks::unaligned_load<int32_t>(header_buffer + SEQUENCE_OFFSET);
+    size_t attachment_size = starrocks::unaligned_load<uint64_t>(header_buffer + ATTACHMENT_SIZE_OFFSET);
     if (sequence_id != SEQUENCE_MAGIC_ID) {
         return Status::InternalError(fmt::format("sequence id mismatch {} vs {}", sequence_id, SEQUENCE_MAGIC_ID));
     }
