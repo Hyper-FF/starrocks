@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "base/testutil/assert.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 
 namespace starrocks {
 
@@ -159,7 +159,7 @@ TEST_F(MemoryFileSystemTest, test_create_and_list_dir) {
         EXPECT_STATUS(t.ret, _fs->get_children(t.dirname, &children));
         std::sort(t.children.begin(), t.children.end());
         std::sort(children.begin(), children.end());
-        EXPECT_EQ(JoinStrings(t.children, ","), JoinStrings(children, ","));
+        EXPECT_EQ(absl::StrJoin(t.children, ","), absl::StrJoin(children, ","));
     }
 }
 
@@ -215,7 +215,7 @@ TEST_F(MemoryFileSystemTest, test_new_writable_file) {
     ASSERT_OK(file->close());
     std::vector<std::string> children;
     EXPECT_STATUS(Status::OK(), _fs->get_children("/", &children));
-    ASSERT_EQ(1, children.size()) << JoinStrings(children, ",");
+    ASSERT_EQ(1, children.size()) << absl::StrJoin(children, ",");
     EXPECT_EQ("1.csv", children[0]);
     ASSIGN_OR_ABORT(const uint64_t size, _fs->get_file_size("/1.csv"));
     EXPECT_EQ(3, size);
@@ -234,7 +234,7 @@ TEST_F(MemoryFileSystemTest, test_delete_file) {
 
     std::vector<std::string> children;
     EXPECT_STATUS(Status::OK(), _fs->get_children("/", &children));
-    EXPECT_EQ(0, children.size()) << JoinStrings(children, ",");
+    EXPECT_EQ(0, children.size()) << absl::StrJoin(children, ",");
 }
 
 // NOLINTNEXTLINE
@@ -362,7 +362,7 @@ TEST_F(MemoryFileSystemTest, test_rename) {
             "/dir2\n"
             "/file1\n"
             "/file2",
-            JoinStrings(walker.walk("/"), "\n"));
+            absl::StrJoin(walker.walk("/"), "\n"));
 
     EXPECT_STATUS(Status::OK(), _fs->rename_file("/file1", "/file3"));
     EXPECT_EQ(
@@ -371,7 +371,7 @@ TEST_F(MemoryFileSystemTest, test_rename) {
             "/dir2\n"
             "/file2\n"
             "/file3",
-            JoinStrings(walker.walk("/"), "\n"));
+            absl::StrJoin(walker.walk("/"), "\n"));
 
     EXPECT_STATUS(Status::OK(), _fs->rename_file("/file2", "/dir2/file2"));
     EXPECT_EQ(
@@ -380,7 +380,7 @@ TEST_F(MemoryFileSystemTest, test_rename) {
             "/dir2\n"
             "/dir2/file2\n"
             "/file3",
-            JoinStrings(walker.walk("/"), "\n"));
+            absl::StrJoin(walker.walk("/"), "\n"));
 
     EXPECT_STATUS(Status::IOError(""), _fs->rename_file("/dir1", "/dir2"));
 
@@ -390,7 +390,7 @@ TEST_F(MemoryFileSystemTest, test_rename) {
             "/dir1\n"
             "/dir1/file2\n"
             "/file3",
-            JoinStrings(walker.walk("/"), "\n"));
+            absl::StrJoin(walker.walk("/"), "\n"));
 }
 
 // NOLINTNEXTLINE
@@ -413,7 +413,7 @@ TEST_F(MemoryFileSystemTest, test_rename02) {
             "/dir2/dir21/b\n"
             "/dir2/dir21/dir31\n"
             "/dir3",
-            JoinStrings(walker.walk("/"), "\n"));
+            absl::StrJoin(walker.walk("/"), "\n"));
 
     EXPECT_STATUS(Status::OK(), _fs->rename_file("/dir2", "/dir4"));
     EXPECT_EQ(
@@ -425,7 +425,7 @@ TEST_F(MemoryFileSystemTest, test_rename02) {
             "/dir4/dir21\n"
             "/dir4/dir21/b\n"
             "/dir4/dir21/dir31",
-            JoinStrings(walker.walk("/"), "\n"));
+            absl::StrJoin(walker.walk("/"), "\n"));
 }
 
 // NOLINTNEXTLINE

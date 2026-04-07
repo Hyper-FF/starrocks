@@ -16,6 +16,7 @@
 // under the License.
 
 #include "exec/short_circuit.h"
+#include "absl/strings/substitute.h"
 
 #include "base/brpc/brpc.h"
 #include "column/column_helper.h"
@@ -254,7 +255,7 @@ Status ShortCircuitExecutor::build_source_exec_node(starrocks::ObjectPool* pool,
         RETURN_IF_ERROR(ExecFactory::create_vectorized_node(runtime_state(), pool, t_node, descs, node));
         break;
     default:
-        return Status::InternalError(strings::Substitute("Short circuit not support node: $0", t_node.node_type));
+        return Status::InternalError(absl::Substitute("Short circuit not support node: $0", t_node.node_type));
     }
 
     RETURN_IF_ERROR((*node)->init(t_node, runtime_state()));

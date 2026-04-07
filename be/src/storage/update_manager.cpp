@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/update_manager.h"
+#include "absl/strings/substitute.h"
 
 #include <limits>
 #include <memory>
@@ -207,7 +208,7 @@ Status UpdateManager::get_del_vec(KVStore* meta, const TabletSegmentId& tsid, in
         auto itr = _del_vec_cache.find(tsid);
         if (itr != _del_vec_cache.end()) {
             if (version >= itr->second->version()) {
-                VLOG(3) << strings::Substitute("get_del_vec cached tablet_segment=$0 version=$1 actual_version=$2",
+                VLOG(3) << absl::Substitute("get_del_vec cached tablet_segment=$0 version=$1 actual_version=$2",
                                                tsid.to_string(), version, itr->second->version());
                 // cache valid
                 // TODO(cbl): add cache hit stats
@@ -452,7 +453,7 @@ void UpdateManager::expire_cache() {
         _index_cache.clear_expired();
         ssize_t size = _index_cache.size();
         ssize_t obj_size = _index_cache.object_size();
-        LOG(INFO) << strings::Substitute("index cache expire: before:($0 $1) after:($2 $3) expire: ($4 $5)",
+        LOG(INFO) << absl::Substitute("index cache expire: before:($0 $1) after:($2 $3) expire: ($4 $5)",
                                          orig_obj_size, PrettyPrinter::print_bytes(orig_size), obj_size,
                                          PrettyPrinter::print_bytes(size), orig_obj_size - obj_size,
                                          PrettyPrinter::print_bytes(orig_size - size));
@@ -481,7 +482,7 @@ void UpdateManager::evict_cache(int64_t memory_urgent_level, int64_t memory_high
 }
 
 string UpdateManager::memory_stats() {
-    return strings::Substitute("index:$0 rowset:$1 compaction:$2 delvec:$3 dcg:$4 total:$5/$6",
+    return absl::Substitute("index:$0 rowset:$1 compaction:$2 delvec:$3 dcg:$4 total:$5/$6",
                                PrettyPrinter::print_bytes(_index_cache_mem_tracker->consumption()),
                                PrettyPrinter::print_bytes(_update_state_mem_tracker->consumption()),
                                PrettyPrinter::print_bytes(_compaction_state_mem_tracker->consumption()),
@@ -549,7 +550,7 @@ Status UpdateManager::set_cached_del_vec(const TabletSegmentId& tsid, const DelV
     auto itr = _del_vec_cache.find(tsid);
     if (itr != _del_vec_cache.end()) {
         if (delvec->version() <= itr->second->version()) {
-            string msg = strings::Substitute("UpdateManager::set_cached_del_vec: new version($0) < old version($1)",
+            string msg = absl::Substitute("UpdateManager::set_cached_del_vec: new version($0) < old version($1)",
                                              delvec->version(), itr->second->version());
             LOG(ERROR) << msg;
             return Status::InternalError(msg);
@@ -593,7 +594,7 @@ Status UpdateManager::on_rowset_finished(Tablet* tablet, Rowset* rowset) {
     Status st;
     if (rowset->is_column_mode_partial_update()) {
         auto state_entry = _update_column_state_cache.get_or_create(
-                strings::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
+                absl::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
         st = state_entry->value().load(tablet, rowset, _update_mem_tracker);
         state_entry->update_expire_time(MonotonicMillis() + _cache_expire_ms);
         _update_column_state_cache.update_object_size(state_entry, state_entry->value().memory_usage());
@@ -609,7 +610,7 @@ Status UpdateManager::on_rowset_finished(Tablet* tablet, Rowset* rowset) {
         }
     } else {
         auto state_entry =
-                _update_state_cache.get_or_create(strings::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
+                _update_state_cache.get_or_create(absl::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
         st = state_entry->value().load(tablet, rowset);
         state_entry->update_expire_time(MonotonicMillis() + _cache_expire_ms);
         _update_state_cache.update_object_size(state_entry, state_entry->value().memory_usage());
@@ -628,7 +629,7 @@ Status UpdateManager::on_rowset_finished(Tablet* tablet, Rowset* rowset) {
     // tablet maybe dropped during ingestion, add some log
     if (!st.ok()) {
         if (tablet->tablet_state() == TABLET_SHUTDOWN) {
-            std::string msg = strings::Substitute("tablet $0 in TABLET_SHUTDOWN, maybe deleted by other thread",
+            std::string msg = absl::Substitute("tablet $0 in TABLET_SHUTDOWN, maybe deleted by other thread",
                                                   tablet->tablet_id());
             LOG(WARNING) << msg;
         }
@@ -653,12 +654,12 @@ void UpdateManager::on_rowset_cancel(Tablet* tablet, Rowset* rowset) {
             << " rowset:" << rowset_unique_id;
     if (rowset->is_column_mode_partial_update()) {
         auto column_state_entry =
-                _update_column_state_cache.get(strings::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
+                _update_column_state_cache.get(absl::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
         if (column_state_entry != nullptr) {
             _update_column_state_cache.remove(column_state_entry);
         }
     } else {
-        auto state_entry = _update_state_cache.get(strings::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
+        auto state_entry = _update_state_cache.get(absl::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
         if (state_entry != nullptr) {
             _update_state_cache.remove(state_entry);
         }
@@ -669,13 +670,13 @@ bool UpdateManager::TEST_update_state_exist(Tablet* tablet, Rowset* rowset) {
     string rowset_unique_id = rowset->rowset_id().to_string();
     if (rowset->is_column_mode_partial_update()) {
         auto column_state_entry =
-                _update_column_state_cache.get(strings::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
+                _update_column_state_cache.get(absl::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
         if (column_state_entry != nullptr) {
             _update_column_state_cache.release(column_state_entry);
             return true;
         }
     } else {
-        auto state_entry = _update_state_cache.get(strings::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
+        auto state_entry = _update_state_cache.get(absl::Substitute("$0_$1", tablet->tablet_id(), rowset_unique_id));
         if (state_entry != nullptr) {
             _update_state_cache.release(state_entry);
             return true;

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/local_tablet_reader.h"
+#include "absl/strings/substitute.h"
 
 #include "gen_cpp/internal_service.pb.h"
 #include "runtime/current_thread.h"
@@ -93,7 +94,7 @@ Status LocalTabletReader::multi_get(const Chunk& keys, const std::vector<std::st
     for (const auto& name : value_columns) {
         auto cid = tablet_schema->field_index(name);
         if (cid == -1) {
-            return Status::InvalidArgument(strings::Substitute("multi_get value_column $0 not found", name));
+            return Status::InvalidArgument(absl::Substitute("multi_get value_column $0 not found", name));
         }
         value_column_ids.push_back(cid);
     }
@@ -106,7 +107,7 @@ Status LocalTabletReader::multi_get(const Chunk& keys, const std::vector<uint32_
     size_t n = keys.num_rows();
     if (n > UINT32_MAX) {
         return Status::InvalidArgument(
-                strings::Substitute("multi_get number of keys exceed limit $0 > $1", n, UINT32_MAX));
+                absl::Substitute("multi_get number of keys exceed limit $0 > $1", n, UINT32_MAX));
     }
 
     // convert keys to pk single column format
@@ -128,11 +129,11 @@ Status LocalTabletReader::multi_get(const Chunk& keys, const std::vector<uint32_
     RETURN_IF_ERROR(_tablet->updates()->get_rss_rowids_by_pk(_tablet.get(), *pk_column, &edit_version, &rowids));
     if (edit_version.major_number() != _version) {
         return Status::InternalError(
-                strings::Substitute("multi_get version not match tablet:$0 current_version:$1 read_version:$2",
+                absl::Substitute("multi_get version not match tablet:$0 current_version:$1 read_version:$2",
                                     _tablet->tablet_id(), edit_version.to_string(), _version));
     }
     if (rowids.size() != n) {
-        return Status::InternalError(strings::Substitute("multi_get rowid size not match tablet:$0 $1 != $2",
+        return Status::InternalError(absl::Substitute("multi_get rowid size not match tablet:$0 $1 != $2",
                                                          _tablet->tablet_id(), rowids.size(), n));
     }
 
@@ -167,7 +168,7 @@ Status LocalTabletReader::multi_get(const Chunk& keys, const std::vector<uint32_
         dest_col->append_selective(*read_columns[col_idx], idxes.data(), 0, idxes.size());
     }
     int64_t t_end = MonotonicMillis();
-    LOG(INFO) << strings::Substitute("multi_get tablet:$0 version:$1 #columns:$2 #rows:$3 found:$4 time:$5ms",
+    LOG(INFO) << absl::Substitute("multi_get tablet:$0 version:$1 #columns:$2 #rows:$3 found:$4 time:$5ms",
                                      _tablet->tablet_id(), _version, value_column_ids.size(), n, idxes.size(),
                                      t_end - t_start);
     return Status::OK();
@@ -186,7 +187,7 @@ StatusOr<ChunkIteratorPtr> LocalTabletReader::scan(const std::vector<std::string
     for (auto& cname : value_columns) {
         auto idx = full_schema.get_field_index_by_name(cname);
         if (idx == -1) {
-            return Status::InvalidArgument(strings::Substitute("column $0 not found", cname));
+            return Status::InvalidArgument(absl::Substitute("column $0 not found", cname));
         }
         column_ids.push_back(idx);
     }
@@ -202,7 +203,7 @@ Status handle_tablet_multi_get_rpc(const PTabletReaderMultiGetRequest& request, 
     int64_t tablet_id = request.tablet_id();
     TabletSharedPtr tablet = StorageEngine::instance()->tablet_manager()->get_tablet(tablet_id);
     if (tablet == nullptr) {
-        return Status::InternalError(strings::Substitute("mult-get rpc failed, tablet $0 not found", tablet_id));
+        return Status::InternalError(absl::Substitute("mult-get rpc failed, tablet $0 not found", tablet_id));
     }
     int64_t version = request.version();
     vector<string> value_columns(request.values_columns().begin(), request.values_columns().end());
@@ -221,7 +222,7 @@ Status handle_tablet_multi_get_rpc(const PTabletReaderMultiGetRequest& request, 
     for (const auto& name : value_columns) {
         auto cid = tablet_schema->field_index(name);
         if (cid == -1) {
-            return Status::InvalidArgument(strings::Substitute("multi_get value_column $0 not found", name));
+            return Status::InvalidArgument(absl::Substitute("multi_get value_column $0 not found", name));
         }
         value_column_ids.push_back(cid);
     }

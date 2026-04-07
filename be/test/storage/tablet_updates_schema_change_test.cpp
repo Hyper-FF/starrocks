@@ -15,6 +15,7 @@
 #include "base/failpoint/fail_point.h"
 #include "common/config_compaction_fwd.h"
 #include "tablet_updates_test.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -114,7 +115,7 @@ void TabletUpdatesTest::test_schema_change_optimiazation_adding_generated_column
     request.__set_txn_id(99);
     request.__set_job_id(999);
 
-    std::string alter_msg_header = strings::Substitute("[Alter Job:$0, tablet:$1]: ", 999, base_tablet->tablet_id());
+    std::string alter_msg_header = absl::Substitute("[Alter Job:$0, tablet:$1]: ", 999, base_tablet->tablet_id());
     SchemaChangeHandler handler;
     handler.set_alter_msg_header(alter_msg_header);
     auto fp = starrocks::failpoint::FailPointRegistry::GetInstance()->get(

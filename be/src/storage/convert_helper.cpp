@@ -23,7 +23,7 @@
 #include "column/decimalv3_column.h"
 #include "column/nullable_column.h"
 #include "column/schema.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/mem_pool.h"
 #include "storage/chunk_helper.h"
 #include "storage/olap_type_infra.h"
@@ -40,7 +40,7 @@
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 template <typename SrcType, typename DstType>
 struct ConvFunction {};

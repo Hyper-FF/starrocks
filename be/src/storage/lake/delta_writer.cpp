@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/lake/delta_writer.h"
+#include "absl/strings/substitute.h"
 
 #include <bthread/bthread.h>
 #include <fmt/format.h>
@@ -700,7 +701,7 @@ Status DeltaWriterImpl::init_write_schema() {
             const auto& slot_col_name = (*_slots)[i]->col_name();
             int32_t index = _tablet_schema->field_index(slot_col_name);
             if (index < 0) {
-                return Status::InvalidArgument(strings::Substitute("Invalid column name: $0", slot_col_name));
+                return Status::InvalidArgument(absl::Substitute("Invalid column name: $0", slot_col_name));
             }
             _write_column_ids.push_back(index);
         }

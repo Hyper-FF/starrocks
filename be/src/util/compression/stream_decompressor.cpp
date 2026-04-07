@@ -44,7 +44,7 @@
 
 #include "base/coding.h"
 #include "fmt/compile.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "util/compression/compression_context_pool_singletons.h"
 #include "util/compression/compression_headers.h"
 
@@ -418,7 +418,7 @@ Status ZstandardStreamDecompressor::decompress(uint8_t* input, size_t input_len,
     if (ZSTD_isError(ret)) {
         *output_bytes_written = 0;
         return Status::InternalError(
-                strings::Substitute("ZSTD decompress failed. error: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
+                absl::Substitute("ZSTD decompress failed. error: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
     }
     if (ret == 0) {
         *stream_end = true;
@@ -925,7 +925,7 @@ Status LzoStreamDecompressor::decompress(uint8_t* input, size_t input_len, size_
                 (void)orc::lzoDecompress((char*)ptr, (char*)ptr + compressed_size, (char*)ctx->buffer_data,
                                          (char*)ctx->buffer_data + uncompressed_size);
             } catch (const std::runtime_error& e) {
-                return Status::InternalError(strings::Substitute("$0 decompress failed", NAME));
+                return Status::InternalError(absl::Substitute("$0 decompress failed", NAME));
             }
         }
         RETURN_IF_ERROR(verify_checksum(_header.output_checksum_type, "decompressed", uncompressed_checksum,

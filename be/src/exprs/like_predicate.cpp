@@ -20,7 +20,7 @@
 #include "base/utility/defer_op.h"
 #include "exprs/binary_function.h"
 #include "glog/logging.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -577,7 +577,7 @@ StatusOr<ColumnPtr> LikePredicate::regex_match_full(FunctionContext* context, co
 
             re2::RE2 re(re_pattern, opts);
             if (!re.ok()) {
-                return Status::InvalidArgument(strings::Substitute("Invalid regex: $0", re_pattern));
+                return Status::InvalidArgument(absl::Substitute("Invalid regex: $0", re_pattern));
             }
             auto v = RE2::FullMatch(re2::StringPiece(value_viewer.value(row).data, value_viewer.value(row).size), re);
             result.append(v);
@@ -625,7 +625,7 @@ StatusOr<ColumnPtr> LikePredicate::regex_match_partial(FunctionContext* context,
         re2::RE2 re(re_pattern, opts);
 
         if (!re.ok()) {
-            context->set_error(strings::Substitute("Invalid regex: $0", re_pattern).c_str());
+            context->set_error(absl::Substitute("Invalid regex: $0", re_pattern).c_str());
             result.append_null();
             continue;
         }

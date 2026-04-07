@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 
 #include <algorithm>
 
@@ -64,8 +64,9 @@ Status StringFunctions::split_prepare(FunctionContext* context, FunctionContext:
         if (delimiter.empty() && !validate_ascii_fast(haystack.data, haystack.size)) {
             state->const_split_strings = split_utf8_characters(haystack);
         } else {
-            state->const_split_strings = strings::Split(StringPiece(haystack.get_data(), haystack.get_size()),
-                                                        StringPiece(delimiter.get_data(), delimiter.get_size()));
+            state->const_split_strings = absl::StrSplit(
+                    std::string_view(haystack.get_data(), haystack.get_size()),
+                    std::string_view(delimiter.get_data(), delimiter.get_size()));
         }
     } else if (context->is_notnull_constant_column(1)) {
         Slice delimiter = ColumnHelper::get_const_value<TYPE_VARCHAR>(context->get_constant_column(1));
@@ -219,8 +220,8 @@ StatusOr<ColumnPtr> StringFunctions::split(FunctionContext* context, const starr
                 }
             } else {
                 std::vector<std::string> split_string =
-                        strings::Split(StringPiece(str.get_data(), str.get_size()),
-                                       StringPiece(delimiter.get_data(), delimiter.get_size()));
+                        absl::StrSplit(std::string_view(str.get_data(), str.get_size()),
+                                       std::string_view(delimiter.get_data(), delimiter.get_size()));
                 for (auto& i : split_string) {
                     array_binary_column->append(Slice(i.c_str()));
                 }

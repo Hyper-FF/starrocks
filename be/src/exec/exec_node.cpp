@@ -52,7 +52,7 @@
 #include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
@@ -134,7 +134,7 @@ void ExecNode::register_runtime_filter_descriptor(RuntimeState* state, RuntimeFi
     _runtime_filter_collector.add_descriptor(rf_desc);
     ExecEnv::GetInstance()->runtime_filter_cache()->add_rf_event(
             {state->query_id(), rf_desc->filter_id(), BackendOptions::get_localhost(),
-             strings::Substitute("REGISTER_GRF(probe_node_id=$0", _id)});
+             absl::Substitute("REGISTER_GRF(probe_node_id=$0", _id)});
     state->runtime_filter_registry()->register_descriptor(rf_desc);
 }
 

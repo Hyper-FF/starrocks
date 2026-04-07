@@ -53,7 +53,7 @@
 #include "common/system/cpu_info.h"
 #include "common/system/master_info.h"
 #include "common/thread/threadpool.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "storage/snapshot_manager.h"
 #include "util/global_metrics_registry.h"
@@ -385,7 +385,7 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
             task_divider[t_task_type].push_back(&task);                                             \
         } else {                                                                                    \
             ret_st = Status::InvalidArgument(                                                       \
-                    strings::Substitute("task(signature=$0) has wrong request member", signature)); \
+                    absl::Substitute("task(signature=$0) has wrong request member", signature)); \
         }                                                                                           \
         break;
 
@@ -414,7 +414,7 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
         case TTaskType::REALTIME_PUSH:
             if (!task.__isset.push_req) {
                 ret_st = Status::InvalidArgument(
-                        strings::Substitute("task(signature=$0) has wrong request member", signature));
+                        absl::Substitute("task(signature=$0) has wrong request member", signature));
                 break;
             }
             if (task.push_req.push_type == TPushType::LOAD_V2 || task.push_req.push_type == TPushType::DELETE ||
@@ -422,7 +422,7 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
                 push_divider[task.push_req.push_type].push_back(&task);
             } else {
                 ret_st = Status::InvalidArgument(
-                        strings::Substitute("task(signature=$0, type=$1, push_type=$2) has wrong push_type", signature,
+                        absl::Substitute("task(signature=$0, type=$1, push_type=$2) has wrong push_type", signature,
                                             task_type, task.push_req.push_type));
             }
             break;
@@ -431,12 +431,12 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
                 task_divider[TTaskType::ALTER].push_back(&task);
             } else {
                 ret_st = Status::InvalidArgument(
-                        strings::Substitute("task(signature=$0) has wrong request member", signature));
+                        absl::Substitute("task(signature=$0) has wrong request member", signature));
             }
             break;
         default:
             ret_st = Status::InvalidArgument(
-                    strings::Substitute("task(signature=$0, type=$1) has wrong task type", signature, task_type));
+                    absl::Substitute("task(signature=$0, type=$1) has wrong task type", signature, task_type));
             break;
         }
 #undef HANDLE_TYPE
@@ -578,7 +578,7 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
                         alter_tablet_req_v2, _exec_env);
             break;
         default:
-            ret_st = Status::InvalidArgument(strings::Substitute("tasks(type=$0) has wrong task type", task_type));
+            ret_st = Status::InvalidArgument(absl::Substitute("tasks(type=$0) has wrong task type", task_type));
             LOG(WARNING) << "fail to batch submit task. reason: " << ret_st.message();
         }
     }
@@ -598,7 +598,7 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
                 _delete_workers->submit_tasks(all_push_tasks);
                 break;
             default:
-                ret_st = Status::InvalidArgument(strings::Substitute("tasks(type=$0, push_type=$1) has wrong task type",
+                ret_st = Status::InvalidArgument(absl::Substitute("tasks(type=$0, push_type=$1) has wrong task type",
                                                                      TTaskType::PUSH, push_type));
                 LOG(WARNING) << "fail to batch submit push task. reason: " << ret_st.message();
             }

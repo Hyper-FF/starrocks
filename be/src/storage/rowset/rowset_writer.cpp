@@ -33,6 +33,7 @@
 // under the License.
 
 #include "storage/rowset/rowset_writer.h"
+#include "absl/strings/substitute.h"
 
 #include <butil/iobuf.h>
 #include <butil/reader_writer.h>
@@ -633,7 +634,7 @@ std::string HorizontalRowsetWriter::_flush_state_to_string() {
 }
 
 std::string HorizontalRowsetWriter::_error_msg() {
-    std::string msg = strings::Substitute(
+    std::string msg = absl::Substitute(
             "UNKNOWN flush chunk state:$0, tablet:$1 txn:$2 #seg:$3 #delfile:$4 #uptfile:$5 #upsert:$6 #del:$7",
             _flush_state_to_string(), _context.tablet_id, _context.txn_id, _num_segment, _num_delfile, _num_uptfile,
             _num_rows_written, _num_rows_del);

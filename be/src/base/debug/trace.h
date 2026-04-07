@@ -28,8 +28,7 @@
 #include "base/debug/trace_metrics.h"
 #include "gutil/macros.h"
 #include "gutil/ref_counted.h"
-#include "gutil/strings/stringpiece.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "gutil/threading/thread_collision_warner.h"
 #include "gutil/walltime.h"
 
@@ -44,20 +43,20 @@ class Trace;
 #define ADOPT_TRACE(t) starrocks::ScopedAdoptTrace _adopt_trace(t);
 
 // Issue a trace message, if tracing is enabled in the current thread.
-// See Trace::SubstituteAndTrace for arguments.
+// Uses absl::Substitute format ($0, $1, ...) for arguments.
 // Example:
 //  TRACE("Acquired timestamp $0", timestamp);
-#define TRACE(format, substitutions...)                                                \
-    do {                                                                               \
-        starrocks::Trace* _trace = starrocks::Trace::CurrentTrace();                   \
-        if (_trace) {                                                                  \
-            _trace->SubstituteAndTrace(__FILE__, __LINE__, (format), ##substitutions); \
-        }                                                                              \
+#define TRACE(format, ...)                                                                            \
+    do {                                                                                              \
+        starrocks::Trace* _trace = starrocks::Trace::CurrentTrace();                                  \
+        if (_trace) {                                                                                 \
+            _trace->TraceMessage(__FILE__, __LINE__, absl::Substitute((format), ##__VA_ARGS__)); \
+        }                                                                                             \
     } while (0)
 
 // Like the above, but takes the trace pointer as an explicit argument.
-#define TRACE_TO(trace, format, substitutions...) \
-    (trace)->SubstituteAndTrace(__FILE__, __LINE__, (format), ##substitutions)
+#define TRACE_TO(trace, format, ...) \
+    (trace)->TraceMessage(__FILE__, __LINE__, absl::Substitute((format), ##__VA_ARGS__))
 
 // Increment a counter associated with the current trace.
 //
@@ -130,23 +129,11 @@ public:
     Trace(const Trace&) = delete;
     const Trace& operator=(const Trace&) = delete;
 
-    // Logs a message into the trace buffer.
-    //
-    // See strings::Substitute for details.
+    // Logs a pre-formatted message into the trace buffer.
     //
     // N.B.: the file path passed here is not copied, so should be a static
     // constant (eg __FILE__).
-    void SubstituteAndTrace(const char* filepath, int line_number, StringPiece format,
-                            const strings::internal::SubstituteArg& arg0 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg1 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg2 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg3 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg4 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg5 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg6 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg7 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg8 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg9 = strings::internal::SubstituteArg::NoArg);
+    void TraceMessage(const char* filepath, int line_number, std::string_view message);
 
     // Dump the trace buffer to the given output stream.
     //
@@ -170,12 +157,12 @@ public:
     // Attaches the given trace which will get appended at the end when Dumping.
     //
     // The 'label' does not necessarily have to be unique, and is used to identify
-    // the child trace when dumped. The contents of the StringPiece are copied
+    // the child trace when dumped. The contents of the std::string_view are copied
     // into this trace's arena.
-    void AddChildTrace(StringPiece label, Trace* child_trace);
+    void AddChildTrace(std::string_view label, Trace* child_trace);
 
     // Return a copy of the current set of related "child" traces.
-    std::vector<std::pair<StringPiece, scoped_refptr<Trace>>> ChildTraces() const;
+    std::vector<std::pair<std::string_view, scoped_refptr<Trace>>> ChildTraces() const;
 
     // Return the current trace attached to this thread, if there is one.
     static Trace* CurrentTrace() { return threadlocal_trace_; }
@@ -220,7 +207,7 @@ private:
     // The tail of the linked list of entries (allocated inside arena_)
     TraceEntry* entries_tail_{nullptr};
 
-    std::vector<std::pair<StringPiece, scoped_refptr<Trace>>> child_traces_;
+    std::vector<std::pair<std::string_view, scoped_refptr<Trace>>> child_traces_;
 
     TraceMetrics metrics_;
 

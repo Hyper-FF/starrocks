@@ -33,6 +33,7 @@
 // under the License.
 
 #include "storage/rowset/column_reader.h"
+#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
@@ -339,7 +340,7 @@ Status ColumnReader::_init(ColumnMetaPB* meta, const TabletColumn* column) {
                 int32_t uid_in_col = sub_column->unique_id();
                 if (uid_in_meta != uid_in_col) {
                     std::string msg =
-                            strings::Substitute("sub_column($0) unique id in meta($1) is not equal to schema($2)",
+                            absl::Substitute("sub_column($0) unique id in meta($1) is not equal to schema($2)",
                                                 sub_column->name(), uid_in_meta, uid_in_col);
                     LOG(ERROR) << msg;
                     return Status::InternalError(msg);

@@ -34,7 +34,7 @@
 
 #include "storage/rowset/bitshuffle_page.h"
 
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/rowset/common.h"
 
 namespace starrocks {
@@ -54,7 +54,7 @@ std::string bitshuffle_error_msg(int64_t err) {
     case -91:
         return "Decompression error, wrong number of bytes processed";
     default:
-        return strings::Substitute("Error internal to compression routine with error code $0", err);
+        return absl::Substitute("Error internal to compression routine with error code $0", err);
     }
 }
 

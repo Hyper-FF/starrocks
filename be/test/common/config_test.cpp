@@ -28,7 +28,7 @@
 #include <thread>
 
 #include "common/status.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 
 namespace starrocks {
 using namespace config;
@@ -298,14 +298,14 @@ TEST_F(ConfigTest, test_list_configs) {
     std::sort(exp_configs.begin(), exp_configs.end());
     std::sort(configs.begin(), configs.end());
 
-    auto as_string = [](const ConfigInfo& info) {
+    auto fmt_config = [](std::string* out, const ConfigInfo& info) {
         std::ostringstream ss;
         ss << info;
-        return ss.str();
+        out->append(ss.str());
     };
 
-    LOG(INFO) << "Expected configs: " << JoinMapped(exp_configs, as_string, ",")
-              << " Real configs: " << JoinMapped(configs, as_string, ",");
+    LOG(INFO) << "Expected configs: " << absl::StrJoin(exp_configs, ",", fmt_config)
+              << " Real configs: " << absl::StrJoin(configs, ",", fmt_config);
 
     ASSERT_EQ(exp_configs.size(), configs.size());
     for (int i = 0, sz = configs.size(); i < sz; ++i) {

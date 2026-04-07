@@ -25,7 +25,7 @@
 #include "fs/fs_memory.h"
 #include "gen_cpp/FileBrokerService_types.h"
 #include "gen_cpp/TFileBrokerService.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

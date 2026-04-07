@@ -16,13 +16,13 @@
 
 #include <cstring>
 
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 #include "types/storage_type_traits.h"
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 template <LogicalType TYPE>
 Status datum_from_string(TypeInfo* type_info, Datum* dst, const std::string& str) {

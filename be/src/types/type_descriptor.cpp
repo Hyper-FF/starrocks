@@ -20,7 +20,7 @@
 
 #include "base/decimal_types.h"
 #include "base/string/slice.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/datetime_value.h"
 #include "types/logical_type.h"
 #include "types/type_info.h"
@@ -208,27 +208,27 @@ TypeDescriptor::TypeDescriptor(const google::protobuf::RepeatedPtrField<PTypeNod
 std::string TypeDescriptor::debug_string() const {
     switch (type) {
     case TYPE_CHAR:
-        return strings::Substitute("CHAR($0)", len);
+        return absl::Substitute("CHAR($0)", len);
     case TYPE_VARCHAR:
-        return strings::Substitute("VARCHAR($0)", len);
+        return absl::Substitute("VARCHAR($0)", len);
     case TYPE_VARBINARY:
-        return strings::Substitute("VARBINARY($0)", len);
+        return absl::Substitute("VARBINARY($0)", len);
     case TYPE_DECIMAL:
-        return strings::Substitute("DECIMAL($0, $1)", precision, scale);
+        return absl::Substitute("DECIMAL($0, $1)", precision, scale);
     case TYPE_DECIMALV2:
-        return strings::Substitute("DECIMALV2($0, $1)", precision, scale);
+        return absl::Substitute("DECIMALV2($0, $1)", precision, scale);
     case TYPE_DECIMAL32:
-        return strings::Substitute("DECIMAL32($0, $1)", precision, scale);
+        return absl::Substitute("DECIMAL32($0, $1)", precision, scale);
     case TYPE_DECIMAL64:
-        return strings::Substitute("DECIMAL64($0, $1)", precision, scale);
+        return absl::Substitute("DECIMAL64($0, $1)", precision, scale);
     case TYPE_DECIMAL128:
-        return strings::Substitute("DECIMAL128($0, $1)", precision, scale);
+        return absl::Substitute("DECIMAL128($0, $1)", precision, scale);
     case TYPE_DECIMAL256:
-        return strings::Substitute("DECIMAL256($0, $1)", precision, scale);
+        return absl::Substitute("DECIMAL256($0, $1)", precision, scale);
     case TYPE_ARRAY:
-        return strings::Substitute("ARRAY<$0>", children[0].debug_string());
+        return absl::Substitute("ARRAY<$0>", children[0].debug_string());
     case TYPE_MAP:
-        return strings::Substitute("MAP<$0, $1>", children[0].debug_string(), children[1].debug_string());
+        return absl::Substitute("MAP<$0, $1>", children[0].debug_string(), children[1].debug_string());
     case TYPE_STRUCT: {
         std::stringstream ss;
         ss << "STRUCT{";

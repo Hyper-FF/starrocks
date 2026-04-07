@@ -44,12 +44,12 @@
 #include "base/string/slice.h"
 #include "column/column.h"
 #include "common/logging.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 uint32_t BinaryPrefixPageBuilder::add(const uint8_t* vals, uint32_t add_count) {
     DCHECK(!_finished);
@@ -137,7 +137,7 @@ Status BinaryPrefixPageDecoder<Type>::_read_next_value() {
     uint32_t non_shared_len;
     auto data_ptr = _decode_value_lengths(_next_ptr, &shared_len, &non_shared_len);
     if (data_ptr == nullptr) {
-        return Status::Corruption(strings::Substitute("Failed to decode value at position $0", _cur_pos));
+        return Status::Corruption(absl::Substitute("Failed to decode value at position $0", _cur_pos));
     }
     _current_value.resize(shared_len);
     _current_value.append(data_ptr, non_shared_len);
@@ -234,7 +234,7 @@ Status BinaryPrefixPageDecoder<Type>::_read_next_value_to_output(Slice prev, Mem
     uint32_t non_shared_len;
     auto data_ptr = _decode_value_lengths(_next_ptr, &shared_len, &non_shared_len);
     if (data_ptr == nullptr) {
-        return Status::Corruption(strings::Substitute("Failed to decode value at position $0", _cur_pos));
+        return Status::Corruption(absl::Substitute("Failed to decode value at position $0", _cur_pos));
     }
 
     output->size = shared_len + non_shared_len;
@@ -257,7 +257,7 @@ Status BinaryPrefixPageDecoder<Type>::_copy_current_to_output(MemPool* mem_pool,
     if (output->size > 0) {
         output->data = (char*)mem_pool->allocate(output->size);
         if (output->data == nullptr) {
-            return Status::MemoryAllocFailed(strings::Substitute("failed to allocate $0 bytes", output->size));
+            return Status::MemoryAllocFailed(absl::Substitute("failed to allocate $0 bytes", output->size));
         }
         memcpy(output->data, _current_value.data(), output->size);
     }

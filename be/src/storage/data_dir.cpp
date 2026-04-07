@@ -37,6 +37,7 @@
 #include <filesystem>
 #include <set>
 #include <sstream>
+#include <string_view>
 #include <utility>
 
 #include "base/string/string_util.h"
@@ -48,7 +49,7 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "storage/olap_define.h"
 #include "storage/rowset/rowset_factory.h"
@@ -61,7 +62,7 @@
 #include "storage/txn_manager.h"
 #include "storage/utils.h" // for check_dir_existed
 
-using strings::Substitute;
+using absl::Substitute;
 
 namespace starrocks {
 
@@ -227,11 +228,11 @@ void DataDir::clear_tablets(std::vector<TabletInfo>* tablet_infos) {
 }
 
 std::string DataDir::get_absolute_shard_path(int64_t shard_id) {
-    return strings::Substitute("$0$1/$2", _path, DATA_PREFIX, shard_id);
+    return absl::Substitute("$0$1/$2", _path, DATA_PREFIX, shard_id);
 }
 
 std::string DataDir::get_absolute_tablet_path(int64_t shard_id, int64_t tablet_id, int32_t schema_hash) {
-    return strings::Substitute("$0/$1/$2", get_absolute_shard_path(shard_id), tablet_id, schema_hash);
+    return absl::Substitute("$0/$1/$2", get_absolute_shard_path(shard_id), tablet_id, schema_hash);
 }
 
 Status DataDir::create_dir_if_path_not_exists(const std::string& path) {
@@ -554,7 +555,7 @@ bool DataDir::_need_gc_delta_column_files(
 }
 
 static bool is_delta_column_file(const std::string& path) {
-    StringPiece sp(path);
+    std::string_view sp(path);
     if (sp.ends_with(".cols")) {
         return true;
     }

@@ -47,9 +47,9 @@
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
 #include "common/config_diagnostic_fwd.h"
-#include "gutil/strings/join.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 
 namespace google {
@@ -176,7 +176,7 @@ std::string get_stack_trace_for_thread(int tid, int timeout_ms) {
     static bool sighandler_installed = false;
     if (!sighandler_installed) {
         if (!install_stack_trace_sighandler()) {
-            auto msg = strings::Substitute("install stack trace signal handler failed, error: $0 tid: $1",
+            auto msg = absl::Substitute("install stack trace signal handler failed, error: $0 tid: $1",
                                            strerror(errno), tid);
             LOG(WARNING) << msg;
             return msg;
@@ -194,7 +194,7 @@ std::string get_stack_trace_for_thread(int tid, int timeout_ms) {
     payload.sival_int = stack_trace_id;
     auto err = signal_thread(pid, tid, uid, SIGRTMIN, payload);
     if (0 != err) {
-        auto msg = strings::Substitute("collect stack trace failed, signal thread error: $0 tid: $1", strerror(errno),
+        auto msg = absl::Substitute("collect stack trace failed, signal thread error: $0 tid: $1", strerror(errno),
                                        tid);
         LOG(WARNING) << msg;
         return msg;
@@ -205,7 +205,7 @@ std::string get_stack_trace_for_thread(int tid, int timeout_ms) {
         usleep(1000);
         timeout_us -= 1000;
         if (timeout_us <= 0) {
-            auto msg = strings::Substitute("collect stack trace timeout tid: $0", tid);
+            auto msg = absl::Substitute("collect stack trace timeout tid: $0", tid);
             LOG(WARNING) << msg;
             return msg;
         }
@@ -221,7 +221,7 @@ std::string get_stack_trace_for_threads_with_pattern(const std::vector<int>& tid
     static bool sighandler_installed = false;
     if (!sighandler_installed) {
         if (!install_stack_trace_sighandler()) {
-            auto msg = strings::Substitute("install stack trace signal handler failed, error: $0", strerror(errno));
+            auto msg = absl::Substitute("install stack trace signal handler failed, error: $0", strerror(errno));
             LOG(WARNING) << msg;
             return msg;
         }
@@ -241,7 +241,7 @@ std::string get_stack_trace_for_threads_with_pattern(const std::vector<int>& tid
         payload.sival_int = stack_trace_id;
         auto err = signal_thread(pid, tids[i], uid, SIGRTMIN, payload);
         if (0 != err) {
-            auto msg = strings::Substitute("collect stack trace failed, signal thread error: $0 tid: $1",
+            auto msg = absl::Substitute("collect stack trace failed, signal thread error: $0 tid: $1",
                                            strerror(errno), tids[i]);
             LOG(WARNING) << msg;
         }
@@ -261,7 +261,7 @@ std::string get_stack_trace_for_threads_with_pattern(const std::vector<int>& tid
         }
         timeout_us -= 1000;
         if (timeout_us <= 0) {
-            auto msg = strings::Substitute("collect stack trace timeout $0/$1 done", done, tids.size());
+            auto msg = absl::Substitute("collect stack trace timeout $0/$1 done", done, tids.size());
             LOG(WARNING) << msg;
             break;
         }
@@ -294,9 +294,9 @@ std::string get_stack_trace_for_threads_with_pattern(const std::vector<int>& tid
         }
         if (e.second.size() == 1) {
             int tid = e.second[0];
-            ret += strings::Substitute("$0tid: $1:$2\n", line_prefix, tid, get_thread_name(tid));
+            ret += absl::Substitute("$0tid: $1:$2\n", line_prefix, tid, get_thread_name(tid));
         } else {
-            ret += strings::Substitute("$0$1 tids: ", line_prefix, e.second.size());
+            ret += absl::Substitute("$0$1 tids: ", line_prefix, e.second.size());
             for (size_t i = 0; i < e.second.size(); i++) {
                 int tid = e.second[i];
                 if (i > 0) {
@@ -428,8 +428,8 @@ private:
         if (_level < -1 || _level > 2) {
             _level = 1;
         }
-        _white_list = strings::Split(starrocks::config::exception_stack_white_list, ",");
-        _black_list = strings::Split(starrocks::config::exception_stack_black_list, ",");
+        _white_list = absl::StrSplit(starrocks::config::exception_stack_white_list, ",");
+        _black_list = absl::StrSplit(starrocks::config::exception_stack_black_list, ",");
     }
     ~ExceptionStackContext() = default;
     std::vector<string> _white_list;

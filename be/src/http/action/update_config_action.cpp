@@ -53,7 +53,7 @@
 #include "common/system/cpu_info.h"
 #include "common/util/bthreads/executor.h"
 #include "exec/workgroup/scan_executor.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
 #include "http/http_request.h"
@@ -489,7 +489,7 @@ Status UpdateConfigAction::update_config(const std::string& name, const std::str
             if (!s.ok()) {
                 Status rollback_status = config::rollback_config(name);
                 if (!rollback_status.ok()) {
-                    LOG(WARNING) << strings::Substitute("Failed to rollback config: $0.", name);
+                    LOG(WARNING) << absl::Substitute("Failed to rollback config: $0.", name);
                 }
             } else {
                 LOG(INFO) << "set_config " << name << "=" << value << " success";
@@ -514,7 +514,7 @@ void UpdateConfigAction::handle(HttpRequest* req) {
         s = update_config(config, new_value);
         if (!s.ok()) {
             LOG(WARNING) << "set_config " << config << "=" << new_value << " failed";
-            msg = strings::Substitute("set $0=$1 failed, reason: $2", config, new_value, s.to_string());
+            msg = absl::Substitute("set $0=$1 failed, reason: $2", config, new_value, s.to_string());
         }
     }
 

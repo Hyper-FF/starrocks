@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "runtime/runtime_filter_worker.h"
+#include "absl/strings/substitute.h"
 
 #include <exec/pipeline/hashjoin/hash_joiner_fwd.h>
 
@@ -77,7 +78,7 @@ static void send_rpc_runtime_filter(const TNetworkAddress& dest, RuntimeFilterRp
         stub = ExecEnv::GetInstance()->brpc_stub_cache()->get_stub(dest);
     }
     if (stub == nullptr) {
-        LOG(WARNING) << strings::Substitute("The brpc stub of {}: {} is null.", dest.hostname, dest.port);
+        LOG(WARNING) << absl::Substitute("The brpc stub of {}: {} is null.", dest.hostname, dest.port);
         return;
     }
 
@@ -923,7 +924,7 @@ static inline void receive_total_runtime_filter_pipeline(PTransmitRuntimeFilterP
         fragment_ctx->runtime_filter_port()->receive_shared_runtime_filter(params.filter_id(), shared_rf);
         ExecEnv::GetInstance()->runtime_filter_cache()->add_rf_event(
                 {params.query_id(), params.filter_id(), BackendOptions::get_localhost(),
-                 strings::Substitute("INSTALL_GRF(num_waiters=$0, instance_id=$1)",
+                 absl::Substitute("INSTALL_GRF(num_waiters=$0, instance_id=$1)",
                                      fragment_ctx->runtime_filter_port()->listeners(params.filter_id()),
                                      print_id(finst_id))});
     }
@@ -1016,7 +1017,7 @@ void RuntimeFilterWorker::_process_send_broadcast_runtime_filter_event(
     std::shuffle(destinations.begin(), destinations.end(), rand);
     _exec_env->runtime_filter_cache()->add_rf_event(
             {params.query_id(), params.filter_id(), "",
-             strings::Substitute("SEND_BROADCAST_RF_RPC: num_dest=$0", destinations.size())});
+             absl::Substitute("SEND_BROADCAST_RF_RPC: num_dest=$0", destinations.size())});
     params.set_is_partial(false);
     TNetworkAddress local;
     local.hostname = BackendOptions::get_localhost();

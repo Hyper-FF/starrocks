@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/tablet_reader.h"
+#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -226,7 +227,7 @@ Status TabletReader::_init_collector_for_pk_index_read() {
                     auto* column = keys->get_column_raw_ptr_by_id(cid);
                     if (column->size() != 0) {
                         return Status::NotSupported(
-                                strings::Substitute("multiple eq predicates on same pk column columnId=$0", cid));
+                                absl::Substitute("multiple eq predicates on same pk column columnId=$0", cid));
                     }
                     column->append_datum(col_pred->value());
                     num_pk_eq_predicates++;
@@ -245,7 +246,7 @@ Status TabletReader::_init_collector_for_pk_index_read() {
     }
 
     if (num_pk_eq_predicates != tablet_schema->num_key_columns()) {
-        return Status::NotSupported(strings::Substitute("should have eq predicates on all pk columns current: $0 < $1",
+        return Status::NotSupported(absl::Substitute("should have eq predicates on all pk columns current: $0 < $1",
                                                         num_pk_eq_predicates, tablet_schema->num_key_columns()));
     }
     MutableColumnPtr pk_column;
@@ -262,7 +263,7 @@ Status TabletReader::_init_collector_for_pk_index_read() {
         RETURN_IF_ERROR(
                 _tablet->updates()->get_rss_rowids_by_pk(_tablet.get(), *pk_column, &read_version, &rowids, 3000));
         if (rowids.size() != 1) {
-            return Status::InternalError(strings::Substitute("get rowid size not match tablet:$0 $1 != $2",
+            return Status::InternalError(absl::Substitute("get rowid size not match tablet:$0 $1 != $2",
                                                              _tablet->tablet_id(), rowids.size(), 1));
         }
     }
@@ -302,7 +303,7 @@ Status TabletReader::_init_collector_for_pk_index_read() {
     auto rowid_range = std::make_shared<SparseRange<>>();
     rowid_range->add({rowid, rowid + 1});
     if (segment_idx >= rowset->num_segments()) {
-        return Status::InternalError(strings::Substitute("segment_idx out of range tablet:$0 $1 >= $2",
+        return Status::InternalError(absl::Substitute("segment_idx out of range tablet:$0 $1 >= $2",
                                                          _tablet->tablet_id(), segment_idx, rowset->num_segments()));
     }
     rs_opts.rowid_range_option->add(rowset.get(), rowset->segments()[segment_idx].get(), rowid_range, true);
@@ -312,7 +313,7 @@ Status TabletReader::_init_collector_for_pk_index_read() {
 
     if (iters.size() != 1) {
         return Status::InternalError(
-                strings::Substitute("get_segment_iterators for pointer query should return single iter tablet:$0 $1",
+                absl::Substitute("get_segment_iterators for pointer query should return single iter tablet:$0 $1",
                                     _tablet->tablet_id(), iters.size()));
     }
 

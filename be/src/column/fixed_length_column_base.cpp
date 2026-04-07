@@ -27,7 +27,7 @@
 #include "common/config_local_io_fwd.h"
 #include "gutil/casts.h"
 #include "gutil/strings/fastmem.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/value_generator.h"
 
 namespace starrocks {
@@ -387,7 +387,7 @@ std::string FixedLengthColumnBase<T>::debug_string() const {
 template <typename T>
 Status FixedLengthColumnBase<T>::capacity_limit_reached() const {
     if (_data.size() > Column::MAX_CAPACITY_LIMIT) {
-        return Status::CapacityLimitExceed(strings::Substitute("row count of fixed length column exceend the limit: $0",
+        return Status::CapacityLimitExceed(absl::Substitute("row count of fixed length column exceend the limit: $0",
                                                                std::to_string(Column::MAX_CAPACITY_LIMIT)));
     }
     return Status::OK();

@@ -23,7 +23,7 @@
 #include "common/tracer.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "serde/column_array_serde.h"
 #include "storage/chunk_helper.h"
@@ -224,7 +224,7 @@ Status RowsetColumnUpdateState::_prepare_partial_update_states(Tablet* tablet, R
     }
     int64_t t_end = MonotonicMillis();
 
-    VLOG(1) << strings::Substitute(
+    VLOG(1) << absl::Substitute(
             "prepare ColumnPartialUpdateState tablet:$0 segment:[$1, $2) "
             "time:$3ms(src_rss:$4)",
             _tablet_id, start_idx, end_idx, t_end - t_start, t_read_rss - t_start);
@@ -249,7 +249,7 @@ Status RowsetColumnUpdateState::_resolve_conflict(Tablet* tablet, uint32_t rowse
         });
     }
     int64_t t_end = MonotonicMillis();
-    LOG(INFO) << strings::Substitute(
+    LOG(INFO) << absl::Substitute(
             "_resolve_conflict_column_mode tablet:$0 rowset:$1 segment:[$2, $3) version:($4 $5) "
             "time:$6ms(index:$7/build:$8)",
             tablet->tablet_id(), rowset_id, start_idx, end_idx,
@@ -264,7 +264,7 @@ Status RowsetColumnUpdateState::_check_and_resolve_conflict(Tablet* tablet, uint
                                                             const PrimaryIndex& index) {
     if (_partial_update_states.size() < end_idx || !_partial_update_states[start_idx].inited ||
         !_partial_update_states[end_idx - 1].inited) {
-        std::string msg = strings::Substitute(
+        std::string msg = absl::Substitute(
                 "_check_and_reslove_conflict tablet:$0 rowset:$1 segment:[$2, $3) failed, partial_update_states "
                 "size:$4",
                 tablet->tablet_id(), rowset_id, start_idx, end_idx, _partial_update_states.size());
@@ -721,7 +721,7 @@ Status RowsetColumnUpdateState::finalize(Tablet* tablet, Rowset* rowset, uint32_
         auto cid = tschema->field_index(uid);
         if (cid == -1) {
             std::string msg =
-                    strings::Substitute("column with unique id:$0 does not exist. tablet:$1", uid, tablet->tablet_id());
+                    absl::Substitute("column with unique id:$0 does not exist. tablet:$1", uid, tablet->tablet_id());
             LOG(ERROR) << msg;
             return Status::InternalError(msg);
         }
@@ -844,9 +844,9 @@ Status RowsetColumnUpdateState::finalize(Tablet* tablet, Rowset* rowset, uint32_
         cost_str << " [insert missing rows] " << watch.elapsed_time();
         watch.reset();
     }
-    cost_str << strings::Substitute(" total_do_update_time(ms):$0 total_finalize_dcg_time(ms):$1 ",
+    cost_str << absl::Substitute(" total_do_update_time(ms):$0 total_finalize_dcg_time(ms):$1 ",
                                     total_do_update_time, total_finalize_dcg_time);
-    cost_str << strings::Substitute(
+    cost_str << absl::Substitute(
             "rss_cnt:$0 update_cnt:$1 column_cnt:$2 update_rows:$3 handle_cnt:$4 insert_rows:$5",
             rss_upt_id_to_rowid_pairs.size(), _partial_update_states.size(), update_column_ids.size(), update_rows,
             handle_cnt, insert_rows);
@@ -888,7 +888,7 @@ StatusOr<RowsetSegmentId> RowsetColumnUpdateState::_find_rowset_seg_id(uint32_t 
 }
 
 std::string RowsetColumnUpdateState::to_string() const {
-    return strings::Substitute("RowsetColumnUpdateState tablet:$0", _tablet_id);
+    return absl::Substitute("RowsetColumnUpdateState tablet:$0", _tablet_id);
 }
 
 } // namespace starrocks

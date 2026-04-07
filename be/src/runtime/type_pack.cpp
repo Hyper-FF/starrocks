@@ -17,7 +17,7 @@
 #include "base/string/faststring.h"
 #include "base/utility/meta_macro.h"
 #include "column/runtime_type_traits.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/datum.h"
 #include "types/logical_type.h"
 
@@ -124,7 +124,7 @@ StatusOr<PackFunc> get_pack(LogicalType lt) {
     if (it != g_pack_func_table.end()) {
         return it->second;
     } else {
-        return Status::NotFound(strings::Substitute("Packer for type $0 is absent", type_to_string(lt)));
+        return Status::NotFound(absl::Substitute("Packer for type $0 is absent", type_to_string(lt)));
     }
 }
 

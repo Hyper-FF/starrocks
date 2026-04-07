@@ -17,7 +17,7 @@
 #include <fmt/format.h>
 
 #include "common/config_exec_flow_fwd.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -40,7 +40,7 @@ Status JsonDocumentStreamParser::parse(char* data, size_t len, size_t allocated)
         _doc_stream_itr = _doc_stream.begin();
 
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to parse json as document stream. error: $0",
+        auto err_msg = absl::Substitute("Failed to parse json as document stream. error: $0",
                                            simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
@@ -135,7 +135,7 @@ Status JsonDocumentStreamParser::get_current(simdjson::ondemand::object* row) no
                     "to "
                     "load json array";
         } else {
-            err_msg = strings::Substitute("Failed to iterate document stream as object. error: $0",
+            err_msg = absl::Substitute("Failed to iterate document stream as object. error: $0",
                                           simdjson::error_message(e.error()));
         }
         return status_from_json_parse_error(err_msg);
@@ -196,7 +196,7 @@ Status JsonArrayParser::parse(char* data, size_t len, size_t allocated) noexcept
 
     } catch (simdjson::simdjson_error& e) {
         auto err_msg =
-                strings::Substitute("Failed to parse json as array. error: $0", simdjson::error_message(e.error()));
+                absl::Substitute("Failed to parse json as array. error: $0", simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
 
@@ -223,7 +223,7 @@ Status JsonArrayParser::get_current(simdjson::ondemand::object* row) noexcept {
 
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to iterate json array as object. error: $0",
+        auto err_msg = absl::Substitute("Failed to iterate json array as object. error: $0",
                                            simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
@@ -238,7 +238,7 @@ Status JsonArrayParser::advance() noexcept {
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg =
-                strings::Substitute("Failed to iterate json as array. error: $0", simdjson::error_message(e.error()));
+                absl::Substitute("Failed to iterate json as array. error: $0", simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
 }
@@ -296,7 +296,7 @@ Status JsonDocumentStreamParserWithRoot::get_current(simdjson::ondemand::object*
 
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to iterate document stream as object with json root. error: $0",
+        auto err_msg = absl::Substitute("Failed to iterate document stream as object with json root. error: $0",
                                            simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
@@ -338,7 +338,7 @@ Status JsonArrayParserWithRoot::get_current(simdjson::ondemand::object* row) noe
 
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to iterate json array as object with json root. error: $0",
+        auto err_msg = absl::Substitute("Failed to iterate json array as object with json root. error: $0",
                                            simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
@@ -370,7 +370,7 @@ Status ExpandedJsonDocumentStreamParserWithRoot::parse(char* data, size_t len, s
         _array_itr = _array.begin();
 
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to parse json as expanded document stream with json root. error: $0",
+        auto err_msg = absl::Substitute("Failed to parse json as expanded document stream with json root. error: $0",
                                            simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
@@ -406,7 +406,7 @@ Status ExpandedJsonDocumentStreamParserWithRoot::get_current(simdjson::ondemand:
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg =
-                strings::Substitute("Failed to iterate expanded document stream as object with json root. error: $0",
+                absl::Substitute("Failed to iterate expanded document stream as object with json root. error: $0",
                                     simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
@@ -436,7 +436,7 @@ Status ExpandedJsonDocumentStreamParserWithRoot::advance() noexcept {
                 _array = val.get_array();
                 _array_itr = _array.begin();
             } catch (simdjson::simdjson_error& e) {
-                auto err_msg = strings::Substitute("Failed to iterate document stream sub-array. error: $0",
+                auto err_msg = absl::Substitute("Failed to iterate document stream sub-array. error: $0",
                                                    simdjson::error_message(e.error()));
                 return status_from_json_parse_error(err_msg);
             }
@@ -469,7 +469,7 @@ Status ExpandedJsonArrayParserWithRoot::parse(char* data, size_t len, size_t all
         _array_itr = _array.begin();
 
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to parse json as expanded json array with json root. error: $0",
+        auto err_msg = absl::Substitute("Failed to parse json as expanded json array with json root. error: $0",
                                            simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
@@ -504,7 +504,7 @@ Status ExpandedJsonArrayParserWithRoot::get_current(simdjson::ondemand::object* 
 
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to iterate json array as object with json root. error: $0",
+        auto err_msg = absl::Substitute("Failed to iterate json array as object with json root. error: $0",
                                            simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
@@ -535,7 +535,7 @@ Status ExpandedJsonArrayParserWithRoot::advance() noexcept {
                 _array = val.get_array();
                 _array_itr = _array.begin();
             } catch (simdjson::simdjson_error& e) {
-                auto err_msg = strings::Substitute("Failed to iterate json array sub-array. error: $0",
+                auto err_msg = absl::Substitute("Failed to iterate json array sub-array. error: $0",
                                                    simdjson::error_message(e.error()));
                 return status_from_json_parse_error(err_msg);
             }

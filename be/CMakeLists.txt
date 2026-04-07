@@ -634,6 +634,7 @@ set(STARROCKS_DEPENDENCIES
     arrow_flight
     arrow_flight_sql
     benchgen
+    absl::strings
     gRPC::grpc
     gRPC::grpc++
     parquet

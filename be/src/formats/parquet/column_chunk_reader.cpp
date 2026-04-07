@@ -26,7 +26,7 @@
 #include "formats/parquet/types.h"
 #include "formats/parquet/utils.h"
 #include "fs/fs.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/mem_tracker.h"
 #include "util/compression/block_compression.h"
@@ -104,7 +104,7 @@ Status ColumnChunkReader::_parse_page_header() {
     // TODO: support DATA_PAGE_V2, now common writer use DATA_PAGE as default
     if (UNLIKELY(page_type != tparquet::PageType::DICTIONARY_PAGE && page_type != tparquet::PageType::DATA_PAGE &&
                  page_type != tparquet::PageType::DATA_PAGE_V2)) {
-        return Status::NotSupported(strings::Substitute("Not supported page type: $0", page_type));
+        return Status::NotSupported(absl::Substitute("Not supported page type: $0", page_type));
     }
     if (page_type == tparquet::PageType::DATA_PAGE) {
         const auto& page_header = _page_reader->current_header()->data_page_header;
@@ -140,7 +140,7 @@ Status ColumnChunkReader::_parse_page_data() {
         break;
     default:
         return Status::NotSupported(
-                strings::Substitute("Not supported page type: $0", _page_reader->current_header()->type));
+                absl::Substitute("Not supported page type: $0", _page_reader->current_header()->type));
         break;
     }
     return Status::OK();

@@ -23,7 +23,7 @@
 #include "base/utility/defer_op.h"
 #include "common/config_path_fwd.h"
 #include "common/system/backend_options.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "hs/hs_compile.h"
 #include "hs/hs_runtime.h"
 
@@ -155,7 +155,7 @@ Status grep_log_single_file(const string& path, int64_t start_ts, int64_t end_ts
                             hs_scratch_t* scratch, size_t limit, std::deque<GrepLogEntry>& entries) {
     FILE* fp = fopen(path.c_str(), "r");
     if (fp == nullptr) {
-        return Status::InternalError(strings::Substitute("grep log failed open $0 failed", path));
+        return Status::InternalError(absl::Substitute("grep log failed open $0 failed", path));
     }
     DeferOp fclose_defer([&fp]() { fclose(fp); });
     char* line = (char*)malloc(1024 * 10);
@@ -201,11 +201,11 @@ Status grep_log(int64_t start_ts, int64_t end_ts, char level, const std::string&
     level = std::toupper(level);
     const string log_dir = config::sys_log_dir;
     if (log_dir.empty()) {
-        return Status::InternalError(strings::Substitute("grep log failed $0 is empty", log_dir));
+        return Status::InternalError(absl::Substitute("grep log failed $0 is empty", log_dir));
     }
     // check log_dir is directory
     if (!filesystem::is_directory(log_dir)) {
-        return Status::InternalError(strings::Substitute("grep log failed $0 is not dir", log_dir));
+        return Status::InternalError(absl::Substitute("grep log failed $0 is not dir", log_dir));
     }
     hs_database_t* database = nullptr;
     if (!pattern.empty()) {
@@ -214,7 +214,7 @@ Status grep_log(int64_t start_ts, int64_t end_ts, char level, const std::string&
             HS_SUCCESS) {
             hs_free_compile_error(compile_err);
             return Status::InternalError(
-                    strings::Substitute("grep log failed compile pattern $0 failed $1", pattern, compile_err->message));
+                    absl::Substitute("grep log failed compile pattern $0 failed $1", pattern, compile_err->message));
         }
     }
     DeferOp free_database_defer([&database]() {
@@ -226,7 +226,7 @@ Status grep_log(int64_t start_ts, int64_t end_ts, char level, const std::string&
         if (hs_alloc_scratch(database, &scratch) != HS_SUCCESS) {
             hs_free_database(database);
             return Status::InternalError(
-                    strings::Substitute("grep log failed alloc scratch failed pattern:$0", pattern));
+                    absl::Substitute("grep log failed alloc scratch failed pattern:$0", pattern));
         }
     }
     DeferOp free_scratch_defer([&scratch]() {
@@ -264,7 +264,7 @@ std::string grep_log_as_string(int64_t start_ts, int64_t end_ts, const std::stri
     std::deque<GrepLogEntry> entries;
     auto st = grep_log(start_ts, end_ts, level[0], pattern, limit, entries);
     if (!st.ok()) {
-        ss << strings::Substitute("grep log failed $0 start_ts:$1 end_ts:$2 level:$3 pattern:$4 limit:$5\n",
+        ss << absl::Substitute("grep log failed $0 start_ts:$1 end_ts:$2 level:$3 pattern:$4 limit:$5\n",
                                   st.to_string(), start_ts, end_ts, level, pattern, limit);
         return ss.str();
     }

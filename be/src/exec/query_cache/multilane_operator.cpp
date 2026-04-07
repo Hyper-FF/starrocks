@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/query_cache/multilane_operator.h"
+#include "absl/strings/substitute.h"
 
 #include <glog/logging.h>
 
@@ -319,7 +320,7 @@ void MultilaneOperator::set_precondition_ready(RuntimeState* state) {
 }
 
 MultilaneOperatorFactory::MultilaneOperatorFactory(int32_t id, const OperatorFactoryPtr& factory, size_t num_lanes)
-        : pipeline::OperatorFactory(id, strings::Substitute("ml_$0", factory->get_raw_name()), factory->plan_node_id()),
+        : pipeline::OperatorFactory(id, absl::Substitute("ml_$0", factory->get_raw_name()), factory->plan_node_id()),
           _factory(factory),
           _num_lanes(num_lanes) {}
 

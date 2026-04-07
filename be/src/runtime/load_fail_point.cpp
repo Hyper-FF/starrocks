@@ -19,7 +19,7 @@
 #ifdef FIU_ENABLE
 #include "base/uid_util.h"
 #include "common/system/backend_options.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #endif
 
 namespace starrocks::load::failpoint {
@@ -78,9 +78,9 @@ DEFINE_FAIL_POINT(load_commit_txn);
 
 void tablet_writer_open_fp_action(const std::string& remote_host, RefCountClosure<PTabletWriterOpenResult>* closure,
                                   PTabletWriterOpenRequest* request) {
-    std::string tablet_ids = JoinMapped(
-            request->tablets(), [](const PTabletWithPartition& tablet) { return std::to_string(tablet.tablet_id()); },
-            ",");
+    std::string tablet_ids = absl::StrJoin(
+            request->tablets(), ",",
+            [](std::string* out, const PTabletWithPartition& tablet) { out->append(std::to_string(tablet.tablet_id())); });
     LOG_BRPC_FP(load_tablet_writer_open, remote_host, request)
             << ", send_id: " << request->sender_id() << ", tablet_ids: " << tablet_ids;
     closure->cntl.SetFailed(BRPC_ERROR_MSG(load_tablet_writer_open, remote_host, request->txn_id()));
@@ -108,7 +108,7 @@ void tablet_writer_cancel_fp_action(const std::string& remote_host, ::google::pr
                                     brpc::Controller* cntl, PTabletWriterCancelRequest* request) {
     std::string tablet_ids;
     if (!request->tablet_ids().empty()) {
-        tablet_ids = JoinElements(request->tablet_ids(), ",");
+        tablet_ids = absl::StrJoin(request->tablet_ids(), ",");
     }
     LOG_BRPC_FP(load_tablet_writer_cancel, remote_host, request)
             << ", send_id: " << request->sender_id() << ", tablet_ids: (" << tablet_ids

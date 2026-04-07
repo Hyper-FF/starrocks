@@ -33,6 +33,7 @@
 // under the License.
 
 #include "storage/rowset/scalar_column_iterator.h"
+#include "absl/strings/substitute.h"
 
 #include "base/bit/bitmap.h"
 #include "common/config_rowset_fwd.h"
@@ -71,7 +72,7 @@ Status ScalarColumnIterator::init(const ColumnIteratorOptions& opts) {
     }
     LogicalType column_type = delegate_type(_reader->column_type());
     DCHECK(supports_dict_encoding(column_type))
-            << strings::Substitute("dict encoding with unsupported $0 field type", column_type);
+            << absl::Substitute("dict encoding with unsupported $0 field type", column_type);
     switch (column_type) {
     case TYPE_CHAR:
         _init_dict_decoder_func = &ScalarColumnIterator::_do_init_dict_decoder<TYPE_CHAR>;
@@ -110,7 +111,7 @@ Status ScalarColumnIterator::init(const ColumnIteratorOptions& opts) {
         _init_dict_decoder_func = &ScalarColumnIterator::_do_init_dict_decoder<TYPE_JSON>;
         break;
     default:
-        return Status::NotSupported(strings::Substitute("dict encoding with unsupported $0 field type", column_type));
+        return Status::NotSupported(absl::Substitute("dict encoding with unsupported $0 field type", column_type));
     }
 
     // TODO: The following logic is primarily used for optimizing queries for VARCHAR/CHAR types during

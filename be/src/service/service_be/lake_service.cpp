@@ -34,7 +34,7 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "gen_cpp/tablet_schema.pb.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/exec_env.h"
 #include "runtime/lake_snapshot_loader.h"
 #include "runtime/load_channel_mgr.h"
@@ -180,9 +180,9 @@ std::string get_txn_ids_string(const PublishVersionRequest* request) {
         for (const auto& info : request->txn_infos()) {
             ids.push_back(info.txn_id());
         }
-        return JoinInts(ids, ",");
+        return absl::StrJoin(ids, ",");
     } else {
-        return JoinInts(request->txn_ids(), ",");
+        return absl::StrJoin(request->txn_ids(), ",");
     }
 }
 
@@ -369,12 +369,12 @@ void LakeServiceImpl::publish_version(::google::protobuf::RpcController* control
                     } else {
                         if (res.status().is_resource_busy()) {
                             VLOG(2) << "Fail to publish version: " << res.status() << ". tablet_info=" << tablet_info
-                                    << " txns=" << JoinMapped(txns, txn_info_string, ",") << " version=" << new_version;
+                                    << " txns=" << absl::StrJoin(txns, ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); }) << " version=" << new_version;
                         } else {
                             g_publish_version_failed_tasks << 1;
                             LOG(WARNING) << "Fail to publish version: " << res.status()
                                          << ". tablet_info=" << tablet_info
-                                         << " txn_ids=" << JoinMapped(txns, txn_info_string, ",")
+                                         << " txn_ids=" << absl::StrJoin(txns, ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); })
                                          << " version=" << new_version;
                         }
 
@@ -494,7 +494,7 @@ void LakeServiceImpl::publish_version(::google::protobuf::RpcController* control
                 g_publish_version_failed_tasks << 1;
                 LOG(WARNING) << "Failed to submit publish splitting tablet task: " << st
                              << ". resharding_tablet_info=" << resharding_tablet_info.DebugString()
-                             << " txn_infos=" << JoinMapped(request->txn_infos(), txn_info_string, ",")
+                             << " txn_infos=" << absl::StrJoin(request->txn_infos(), ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); })
                              << " version=" << request->new_version();
                 std::lock_guard l(response_mtx);
                 add_failed_tablets(response, resharding_tablet_info);
@@ -512,7 +512,7 @@ void LakeServiceImpl::publish_version(::google::protobuf::RpcController* control
                   << trace->DumpToString();
     } else if (is_slow) {
         LOG(INFO) << "Published txns=" << get_txn_ids_string(request)
-                  << ". tablets=" << JoinInts(request->tablet_ids(), ",") << " cost=" << cost
+                  << ". tablets=" << absl::StrJoin(request->tablet_ids(), ",") << " cost=" << cost
                   << "us, trace: " << trace->MetricsAsJSON();
     }
     TEST_SYNC_POINT("LakeServiceImpl::publish_version:return");
@@ -700,8 +700,8 @@ void LakeServiceImpl::_submit_publish_log_version_task(const int64_t* tablet_ids
                     if (!st.ok()) {
                         g_publish_version_failed_tasks << 1;
                         LOG(WARNING) << "Fail to publish log version: " << st << " tablet_id=" << tablet_id
-                                     << " txns=" << JoinMapped(txn_infos, txn_info_string, ",") << " versions="
-                                     << JoinElementsIterator(log_versions, log_versions + txn_size, ",");
+                                     << " txns=" << absl::StrJoin(txn_infos, ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); }) << " versions="
+                                     << absl::StrJoin(log_versions, log_versions + txn_size, ",");
                         std::lock_guard l(response_mtx);
                         response->add_failed_tablets(tablet_id);
                     }
@@ -719,8 +719,8 @@ void LakeServiceImpl::_submit_publish_log_version_task(const int64_t* tablet_ids
         if (!st.ok()) {
             g_publish_version_failed_tasks << 1;
             LOG(WARNING) << "Fail to submit publish log version task: " << st << " tablet_id=" << tablet_id
-                         << " txns=" << JoinMapped(txn_infos, txn_info_string, ",")
-                         << " versions=" << JoinElementsIterator(log_versions, log_versions + txn_size, ",");
+                         << " txns=" << absl::StrJoin(txn_infos, ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); })
+                         << " versions=" << absl::StrJoin(log_versions, log_versions + txn_size, ",");
             std::lock_guard l(response_mtx);
             response->add_failed_tablets(tablet_id);
             latch.count_down();
@@ -1866,7 +1866,7 @@ void LakeServiceImpl::get_tablet_metadatas(::google::protobuf::RpcController* co
     }
     if (!messages.empty()) {
         LOG(WARNING) << "Get tablet metadatas failed for " << failed_count << " tablets, the first " << messages.size()
-                     << " tablets: [" << JoinStrings(messages, "; ") << "]";
+                     << " tablets: [" << absl::StrJoin(messages, "; ") << "]";
     }
 }
 
@@ -2065,7 +2065,7 @@ void LakeServiceImpl::repair_tablet_metadata(::google::protobuf::RpcController* 
     if (!messages.empty()) {
         std::string file_bundling_msg = enable_file_bundling ? "bundling" : "non-bundling";
         LOG(WARNING) << "Repair " << file_bundling_msg << " tablet metadata failed for " << failed_count
-                     << " tablets, the first " << messages.size() << " tablets: [" << JoinStrings(messages, "; ")
+                     << " tablets, the first " << messages.size() << " tablets: [" << absl::StrJoin(messages, "; ")
                      << "]";
     }
 }

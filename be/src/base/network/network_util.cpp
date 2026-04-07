@@ -52,7 +52,7 @@
 #include <utility>
 
 #include "base/logging.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 #ifdef __APPLE__
 #ifndef HOST_NAME_MAX
@@ -156,7 +156,7 @@ Status hostname_to_ipv4(const std::string& host, std::string& ip) {
     hints.ai_family = AF_INET;
     int err = getaddrinfo(host.c_str(), nullptr, &hints, &res);
     if (err != 0) {
-        std::string err_msg = strings::Substitute("failed to get ipv4 from host: $0, err: $1", host, gai_strerror(err));
+        std::string err_msg = absl::Substitute("failed to get ipv4 from host: $0, err: $1", host, gai_strerror(err));
         LOG(WARNING) << err_msg;
         return Status::InternalError(err_msg);
     }
@@ -179,7 +179,7 @@ Status hostname_to_ipv6(const std::string& host, std::string& ip) {
 
     int err = getaddrinfo(host.c_str(), nullptr, &hint, &answer);
     if (err != 0) {
-        std::string err_msg = strings::Substitute("failed to get ipv6 from host: $0, err: $1", host, gai_strerror(err));
+        std::string err_msg = absl::Substitute("failed to get ipv6 from host: $0, err: $1", host, gai_strerror(err));
         LOG(WARNING) << err_msg;
         return Status::InternalError(err_msg);
     }

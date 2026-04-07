@@ -48,7 +48,7 @@
 #include "exprs/expr_context.h"
 #include "exprs/expr_factory.h"
 #include "fs/fs_factory.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
@@ -460,7 +460,7 @@ Status SchemaChangeDirectly::process(TabletReader* reader, RowsetWriter* new_row
         }
 
         if (!_chunk_changer->change_chunk_v2(base_chunk, new_chunk, base_schema, new_schema, mem_pool.get())) {
-            std::string err_msg = strings::Substitute("failed to convert chunk data. base tablet:$0, new tablet:$1",
+            std::string err_msg = absl::Substitute("failed to convert chunk data. base tablet:$0, new tablet:$1",
                                                       base_tablet->tablet_id(), new_tablet->tablet_id());
             LOG(WARNING) << alter_msg_header() + err_msg;
             return Status::InternalError(alter_msg_header() + err_msg);
@@ -478,7 +478,7 @@ Status SchemaChangeDirectly::process(TabletReader* reader, RowsetWriter* new_row
         ChunkHelper::padding_char_columns(char_field_indexes, new_schema, new_tablet->tablet_schema(), new_chunk.get());
 
         if (st = new_rowset_writer->add_chunk(*new_chunk); !st.ok()) {
-            std::string err_msg = strings::Substitute(
+            std::string err_msg = absl::Substitute(
                     "failed to execute schema change. base tablet:$0, new_tablet:$1. err msg: failed to add chunk to "
                     "rowset writer: $2",
                     base_tablet->tablet_id(), new_tablet->tablet_id(), st.message());
@@ -579,7 +579,7 @@ Status SchemaChangeWithSorting::process(TabletReader* reader, RowsetWriter* new_
         ChunkPtr new_chunk = ChunkHelper::new_chunk(new_schema, base_chunk->num_rows());
 
         if (!_chunk_changer->change_chunk_v2(base_chunk, new_chunk, base_schema, new_schema, mem_pool.get())) {
-            std::string err_msg = strings::Substitute("failed to convert chunk data. base tablet:$0, new tablet:$1",
+            std::string err_msg = absl::Substitute("failed to convert chunk data. base tablet:$0, new tablet:$1",
                                                       base_tablet->tablet_id(), new_tablet->tablet_id());
             LOG(WARNING) << alter_msg_header() << err_msg;
             return Status::InternalError(alter_msg_header() + err_msg);
@@ -593,7 +593,7 @@ Status SchemaChangeWithSorting::process(TabletReader* reader, RowsetWriter* new_
 
         auto res = mem_table->insert(*new_chunk, selective->data(), 0, new_chunk->num_rows());
         if (!res.ok()) {
-            std::string msg = strings::Substitute("$0 failed to insert mem table: $1", alter_msg_header(),
+            std::string msg = absl::Substitute("$0 failed to insert mem table: $1", alter_msg_header(),
                                                   res.status().to_string());
             LOG(WARNING) << msg;
             return res.status();
@@ -721,7 +721,7 @@ Status SchemaChangeHandler::_do_process_alter_tablet(const TAlterTabletReqV2& re
     }
     if (Tablet::check_migrate(base_tablet)) {
         return Status::InternalError(
-                strings::Substitute(_alter_msg_header + "tablet $0 is doing disk balance", base_tablet->tablet_id()));
+                absl::Substitute(_alter_msg_header + "tablet $0 is doing disk balance", base_tablet->tablet_id()));
     }
     std::shared_lock new_migration_rlock(new_tablet->get_migration_lock(), std::try_to_lock);
     if (!new_migration_rlock.owns_lock()) {
@@ -729,7 +729,7 @@ Status SchemaChangeHandler::_do_process_alter_tablet(const TAlterTabletReqV2& re
     }
     if (Tablet::check_migrate(new_tablet)) {
         return Status::InternalError(_alter_msg_header +
-                                     strings::Substitute("tablet $0 is doing disk balance", new_tablet->tablet_id()));
+                                     absl::Substitute("tablet $0 is doing disk balance", new_tablet->tablet_id()));
     }
 
     // Create a new tablet schema, should merge with dropped columns in light schema change

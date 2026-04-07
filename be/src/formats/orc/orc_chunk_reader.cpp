@@ -33,7 +33,7 @@
 #include "formats/orc/orc_memory_pool.h"
 #include "formats/orc/utils.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "orc_schema_builder.h"
 #include "runtime/runtime_filter.h"
 #include "runtime/runtime_state_helper.h"
@@ -75,7 +75,7 @@ Status OrcChunkReader::init(std::unique_ptr<orc::InputStream> input_stream, cons
         auto reader = orc::createReader(std::move(input_stream), _reader_options);
         RETURN_IF_ERROR(init(std::move(reader), orc_predicates));
     } catch (std::exception& e) {
-        auto s = strings::Substitute("OrcChunkReader::init failed. reason = $0, file = $1", e.what(),
+        auto s = absl::Substitute("OrcChunkReader::init failed. reason = $0, file = $1", e.what(),
                                      _current_file_name);
         LOG(WARNING) << s;
         return Status::InternalError(s);
@@ -180,7 +180,7 @@ Status OrcChunkReader::init(std::unique_ptr<orc::Reader> reader, const OrcPredic
     try {
         _row_reader = _reader->createRowReader(_row_reader_options);
     } catch (std::exception& e) {
-        auto s = strings::Substitute("OrcChunkReader::init failed. reason = $0, file = $1", e.what(),
+        auto s = absl::Substitute("OrcChunkReader::init failed. reason = $0, file = $1", e.what(),
                                      _current_file_name);
         LOG(WARNING) << s;
         return Status::InternalError(s);
@@ -220,7 +220,7 @@ Status OrcChunkReader::_init_position_in_orc() const {
         uint64_t column_id = _root_mapping->get_orc_type_child_mapping(i).orc_type->getColumnId();
         auto it2 = column_id_to_pos_in_vector_batch.find(column_id);
         if (it2 == column_id_to_pos_in_vector_batch.end()) {
-            auto s = strings::Substitute(
+            auto s = absl::Substitute(
                     "OrcChunkReader::init_position_in_orc. failed to find position. col_id = $0, file = $1",
                     std::to_string(column_id), _current_file_name);
             return Status::NotFound(s);
@@ -253,7 +253,7 @@ static Status _create_type_descriptor_by_orc(const TypeDescriptor& origin_type, 
         [[fallthrough]];
     case orc::STRUCT:
         if (mapping == nullptr) {
-            return Status::InvalidArgument(strings::Substitute("orc mapping is null in $0", orc_type->toString()));
+            return Status::InvalidArgument(absl::Substitute("orc mapping is null in $0", orc_type->toString()));
         }
         break;
     default:
@@ -408,7 +408,7 @@ Status OrcChunkReader::_init_cast_exprs() {
         }
         Expr* cast = VectorizedCastExprFactory::from_type(orc_type, starrocks_type, slot, &_pool);
         if (cast == nullptr) {
-            return Status::InternalError(strings::Substitute("Not support cast $0 to $1. file = $2",
+            return Status::InternalError(absl::Substitute("Not support cast $0 to $1. file = $2",
                                                              orc_type.debug_string(), starrocks_type.debug_string(),
                                                              _current_file_name));
         }
@@ -451,7 +451,7 @@ Status OrcChunkReader::read_next(orc::RowReader::ReadPosition* pos) {
         }
     } catch (std::exception& e) {
         LOG(WARNING) << get_stack_trace();
-        auto s = strings::Substitute("ORC reader read file $0 failed. Reason is $1.", _current_file_name, e.what());
+        auto s = absl::Substitute("ORC reader read file $0 failed. Reason is $1.", _current_file_name, e.what());
         LOG(WARNING) << s;
         return Status::InternalError(s);
     }
@@ -492,7 +492,7 @@ Status OrcChunkReader::_fill_chunk(ChunkPtr* chunk, const std::vector<SlotDescri
             if (!slot_desc->is_nullable() && cvb->hasNulls) {
                 if (_broker_load_mode) {
                     std::string error_msg =
-                            strings::Substitute("NULL value in non-nullable column '$0'", _current_slot->col_name());
+                            absl::Substitute("NULL value in non-nullable column '$0'", _current_slot->col_name());
                     report_error_message(error_msg);
                     bool all_zero = false;
                     ColumnHelper::merge_two_filters(_broker_load_filter.get(),
@@ -502,7 +502,7 @@ Status OrcChunkReader::_fill_chunk(ChunkPtr* chunk, const std::vector<SlotDescri
                         break;
                     }
                 } else {
-                    auto s = strings::Substitute("column '$0' is not nullable", slot_desc->col_name());
+                    auto s = absl::Substitute("column '$0' is not nullable", slot_desc->col_name());
                     return Status::InternalError(s);
                 }
             }
@@ -621,7 +621,7 @@ Status OrcChunkReader::lazy_read_next(size_t numValues) {
         // It may throw orc::ParseError exception
         _row_reader->lazyLoadNext(*_batch, numValues);
     } catch (std::exception& e) {
-        auto s = strings::Substitute("OrcChunkReader::lazy_read_next failed. reason = $0, file = $1", e.what(),
+        auto s = absl::Substitute("OrcChunkReader::lazy_read_next failed. reason = $0, file = $1", e.what(),
                                      _current_file_name);
         LOG(WARNING) << s;
         return Status::InternalError(s);
@@ -634,7 +634,7 @@ Status OrcChunkReader::lazy_seek_to(uint64_t rowInStripe) {
         // It may throw orc::ParseError exception
         _row_reader->lazyLoadSeekTo(rowInStripe);
     } catch (std::exception& e) {
-        auto s = strings::Substitute("OrcChunkReader::lazy_seek_to failed. reason = $0, file = $1", e.what(),
+        auto s = absl::Substitute("OrcChunkReader::lazy_seek_to failed. reason = $0, file = $1", e.what(),
                                      _current_file_name);
         LOG(WARNING) << s;
         return Status::InternalError(s);
@@ -1220,7 +1220,7 @@ StatusOr<MutableColumnPtr> OrcChunkReader::get_row_delete_filter(const SkipRowsC
     if (!status.ok()) {
         LOG(WARNING) << "OrcChunkReader::get_row_delete_filter, Failed to fill filter: " << status.status().message();
         return Status::InternalError(
-                strings::Substitute("OrcChunkReader Failed to fill filter: $0", status.status().message()));
+                absl::Substitute("OrcChunkReader Failed to fill filter: $0", status.status().message()));
     }
     return filter_column;
 }
@@ -1292,7 +1292,7 @@ Status OrcChunkReader::apply_dict_filter_eval_cache(const std::unordered_map<Slo
 
 Status OrcChunkReader::set_timezone(const std::string& tz) {
     if (!TimezoneUtils::find_cctz_time_zone(tz, _tzinfo)) {
-        return Status::InternalError(strings::Substitute("can not find cctz time zone $0", tz));
+        return Status::InternalError(absl::Substitute("can not find cctz time zone $0", tz));
     }
     _tzoffset_in_seconds = TimezoneUtils::to_utc_offset(_tzinfo);
     return Status::OK();

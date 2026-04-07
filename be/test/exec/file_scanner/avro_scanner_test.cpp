@@ -28,7 +28,7 @@
 #include "exec/avro_test.h"
 #include "fs/fs_util.h"
 #include "gen_cpp/Descriptors_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
@@ -137,7 +137,7 @@ protected:
         avro_file_writer_t db;
         int rval = avro_file_writer_create(data_path.c_str(), avro_helper.schema, &db);
         if (rval) {
-            auto err_msg = strings::Substitute("There was an error creating $0, error message: $1", data_path,
+            auto err_msg = absl::Substitute("There was an error creating $0, error message: $1", data_path,
                                                avro_strerror());
             return Status::InternalError(err_msg);
         }
@@ -145,7 +145,7 @@ protected:
         rval = avro_file_writer_append_value(db, &avro_helper.avro_val);
         if (rval) {
             avro_file_writer_close(db);
-            auto err_msg = strings::Substitute("Unable to write avro value to memory buffer. errcode: $0, Message: $1",
+            auto err_msg = absl::Substitute("Unable to write avro value to memory buffer. errcode: $0, Message: $1",
                                                rval, avro_strerror());
             return Status::InternalError(err_msg);
         }

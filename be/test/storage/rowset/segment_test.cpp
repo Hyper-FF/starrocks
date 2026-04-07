@@ -46,7 +46,7 @@
 #include "common/logging.h"
 #include "fs/fs_memory.h"
 #include "fs/key_cache.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/mem_pool.h"
 #include "runtime/mem_tracker.h"
 #include "storage/chunk_helper.h"
@@ -90,7 +90,7 @@ protected:
         static int seg_id = 0;
         // must use unique filename for each segment, otherwise page cache kicks in and produces
         // the wrong answer (it use (filename,offset) as cache key)
-        std::string filename = strings::Substitute("$0/seg_$1.dat", kSegmentDir, seg_id++);
+        std::string filename = absl::Substitute("$0/seg_$1.dat", kSegmentDir, seg_id++);
         ASSIGN_OR_ABORT(auto wfile, _fs->new_writable_file(filename));
         SegmentWriter writer(std::move(wfile), 0, build_schema, opts);
         ASSERT_OK(writer.init());
@@ -586,7 +586,7 @@ TEST_F(SegmentReaderWriterTest, TestCheckColumnUniqueIdUniqueness) {
     fp->setMode(trigger_mode);
 
     static int seg_id = 0;
-    std::string filename = strings::Substitute("$0/seg_$1.dat", kSegmentDir, seg_id++);
+    std::string filename = absl::Substitute("$0/seg_$1.dat", kSegmentDir, seg_id++);
     ASSIGN_OR_ABORT(auto wfile, _fs->new_writable_file(filename));
     SegmentWriter writer(std::move(wfile), 0, tablet_schema, opts);
     ASSERT_OK(writer.init());

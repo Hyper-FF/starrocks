@@ -24,7 +24,7 @@
 #include "exec/schema_scanner/schema_be_tablets_scanner.h"
 #include "fs/key_cache.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/action/compaction_action.h"
 #include "io/io_profiler.h"
 #include "runtime/exec_env.h"
@@ -143,7 +143,7 @@ std::string exec(const std::string& cmd) {
 
     FILE* fp = popen(cmd.c_str(), "r");
     if (fp == nullptr) {
-        ret = strings::Substitute("popen failed: $0 cmd: $1", strerror(errno), cmd);
+        ret = absl::Substitute("popen failed: $0 cmd: $1", strerror(errno), cmd);
         return ret;
     }
 
@@ -157,9 +157,9 @@ std::string exec(const std::string& cmd) {
     }
     int status = pclose(fp);
     if (status == -1) {
-        ret.append(strings::Substitute("pclose failed: $0", strerror(errno)));
+        ret.append(absl::Substitute("pclose failed: $0", strerror(errno)));
     } else if (status != 0) {
-        ret.append(strings::Substitute("exit: $0", status));
+        ret.append(absl::Substitute("exit: $0", status));
     }
     return ret;
 }
@@ -279,7 +279,7 @@ public:
         string err;
         auto ptr = manager->get_tablet(tablet_id, true, &err);
         if (ptr == nullptr) {
-            return strings::Substitute("get tablet $0 failed: $1", tablet_id, err);
+            return absl::Substitute("get tablet $0 failed: $1", tablet_id, err);
         }
         auto st = manager->drop_tablet(tablet_id, TabletDropFlag::kKeepMetaAndFiles);
         return st.to_string();
@@ -371,7 +371,7 @@ public:
             return "not support recover";
         }
         Status st = tablet->updates()->recover();
-        return strings::Substitute("recover tablet:$0 status:$1", std::to_string(tablet_id), st.message());
+        return absl::Substitute("recover tablet:$0 status:$1", std::to_string(tablet_id), st.message());
     }
 
     static std::string get_tablet_meta_json(int64_t tablet_id) {
@@ -427,7 +427,7 @@ public:
         if (!tablet) {
             return "tablet not found";
         }
-        return exec_whitelist(strings::Substitute("ls -al $0", tablet->schema_hash_path()));
+        return exec_whitelist(absl::Substitute("ls -al $0", tablet->schema_hash_path()));
     }
 
     static std::string pk_dump(int64_t tablet_id) {

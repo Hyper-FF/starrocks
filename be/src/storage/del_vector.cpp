@@ -17,7 +17,7 @@
 #include <memory>
 
 #include "base/container/raw_container.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -103,7 +103,7 @@ void DelVector::save_to(std::string* str) const {
 }
 
 string DelVector::to_string() const {
-    return strings::Substitute("version:$0 $1", _version, _roaring ? _roaring->toString() : string("null"));
+    return absl::Substitute("version:$0 $1", _version, _roaring ? _roaring->toString() : string("null"));
 }
 
 void DelVector::_update_stats() {

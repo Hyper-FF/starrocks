@@ -36,6 +36,7 @@
 
 #include <glog/logging.h>
 #include <sys/types.h>
+#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -309,7 +310,7 @@ public:
         DCHECK(_parsed) << "Must call init()";
         DCHECK_LE(pos, _num_elements);
         if (pos > _num_elements) {
-            std::string msg = strings::Substitute("invalid pos:$0, num_elements:$1", pos, _num_elements);
+            std::string msg = absl::Substitute("invalid pos:$0, num_elements:$1", pos, _num_elements);
             return Status::InternalError(msg);
         }
         _cur_index = pos;

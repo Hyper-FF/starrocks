@@ -30,7 +30,7 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_options_helper.h"
 #include "fs/fs_s3.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 
 namespace starrocks {
 
@@ -276,23 +276,23 @@ TEST_F(S3FileSystemTest, test_directory) {
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/"), cb));
-    EXPECT_EQ("dirname0,dirname1,dirname2,file0", JoinStrings(entries, ","));
+    EXPECT_EQ("dirname0,dirname1,dirname2,file0", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/dirname0"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/dirname1"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/dirname2"), cb));
-    EXPECT_EQ("0.dat,1.dat,subdir0", JoinStrings(entries, ","));
+    EXPECT_EQ("0.dat,1.dat,subdir0", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/dirname2/subdir0"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     EXPECT_ERROR(fs->delete_dir(S3Path("/dirname2"))); // dirname2 is not empty
 
@@ -429,23 +429,23 @@ TEST_F(S3FileSystemTest, test_directory_v1) {
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/"), cb));
-    EXPECT_EQ("dirname0,dirname1,dirname2,file0", JoinStrings(entries, ","));
+    EXPECT_EQ("dirname0,dirname1,dirname2,file0", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/dirname0"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/dirname1"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/dirname2"), cb));
-    EXPECT_EQ("0.dat,1.dat,subdir0", JoinStrings(entries, ","));
+    EXPECT_EQ("0.dat,1.dat,subdir0", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(S3Path("/dirname2/subdir0"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     EXPECT_ERROR(fs->delete_dir(S3Path("/dirname2"))); // dirname2 is not empty
 

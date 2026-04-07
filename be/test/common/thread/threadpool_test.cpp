@@ -49,7 +49,7 @@
 #include "gutil/atomicops.h"
 #include "gutil/port.h"
 #include "gutil/ref_counted.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "gutil/sysinfo.h"
 #include "gutil/walltime.h"
 
@@ -60,7 +60,7 @@ using std::thread;
 
 using std::vector;
 
-using strings::Substitute;
+using absl::Substitute;
 
 DECLARE_int32(thread_inject_start_latency_ms);
 
@@ -824,11 +824,11 @@ TEST_F(ThreadPoolTest, TestTokenConcurrency) {
         t.join();
     }
 
-    LOG(INFO) << strings::Substitute("Tokens cycled ($0 threads): $1", kCycleThreads, total_num_tokens_cycled.load());
-    LOG(INFO) << strings::Substitute("Tokens shutdown ($0 threads): $1", kShutdownThreads,
+    LOG(INFO) << absl::Substitute("Tokens cycled ($0 threads): $1", kCycleThreads, total_num_tokens_cycled.load());
+    LOG(INFO) << absl::Substitute("Tokens shutdown ($0 threads): $1", kShutdownThreads,
                                      total_num_tokens_shutdown.load());
-    LOG(INFO) << strings::Substitute("Tokens waited ($0 threads): $1", kWaitThreads, total_num_tokens_waited.load());
-    LOG(INFO) << strings::Substitute("Tokens submitted ($0 threads): $1", kSubmitThreads,
+    LOG(INFO) << absl::Substitute("Tokens waited ($0 threads): $1", kWaitThreads, total_num_tokens_waited.load());
+    LOG(INFO) << absl::Substitute("Tokens submitted ($0 threads): $1", kSubmitThreads,
                                      total_num_tokens_submitted.load());
 }
 

@@ -16,7 +16,7 @@
 
 #include "base/utility/pretty_printer.h"
 #include "common/system/cpu_info.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -28,13 +28,13 @@ std::string CpuInfo::debug_string() {
     _get_cache_info(cache_sizes, cache_line_sizes);
 
     std::string L1 =
-            strings::Substitute("L1 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L1_CACHE], TUnit::BYTES),
+            absl::Substitute("L1 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L1_CACHE], TUnit::BYTES),
                                 PrettyPrinter::print(cache_line_sizes[L1_CACHE], TUnit::BYTES));
     std::string L2 =
-            strings::Substitute("L2 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L2_CACHE], TUnit::BYTES),
+            absl::Substitute("L2 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L2_CACHE], TUnit::BYTES),
                                 PrettyPrinter::print(cache_line_sizes[L2_CACHE], TUnit::BYTES));
     std::string L3 =
-            strings::Substitute("L3 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L3_CACHE], TUnit::BYTES),
+            absl::Substitute("L3 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L3_CACHE], TUnit::BYTES),
                                 PrettyPrinter::print(cache_line_sizes[L3_CACHE], TUnit::BYTES));
     stream << "Cpu Info:" << std::endl
            << "  Model: " << model_name_ << std::endl

@@ -34,7 +34,7 @@
 #include "formats/json/nullable_column.h"
 #include "fs/fs.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
 #include "types/type_descriptor.h"
@@ -153,13 +153,13 @@ Status JsonScanner::_construct_cast_exprs() {
             continue;
         }
 
-        VLOG(3) << strings::Substitute("The field name($0) cast STARROCKS($1) to STARROCKS($2).", slot_desc->col_name(),
+        VLOG(3) << absl::Substitute("The field name($0) cast STARROCKS($1) to STARROCKS($2).", slot_desc->col_name(),
                                        from_type.debug_string(), to_type.debug_string());
 
         Expr* cast = VectorizedCastExprFactory::from_type(from_type, to_type, slot, &_pool);
 
         if (cast == nullptr) {
-            return Status::InternalError(strings::Substitute("Not support cast $0 to $1.", from_type.debug_string(),
+            return Status::InternalError(absl::Substitute("Not support cast $0 to $1.", from_type.debug_string(),
                                                              to_type.debug_string()));
         }
 
@@ -178,7 +178,7 @@ Status JsonScanner::parse_json_paths(const std::string& jsonpath, std::vector<st
 
         for (const auto& path : paths) {
             if (!path.is_string()) {
-                return Status::InvalidArgument(strings::Substitute("Invalid json path: $0", jsonpath));
+                return Status::InvalidArgument(absl::Substitute("Invalid json path: $0", jsonpath));
             }
 
             std::vector<SimpleJsonPath> parsed_paths;
@@ -190,7 +190,7 @@ Status JsonScanner::parse_json_paths(const std::string& jsonpath, std::vector<st
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg =
-                strings::Substitute("Invalid json path: $0, error: $1", jsonpath, simdjson::error_message(e.error()));
+                absl::Substitute("Invalid json path: $0, error: $1", jsonpath, simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
 }
@@ -561,7 +561,7 @@ Status JsonReader::_construct_row_without_jsonpath(simdjson::ondemand::object* r
             key_index++;
         }
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("construct row in object order failed, error: $0",
+        auto err_msg = absl::Substitute("construct row in object order failed, error: $0",
                                            simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }

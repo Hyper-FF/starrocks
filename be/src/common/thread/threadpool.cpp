@@ -46,13 +46,13 @@
 #include "common/thread/thread.h"
 #include "gutil/macros.h"
 #include "gutil/map_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "gutil/sysinfo.h"
 
 namespace starrocks {
 
 using std::string;
-using strings::Substitute;
+using absl::Substitute;
 
 class FunctionRunnable : public Runnable {
 public:
@@ -267,7 +267,7 @@ ThreadPool::ThreadPool(const ThreadPoolBuilder& builder)
 
 ThreadPool::~ThreadPool() noexcept {
     // There should only be one live token: the one used in tokenless submission.
-    CHECK_EQ(1, _tokens.size()) << strings::Substitute("Threadpool $0 destroyed with $1 allocated tokens", _name,
+    CHECK_EQ(1, _tokens.size()) << absl::Substitute("Threadpool $0 destroyed with $1 allocated tokens", _name,
                                                        _tokens.size());
     shutdown();
 }
@@ -362,7 +362,7 @@ std::unique_ptr<ThreadPoolToken> ThreadPool::new_token(ExecutionMode mode) {
 
 void ThreadPool::release_token(ThreadPoolToken* t) {
     std::lock_guard unique_lock(_lock);
-    CHECK(!t->is_active()) << strings::Substitute("Token with state $0 may not be released",
+    CHECK(!t->is_active()) << absl::Substitute("Token with state $0 may not be released",
                                                   ThreadPoolToken::state_to_string(t->state()));
     CHECK_EQ(1, _tokens.erase(t));
 }
@@ -400,7 +400,7 @@ Status ThreadPool::do_submit(std::shared_ptr<Runnable> r, ThreadPoolToken* token
     }
     TEST_SYNC_POINT_CALLBACK("ThreadPool::do_submit:1", &capacity_remaining);
     if (capacity_remaining < 1) {
-        return Status::ServiceUnavailable(strings::Substitute(
+        return Status::ServiceUnavailable(absl::Substitute(
                 "Thread pool is at capacity ($0/$1 tasks running, $2/$3 tasks queued)",
                 _num_threads + _num_threads_pending_start, _max_threads.load(std::memory_order_acquire),
                 _total_queued_tasks, _max_queue_size));
@@ -497,7 +497,7 @@ bool ThreadPool::wait_for(const MonoDelta& delta) {
 
 Status ThreadPool::update_max_threads(int max_threads) {
     if (max_threads < this->_min_threads) {
-        std::string err_msg = strings::Substitute("invalid max threads num $0 :  min threads num: $1",
+        std::string err_msg = absl::Substitute("invalid max threads num $0 :  min threads num: $1",
                                                   std::to_string(max_threads), std::to_string(this->_min_threads));
         LOG(WARNING) << err_msg;
         return Status::InvalidArgument(err_msg);
@@ -510,7 +510,7 @@ Status ThreadPool::update_max_threads(int max_threads) {
 
 Status ThreadPool::update_min_threads(int min_threads) {
     if (min_threads > this->_max_threads) {
-        std::string err_msg = strings::Substitute("invalid min threads num $0 :  max threads num: $1",
+        std::string err_msg = absl::Substitute("invalid min threads num $0 :  max threads num: $1",
                                                   std::to_string(min_threads), std::to_string(this->_max_threads));
         LOG(WARNING) << err_msg;
         return Status::InvalidArgument(err_msg);
@@ -739,7 +739,7 @@ Status ThreadPool::create_thread() {
 void ThreadPool::check_not_pool_thread_unlocked() {
     Thread* current = Thread::current_thread();
     if (ContainsKey(_threads, current)) {
-        LOG(FATAL) << strings::Substitute(
+        LOG(FATAL) << absl::Substitute(
                 "Thread belonging to thread pool '$0' with "
                 "name '$1' called pool function that would result in deadlock",
                 _name, current->name());

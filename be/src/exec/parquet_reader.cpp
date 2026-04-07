@@ -16,7 +16,7 @@
 
 #include <arrow/array.h>
 #include <arrow/status.h>
-#include <gutil/strings/substitute.h>
+#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <utility>

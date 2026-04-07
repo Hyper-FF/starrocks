@@ -43,7 +43,7 @@
 #include "exprs/match_expr.h"
 #include "exprs/placeholder_ref.h"
 #include "exprs/subfield_expr.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -240,7 +240,7 @@ Status create_tree_from_thrift(ObjectPool* pool, const std::vector<TExprNode>& n
                                Expr** root_expr, RuntimeState* state) {
     if (*node_idx >= nodes.size()) {
         return Status::InternalError(
-                strings::Substitute("Failed to reconstruct expression tree from thrift, node_idx:$0, nodes size:$1.",
+                absl::Substitute("Failed to reconstruct expression tree from thrift, node_idx:$0, nodes size:$1.",
                                     *node_idx, nodes.size()));
     }
     int num_children = nodes[*node_idx].num_children;
@@ -254,7 +254,7 @@ Status create_tree_from_thrift(ObjectPool* pool, const std::vector<TExprNode>& n
         *node_idx += 1;
         RETURN_IF_ERROR(create_tree_from_thrift(pool, nodes, expr, node_idx, nullptr, state));
         if (*node_idx >= nodes.size()) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "Failed to reconstruct expression tree from thrift, node_idx:$0, nodes size:$1.", *node_idx,
                     nodes.size()));
         }

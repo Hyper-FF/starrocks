@@ -33,6 +33,7 @@
 // under the License.
 
 #include "runtime/snapshot_loader.h"
+#include "absl/strings/substitute.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -491,7 +492,7 @@ Status SnapshotLoader::primary_key_move(const std::string& snapshot_path, const 
         return Status::InternalError(ss.str());
     }
 
-    auto meta_file = strings::Substitute("$0/meta", snapshot_path);
+    auto meta_file = absl::Substitute("$0/meta", snapshot_path);
     auto res = SnapshotManager::instance()->parse_snapshot_meta(meta_file);
     if (!res.ok()) {
         return res.status();

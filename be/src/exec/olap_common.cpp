@@ -45,7 +45,7 @@
 #include "exec/olap_utils.h"
 #include "exec/scan_node.h"
 #include "gutil/stl_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/olap_tuple.h"
 
 namespace starrocks {
@@ -438,7 +438,7 @@ Status ColumnValueRange<T>::add_range(SQLFilterOp op, T value) {
     // If we already have IN value range, we can put `value` into it.
     if (is_fixed_value_range()) {
         if (_fixed_op != FILTER_IN) {
-            return Status::InternalError(strings::Substitute("Add Range Fail! Unsupported SQLFilterOp $0", op));
+            return Status::InternalError(absl::Substitute("Add Range Fail! Unsupported SQLFilterOp $0", op));
         }
         std::pair<iterator_type, iterator_type> bound_pair = _fixed_values.equal_range(value);
 
@@ -464,7 +464,7 @@ Status ColumnValueRange<T>::add_range(SQLFilterOp op, T value) {
             break;
         }
         default: {
-            return Status::InternalError(strings::Substitute("Add Range Fail! Unsupported SQLFilterOp $0", op));
+            return Status::InternalError(absl::Substitute("Add Range Fail! Unsupported SQLFilterOp $0", op));
         }
         }
 
@@ -519,7 +519,7 @@ Status ColumnValueRange<T>::add_range(SQLFilterOp op, T value) {
                 break;
             }
             default: {
-                return Status::InternalError(strings::Substitute("Add Range Fail! Unsupported SQLFilterOp $0", op));
+                return Status::InternalError(absl::Substitute("Add Range Fail! Unsupported SQLFilterOp $0", op));
             }
             }
         }

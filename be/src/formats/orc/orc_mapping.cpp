@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "formats/orc/orc_mapping.h"
+#include "absl/strings/substitute.h"
 
 #include "common/statusor.h"
 
@@ -152,7 +153,7 @@ Status OrcMappingFactory::_check_orc_type_can_convert_2_logical_type(const orc::
 
     if (!can_convert) {
         return Status::NotSupported(
-                strings::Substitute("Orc's type $0 and Slot's type $1 can't convert to each other, filename = $2",
+                absl::Substitute("Orc's type $0 and Slot's type $1 can't convert to each other, filename = $2",
                                     orc_source_type->toString(), slot_target_type.debug_string(), options.filename));
     }
     return Status::OK();
@@ -180,7 +181,7 @@ Status OrcMappingFactory::_init_orc_mapping_with_orc_column_names(std::unique_pt
                 // don't need to add mapping for none-existed column
                 continue;
             } else {
-                auto s = strings::Substitute("Column: $0 is not found in file: $1", col_name, options.filename);
+                auto s = absl::Substitute("Column: $0 is not found in file: $1", col_name, options.filename);
                 return Status::NotFound(s);
             }
         }
@@ -234,7 +235,7 @@ Status OrcMappingFactory::_init_orc_mapping_with_hive_column_names(std::unique_p
             // TODO(SmithCruise) This situation only happened in UT now, I'm not sure this situation will happened in production.
             // So here we don't report an error but skip it directly, just in case.
             continue;
-            //  auto s = strings::Substitute("OrcMappingFactory::_init_orc_mapping not found column name $0", find_column_name);
+            //  auto s = absl::Substitute("OrcMappingFactory::_init_orc_mapping not found column name $0", find_column_name);
             //  return Status::NotFound(s);
         }
 
@@ -272,7 +273,7 @@ Status OrcMappingFactory::_set_child_mapping(const OrcMappingPtr& mapping, const
             std::string field_name = Utils::format_name(origin_type.field_names[index], options.case_sensitive);
             auto it = tmp_orc_fieldname_2_pos.find(field_name);
             if (it == tmp_orc_fieldname_2_pos.end()) {
-                auto s = strings::Substitute(
+                auto s = absl::Substitute(
                         "OrcChunkReader::_set_child_mapping not found struct subfield $0, file = $1", field_name,
                         options.filename);
                 return Status::NotFound(s);

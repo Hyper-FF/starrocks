@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/lake/lake_primary_index.h"
+#include "absl/strings/substitute.h"
 
 #include <bvar/bvar.h>
 
@@ -102,7 +103,7 @@ Status LakePrimaryIndex::_do_lake_load(TabletManager* tablet_mgr, const TabletMe
                         "lake_persistent_index_type of LOCAL will not take effect when as cn without any storage "
                         "path");
             }
-            std::string path = strings::Substitute(
+            std::string path = absl::Substitute(
                     "$0/$1/",
                     StorageEngine::instance()->get_persistent_index_store(metadata->id())->get_persistent_index_path(),
                     metadata->id());

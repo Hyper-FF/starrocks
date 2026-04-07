@@ -17,7 +17,7 @@
 #include "base/string/string_parser.hpp"
 #include "base/types/numeric_types.h"
 #include "column/fixed_length_column.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -41,7 +41,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
     case AVRO_INT32: {
         int in;
         if (avro_value_get_int(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get int value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get int value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         T out{};
@@ -49,7 +49,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -57,7 +57,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
     case AVRO_INT64: {
         int64_t in;
         if (avro_value_get_long(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get int64 value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get int64 value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         T out{};
@@ -65,7 +65,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -73,7 +73,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
     case AVRO_BOOLEAN: {
         int in;
         if (avro_value_get_boolean(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get boolean value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get boolean value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         T out{};
@@ -81,7 +81,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -90,7 +90,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
     case AVRO_FLOAT: {
         float in;
         if (avro_value_get_float(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get float value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get float value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -99,7 +99,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -108,7 +108,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
     case AVRO_DOUBLE: {
         double in;
         if (avro_value_get_double(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get double value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get double value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -117,14 +117,14 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
     }
 
     default: {
-        auto err_msg = strings::Substitute("Unsupported value type. column=$0", name);
+        auto err_msg = absl::Substitute("Unsupported value type. column=$0", name);
         return Status::DataQualityError(err_msg);
     }
     }
@@ -137,7 +137,7 @@ static Status add_column_with_string_value_numeric(FixedLengthColumn<T>* column,
     const char* in;
     size_t size;
     if (avro_value_get_string(&value, &in, &size) != 0) {
-        auto err_msg = strings::Substitute("Get string value error. column=$0", name);
+        auto err_msg = absl::Substitute("Get string value error. column=$0", name);
         return Status::InvalidArgument(err_msg);
     }
 
@@ -166,12 +166,12 @@ static Status add_column_with_string_value_numeric(FixedLengthColumn<T>* column,
                 column->append_numbers(&v, sizeof(v));
                 return Status::OK();
             } else {
-                auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, d);
+                auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, d);
                 return Status::InvalidArgument(err_msg);
             }
         }
 
-        std::string err_msg = strings::Substitute("Unable to cast string value to BIGINT. value=$0, column=$1",
+        std::string err_msg = absl::Substitute("Unable to cast string value to BIGINT. value=$0, column=$1",
                                                   std::string(in, size), name);
         return Status::InvalidArgument(err_msg);
     }
@@ -196,7 +196,7 @@ Status add_numeric_column(Column* column, const TypeDescriptor& type_desc, const
     }
 
     default: {
-        auto err_msg = strings::Substitute("Unsupported value type. Numeric type is required. column=$0", name);
+        auto err_msg = absl::Substitute("Unsupported value type. Numeric type is required. column=$0", name);
         return Status::InvalidArgument(err_msg);
     }
     }

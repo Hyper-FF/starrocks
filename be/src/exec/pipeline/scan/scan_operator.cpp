@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/pipeline/scan/scan_operator.h"
+#include "absl/strings/substitute.h"
 
 #include "base/concurrency/race_detect.h"
 #include "base/failpoint/fail_point.h"
@@ -51,7 +52,7 @@ ScanOperator::ScanOperator(OperatorFactory* factory, int32_t id, int32_t driver_
           _is_io_task_running(_io_tasks_per_scan_operator),
           _chunk_sources(_io_tasks_per_scan_operator) {
     for (auto i = 0; i < _io_tasks_per_scan_operator; i++) {
-        _chunk_source_profiles[i] = std::make_shared<RuntimeProfile>(strings::Substitute("ChunkSource$0", i));
+        _chunk_source_profiles[i] = std::make_shared<RuntimeProfile>(absl::Substitute("ChunkSource$0", i));
     }
 }
 

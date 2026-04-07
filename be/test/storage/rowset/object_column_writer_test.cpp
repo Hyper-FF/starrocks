@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include "absl/strings/substitute.h"
 
 #include "base/testutil/assert.h"
 #include "column/nullable_column.h"
@@ -69,7 +70,7 @@ void ObjectColumnWriterTest::SetUp() {
 
     _fs = std::make_shared<MemoryFileSystem>();
     EXPECT_OK(_fs->create_dir(TEST_DIR));
-    _fname = strings::Substitute("$0/test.data", TEST_DIR);
+    _fname = absl::Substitute("$0/test.data", TEST_DIR);
     _segment = create_dummy_segment(_fs, _fname);
 }
 

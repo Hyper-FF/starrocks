@@ -17,7 +17,7 @@
 #include <sstream>
 
 #include "exec/schema_scanner/schema_helper.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -195,7 +195,7 @@ std::string SchemaColumnsScanner::type_to_string(TColumnDesc& desc) {
     case TPrimitiveType::DECIMAL128: {
         auto precision = desc.__isset.columnPrecision ? desc.columnPrecision : -1;
         auto scale = desc.__isset.columnScale ? desc.columnScale : -1;
-        return strings::Substitute("decimal($0,$1)", precision, scale);
+        return absl::Substitute("decimal($0,$1)", precision, scale);
     }
     case TPrimitiveType::HLL:
         return "hll";

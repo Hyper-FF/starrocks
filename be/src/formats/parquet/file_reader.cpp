@@ -35,7 +35,7 @@
 #include "fs/fs.h"
 #include "gen_cpp/parquet_types.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "io/shared_buffered_input_stream.h"
 
 namespace starrocks::parquet {
@@ -344,7 +344,7 @@ Status FileReader::get_next(ChunkPtr* chunk) {
             status = _row_group_readers[_cur_row_group_idx]->get_next(chunk, &row_count);
         } catch (std::exception& e) {
             return Status::InternalError(
-                    strings::Substitute("Encountered Exception while reading. reason = $0", e.what()));
+                    absl::Substitute("Encountered Exception while reading. reason = $0", e.what()));
         }
         if (status.ok() || status.is_end_of_file()) {
             if (row_count > 0) {
@@ -384,7 +384,7 @@ Status FileReader::get_next(ChunkPtr* chunk) {
                 return Status::OK();
             }
         } else {
-            auto s = strings::Substitute("FileReader::get_next failed. reason = $0, file = $1", status.to_string(),
+            auto s = absl::Substitute("FileReader::get_next failed. reason = $0, file = $1", status.to_string(),
                                          _file->filename());
             LOG(WARNING) << s;
             return status;

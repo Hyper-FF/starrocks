@@ -25,8 +25,8 @@
 #include "common/compiler_util.h"
 #include "common/status.h"
 #include "glog/logging.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "types/json_value.h"
 #include "velocypack/vpack.h"
 
@@ -91,7 +91,7 @@ Status ArraySelector::parse(const std::string& index, std::unique_ptr<ArraySelec
         StringParser::ParseResult result;
         int index_int = StringParser::string_to_int<int>(index.c_str(), index.length(), &result);
         if (result != StringParser::PARSE_SUCCESS) {
-            return Status::InvalidArgument(strings::Substitute("Invalid json path: $0", index));
+            return Status::InvalidArgument(absl::Substitute("Invalid json path: $0", index));
         }
         *output = std::make_unique<ArraySelectorSingle>(index_int);
         return Status::OK();
@@ -99,26 +99,26 @@ Status ArraySelector::parse(const std::string& index, std::unique_ptr<ArraySelec
         *output = std::make_unique<ArraySelectorWildcard>();
         return Status::OK();
     } else if (ArraySelectorSlice::match(index)) {
-        std::vector<std::string> slices = strings::Split(index, ":");
+        std::vector<std::string> slices = absl::StrSplit(index, ":");
         if (slices.size() != 2) {
-            return Status::InvalidArgument(strings::Substitute("Invalid json path: $0", index));
+            return Status::InvalidArgument(absl::Substitute("Invalid json path: $0", index));
         }
 
         StringParser::ParseResult result;
         int left = StringParser::string_to_int<int>(slices[0].c_str(), slices[0].length(), &result);
         if (result != StringParser::PARSE_SUCCESS) {
-            return Status::InvalidArgument(strings::Substitute("Invalid json path: $0", index));
+            return Status::InvalidArgument(absl::Substitute("Invalid json path: $0", index));
         }
         int right = StringParser::string_to_int<int>(slices[1].c_str(), slices[1].length(), &result);
         if (result != StringParser::PARSE_SUCCESS) {
-            return Status::InvalidArgument(strings::Substitute("Invalid json path: $0", index));
+            return Status::InvalidArgument(absl::Substitute("Invalid json path: $0", index));
         }
 
         *output = std::make_unique<ArraySelectorSlice>(left, right);
         return Status::OK();
     }
 
-    return Status::InvalidArgument(strings::Substitute("Invalid json path: $0", index));
+    return Status::InvalidArgument(absl::Substitute("Invalid json path: $0", index));
 }
 
 Status JsonPathPiece::parse(const std::string& path_string, std::vector<JsonPathPiece>* parsed_paths) {
@@ -135,7 +135,7 @@ Status JsonPathPiece::parse(const std::string& path_string, std::vector<JsonPath
                                                                   boost::escaped_list_separator<char>("\\", ".", "\""));
         path_exprs.assign(tok.begin(), tok.end());
     } catch (const boost::escaped_list_error& e) {
-        return Status::InvalidArgument(strings::Substitute("Invalid json path $0", e.what()));
+        return Status::InvalidArgument(absl::Substitute("Invalid json path $0", e.what()));
     }
 
     for (int i = 0; i < path_exprs.size(); i++) {
@@ -155,7 +155,7 @@ Status JsonPathPiece::parse(const std::string& path_string, std::vector<JsonPath
 
         if (!RE2::FullMatch(current, JSONPATH_PATTERN, &variable, &array_pieces)) {
             parsed_paths->emplace_back("", std::unique_ptr<ArraySelector>(new ArraySelectorNone()));
-            return Status::InvalidArgument(strings::Substitute("Invalid json path: $0", path_exprs[i]));
+            return Status::InvalidArgument(absl::Substitute("Invalid json path: $0", path_exprs[i]));
         } else if (array_pieces.empty()) {
             // No array selector
             std::unique_ptr<ArraySelector> selector;

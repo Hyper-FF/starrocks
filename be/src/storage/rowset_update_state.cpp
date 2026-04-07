@@ -24,7 +24,7 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "serde/column_array_serde.h"
 #include "storage/chunk_helper.h"
@@ -457,7 +457,7 @@ Status RowsetUpdateState::_prepare_partial_update_states(Tablet* tablet, Rowset*
     _partial_update_states[idx].inited = true;
     _partial_update_states[idx].schema_version = tablet_schema->schema_version();
 
-    VLOG(1) << strings::Substitute(
+    VLOG(1) << absl::Substitute(
             "prepare PartialUpdateState tablet:$0 segment:$1 #row:$2(#non-default:$3) #column:$4 "
             "time:$5ms(index:$6/value:$7)",
             _tablet_id, idx, total_rows, total_rows - num_default, read_columns.size(), t_end - t_start,
@@ -581,7 +581,7 @@ bool RowsetUpdateState::_check_partial_update(Rowset* rowset) {
 Status RowsetUpdateState::_rebuild_partial_update_states(Tablet* tablet, Rowset* rowset, uint32_t rowset_id,
                                                          uint32_t segment_id, const TabletSchemaCSPtr& tablet_schema) {
     if (_partial_update_states.size() <= segment_id) {
-        std::string msg = strings::Substitute(
+        std::string msg = absl::Substitute(
                 "_rebuild_partial_update_states tablet:$0 rowset:$1 segment:$2 failed, partial_update_states size:$3",
                 tablet->tablet_id(), rowset_id, segment_id, _partial_update_states.size());
         LOG(WARNING) << msg;
@@ -597,7 +597,7 @@ Status RowsetUpdateState::_check_and_resolve_conflict(Tablet* tablet, Rowset* ro
                                                       const TabletSchemaCSPtr& tablet_schema) {
     CHECK_MEM_LIMIT("RowsetUpdateState::_check_and_resolve_conflict");
     if (_partial_update_states.size() <= segment_id || !_partial_update_states[segment_id].inited) {
-        std::string msg = strings::Substitute(
+        std::string msg = absl::Substitute(
                 "_check_and_reslove_conflict tablet:$0 rowset:$1 segment:$2 failed, partial_update_states size:$3",
                 tablet->tablet_id(), rowset_id, segment_id, _partial_update_states.size());
         LOG(WARNING) << msg;
@@ -675,7 +675,7 @@ Status RowsetUpdateState::_check_and_resolve_conflict(Tablet* tablet, Rowset* ro
         }
     }
     int64_t t_end = MonotonicMillis();
-    LOG(INFO) << strings::Substitute(
+    LOG(INFO) << absl::Substitute(
             "_check_and_resolve_conflict tablet:$0 rowset:$1 segmet:$2 version:($3 $4) #conflict-row:$5 #column:$6 "
             "time:$7ms(index:$8/value:$9)",
             tablet->tablet_id(), rowset_id, segment_id, _partial_update_states[segment_id].read_version.to_string(),
@@ -835,7 +835,7 @@ Status RowsetUpdateState::apply(Tablet* tablet, const TabletSchemaCSPtr& tablet_
     int64_t t_end = MonotonicMillis();
     bool is_slow = (t_end - t_start) > config::apply_version_slow_log_sec * 1000;
     std::string msg =
-            strings::Substitute("apply partial segment tablet:$0 rowset:$1 seg:$2 #column:$3 #duration$4ms($5/$6/$7)",
+            absl::Substitute("apply partial segment tablet:$0 rowset:$1 seg:$2 #column:$3 #duration$4ms($5/$6/$7)",
                                 tablet->tablet_id(), rowset_id, segment_id, read_column_ids.size(), t_end - t_start,
                                 t_rewrite_start - t_start, t_rewrite_end - t_rewrite_start, t_end - t_rewrite_end);
     if (is_slow) {
@@ -847,7 +847,7 @@ Status RowsetUpdateState::apply(Tablet* tablet, const TabletSchemaCSPtr& tablet_
 }
 
 std::string RowsetUpdateState::to_string() const {
-    return strings::Substitute("RowsetUpdateState tablet:$0", _tablet_id);
+    return absl::Substitute("RowsetUpdateState tablet:$0", _tablet_id);
 }
 
 } // namespace starrocks

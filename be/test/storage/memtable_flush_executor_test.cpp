@@ -24,7 +24,7 @@
 #include "common/config_exec_fwd.h"
 #include "common/config_ingest_fwd.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "runtime/mem_tracker.h"
@@ -45,11 +45,11 @@ using namespace std;
 
 static shared_ptr<TabletSchema> create_tablet_schema(const string& desc, int nkey, KeysType key_type) {
     TabletSchemaPB tspb;
-    std::vector<std::string> cs = strings::Split(desc, ",", strings::SkipWhitespace());
+    std::vector<std::string> cs = absl::StrSplit(desc, ",", absl::SkipWhitespace());
     uint32_t cid = 0;
     for (std::string& c : cs) {
         ColumnPB* cpb = tspb.add_column();
-        std::vector<std::string> fs = strings::Split(c, " ", strings::SkipWhitespace());
+        std::vector<std::string> fs = absl::StrSplit(c, " ", absl::SkipWhitespace());
         if (fs.size() < 2) {
             CHECK(false) << "create_tablet_schema bad schema desc";
         }
@@ -78,10 +78,10 @@ static shared_ptr<TabletSchema> create_tablet_schema(const string& desc, int nke
 static unique_ptr<Schema> create_schema(const string& desc, int nkey) {
     unique_ptr<Schema> ret;
     Fields fields;
-    std::vector<std::string> cs = strings::Split(desc, ",", strings::SkipWhitespace());
+    std::vector<std::string> cs = absl::StrSplit(desc, ",", absl::SkipWhitespace());
     for (int i = 0; i < cs.size(); i++) {
         auto& c = cs[i];
-        std::vector<std::string> fs = strings::Split(c, " ", strings::SkipWhitespace());
+        std::vector<std::string> fs = absl::StrSplit(c, " ", absl::SkipWhitespace());
         if (fs.size() < 2) {
             CHECK(false) << "create_tablet_schema bad schema desc";
         }
@@ -125,9 +125,9 @@ static const std::vector<SlotDescriptor*>* create_tuple_desc_slots(RuntimeState*
                                                                    ObjectPool& pool) {
     TDescriptorTableBuilder dtb;
     TTupleDescriptorBuilder tuple_builder;
-    std::vector<std::string> cs = strings::Split(desc, ",", strings::SkipWhitespace());
+    std::vector<std::string> cs = absl::StrSplit(desc, ",", absl::SkipWhitespace());
     for (auto& c : cs) {
-        std::vector<std::string> fs = strings::Split(c, " ", strings::SkipWhitespace());
+        std::vector<std::string> fs = absl::StrSplit(c, " ", absl::SkipWhitespace());
         if (fs.size() < 2) {
             CHECK(false) << "create_tuple_desc_slots bad desc";
         }

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/schema_change.h"
+#include "absl/strings/substitute.h"
 
 #include <utility>
 
@@ -803,7 +804,7 @@ TEST_F(SchemaChangeTest, schema_change_with_materialized_column_optimization) {
     request.__set_txn_id(99);
     request.__set_job_id(999);
 
-    std::string alter_msg_header = strings::Substitute("[Alter Job:$0, tablet:$1]: ", 999, 1401);
+    std::string alter_msg_header = absl::Substitute("[Alter Job:$0, tablet:$1]: ", 999, 1401);
     SchemaChangeHandler handler;
     handler.set_alter_msg_header(alter_msg_header);
     auto res = handler.process_alter_tablet(request);

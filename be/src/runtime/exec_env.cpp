@@ -66,10 +66,10 @@
 #include "fs/fs_s3.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/TFileBrokerService.h"
-#include "gutil/strings/join.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "gutil/strings/strip.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/base_load_path_mgr.h"
 #include "runtime/batch_write/batch_write_mgr.h"
 #include "runtime/broker_mgr.h"
@@ -543,7 +543,7 @@ Status ExecEnv::init(const std::vector<StorePath>& store_paths, bool as_cn) {
         _max_executor_threads = config::pipeline_exec_thread_pool_thread_num;
     }
     _max_executor_threads = std::max<int64_t>(1, _max_executor_threads);
-    LOG(INFO) << strings::Substitute("[PIPELINE] Exec thread pool: thread_num=$0", _max_executor_threads);
+    LOG(INFO) << absl::Substitute("[PIPELINE] Exec thread pool: thread_num=$0", _max_executor_threads);
 
     _driver_limiter =
             new pipeline::DriverLimiter(_max_executor_threads * config::pipeline_max_num_drivers_per_exec_thread);
@@ -686,7 +686,7 @@ Status ExecEnv::init(const std::vector<StorePath>& store_paths, bool as_cn) {
             std::string starlet_cache_path = root_path.path + "/starlet_cache";
             starlet_cache_paths.emplace_back(starlet_cache_path);
         });
-        config::starlet_cache_dir = JoinStrings(starlet_cache_paths, ":");
+        config::starlet_cache_dir = absl::StrJoin(starlet_cache_paths, ":");
     }
     setenv(staros::starlet::fslib::kFslibCacheDir.c_str(), config::starlet_cache_dir.c_str(), 1);
 
@@ -977,16 +977,16 @@ void ExecEnv::stop() {
     component_times.emplace_back("PythonEnvManager", MonotonicMillis() - start);
 
     int64_t total_time = MonotonicMillis() - total_start;
-    std::string summary = strings::Substitute("[ExecEnv::stop] Total: $0 ms", total_time);
+    std::string summary = absl::Substitute("[ExecEnv::stop] Total: $0 ms", total_time);
     if (!component_times.empty()) {
         summary += " (";
         std::vector<std::string> parts;
         for (const auto& [name, time] : component_times) {
             if (time > 0) {
-                parts.push_back(strings::Substitute("$0:$1ms", name, time));
+                parts.push_back(absl::Substitute("$0:$1ms", name, time));
             }
         }
-        summary += JoinStrings(parts, ", ");
+        summary += absl::StrJoin(parts, ", ");
         summary += ")";
     }
     LOG(INFO) << summary;
@@ -1133,8 +1133,13 @@ void ExecEnv::try_release_resource_before_core_dump() {
     if (config::try_release_resource_before_core_dump.value() == "*") {
         release_all = true;
     } else {
-        SplitStringAndParseToContainer(StringPiece(config::try_release_resource_before_core_dump), ",",
-                                       &parse_resource_str, &modules);
+        for (auto piece : absl::StrSplit(config::try_release_resource_before_core_dump.value(),
+                                         absl::ByAnyChar(","), absl::SkipEmpty())) {
+            std::string val;
+            if (parse_resource_str(std::string(piece), &val)) {
+                modules.insert(val);
+            }
+        }
     }
 
     auto need_release = [&release_all, &modules](const std::string& name) {

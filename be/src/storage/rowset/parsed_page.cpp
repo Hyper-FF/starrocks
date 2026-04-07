@@ -46,7 +46,7 @@
 #include "column/nullable_column.h"
 #include "common/config_rowset_fwd.h"
 #include "common/status.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/column_predicate.h"
 #include "storage/rowset/binary_dict_page.h"
 #include "storage/rowset/bitshuffle_page.h"
@@ -562,7 +562,7 @@ Status parse_page(std::unique_ptr<ParsedPage>* result, PageHandle handle, const 
     if (version == 2) {
         return parse_page_v2(result, std::move(handle), body, footer, encoding, page_pointer, page_index);
     }
-    return Status::InternalError(strings::Substitute("Unknown page format version $0", version));
+    return Status::InternalError(absl::Substitute("Unknown page format version $0", version));
 }
 
 } // namespace starrocks

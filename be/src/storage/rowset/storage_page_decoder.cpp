@@ -17,7 +17,7 @@
 #include "base/coding.h"
 #include "base/container/raw_container.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/raw_container_checked.h"
 #include "storage/rowset/bitshuffle_wrapper.h"
 
@@ -56,7 +56,7 @@ public:
                                                    num_element_after_padding, size_of_element, 0);
         if (bytes != compressed_body.size) {
             return Status::Corruption(
-                    strings::Substitute("decompress failed: expected number of bytes consumed=$0 vs real consumed=$1",
+                    absl::Substitute("decompress failed: expected number of bytes consumed=$0 vs real consumed=$1",
                                         compressed_body.size, bytes));
         }
         DCHECK(footer->has_type()) << "type must be set";
@@ -114,7 +114,7 @@ public:
             return Status::OK();
         } else {
             LOG(WARNING) << "invalid encoding type:" << type;
-            return Status::Corruption(strings::Substitute("invalid encoding type:$0", type));
+            return Status::Corruption(absl::Substitute("invalid encoding type:$0", type));
         }
     }
 

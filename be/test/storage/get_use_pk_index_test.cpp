@@ -24,7 +24,7 @@
 #include "base/testutil/assert.h"
 #include "base/utility/defer_op.h"
 #include "column/datum_tuple.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "storage/chunk_helper.h"
 #include "storage/empty_iterator.h"

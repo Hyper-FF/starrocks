@@ -30,7 +30,7 @@
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "formats/parquet/encoding.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 #ifdef __AVX2__
 #include <immintrin.h>
@@ -134,7 +134,7 @@ public:
     Status next_batch(size_t count, ColumnContentType content_type, Column* dst, const FilterData* filter) override {
         size_t max_fetch = count * SIZE_OF_TYPE;
         if (max_fetch + _offset > _data.size) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "going to read out-of-bounds data, offset=$0,count=$1,size=$2", _offset, count, _data.size));
         }
         auto n = dst->append_numbers(_data.data + _offset, max_fetch);
@@ -146,7 +146,7 @@ public:
     Status skip(size_t values_to_skip) override {
         size_t fetch_size = values_to_skip * SIZE_OF_TYPE;
         if (fetch_size + _offset > _data.size) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "going to skip out-of-bounds data, offset=$0,skip=$1,size=$2", _offset, fetch_size, _data.size));
         }
         _offset += fetch_size;
@@ -156,7 +156,7 @@ public:
     Status next_batch(size_t count, uint8_t* dst) override {
         size_t max_fetch = count * SIZE_OF_TYPE;
         if (max_fetch + _offset > _data.size) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "going to read out-of-bounds data, offset=$0,count=$1,size=$2", _offset, count, _data.size));
         }
         memcpy(dst, _data.data + _offset, max_fetch);
@@ -270,7 +270,7 @@ public:
 
 #define CHECK_DECODING_BOUND                                                                                  \
     if (UNLIKELY(num_decoded < count || _offset > _data.size)) {                                              \
-        return Status::InternalError(strings::Substitute(                                                     \
+        return Status::InternalError(absl::Substitute(                                                     \
                 "going to read out-of-bounds data, offset=$0,count=$1,size=$2", _offset, count, _data.size)); \
     }
 
@@ -331,7 +331,7 @@ public:
         // unlikely happened
         if (UNLIKELY(num_decoded < values_to_skip || _offset > _data.size)) {
             return Status::InternalError(
-                    strings::Substitute("going to skip out-of-bounds data, offset=$0,size=$1", _offset, _data.size));
+                    absl::Substitute("going to skip out-of-bounds data, offset=$0,size=$1", _offset, _data.size));
         }
         return Status::OK();
     }
@@ -349,7 +349,7 @@ public:
         }
         // never happend
         if (num_decoded < count || _offset > _data.size) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "going to read out-of-bounds data, offset=$0,count=$1,size=$2", _offset, count, _data.size));
         }
         return Status::OK();
@@ -383,7 +383,7 @@ public:
         RETURN_IF_ERROR(dst->accept_mutable(&visitor));
         auto num_unpacked_values = unpack_batch(count, visitor.result() + original_size);
         if (num_unpacked_values < count) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "going to read out-of-bounds data, count=$0,num_unpacked_values=$1", count, num_unpacked_values));
         }
         return Status::OK();
@@ -399,7 +399,7 @@ public:
     Status next_batch(size_t count, uint8_t* dst) override {
         auto num_unpacked_values = unpack_batch(count, dst);
         if (num_unpacked_values < count) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "going to read out-of-bounds data, count=$0,num_unpacked_values=$1", count, num_unpacked_values));
         }
         return Status::OK();
@@ -513,7 +513,7 @@ public:
 
     Status next_batch(size_t count, ColumnContentType content_type, Column* dst, const FilterData* filter) override {
         if (_offset + _type_length * count > _data.size) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "going to read out-of-bounds data, offset=$0,count=$1,size=$2", _offset, count, _data.size));
         }
         auto ret = dst->append_continuous_fixed_length_strings(_data.data + _offset, count, _type_length);
@@ -547,7 +547,7 @@ public:
             size_t prev_bytes_size = bytes.size();
             size_t read_bytes_size = _type_length * read_count;
             if (_offset + read_bytes_size > _data.size) {
-                return Status::InternalError(strings::Substitute(
+                return Status::InternalError(absl::Substitute(
                         "going to read out-of-bounds data, offset=$0,count=$1,size=$2", _offset, count, _data.size));
             }
 
@@ -573,7 +573,7 @@ public:
     Status skip(size_t values_to_skip) override {
         if (_offset + _type_length * values_to_skip > _data.size) {
             return Status::InternalError(
-                    strings::Substitute("going to skip out-of-bounds data, offset=$0,skip=$1,size=$2", _offset,
+                    absl::Substitute("going to skip out-of-bounds data, offset=$0,skip=$1,size=$2", _offset,
                                         _type_length * values_to_skip, _data.size));
         }
         _offset += _type_length * values_to_skip;
@@ -582,7 +582,7 @@ public:
 
     Status next_batch(size_t count, uint8_t* dst) override {
         if (_offset + _type_length * count > _data.size) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "going to read out-of-bounds data, offset=$0,count=$1,size=$2", _offset, count, _data.size));
         }
 

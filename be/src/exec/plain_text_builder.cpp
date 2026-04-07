@@ -10,7 +10,7 @@
 #include "exprs/expr_context.h"
 #include "formats/csv/converter.h"
 #include "formats/csv/csv_escape.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "io/formatted_output_stream.h"
 #include "io/formatted_output_stream_file.h"
 
@@ -76,7 +76,7 @@ Status PlainTextBuilder::add_chunk(Chunk* chunk) {
     const size_t num_rows = chunk->num_rows();
     const size_t num_cols = _output_expr_ctxs.size();
     if (num_cols != _converters.size()) {
-        auto err = strings::Substitute("Unmatched number of columns expected=$0 real=$1", _converters.size(), num_cols);
+        auto err = absl::Substitute("Unmatched number of columns expected=$0 real=$1", _converters.size(), num_cols);
         return Status::InternalError(err);
     }
     Columns columns;
@@ -89,7 +89,7 @@ Status PlainTextBuilder::add_chunk(Chunk* chunk) {
         auto column_ref = ((ColumnRef*)root);
         auto col = chunk->get_column_by_slot_id(column_ref->slot_id());
         if (col == nullptr) {
-            return Status::InternalError(strings::Substitute("Column not found by slot id %0", column_ref->slot_id()));
+            return Status::InternalError(absl::Substitute("Column not found by slot id %0", column_ref->slot_id()));
         }
         col = ColumnHelper::unfold_const_column(column_ref->type(), num_rows, col);
         columns.emplace_back(col);

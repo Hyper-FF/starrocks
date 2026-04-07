@@ -42,7 +42,7 @@
 #include "common/logging.h"
 #include "common/runtime_profile.h"
 #include "common/statusor.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "rocksdb/convenience.h"
 #include "rocksdb/db.h"
 #include "rocksdb/options.h"

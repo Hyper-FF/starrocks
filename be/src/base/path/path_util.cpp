@@ -35,17 +35,15 @@
 #include "base/path/path_util.h"
 
 #include <memory>
+#include <string_view>
 // Use the POSIX version of basename(3). See `man 3 basename`
 #include <libgen.h>
 
-#include "gutil/strings/split.h"
-#include "gutil/strings/stringpiece.h"
+#include "absl/strings/str_split.h"
 #include "gutil/strings/strip.h"
 
 using std::string;
 using std::vector;
-using strings::SkipEmpty;
-using strings::Split;
 
 namespace starrocks::path_util {
 
@@ -78,8 +76,8 @@ std::vector<string> split_path(const string& path) {
     if (path[0] == '/') {
         segments.emplace_back("/");
     }
-    std::vector<StringPiece> pieces = Split(path, "/", SkipEmpty());
-    for (const StringPiece& piece : pieces) {
+    std::vector<std::string_view> pieces = absl::StrSplit(path, "/", absl::SkipEmpty());
+    for (const std::string_view& piece : pieces) {
         segments.emplace_back(piece.data(), piece.size());
     }
     return segments;

@@ -28,7 +28,7 @@
 #include "column/vectorized_fwd.h"
 #include "common/config_storage_fwd.h"
 #include "fs/fs.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/chunk_helper.h"
 #include "storage/empty_iterator.h"
 #include "storage/kv_store.h"

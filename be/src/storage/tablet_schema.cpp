@@ -33,6 +33,7 @@
 // under the License.
 
 #include "storage/tablet_schema.h"
+#include "absl/strings/substitute.h"
 
 #include <gen_cpp/descriptors.pb.h>
 
@@ -624,7 +625,7 @@ Status TabletSchema::_build_current_tablet_schema(int64_t schema_id, int32_t ver
         for (auto uid : column_param.sort_key_uid()) {
             auto it = _unique_id_to_index.find(uid);
             if (it == _unique_id_to_index.end()) {
-                std::string msg = strings::Substitute("sort key column uid: $0 is not exist in columns", uid);
+                std::string msg = absl::Substitute("sort key column uid: $0 is not exist in columns", uid);
                 LOG(WARNING) << msg;
                 return Status::InternalError(msg);
             }

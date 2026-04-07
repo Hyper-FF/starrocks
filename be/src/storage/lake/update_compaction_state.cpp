@@ -16,7 +16,7 @@
 
 #include "base/debug/trace.h"
 #include "common/config_exec_fwd.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "storage/chunk_helper.h"
 #include "storage/chunk_iterator.h"
@@ -46,7 +46,7 @@ Status CompactionState::load_segments(Rowset* rowset, UpdateManager* update_mana
     _update_manager = update_manager;
     _tablet_id = rowset->tablet_id();
     if (segment_id >= pk_cols.size() && pk_cols.size() != 0) {
-        std::string msg = strings::Substitute("Error segment id: $0 vs $1", segment_id, pk_cols.size());
+        std::string msg = absl::Substitute("Error segment id: $0 vs $1", segment_id, pk_cols.size());
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     }
@@ -118,7 +118,7 @@ void CompactionState::release_segments(uint32_t segment_id) {
 }
 
 std::string CompactionState::to_string() const {
-    return strings::Substitute("CompactionState tablet:$0", _tablet_id);
+    return absl::Substitute("CompactionState tablet:$0", _tablet_id);
 }
 
 } // namespace starrocks::lake

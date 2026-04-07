@@ -14,7 +14,7 @@
 
 #include "io/compressed_input_stream.h"
 
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "util/compression/stream_decompressor.h"
 
 namespace starrocks::io {
@@ -80,7 +80,7 @@ StatusOr<int64_t> CompressedInputStream::read(void* data, int64_t size) {
                                                   &input_bytes_read, output, output_len, &output_bytes_written,
                                                   &_stream_end));
         if (UNLIKELY(output_bytes_written == 0 && input_bytes_read == 0 && st.is_end_of_file())) {
-            return Status::InternalError(strings::Substitute("Failed to decompress. input_len:$0, output_len:$0",
+            return Status::InternalError(absl::Substitute("Failed to decompress. input_len:$0, output_len:$0",
                                                              compressed_data.size, output_len));
         }
         _compressed_buff.skip(input_bytes_read);

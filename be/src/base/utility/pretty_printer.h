@@ -24,7 +24,7 @@
 #include "base/logging.h"
 #include "base/utility/template_util.h"
 #include "gen_cpp/RuntimeProfile_types.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "gutil/sysinfo.h"
 
 /// Truncate a double to offset decimal places.
@@ -182,7 +182,7 @@ public:
             strings.push_back(ss.str());
         }
 
-        (*out) << "[" << JoinStrings(strings, ", ") << "]";
+        (*out) << "[" << absl::StrJoin(strings, ", ") << "]";
     }
 
     /// Convenience method

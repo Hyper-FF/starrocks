@@ -46,7 +46,7 @@
 #include "formats/csv/converter.h"
 #include "fs/fs_broker.h"
 #include "fs/fs_factory.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "io/formatted_output_stream.h"
 #include "runtime/runtime_state.h"
 
@@ -91,7 +91,7 @@ Status FileResultWriter::_create_fs() {
     }
     if (_fs == nullptr) {
         return Status::InternalError(
-                strings::Substitute("file system initialize failed for file $0", _file_opts->file_path));
+                absl::Substitute("file system initialize failed for file $0", _file_opts->file_path));
     }
     return Status::OK();
 }
@@ -124,7 +124,7 @@ Status FileResultWriter::_create_file_writer() {
         break;
     }
     default:
-        return Status::InternalError(strings::Substitute("unsupported file format: $0", _file_opts->file_format));
+        return Status::InternalError(absl::Substitute("unsupported file format: $0", _file_opts->file_format));
     }
     LOG(INFO) << "create file for exporting query result. file name: " << file_name
               << ". query id: " << print_id(_state->query_id());

@@ -24,7 +24,7 @@
 
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/index/inverted/builtin/builtin_simple_analyzer.h"
 #include "storage/index/inverted/inverted_index_option.h"
 #include "storage/rowset/bitmap_index_writer.h"
@@ -153,7 +153,7 @@ Status BuiltinInvertedWriter::create(const TypeInfoPtr& typeinfo, TabletIndex* t
     }
     default:
         return Status::NotSupported(
-                strings::Substitute("Unsupported type for inverted index: $0", type_to_string_v2(type)));
+                absl::Substitute("Unsupported type for inverted index: $0", type_to_string_v2(type)));
     }
     return Status::OK();
 }

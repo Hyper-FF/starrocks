@@ -44,7 +44,7 @@
 #include "fmt/format.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "rowset_options.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
@@ -172,24 +172,24 @@ void Rowset::make_commit(int64_t version, uint32_t rowset_seg_id, uint32_t max_c
 }
 
 std::string Rowset::segment_file_path(const std::string& dir, const RowsetId& rowset_id, int segment_id) {
-    return strings::Substitute("$0/$1_$2.dat", dir, rowset_id.to_string(), segment_id);
+    return absl::Substitute("$0/$1_$2.dat", dir, rowset_id.to_string(), segment_id);
 }
 
 std::string Rowset::segment_temp_file_path(const std::string& dir, const RowsetId& rowset_id, int segment_id) {
-    return strings::Substitute("$0/$1_$2.dat.tmp", dir, rowset_id.to_string(), segment_id);
+    return absl::Substitute("$0/$1_$2.dat.tmp", dir, rowset_id.to_string(), segment_id);
 }
 
 std::string Rowset::segment_del_file_path(const std::string& dir, const RowsetId& rowset_id, int segment_id) {
-    return strings::Substitute("$0/$1_$2.del", dir, rowset_id.to_string(), segment_id);
+    return absl::Substitute("$0/$1_$2.del", dir, rowset_id.to_string(), segment_id);
 }
 
 std::string Rowset::segment_upt_file_path(const std::string& dir, const RowsetId& rowset_id, int segment_id) {
-    return strings::Substitute("$0/$1_$2.upt", dir, rowset_id.to_string(), segment_id);
+    return absl::Substitute("$0/$1_$2.upt", dir, rowset_id.to_string(), segment_id);
 }
 
 std::string Rowset::delta_column_group_path(const std::string& dir, const RowsetId& rowset_id, int segment_id,
                                             int64_t version, int idx) {
-    return strings::Substitute("$0/$1_$2_$3_$4.cols", dir, rowset_id.to_string(), segment_id, version, idx);
+    return absl::Substitute("$0/$1_$2_$3_$4.cols", dir, rowset_id.to_string(), segment_id, version, idx);
 }
 
 Status Rowset::init() {
@@ -451,7 +451,7 @@ Status Rowset::link_files_to(const std::string& dir, RowsetId new_rowset_id, int
         if (link(src_file_path.c_str(), dst_link_path.c_str()) != 0) {
             PLOG(WARNING) << "Fail to link " << src_file_path << " to " << dst_link_path;
             return Status::RuntimeError(
-                    strings::Substitute("Fail to link segment data file from $0 to $1", src_file_path, dst_link_path));
+                    absl::Substitute("Fail to link segment data file from $0 to $1", src_file_path, dst_link_path));
         }
 
         // link inverted files
@@ -474,7 +474,7 @@ Status Rowset::link_files_to(const std::string& dir, RowsetId new_rowset_id, int
 
                         if (link(src_absolute_path.c_str(), dst_absolute_path.c_str()) != 0) {
                             PLOG(WARNING) << "Fail to link " << src_absolute_path << " to " << dst_absolute_path;
-                            return Status::RuntimeError(strings::Substitute("Fail to link index gin file from $0 to $1",
+                            return Status::RuntimeError(absl::Substitute("Fail to link index gin file from $0 to $1",
                                                                             src_absolute_path, dst_absolute_path));
                         }
                     }
@@ -1020,12 +1020,12 @@ static int compare_row(const Chunk& l, size_t l_row_id, const Chunk& r, size_t r
 
 static Status report_duplicate(const Chunk& chunk, size_t idx, int64_t row_id0, int64_t row_id1) {
     return Status::Corruption(
-            strings::Substitute("duplicate row $0 row:$1==row:$2", chunk.debug_row(idx), row_id0, row_id1));
+            absl::Substitute("duplicate row $0 row:$1==row:$2", chunk.debug_row(idx), row_id0, row_id1));
 }
 
 static Status report_unordered(const Chunk& chunk0, size_t idx0, int64_t row_id0, const Chunk& chunk1, size_t idx1,
                                int64_t row_id1) {
-    return Status::Corruption(strings::Substitute("unordered row row:$0 $1 > row:$2 $3", row_id0,
+    return Status::Corruption(absl::Substitute("unordered row row:$0 $1 > row:$2 $3", row_id0,
                                                   chunk0.debug_row(idx0), row_id1, chunk1.debug_row(idx1)));
 }
 
@@ -1104,7 +1104,7 @@ Status Rowset::verify() {
         for (size_t i = 0; i < iters.size(); i++) {
             st = is_ordered(iters[i], is_pk_ordered);
             if (!st.ok()) {
-                st = st.clone_and_append(strings::Substitute("segment:$0", i));
+                st = st.clone_and_append(absl::Substitute("segment:$0", i));
                 break;
             }
         }
@@ -1118,7 +1118,7 @@ Status Rowset::verify() {
         }
     }
     if (!st.ok()) {
-        (void)st.clone_and_append(strings::Substitute("rowset:$0 path:$1", rowset_id().to_string(), rowset_path()));
+        (void)st.clone_and_append(absl::Substitute("rowset:$0 path:$1", rowset_id().to_string(), rowset_path()));
     }
     return st;
 }

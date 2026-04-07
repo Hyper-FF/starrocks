@@ -30,7 +30,7 @@
 #include "fs/fs.h"
 #include "fs/fs_broker.h"
 #include "fs/fs_factory.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "io/compressed_input_stream.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
@@ -70,7 +70,7 @@ Status FileScanner::init_expr_ctx() {
 
     if (src_tuple_desc == nullptr) {
         return Status::InternalError(
-                strings::Substitute("Unknown source tuple descriptor, tuple_id=$0", _params.src_tuple_id));
+                absl::Substitute("Unknown source tuple descriptor, tuple_id=$0", _params.src_tuple_id));
     }
 
     // sources
@@ -95,7 +95,7 @@ Status FileScanner::init_expr_ctx() {
     _dest_tuple_desc = _state->desc_tbl().get_tuple_descriptor(_params.dest_tuple_id);
     if (_dest_tuple_desc == nullptr) {
         return Status::InternalError(
-                strings::Substitute("Unknown dest tuple descriptor, tuple_id=$0", _params.dest_tuple_id));
+                absl::Substitute("Unknown dest tuple descriptor, tuple_id=$0", _params.dest_tuple_id));
     }
 
     bool has_slot_id_map = _params.__isset.dest_sid_to_src_sid_without_trans;
@@ -107,7 +107,7 @@ Status FileScanner::init_expr_ctx() {
 
         auto it = _params.expr_of_dest_slot.find(slot_desc->id());
         if (it == std::end(_params.expr_of_dest_slot)) {
-            return Status::InternalError(strings::Substitute("No expr for dest slot, id=$0, name=$1", slot_desc->id(),
+            return Status::InternalError(absl::Substitute("No expr for dest slot, id=$0, name=$1", slot_desc->id(),
                                                              slot_desc->col_name()));
         }
 
@@ -126,7 +126,7 @@ Status FileScanner::init_expr_ctx() {
             } else {
                 auto _src_slot_it = src_slot_desc_map.find(it->second);
                 if (_src_slot_it == std::end(src_slot_desc_map)) {
-                    return Status::InternalError(strings::Substitute("No src slot $0 in src slot desc", it->second));
+                    return Status::InternalError(absl::Substitute("No src slot $0 in src slot desc", it->second));
                 }
                 _dest_slot_desc_mappings.emplace_back(_src_slot_it->second);
             }

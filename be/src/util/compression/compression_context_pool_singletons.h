@@ -34,7 +34,7 @@
 #include "common/status.h"
 #include "common/statusor.h"
 #include "gutil/endian.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "util/compression/compression_context.h"
 #include "util/compression/compression_context_pool.h"
 

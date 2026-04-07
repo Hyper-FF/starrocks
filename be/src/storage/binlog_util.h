@@ -19,7 +19,7 @@
 #include "base/types/uint24.h"
 #include "common/status.h"
 #include "gen_cpp/binlog.pb.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -51,7 +51,7 @@ inline std::ostream& operator<<(std::ostream& os, const BinlogLsn& lsn) {
 class BinlogUtil {
 public:
     static std::string binlog_file_path(std::string& binlog_dir, int64_t file_id) {
-        return strings::Substitute("$0/$1.binlog", binlog_dir, file_id);
+        return absl::Substitute("$0/$1.binlog", binlog_dir, file_id);
     }
 
     static std::string file_meta_to_string(BinlogFileMetaPB* file_meta);

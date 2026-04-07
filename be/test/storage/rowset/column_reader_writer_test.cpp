@@ -33,6 +33,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include "absl/strings/substitute.h"
 
 #include <iostream>
 
@@ -115,7 +116,7 @@ protected:
         auto fs = std::make_shared<MemoryFileSystem>();
         ASSERT_TRUE(fs->create_dir(TEST_DIR).ok());
 
-        const std::string fname = strings::Substitute("$0/test-$1-$2-$3-$4-$5.data", TEST_DIR, type, encoding, version,
+        const std::string fname = absl::Substitute("$0/test-$1-$2-$3-$4-$5.data", TEST_DIR, type, encoding, version,
                                                       null_encoding, null_ratio);
         auto segment = create_dummy_segment(fs, fname);
         // write data
@@ -690,7 +691,7 @@ TEST_F(ColumnReaderWriterTest, test_scalar_column_total_mem_footprint) {
     ColumnMetaPB meta;
     auto fs = std::make_shared<MemoryFileSystem>();
     ASSERT_TRUE(fs->create_dir(TEST_DIR).ok());
-    const std::string fname = strings::Substitute("$0/test_scalar_column_total_mem_footprint.data", TEST_DIR);
+    const std::string fname = absl::Substitute("$0/test_scalar_column_total_mem_footprint.data", TEST_DIR);
     auto segment = create_dummy_segment(fs, fname);
 
     // write data
@@ -738,7 +739,7 @@ TEST_F(ColumnReaderWriterTest, test_scalar_column_total_mem_footprint) {
 TEST_F(ColumnReaderWriterTest, test_large_varchar_column_writer) {
     auto fs = std::make_shared<MemoryFileSystem>();
     ASSERT_TRUE(fs->create_dir(TEST_DIR).ok());
-    const std::string fname = strings::Substitute("$0/test_large_varchar_column_writer.data", TEST_DIR);
+    const std::string fname = absl::Substitute("$0/test_large_varchar_column_writer.data", TEST_DIR);
     // write data
     {
         int32_t old_config = config::dictionary_speculate_min_chunk_size;
@@ -772,7 +773,7 @@ TEST_F(ColumnReaderWriterTest, test_large_varchar_column_writer) {
             std::vector<std::string> col_strs;
             col_strs.resize(TEST_N);
             for (int i = 0; i < TEST_N; i++) {
-                col_strs[i] = strings::Substitute("test_$0", i);
+                col_strs[i] = absl::Substitute("test_$0", i);
                 col_slices.emplace_back(col_strs[i]);
             }
             col->reserve(TEST_N);

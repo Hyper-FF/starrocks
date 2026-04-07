@@ -25,7 +25,7 @@
 #include "connector/connector.h"
 #include "fs/fs_util.h"
 #include "gen_cpp/lake_service.pb.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
@@ -238,7 +238,7 @@ inline StatusOr<TabletMetadataPtr> TEST_batch_publish(TabletManager* tablet_mgr,
     } else {
         return Status::InternalError(
                 fmt::format("failed to publish version. tablet_id={} txn_ids={} base_version={} new_version={}",
-                            tablet_id, JoinInts(txn_ids, ","), base_version, new_version));
+                            tablet_id, absl::StrJoin(txn_ids, ","), base_version, new_version));
     }
 }
 

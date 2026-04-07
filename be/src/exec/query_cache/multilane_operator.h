@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <vector>
+#include "absl/strings/substitute.h"
 
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
@@ -48,7 +49,7 @@ public:
         bool eof_sent{false};
         Lane(pipeline::OperatorPtr&& op, int id) : processor(std::move(op)), lane_id(id) {}
         std::string to_debug_string() const {
-            return strings::Substitute("Lane(lane_owner=$0, last_chunk_received=$1, eof_send=$2, operator=$3)",
+            return absl::Substitute("Lane(lane_owner=$0, last_chunk_received=$1, eof_send=$2, operator=$3)",
                                        lane_owner, last_chunk_received, eof_sent, processor->get_name());
         }
     };

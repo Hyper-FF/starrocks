@@ -30,7 +30,7 @@
 #include "column/nullable_column.h"
 #include "column/variant_column.h"
 #include "common/statusor.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/hll.h"
 #include "types/json_value.h"
 #include "types/variant.h"
@@ -45,7 +45,7 @@ PARALLEL_TEST(ColumnArraySerdeTest, json_column) {
 
     for (int i = 0; i < 10; i++) {
         JsonValue json;
-        std::string json_str = strings::Substitute("{\"a\": $0}", i);
+        std::string json_str = absl::Substitute("{\"a\": $0}", i);
         ASSERT_TRUE(JsonValue::parse(json_str, &json).ok());
         c1->append(&json);
     }

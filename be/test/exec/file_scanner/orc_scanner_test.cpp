@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/file_scanner/orc_scanner.h"
+#include "absl/strings/substitute.h"
 
 #include <gtest/gtest.h>
 
@@ -249,7 +250,7 @@ Status ORCScannerTest::_init_multi_stripe_context(MultiStripeContext* ctx) {
         return Status::OK();
     } catch (const std::exception& e) {
         return Status::InternalError(
-                strings::Substitute("Failed to load ORC metadata for $0: $1", ctx->file_path, e.what()));
+                absl::Substitute("Failed to load ORC metadata for $0: $1", ctx->file_path, e.what()));
     }
 }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/tablet_scanner.h"
+#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <utility>
@@ -85,7 +86,7 @@ Status TabletScanner::init(RuntimeState* runtime_state, const TabletScannerParam
 
     Status st = _reader->prepare();
     if (!st.ok()) {
-        std::string msg = strings::Substitute("Fail to scan tablet. error: $0, backend: $1", st.message(),
+        std::string msg = absl::Substitute("Fail to scan tablet. error: $0, backend: $1", st.message(),
                                               BackendOptions::get_localhost());
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
@@ -101,7 +102,7 @@ Status TabletScanner::open([[maybe_unused]] RuntimeState* runtime_state) {
         _is_open = true;
         Status st = _reader->open(_params);
         if (!st.ok()) {
-            auto msg = strings::Substitute("Fail to scan tablet. error: $0, backend: $1", st.message(),
+            auto msg = absl::Substitute("Fail to scan tablet. error: $0, backend: $1", st.message(),
                                            BackendOptions::get_localhost());
             st = Status::InternalError(msg);
             LOG(WARNING) << st;
@@ -133,7 +134,7 @@ Status TabletScanner::_get_tablet(const TInternalScanRange* scan_range) {
     std::string err;
     _tablet = StorageEngine::instance()->tablet_manager()->get_tablet(tablet_id, true, &err);
     if (!_tablet) {
-        auto msg = strings::Substitute("Not found tablet. tablet_id: $0, error: $1", tablet_id, err);
+        auto msg = absl::Substitute("Not found tablet. tablet_id: $0, error: $1", tablet_id, err);
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     }
@@ -215,7 +216,7 @@ Status TabletScanner::_init_return_columns() {
         }
         int32_t index = _tablet_schema->field_index(slot->col_name());
         if (index < 0) {
-            auto msg = strings::Substitute("Invalid column name: $0", slot->col_name());
+            auto msg = absl::Substitute("Invalid column name: $0", slot->col_name());
             LOG(WARNING) << msg;
             return Status::InvalidArgument(msg);
         }
@@ -237,7 +238,7 @@ Status TabletScanner::_init_unused_output_columns(const std::vector<std::string>
     for (const auto& col_name : unused_output_columns) {
         int32_t index = _tablet_schema->field_index(col_name);
         if (index < 0) {
-            auto msg = strings::Substitute("Invalid column name: $0", col_name);
+            auto msg = absl::Substitute("Invalid column name: $0", col_name);
             LOG(WARNING) << msg;
             return Status::InvalidArgument(msg);
         }

@@ -25,7 +25,7 @@
 #include "common/config_starlet_fwd.h"
 #include "common/config_storage_fwd.h"
 #include "common/status.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 #include "gutil/strings/strip.h"
 #include "runtime/exec_env.h"
 
@@ -264,8 +264,13 @@ void DataCache::try_release_resource_before_core_dump() {
     if (config::try_release_resource_before_core_dump.value() == "*") {
         release_all = true;
     } else {
-        SplitStringAndParseToContainer(StringPiece(config::try_release_resource_before_core_dump), ",",
-                                       &parse_resource_str, &modules);
+        for (auto piece : absl::StrSplit(config::try_release_resource_before_core_dump.value(),
+                                         absl::ByAnyChar(","), absl::SkipEmpty())) {
+            std::string val;
+            if (parse_resource_str(std::string(piece), &val)) {
+                modules.insert(val);
+            }
+        }
     }
 
     auto need_release = [&release_all, &modules](const std::string& name) {

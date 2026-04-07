@@ -33,6 +33,7 @@
 // under the License.
 
 #include "storage/tablet.h"
+#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 #include <pthread.h>
@@ -1372,7 +1373,7 @@ void Tablet::get_compaction_status(std::string* json_result) {
 
                 rapidjson::Value version;
                 const Version& ver = compaction_rowset->version();
-                std::string version_value = strings::Substitute("$0-$1", ver.first, ver.second);
+                std::string version_value = absl::Substitute("$0-$1", ver.first, ver.second);
                 version.SetString(version_value.c_str(), version_value.length(), root.GetAllocator());
                 value.AddMember("version", version, root.GetAllocator());
 
@@ -1419,7 +1420,7 @@ void Tablet::get_compaction_status(std::string* json_result) {
 
         rapidjson::Value version;
         const Version& ver = rowsets[i]->version();
-        std::string version_value = strings::Substitute("$0-$1", ver.first, ver.second);
+        std::string version_value = absl::Substitute("$0-$1", ver.first, ver.second);
         version.SetString(version_value.c_str(), version_value.length(), root.GetAllocator());
         value.AddMember("version", version, root.GetAllocator());
 
@@ -1825,7 +1826,7 @@ Status Tablet::verify() {
     for (auto& rowset : rowsets) {
         auto st = rowset->verify();
         if (!st.ok()) {
-            return st.clone_and_append(strings::Substitute("tablet:$0 version:$1 rowset:$2", tablet_id(), version,
+            return st.clone_and_append(absl::Substitute("tablet:$0 version:$1 rowset:$2", tablet_id(), version,
                                                            rowset->rowset_id().to_string()));
         }
     }

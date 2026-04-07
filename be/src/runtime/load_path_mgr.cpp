@@ -45,7 +45,7 @@
 #include "fs/fs.h"
 #include "fs/fs_util.h"
 #include "gen_cpp/Types_types.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/base_load_path_mgr.h"
 #include "runtime/exec_env.h"
 #include "storage/olap_define.h"
@@ -66,7 +66,7 @@ Status LoadPathMgr::init() {
     for (auto& path : _exec_env->store_paths()) {
         _path_vec.push_back(path.path + MINI_PREFIX);
     }
-    LOG(INFO) << "Load path configured to [" << JoinStrings(_path_vec, ",") << "]";
+    LOG(INFO) << "Load path configured to [" << absl::StrJoin(_path_vec, ",") << "]";
 
     // error log is saved in first root path
     _error_log_dir = _exec_env->store_paths()[0].path + ERROR_LOG_PREFIX;

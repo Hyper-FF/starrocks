@@ -27,7 +27,7 @@
 #include "exprs/expr_factory.h"
 #include "gen_cpp/AgentService_types.h"
 #include "gen_cpp/Types_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
 #include "storage/aggregate_type.h"
@@ -387,7 +387,7 @@ Status convert_t_schema_to_pb_schema(const TTabletSchema& tablet_schema, uint32_
                     index_pb->add_col_unique_id(mit->second->unique_id());
                 } else {
                     return Status::Cancelled(
-                            strings::Substitute("index column $0 can not be found in table columns", index_col_name));
+                            absl::Substitute("index column $0 can not be found in table columns", index_col_name));
                 }
                 std::map<std::string, std::map<std::string, std::string>> properties_map = {
                         {INDEX_PROPERTIES, index.index_properties}};
@@ -406,7 +406,7 @@ Status convert_t_schema_to_pb_schema(const TTabletSchema& tablet_schema, uint32_
                     index_pb->add_col_unique_id(mit->second->unique_id());
                 } else {
                     return Status::Cancelled(
-                            strings::Substitute("index column $0 can not be found in table columns", index_col_name));
+                            absl::Substitute("index column $0 can not be found in table columns", index_col_name));
                 }
 
                 std::map<std::string, std::map<std::string, std::string>> properties_map = {
@@ -418,7 +418,7 @@ Status convert_t_schema_to_pb_schema(const TTabletSchema& tablet_schema, uint32_
             } else {
                 std::string index_type;
                 EnumToString(TIndexType, index.index_type, index_type);
-                return Status::Cancelled(strings::Substitute("Not supported index type $0", index_type));
+                return Status::Cancelled(absl::Substitute("Not supported index type $0", index_type));
             }
         }
     }

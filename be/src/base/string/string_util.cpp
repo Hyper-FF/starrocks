@@ -35,13 +35,13 @@
 #include "base/string/string_util.h"
 
 #include "base/hash/hash_util.hpp"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 
 namespace starrocks {
 
 size_t hash_of_path(const std::string& identifier, const std::string& path) {
     size_t hash = std::hash<std::string>()(identifier);
-    std::vector<std::string> path_parts = strings::Split(path, "/", strings::SkipWhitespace());
+    std::vector<std::string> path_parts = absl::StrSplit(path, "/", absl::SkipWhitespace());
     for (auto& part : path_parts) {
         HashUtil::hash_combine<std::string>(hash, part);
     }

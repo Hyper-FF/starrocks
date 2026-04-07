@@ -18,7 +18,7 @@
 
 #include "cache/datacache.h"
 #include "common/statusor.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -49,7 +49,7 @@ Status BlockCache::write(const CacheKey& cache_key, off_t offset, const IOBuffer
                          DiskCacheWriteOptions* options) {
     if (offset % _block_size != 0) {
         LOG(WARNING) << "write block key: " << cache_key << " with invalid args, offset: " << offset;
-        return Status::InvalidArgument(strings::Substitute("offset must be aligned by block size $0", _block_size));
+        return Status::InvalidArgument(absl::Substitute("offset must be aligned by block size $0", _block_size));
     }
     if (buffer.empty()) {
         return Status::OK();
@@ -106,7 +106,7 @@ Status BlockCache::remove(const CacheKey& cache_key, off_t offset, size_t size) 
         LOG(WARNING) << "remove block key: " << cache_key << " with invalid args, offset: " << offset
                      << ", size: " << size;
         return Status::InvalidArgument(
-                strings::Substitute("offset and size must be aligned by block size $0", _block_size));
+                absl::Substitute("offset and size must be aligned by block size $0", _block_size));
     }
     if (size == 0) {
         return Status::OK();

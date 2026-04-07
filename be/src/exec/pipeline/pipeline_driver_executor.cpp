@@ -23,7 +23,7 @@
 #include "exec/pipeline/pipeline_metrics.h"
 #include "exec/pipeline/stream_pipeline_driver.h"
 #include "exec/workgroup/work_group.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"

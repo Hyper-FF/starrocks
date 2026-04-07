@@ -18,7 +18,7 @@
 
 #include "base/testutil/assert.h"
 #include "common/config_compaction_fwd.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/global_dict/types.h"
 #include "storage/chunk_helper.h"
 #include "storage/empty_iterator.h"

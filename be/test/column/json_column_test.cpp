@@ -16,7 +16,7 @@
 
 #include <fmt/format.h>
 #include <gtest/gtest.h>
-#include <gutil/strings/substitute.h>
+#include "absl/strings/substitute.h"
 
 #include <vector>
 
@@ -300,7 +300,7 @@ PARALLEL_TEST(JsonColumnTest, test_filter) {
     const int N = 100;
     auto json_column = JsonColumn::create();
     for (int i = 0; i < N; i++) {
-        std::string json_str = strings::Substitute("{\"a\": $0}", i);
+        std::string json_str = absl::Substitute("{\"a\": $0}", i);
         json_column->append(JsonValue::parse(json_str).value());
     }
 
@@ -487,7 +487,7 @@ PARALLEL_TEST(JsonConvertTest, convert_from_simdjson_big_integer) {
     ASSERT_EQ(double_json.value().to_string_uncheck(), big_integer_json.value().to_string_uncheck());
 
     // a is simdjson::ondemand::number_type::big_integer, but is overflow for double
-    padded_string double_overflow_str = strings::Substitute("{\"a\":$0}", std::string(400, '1'));
+    padded_string double_overflow_str = absl::Substitute("{\"a\":$0}", std::string(400, '1'));
     ondemand::document double_overflow_doc = parser.iterate(double_overflow_str);
     ondemand::object double_overflow_obj = double_overflow_doc.get_object();
     auto double_overflow_json = JsonValue::from_simdjson(&double_overflow_obj);

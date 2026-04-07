@@ -31,7 +31,7 @@
 #include "column/variant_merger.h"
 #include "column/variant_path_parser.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/variant_value.h"
 
 namespace starrocks {
@@ -864,7 +864,7 @@ Status VariantColumn::validate_shredded_schema(const std::vector<std::string>& p
         auto parsed = VariantPathParser::parse_shredded_path(std::string_view(path));
         if (!parsed.ok()) {
             return Status::InvalidArgument(
-                    strings::Substitute("invalid shredded path '$0': $1", path, parsed.status().to_string()));
+                    absl::Substitute("invalid shredded path '$0': $1", path, parsed.status().to_string()));
         }
     }
     return Status::OK();

@@ -31,7 +31,7 @@
 #include "common/config_object_storage_fwd.h"
 #include "common/config_starlet_fwd.h"
 #include "fs/fs_factory.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "service/staros_worker.h"
 #include "storage/rowset/page_io.h"
 
@@ -282,23 +282,23 @@ TEST_P(StarletFileSystemTest, test_directory) {
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(StarletPath("/"), cb));
-    EXPECT_EQ("dirname0/,dirname1/,dirname2/,file0", JoinStrings(entries, ","));
+    EXPECT_EQ("dirname0/,dirname1/,dirname2/,file0", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(StarletPath("/dirname0"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(StarletPath("/dirname1"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(StarletPath("/dirname2"), cb));
-    EXPECT_EQ("subdir0/,0.dat,1.dat", JoinStrings(entries, ","));
+    EXPECT_EQ("subdir0/,0.dat,1.dat", absl::StrJoin(entries, ","));
 
     entries.clear();
     EXPECT_OK(fs->iterate_dir(StarletPath("/dirname2/subdir0"), cb));
-    EXPECT_EQ("", JoinStrings(entries, ","));
+    EXPECT_EQ("", absl::StrJoin(entries, ","));
 
     EXPECT_ERROR(fs->delete_dir(StarletPath("/dirname2"))); // dirname2 is not empty
 

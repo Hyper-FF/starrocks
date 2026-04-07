@@ -37,9 +37,9 @@
 #include <string>
 
 #include "base/coding.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
-using strings::Substitute;
+using absl::Substitute;
 
 namespace starrocks {
 
@@ -72,7 +72,7 @@ Status ShortKeyIndexDecoder::parse(const Slice& body, const ShortKeyFooterPB& fo
 
     // check if body size match footer's information
     if (body.size != (_footer.key_bytes() + _footer.offset_bytes())) {
-        return Status::Corruption(strings::Substitute("Index size not match, need=$0, real=$1",
+        return Status::Corruption(absl::Substitute("Index size not match, need=$0, real=$1",
                                                       _footer.key_bytes() + _footer.offset_bytes(), body.size));
     }
 

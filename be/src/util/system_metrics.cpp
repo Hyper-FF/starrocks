@@ -51,7 +51,7 @@
 #include "cache/mem_cache/page_cache.h"
 #include "common/config_cache_fwd.h"
 #include "exec/query_cache/cache_manager.h"
-#include "gutil/strings/split.h" // for string split
+#include "absl/strings/str_split.h" // for string split
 #include "gutil/strtoint.h"      //  for atoi64
 #include "io/io_profiler.h"
 #include "jemalloc/jemalloc.h"
@@ -633,7 +633,7 @@ void SystemMetrics::_update_snmp_metrics() {
 
     // parse the Tcp header
     // Tcp: RtoAlgorithm RtoMin RtoMax MaxConn ActiveOpens PassiveOpens AttemptFails EstabResets CurrEstab InSegs OutSegs RetransSegs InErrs OutRsts InCsumErrors
-    std::vector<std::string> headers = strings::Split(_line_ptr, " ");
+    std::vector<std::string> headers = absl::StrSplit(_line_ptr, " ");
     std::unordered_map<std::string, int32_t> header_map;
     int32_t pos = 0;
     for (auto& h : headers) {
@@ -649,7 +649,7 @@ void SystemMetrics::_update_snmp_metrics() {
 
     // metric line looks like:
     // Tcp: 1 200 120000 -1 47849374 38601877 3353843 2320314 276 1033354613 1166025166 825439 12694 23238924 0
-    std::vector<std::string> metrics = strings::Split(_line_ptr, " ");
+    std::vector<std::string> metrics = absl::StrSplit(_line_ptr, " ");
     if (metrics.size() != headers.size()) {
         LOG(WARNING) << "invalid tcp metrics line: " << _line_ptr;
         fclose(fp);

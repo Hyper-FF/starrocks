@@ -44,7 +44,7 @@
 
 #include "base/coding.h"
 #include "fmt/compile.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "util/compression/compression_context_pool_singletons.h"
 #include "util/compression/compression_headers.h"
 
@@ -88,7 +88,7 @@ Status GzipStreamCompressor::init() {
     _z_strm.opaque = Z_NULL;
     int ret = deflateInit2(&_z_strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, _window_bits, kMemLevel, Z_DEFAULT_STRATEGY);
     if (ret != Z_OK) {
-        return Status::InternalError(strings::Substitute("Fail to init zlib stream compress, res=$0", ret));
+        return Status::InternalError(absl::Substitute("Fail to init zlib stream compress, res=$0", ret));
     }
     _initialized = true;
     return Status::OK();
@@ -107,7 +107,7 @@ Status GzipStreamCompressor::compress(const uint8_t* input, size_t input_len, si
     _z_strm.avail_out = static_cast<uInt>(out_len);
     int ret = deflate(&_z_strm, Z_NO_FLUSH);
     if (ret != Z_OK && ret != Z_BUF_ERROR) {
-        return Status::InternalError(strings::Substitute("Fail to do zlib stream compress, res=$0", ret));
+        return Status::InternalError(absl::Substitute("Fail to do zlib stream compress, res=$0", ret));
     }
     *input_bytes_read = in_len - _z_strm.avail_in;
     *output_bytes_written = out_len - _z_strm.avail_out;
@@ -139,7 +139,7 @@ Status GzipStreamCompressor::finish(uint8_t* output, size_t output_len, size_t* 
         return Status::OK();
     }
     if (ret != Z_OK && ret != Z_BUF_ERROR) {
-        return Status::InternalError(strings::Substitute("Fail to finish zlib stream compress, res=$0", ret));
+        return Status::InternalError(absl::Substitute("Fail to finish zlib stream compress, res=$0", ret));
     }
     return Status::OK();
 }
@@ -176,7 +176,7 @@ Status Bzip2StreamCompressor::init() {
     _bz_strm.opaque = nullptr;
     int ret = BZ2_bzCompressInit(&_bz_strm, 9, 0, 30);
     if (ret != BZ_OK) {
-        return Status::InternalError(strings::Substitute("Fail to init bzip2 stream compress, res=$0", ret));
+        return Status::InternalError(absl::Substitute("Fail to init bzip2 stream compress, res=$0", ret));
     }
     _initialized = true;
     return Status::OK();
@@ -197,7 +197,7 @@ Status Bzip2StreamCompressor::compress(const uint8_t* input, size_t input_len, s
     *input_bytes_read = in_len - _bz_strm.avail_in;
     *output_bytes_written = out_len - _bz_strm.avail_out;
     if (ret != BZ_RUN_OK) {
-        return Status::InternalError(strings::Substitute("Fail to do bzip2 stream compress, res=$0", ret));
+        return Status::InternalError(absl::Substitute("Fail to do bzip2 stream compress, res=$0", ret));
     }
     return Status::OK();
 }
@@ -225,7 +225,7 @@ Status Bzip2StreamCompressor::finish(uint8_t* output, size_t output_len, size_t*
         return Status::OK();
     }
     if (ret != BZ_FINISH_OK) {
-        return Status::InternalError(strings::Substitute("Fail to finish bzip2 stream compress, res=$0", ret));
+        return Status::InternalError(absl::Substitute("Fail to finish bzip2 stream compress, res=$0", ret));
     }
     return Status::OK();
 }
@@ -260,7 +260,7 @@ Status ZstdStreamCompressor::init() {
     size_t ret = ZSTD_initCStream(_ctx, ZSTD_CLEVEL_DEFAULT);
     if (ZSTD_isError(ret)) {
         return Status::InternalError(
-                strings::Substitute("ZSTD init stream compress failed: $0", ZSTD_getErrorName(ret)));
+                absl::Substitute("ZSTD init stream compress failed: $0", ZSTD_getErrorName(ret)));
     }
     return Status::OK();
 }
@@ -271,7 +271,7 @@ Status ZstdStreamCompressor::compress(const uint8_t* input, size_t input_len, si
     ZSTD_outBuffer out_buf = {output, output_len, 0};
     size_t ret = ZSTD_compressStream(_ctx, &out_buf, &in_buf);
     if (ZSTD_isError(ret)) {
-        return Status::InternalError(strings::Substitute("ZSTD compress failed: $0", ZSTD_getErrorName(ret)));
+        return Status::InternalError(absl::Substitute("ZSTD compress failed: $0", ZSTD_getErrorName(ret)));
     }
     *input_bytes_read = in_buf.pos;
     *output_bytes_written = out_buf.pos;
@@ -283,7 +283,7 @@ Status ZstdStreamCompressor::finish(uint8_t* output, size_t output_len, size_t* 
     ZSTD_outBuffer out_buf = {output, output_len, 0};
     size_t ret = ZSTD_endStream(_ctx, &out_buf);
     if (ZSTD_isError(ret)) {
-        return Status::InternalError(strings::Substitute("ZSTD finish failed: $0", ZSTD_getErrorName(ret)));
+        return Status::InternalError(absl::Substitute("ZSTD finish failed: $0", ZSTD_getErrorName(ret)));
     }
     *output_bytes_written = out_buf.pos;
     *stream_end = (ret == 0);
@@ -321,7 +321,7 @@ Status Lz4FrameStreamCompressor::init() {
     size_t ret = LZ4F_createCompressionContext(&_ctx, LZ4F_VERSION);
     if (LZ4F_isError(ret)) {
         return Status::InternalError(
-                strings::Substitute("LZ4F create compression context failed: $0", LZ4F_getErrorName(ret)));
+                absl::Substitute("LZ4F create compression context failed: $0", LZ4F_getErrorName(ret)));
     }
     return Status::OK();
 }
@@ -335,7 +335,7 @@ Status Lz4FrameStreamCompressor::compress(const uint8_t* input, size_t input_len
         size_t header_size = LZ4F_compressBegin(_ctx, output, output_len, &_prefs);
         if (LZ4F_isError(header_size)) {
             return Status::InternalError(
-                    strings::Substitute("LZ4F compress begin failed: $0", LZ4F_getErrorName(header_size)));
+                    absl::Substitute("LZ4F compress begin failed: $0", LZ4F_getErrorName(header_size)));
         }
         offset += header_size;
         _started = true;
@@ -343,7 +343,7 @@ Status Lz4FrameStreamCompressor::compress(const uint8_t* input, size_t input_len
 
     size_t ret = LZ4F_compressUpdate(_ctx, output + offset, output_len - offset, input, input_len, nullptr);
     if (LZ4F_isError(ret)) {
-        return Status::InternalError(strings::Substitute("LZ4F compress update failed: $0", LZ4F_getErrorName(ret)));
+        return Status::InternalError(absl::Substitute("LZ4F compress update failed: $0", LZ4F_getErrorName(ret)));
     }
     *output_bytes_written = offset + ret;
     *input_bytes_read = input_len;
@@ -359,14 +359,14 @@ Status Lz4FrameStreamCompressor::finish(uint8_t* output, size_t output_len, size
         size_t header_size = LZ4F_compressBegin(_ctx, output, output_len, &_prefs);
         if (LZ4F_isError(header_size)) {
             return Status::InternalError(
-                    strings::Substitute("LZ4F compress begin failed: $0", LZ4F_getErrorName(header_size)));
+                    absl::Substitute("LZ4F compress begin failed: $0", LZ4F_getErrorName(header_size)));
         }
         offset += header_size;
         _started = true;
     }
     size_t ret = LZ4F_compressEnd(_ctx, output + offset, output_len - offset, nullptr);
     if (LZ4F_isError(ret)) {
-        return Status::InternalError(strings::Substitute("LZ4F compress end failed: $0", LZ4F_getErrorName(ret)));
+        return Status::InternalError(absl::Substitute("LZ4F compress end failed: $0", LZ4F_getErrorName(ret)));
     }
     *output_bytes_written = offset + ret;
     *stream_end = true;

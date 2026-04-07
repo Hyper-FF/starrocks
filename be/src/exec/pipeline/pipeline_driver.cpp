@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/pipeline/pipeline_driver.h"
+#include "absl/strings/substitute.h"
 
 #include <random>
 #include <sstream>
@@ -179,7 +180,7 @@ Status PipelineDriver::prepare(RuntimeState* runtime_state) {
     }
 
     if (!all_local_rf_set.empty()) {
-        _runtime_profile->add_info_string("LocalRfWaitingSet", strings::Substitute("$0", all_local_rf_set.size()));
+        _runtime_profile->add_info_string("LocalRfWaitingSet", absl::Substitute("$0", all_local_rf_set.size()));
     }
     size_t subscribe_filter_sequence = source_op->get_driver_sequence();
     _local_rf_holders =
@@ -861,7 +862,7 @@ Status PipelineDriver::_mark_operator_finishing(OperatorPtr& op, RuntimeState* s
         return Status::OK();
     }
 
-    VLOG_ROW << strings::Substitute("[Driver] finishing operator [fragment_id=$0] [driver=$1] [operator=$2]",
+    VLOG_ROW << absl::Substitute("[Driver] finishing operator [fragment_id=$0] [driver=$1] [operator=$2]",
                                     print_id(state->fragment_instance_id()), to_readable_string(), op->get_name());
     {
         SCOPED_TIMER(op->_finishing_timer);
@@ -878,7 +879,7 @@ Status PipelineDriver::_mark_operator_finished(OperatorPtr& op, RuntimeState* st
         return Status::OK();
     }
 
-    VLOG_ROW << strings::Substitute("[Driver] finished operator [fragment_id=$0] [driver=$1] [operator=$2]",
+    VLOG_ROW << absl::Substitute("[Driver] finished operator [fragment_id=$0] [driver=$1] [operator=$2]",
                                     print_id(state->fragment_instance_id()), to_readable_string(), op->get_name());
     {
         SCOPED_TIMER(op->_finished_timer);
@@ -901,7 +902,7 @@ Status PipelineDriver::_mark_operator_cancelled(OperatorPtr& op, RuntimeState* s
         return Status::OK();
     }
 
-    VLOG_ROW << strings::Substitute("[Driver] cancelled operator [fragment_id=$0] [driver=$1] [operator=$2]",
+    VLOG_ROW << absl::Substitute("[Driver] cancelled operator [fragment_id=$0] [driver=$1] [operator=$2]",
                                     print_id(state->fragment_instance_id()), to_readable_string(), op->get_name());
     {
         op_state = OperatorStage::CANCELLED;
@@ -910,7 +911,7 @@ Status PipelineDriver::_mark_operator_cancelled(OperatorPtr& op, RuntimeState* s
 }
 
 Status PipelineDriver::_mark_operator_closed(OperatorPtr& op, RuntimeState* state) {
-    auto msg = strings::Substitute("[Driver] close operator [driver=$0] [operator=$1]", to_readable_string(),
+    auto msg = absl::Substitute("[Driver] close operator [driver=$0] [operator=$1]", to_readable_string(),
                                    op->get_name());
     if (_fragment_ctx->is_canceled()) {
         WARN_IF_ERROR(_mark_operator_cancelled(op, state), msg + " is failed to cancel");

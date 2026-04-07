@@ -24,7 +24,7 @@
 #include "base/system/errno.h"
 #include "base/utility/defer_op.h"
 #include "common/version.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -35,7 +35,7 @@ Status ClusterIdMgr::init() {
     if (access(cluster_id_path.c_str(), F_OK) != 0) {
         int fd = open(cluster_id_path.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
         if (fd < 0 || close(fd) < 0) {
-            RETURN_IF_ERROR_WITH_WARN(Status::IOError(strings::Substitute("failed to create cluster id file $0, err=$1",
+            RETURN_IF_ERROR_WITH_WARN(Status::IOError(absl::Substitute("failed to create cluster id file $0, err=$1",
                                                                           cluster_id_path, errno_to_string(errno))),
                                       "create file failed");
         }
@@ -46,7 +46,7 @@ Status ClusterIdMgr::init() {
     fp = fopen(cluster_id_path.c_str(), "r+b");
     if (fp == nullptr) {
         RETURN_IF_ERROR_WITH_WARN(
-                Status::IOError(strings::Substitute("failed to open cluster id file $0", cluster_id_path)),
+                Status::IOError(absl::Substitute("failed to open cluster id file $0", cluster_id_path)),
                 "open file failed");
     }
 
@@ -64,7 +64,7 @@ Status ClusterIdMgr::init() {
 #endif
     if (lock_res < 0) {
         RETURN_IF_ERROR_WITH_WARN(
-                Status::IOError(strings::Substitute("failed to flock cluster id file $0", cluster_id_path)),
+                Status::IOError(absl::Substitute("failed to flock cluster id file $0", cluster_id_path)),
                 "flock file failed");
     }
 
@@ -78,7 +78,7 @@ Status ClusterIdMgr::_read_cluster_id(const std::string& path, int32_t* cluster_
 
     std::fstream fs(path.c_str(), std::fstream::in);
     if (!fs.is_open()) {
-        RETURN_IF_ERROR_WITH_WARN(Status::IOError(strings::Substitute("failed to open cluster id file $0", path)),
+        RETURN_IF_ERROR_WITH_WARN(Status::IOError(absl::Substitute("failed to open cluster id file $0", path)),
                                   "open file failed");
     }
 
@@ -100,7 +100,7 @@ Status ClusterIdMgr::_read_cluster_id(const std::string& path, int32_t* cluster_
     } else if (tmp_cluster_id >= 0 && (fs.rdstate() & std::fstream::eofbit) != 0) {
         *cluster_id = tmp_cluster_id;
     } else {
-        RETURN_IF_ERROR_WITH_WARN(Status::Corruption(strings::Substitute(
+        RETURN_IF_ERROR_WITH_WARN(Status::Corruption(absl::Substitute(
                                           "cluster id file $0 is corrupt. [id=$1 eofbit=$2 failbit=$3 badbit=$4]", path,
                                           tmp_cluster_id, fs.rdstate() & std::fstream::eofbit,
                                           fs.rdstate() & std::fstream::failbit, fs.rdstate() & std::fstream::badbit)),
@@ -138,7 +138,7 @@ Status ClusterIdMgr::set_cluster_id(int32_t cluster_id) {
 Status ClusterIdMgr::_add_version_info_to_cluster_id(const std::string& path) {
     std::fstream in_fs(path.c_str(), std::fstream::in);
     if (!in_fs.is_open()) {
-        RETURN_IF_ERROR_WITH_WARN(Status::IOError(strings::Substitute("failed to open cluster id file $0", path)),
+        RETURN_IF_ERROR_WITH_WARN(Status::IOError(absl::Substitute("failed to open cluster id file $0", path)),
                                   "open file failed");
     }
     std::string cluster_id_str;
@@ -151,7 +151,7 @@ Status ClusterIdMgr::_add_version_info_to_cluster_id(const std::string& path) {
 
     std::fstream out_fs(path.c_str(), std::fstream::out);
     if (!out_fs.is_open()) {
-        RETURN_IF_ERROR_WITH_WARN(Status::IOError(strings::Substitute("failed to open cluster id file $0", path)),
+        RETURN_IF_ERROR_WITH_WARN(Status::IOError(absl::Substitute("failed to open cluster id file $0", path)),
                                   "open file failed");
     }
     out_fs << cluster_id_str;

@@ -43,7 +43,7 @@
 #include "common/ngram_bloom_filter_state.h"
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/utils.h"
 
 namespace starrocks {
@@ -148,7 +148,7 @@ public:
         if (strategy == HashStrategyPB::HASH_MURMUR3_X64_64) {
             ret = init(n, fpp, Hasher::HashStrategy::HASH_MURMUR3_X64_64, DEFAULT_SEED);
         } else {
-            return Status::InvalidArgument(strings::Substitute("invalid strategy:$0", strategy));
+            return Status::InvalidArgument(absl::Substitute("invalid strategy:$0", strategy));
         }
         return ret;
     }
@@ -158,7 +158,7 @@ public:
         _hasher = HasherFactory::create(strategy, seed);
         DCHECK(_hasher);
         if (size == 0) {
-            return Status::InvalidArgument(strings::Substitute("invalid size:$0", size));
+            return Status::InvalidArgument(absl::Substitute("invalid size:$0", size));
         }
         _data = new char[size];
         memcpy(_data, buf, size);
@@ -175,7 +175,7 @@ public:
         if (strategy == HashStrategyPB::HASH_MURMUR3_X64_64) {
             ret = init(buf, size, Hasher::HashStrategy::HASH_MURMUR3_X64_64, DEFAULT_SEED);
         } else {
-            return Status::InvalidArgument(strings::Substitute("invalid strategy:$0", strategy));
+            return Status::InvalidArgument(absl::Substitute("invalid strategy:$0", strategy));
         }
         return ret;
     }

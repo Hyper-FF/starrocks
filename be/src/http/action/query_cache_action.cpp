@@ -22,7 +22,7 @@
 
 #include "common/logging.h"
 #include "exec/query_cache/cache_manager.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
 #include "http/http_request.h"
@@ -43,17 +43,17 @@ void QueryCacheAction::handle(HttpRequest* req) {
         if (action == ACTION_STAT) {
             _handle_stat(req);
         } else {
-            _handle_error(req, strings::Substitute("Not support GET method: '$0'", req->uri()));
+            _handle_error(req, absl::Substitute("Not support GET method: '$0'", req->uri()));
         }
     } else if (req->method() == HttpMethod::PUT) {
         if (action == ACTION_INVALIDATE_ALL) {
             _handle_invalidate_all(req);
         } else {
-            _handle_error(req, strings::Substitute("Not support PUT method: '$0'", req->uri()));
+            _handle_error(req, absl::Substitute("Not support PUT method: '$0'", req->uri()));
         }
     } else {
         _handle_error(req,
-                      strings::Substitute("Not support $0 method: '$1'", to_method_desc(req->method()), req->uri()));
+                      absl::Substitute("Not support $0 method: '$1'", to_method_desc(req->method()), req->uri()));
     }
 }
 void QueryCacheAction::_handle(HttpRequest* req, const std::function<void(rapidjson::Document&)>& func) {

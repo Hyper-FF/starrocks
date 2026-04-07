@@ -34,7 +34,7 @@
 #include "exec/query_cache/multilane_operator.h"
 #include "exec/query_cache/ticket_checker.h"
 #include "exec/query_cache/transform_operator.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -114,33 +114,33 @@ TEST_F(QueryCacheTest, testCacheManager) {
 
     size_t total_key_size = 0;
     for (auto i = 0; i < 10; ++i) {
-        std::string key = strings::Substitute("key_$0", i);
+        std::string key = absl::Substitute("key_$0", i);
         size_t key_size = sizeof(LRUHandle) - 1 + key.size();
         total_key_size += key_size;
-        cache_mgr->populate(strings::Substitute("key_$0", i), create_cache_value(96));
+        cache_mgr->populate(absl::Substitute("key_$0", i), create_cache_value(96));
     }
 
     ASSERT_EQ(cache_mgr->memory_usage(), total_key_size + 960);
     for (auto i = 0; i < 10; ++i) {
-        auto status = cache_mgr->probe(strings::Substitute("key_$0", i));
+        auto status = cache_mgr->probe(absl::Substitute("key_$0", i));
         ASSERT_TRUE(status.ok());
     }
 
     ASSERT_EQ(cache_mgr->memory_usage(), total_key_size + 960);
     for (auto i = 10; i < 20; ++i) {
-        auto status = cache_mgr->probe(strings::Substitute("key_$0", i));
+        auto status = cache_mgr->probe(absl::Substitute("key_$0", i));
         ASSERT_FALSE(status.ok());
     }
     ASSERT_EQ(cache_mgr->memory_usage(), total_key_size + 960);
 
     for (auto i = 20; i < 30; ++i) {
-        cache_mgr->populate(strings::Substitute("key_$0", i), create_cache_value(100));
+        cache_mgr->populate(absl::Substitute("key_$0", i), create_cache_value(100));
     }
     ASSERT_LE(cache_mgr->memory_usage(), cache_mgr->capacity());
 
     bool exists = false;
     for (auto i = 20; i < 30; ++i) {
-        auto status = cache_mgr->probe(strings::Substitute("key_$0", i));
+        auto status = cache_mgr->probe(absl::Substitute("key_$0", i));
         if (status.ok()) {
             exists = true;
         }
@@ -158,7 +158,7 @@ TEST_F(QueryCacheTest, testCacheManager) {
     ASSERT_GE(cache_mgr->hit_count(), 0);
 
     for (auto i = 0; i < 10; ++i) {
-        cache_mgr->populate(strings::Substitute("key_$0", i), create_cache_value(96));
+        cache_mgr->populate(absl::Substitute("key_$0", i), create_cache_value(96));
     }
     ASSERT_EQ(cache_mgr->capacity(), CACHE_CAPACITY);
     ASSERT_GE(cache_mgr->memory_usage(), 0);
@@ -300,7 +300,7 @@ bool exec_test_pipeline(Task& task, RuntimeState* state, const ChunkPtr& input_c
 
     while (true) {
         if (!first_op->is_finished() && first_op->need_input() && !pushed) {
-            LOG(WARNING) << strings::Substitute("[EXEC] Push input chunk: op=$0, num_rows=$1, tablet_id=$2, eof=$3",
+            LOG(WARNING) << absl::Substitute("[EXEC] Push input chunk: op=$0, num_rows=$1, tablet_id=$2, eof=$3",
                                                 first_op->get_name(), input_chunk->num_rows(),
                                                 input_chunk->owner_info().owner_id(),
                                                 input_chunk->owner_info().is_last_chunk());
@@ -325,7 +325,7 @@ bool exec_test_pipeline(Task& task, RuntimeState* state, const ChunkPtr& input_c
                 if (chunk == nullptr) {
                     continue;
                 }
-                LOG(WARNING) << strings::Substitute(
+                LOG(WARNING) << absl::Substitute(
                         "[EXEC] Transfer chunk: from_op=$0, to_op=$1, num_rows=$2, tablet_id=$3, eof=$4",
                         curr_op->get_name(), next_op->get_name(), chunk->num_rows(), chunk->owner_info().owner_id(),
                         chunk->owner_info().is_last_chunk());
@@ -359,7 +359,7 @@ struct Action {
     bool expect_probe_result = false;
     bool expect_finished = false;
     std::string to_string() const {
-        return strings::Substitute(
+        return absl::Substitute(
                 "Action{owner_id=$0, rows=[$1, $2), max_step=$3, eof=$4, set_first_op_finished=$5, "
                 "expect_acquire_result=$6, expect_probe_result=$7, expect_finished=$8}",
                 owner_id, from, to, max_step, send_eof, set_first_op_finished, expect_acquire_result,
@@ -487,7 +487,7 @@ static MapFunc pi_map2_func = [](double a) { return 4.0 / a; };
 using ValidateFuncGenerator = std::function<ValidateFunc(double)>;
 static ValidateFuncGenerator eq_validator_gen = [](double expect) {
     return [expect](double actual) {
-        LOG(INFO) << strings::Substitute("eq_validate: expect=$0, actual=$1", expect, actual);
+        LOG(INFO) << absl::Substitute("eq_validate: expect=$0, actual=$1", expect, actual);
         ASSERT_EQ(expect, actual);
     };
 };
@@ -495,7 +495,7 @@ static ValidateFuncGenerator eq_validator_gen = [](double expect) {
 static ValidateFuncGenerator approx_validator_gen = [](double expect) {
     return [expect](double actual) {
         auto abs_value = std::max(std::abs(expect), std::abs(actual));
-        LOG(INFO) << strings::Substitute("approx_validate: expect=$0, actual=$1", expect, actual);
+        LOG(INFO) << absl::Substitute("approx_validate: expect=$0, actual=$1", expect, actual);
         ASSERT_TRUE(abs_value == 0.0 || std::abs(expect - actual) / abs_value < 0.001);
     };
 };
@@ -512,13 +512,13 @@ void test_framework_with_with_options(const query_cache::CacheManagerPtr& cache_
     auto& task = tasks[0];
     auto i = 0;
     for (const auto& a : pre_passthrough_actions) {
-        LOG(INFO) << strings::Substitute("[PRE_PASSTHROUGH_ACTION] action#$0=$1", i, a.to_string());
+        LOG(INFO) << absl::Substitute("[PRE_PASSTHROUGH_ACTION] action#$0=$1", i, a.to_string());
         take_action(task, a, state);
         ++i;
     }
     task.cache_operator->lane_arbiter()->enable_passthrough_mode();
     for (const auto& a : post_passthrough_actions) {
-        LOG(INFO) << strings::Substitute("[POST_PASSTHROUGH_ACTION] action#$0=$1", i, a.to_string());
+        LOG(INFO) << absl::Substitute("[POST_PASSTHROUGH_ACTION] action#$0=$1", i, a.to_string());
         take_action(task, a, state);
         ++i;
     }

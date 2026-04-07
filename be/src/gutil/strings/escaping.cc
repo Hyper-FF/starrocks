@@ -16,7 +16,6 @@ using std::vector;
 #include "gutil/integral_types.h"
 #include "gutil/port.h"
 #include "gutil/stl_util.h"
-#include "gutil/strings/join.h"
 #include "gutil/utf/utf.h" // for runetochar
 
 namespace strings {

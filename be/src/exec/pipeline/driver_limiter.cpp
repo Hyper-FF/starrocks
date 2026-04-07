@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/pipeline/driver_limiter.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks::pipeline {
 
@@ -21,7 +22,7 @@ StatusOr<DriverLimiter::TokenPtr> DriverLimiter::try_acquire(int num_drivers) {
     if (prev_num_total_drivers + num_drivers > _max_num_drivers) {
         _num_total_drivers.fetch_sub(num_drivers);
         return Status::TooManyTasks(
-                strings::Substitute("BE has overloaded with pipeline drivers [limit=$0] [used=$1] [request=$2]",
+                absl::Substitute("BE has overloaded with pipeline drivers [limit=$0] [used=$1] [request=$2]",
                                     _max_num_drivers, prev_num_total_drivers, num_drivers));
     }
     return std::make_unique<DriverLimiter::Token>(_num_total_drivers, num_drivers);

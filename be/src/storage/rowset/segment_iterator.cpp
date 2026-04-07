@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "segment_iterator.h"
+#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <memory>
@@ -3356,7 +3357,7 @@ Status SegmentIterator::_apply_inverted_index() {
         }
         const auto& it = cid_2_fid.find(cid);
         RETURN_IF(it == cid_2_fid.end(),
-                  Status::InternalError(strings::Substitute("No fid can be mapped by cid $0", cid)));
+                  Status::InternalError(absl::Substitute("No fid can be mapped by cid $0", cid)));
         std::string column_name(_schema.field(it->second)->name());
         for (const ColumnPredicate* pred : pred_list) {
             if (_inverted_index_ctx->inverted_index_iterators[cid]->is_untokenized() ||

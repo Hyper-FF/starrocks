@@ -15,7 +15,7 @@
 #include "storage/predicate_tree/predicate_tree.hpp"
 
 #include "base/simd/simd.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -361,7 +361,7 @@ StatusOr<uint16_t> PredicateColumnNode::evaluate_branchless(const Chunk* chunk, 
 }
 
 std::string PredicateColumnNode::debug_string() const {
-    return strings::Substitute(R"({"pred":"$0"})", _col_pred->debug_string());
+    return absl::Substitute(R"({"pred":"$0"})", _col_pred->debug_string());
 }
 
 // ------------------------------------------------------------------------------------

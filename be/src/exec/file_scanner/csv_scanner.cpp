@@ -21,7 +21,7 @@
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "fs/fs.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
 
@@ -222,7 +222,7 @@ Status CSVScanner::open() {
         // `TabletSink`.
         ConverterPtr conv = csv::get_converter(slot->type(), true);
         if (conv == nullptr) {
-            auto msg = strings::Substitute("Unsupported CSV type $0", slot->type().debug_string());
+            auto msg = absl::Substitute("Unsupported CSV type $0", slot->type().debug_string());
             return Status::InternalError(msg);
         }
         _converters.emplace_back(std::move(conv));

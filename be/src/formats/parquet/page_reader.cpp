@@ -29,7 +29,7 @@
 #include "exec/hdfs_scanner/hdfs_scanner.h"
 #include "formats/parquet/column_reader.h"
 #include "formats/parquet/utils.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 
@@ -165,7 +165,7 @@ Status PageReader::_read_and_deserialize_header(bool need_fill_cache) {
             // Notice, here (_offset + allowed_page_size) >= _finish_offset
             // is using '>=' just to prevent loop infinitely.
             return Status::Corruption(
-                    strings::Substitute("Failed to decode parquet page header, page header's size is out of range.  "
+                    absl::Substitute("Failed to decode parquet page header, page header's size is out of range.  "
                                         "allowed_page_size=$0, max_page_size=$1, offset=$2, finish_offset=$3",
                                         allowed_page_size, kMaxPageHeaderSize, _offset, _finish_offset));
         }
@@ -178,7 +178,7 @@ Status PageReader::_read_and_deserialize_header(bool need_fill_cache) {
 Status PageReader::next_header() {
     if (_offset != _next_header_pos) {
         return Status::InternalError(
-                strings::Substitute("Try to parse parquet column header in wrong position, offset=$0 vs expect=$1",
+                absl::Substitute("Try to parse parquet column header in wrong position, offset=$0 vs expect=$1",
                                     _offset, _next_header_pos));
     }
 

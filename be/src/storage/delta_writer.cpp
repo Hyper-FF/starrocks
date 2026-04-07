@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/delta_writer.h"
+#include "absl/strings/substitute.h"
 
 #include <utility>
 
@@ -171,7 +172,7 @@ Status DeltaWriter::_init() {
     if (_tablet->updates() != nullptr) {
         auto tracker = _storage_engine->update_manager()->mem_tracker();
         if (tracker->limit_exceeded()) {
-            auto msg = strings::Substitute(
+            auto msg = absl::Substitute(
                     "primary key memory usage exceeds the limit. tablet_id: $0, consumption: $1, limit: $2."
                     " Memory stats of top five tablets: $3",
                     _opt.tablet_id, tracker->consumption(), tracker->limit(),
@@ -270,7 +271,7 @@ Status DeltaWriter::_init() {
             const auto& slot_col_name = (*_opt.slots)[i]->col_name();
             int32_t index = _tablet_schema->field_index(slot_col_name);
             if (index < 0) {
-                auto msg = strings::Substitute("Invalid column name: $0", slot_col_name);
+                auto msg = absl::Substitute("Invalid column name: $0", slot_col_name);
                 LOG(WARNING) << msg;
                 Status st = Status::InvalidArgument(msg);
                 _set_state(kAborted, st);
@@ -355,7 +356,7 @@ Status DeltaWriter::_init() {
 
     Status st = RowsetFactory::create_rowset_writer(writer_context, &_rowset_writer);
     if (!st.ok()) {
-        auto msg = strings::Substitute("Fail to create rowset writer. tablet_id: $0, error: $1", _opt.tablet_id,
+        auto msg = absl::Substitute("Fail to create rowset writer. tablet_id: $0, error: $1", _opt.tablet_id,
                                        st.to_string());
         LOG(WARNING) << msg;
         st = Status::InternalError(msg);

@@ -44,7 +44,7 @@
 #include "base/utility/pretty_printer.h"
 #include "common/object_pool.h"
 #include "gutil/map_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -453,7 +453,7 @@ void RuntimeProfile::copy_all_info_strings_from(RuntimeProfile* src_profile) {
             while (true) {
                 previous_offset = offset;
                 offset += step;
-                const std::string indexed_key = strings::Substitute("$0__DUP($1)", original_key, offset);
+                const std::string indexed_key = absl::Substitute("$0__DUP($1)", original_key, offset);
                 if (get_info_string(indexed_key) == nullptr) {
                     if (step == 1) {
                         add_info_string(indexed_key, value);

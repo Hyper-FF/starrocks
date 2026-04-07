@@ -48,7 +48,7 @@
 #include "exec/schema_scanner/schema_be_tablets_scanner.h"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/starrocks_metrics.h"
 #include "storage/compaction_manager.h"
@@ -412,7 +412,7 @@ Status TabletManager::drop_tablet(TTabletId tablet_id, TabletDropFlag flag) {
         auto it = tablet_map.find(tablet_id);
         if (it == tablet_map.end()) {
             LOG(WARNING) << "Fail to drop nonexistent tablet " << tablet_id;
-            return Status::NotFound(strings::Substitute("tablet $0 not found", tablet_id));
+            return Status::NotFound(absl::Substitute("tablet $0 not found", tablet_id));
         }
 
         // Check if there is an ongoing CLONE task for this tablet.
@@ -567,7 +567,7 @@ StatusOr<TabletAndRowsets> TabletManager::capture_tablet_and_rowsets(TTabletId t
     std::string err;
     auto tablet = get_tablet(tablet_id, true, &err);
     if (!tablet) {
-        std::string errmsg = strings::Substitute("Failed to get tablet(tablet_id=$0),reason=$1", tablet_id, err);
+        std::string errmsg = absl::Substitute("Failed to get tablet(tablet_id=$0),reason=$1", tablet_id, err);
         return Status::InternalError(errmsg);
     }
     std::shared_lock rlock(tablet->get_header_lock());
@@ -1324,11 +1324,11 @@ Status TabletManager::try_delete_unused_tablet_path(DataDir* data_dir, TTabletId
     TabletMeta tablet_meta;
     Status st = TabletMetaManager::get_tablet_meta(data_dir, tablet_id, schema_hash, &tablet_meta);
     if (st.ok()) {
-        return Status::InternalError(strings::Substitute(
+        return Status::InternalError(absl::Substitute(
                 "Cannot remove schema_hash_path=$0, tablet meta exist in meta store", tablet_id_path));
     } else if (st.is_not_found()) {
         if (shard.tablets_under_clone.count(tablet_id) > 0) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "Cannot remove schema_hash_path=$0 to trash, tablet is under clone", tablet_id_path));
         }
 
@@ -1336,10 +1336,10 @@ Status TabletManager::try_delete_unused_tablet_path(DataDir* data_dir, TTabletId
             return Status::OK();
         } else {
             return Status::InternalError(
-                    strings::Substitute("Fail to move $0 to trash: $1", tablet_id_path, st.to_string()));
+                    absl::Substitute("Fail to move $0 to trash: $1", tablet_id_path, st.to_string()));
         }
     } else {
-        return Status::InternalError(strings::Substitute("Fail to get tablet meta: $0", st.to_string()));
+        return Status::InternalError(absl::Substitute("Fail to get tablet meta: $0", st.to_string()));
     }
     return Status::OK();
 }
@@ -1534,7 +1534,7 @@ Status TabletManager::_create_tablet_meta_unlocked(const TCreateTabletReq& reque
                     if (new_column.col_unique_id > 0) {
                         DCHECK(new_column.col_unique_id == old_unique_id);
                         if (new_column.col_unique_id != old_unique_id) {
-                            std::string msg = strings::Substitute(
+                            std::string msg = absl::Substitute(
                                     "Tablet[$0] column[$1] has different column unique id during schema change. "
                                     "$2(FE) "
                                     "vs $3(BE)",
@@ -1581,7 +1581,7 @@ Status TabletManager::_drop_tablet_unlocked(TTabletId tablet_id, TabletDropFlag 
     auto it = tablet_map.find(tablet_id);
     if (it == tablet_map.end()) {
         LOG(WARNING) << "Fail to drop nonexistent tablet " << tablet_id;
-        return Status::NotFound(strings::Substitute("tablet $0 not fount", tablet_id));
+        return Status::NotFound(absl::Substitute("tablet $0 not fount", tablet_id));
     }
 
     VLOG(3) << "Start to drop tablet " << tablet_id;
@@ -1737,7 +1737,7 @@ Status TabletManager::create_tablet_from_meta_snapshot(DataDir* store, TTabletId
                                                        const string& schema_hash_path, bool restore,
                                                        bool need_rebuild_pk_index,
                                                        int32_t rebuild_pk_index_wait_seconds) {
-    auto meta_path = strings::Substitute("$0/meta", schema_hash_path);
+    auto meta_path = absl::Substitute("$0/meta", schema_hash_path);
     auto shard_path = path_util::dir_name(path_util::dir_name(path_util::dir_name(meta_path)));
     auto shard_str = shard_path.substr(shard_path.find_last_of('/') + 1);
     auto shard = stol(shard_str);
@@ -1762,7 +1762,7 @@ Status TabletManager::create_tablet_from_meta_snapshot(DataDir* store, TTabletId
     if (snapshot_meta->tablet_meta().updates().next_log_id() != 0) {
         return Status::InternalError("non-zero log id in tablet meta");
     }
-    LOG(INFO) << strings::Substitute("create tablet from snapshot tablet:$0 version:$1 path:$2", tablet_id,
+    LOG(INFO) << absl::Substitute("create tablet from snapshot tablet:$0 version:$1 path:$2", tablet_id,
                                      snapshot_meta->snapshot_version(), schema_hash_path);
 
     auto tablet_schema = TabletSchema::create(snapshot_meta->tablet_meta().schema());

@@ -25,7 +25,7 @@
 #include "column/fixed_length_column.h"
 #include "column/schema.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/chunk_helper.h"
 #include "storage/primary_key_dump.h"
 #include "storage/primary_key_encoder.h"
@@ -227,7 +227,7 @@ void test_binary_pk(int key_size) {
     // [0, kSegmentSize)
     pk_col->resize(0);
     for (int i = 0; i < kSegmentSize; i++) {
-        pk_col->append(strings::Substitute("binary_pk_$0_$1", fill_str, pk_value++));
+        pk_col->append(absl::Substitute("binary_pk_$0_$1", fill_str, pk_value++));
     }
     ASSERT_TRUE(pk_index->insert(0, 0, *pk_col).ok());
 
@@ -240,7 +240,7 @@ void test_binary_pk(int key_size) {
     // [kSegmentSize, 2*kSegmentSize)
     pk_col->resize(0);
     for (int i = 0; i < kSegmentSize; i++) {
-        pk_col->append(strings::Substitute("binary_pk_$0_$1", fill_str, pk_value++));
+        pk_col->append(absl::Substitute("binary_pk_$0_$1", fill_str, pk_value++));
     }
     ASSERT_TRUE(pk_index->insert(1, 0, *pk_col).ok());
     keys = reinterpret_cast<const Slice*>(pk_col->raw_data());
@@ -251,7 +251,7 @@ void test_binary_pk(int key_size) {
     // [2*kSegmentSize, 3*kSegmentSize)
     pk_col->resize(0);
     for (int i = 0; i < kSegmentSize; i++) {
-        pk_col->append(strings::Substitute("binary_pk_$0_$1", fill_str, pk_value++));
+        pk_col->append(absl::Substitute("binary_pk_$0_$1", fill_str, pk_value++));
     }
     ASSERT_TRUE(pk_index->insert(2, 0, *pk_col).ok());
     keys = reinterpret_cast<const Slice*>(pk_col->raw_data());
@@ -278,7 +278,7 @@ void test_binary_pk(int key_size) {
     // [3*kSegmentSize, 4*kSegmentSize)
     pk_col->resize(0);
     for (int i = 0; i < kSegmentSize; i++) {
-        pk_col->append(strings::Substitute("binary_pk_$0_$1", fill_str, pk_value++));
+        pk_col->append(absl::Substitute("binary_pk_$0_$1", fill_str, pk_value++));
     }
     pk_index->upsert(3, 0, *pk_col, &deletes);
     CHECK_EQ(0, deletes.size());
@@ -286,7 +286,7 @@ void test_binary_pk(int key_size) {
     // upsert all the even numbers in range [0, 2 * kSegmentSize)
     pk_col->resize(0);
     for (int i = 0; i < kSegmentSize; i++) {
-        pk_col->append(strings::Substitute("binary_pk_$0_$1", fill_str, i * 2));
+        pk_col->append(absl::Substitute("binary_pk_$0_$1", fill_str, i * 2));
     }
     pk_index->upsert(4, 0, *pk_col, &deletes);
     CHECK_EQ(2, deletes.size());
@@ -306,7 +306,7 @@ void test_binary_pk(int key_size) {
     pk_col->resize(0);
     std::vector<uint32_t> replace_indexes;
     for (int i = 0; i < kSegmentSize * 2; i++) {
-        pk_col->append(strings::Substitute("binary_pk_$0_$1", fill_str, i));
+        pk_col->append(absl::Substitute("binary_pk_$0_$1", fill_str, i));
     }
     for (uint32_t i = 0; i < kSegmentSize; i++) {
         replace_indexes.push_back(i * 2 + 1);
@@ -330,7 +330,7 @@ void test_binary_pk(int key_size) {
     // remove all odd numbers in range [2 * kSegmentSize, 4 * kSegmentSize)
     pk_col->resize(0);
     for (int i = 0; i < kSegmentSize; i++) {
-        pk_col->append(strings::Substitute("binary_pk_$0_$1", fill_str, 2 * kSegmentSize + i * 2 + 1));
+        pk_col->append(absl::Substitute("binary_pk_$0_$1", fill_str, 2 * kSegmentSize + i * 2 + 1));
     }
     deletes.clear();
     pk_index->erase(*pk_col, &deletes);

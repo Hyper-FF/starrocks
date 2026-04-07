@@ -57,7 +57,7 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/mem_tracker.h"
 #include "storage/olap_define.h"
 

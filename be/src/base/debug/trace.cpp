@@ -33,13 +33,11 @@
 #include <vector>
 
 #include "base/logging.h"
-#include "gutil/strings/substitute.h"
 #include "gutil/walltime.h"
 
 using std::pair;
 using std::string;
 using std::vector;
-using strings::internal::SubstituteArg;
 
 namespace starrocks {
 
@@ -93,16 +91,10 @@ static std::string format_timestamp_for_log(MicrosecondsInt64 micros_since_epoch
     return buf;
 }
 
-void Trace::SubstituteAndTrace(const char* file_path, int line_number, StringPiece format, const SubstituteArg& arg0,
-                               const SubstituteArg& arg1, const SubstituteArg& arg2, const SubstituteArg& arg3,
-                               const SubstituteArg& arg4, const SubstituteArg& arg5, const SubstituteArg& arg6,
-                               const SubstituteArg& arg7, const SubstituteArg& arg8, const SubstituteArg& arg9) {
-    const SubstituteArg* const args_array[] = {&arg0, &arg1, &arg2, &arg3, &arg4,  &arg5,
-                                               &arg6, &arg7, &arg8, &arg9, nullptr};
-
-    int msg_len = strings::internal::SubstitutedSize(format, args_array);
+void Trace::TraceMessage(const char* file_path, int line_number, std::string_view message) {
+    int msg_len = message.size();
     TraceEntry* entry = NewEntry(msg_len, file_path, line_number);
-    SubstituteToBuffer(format, args_array, entry->message());
+    memcpy(entry->message(), message.data(), msg_len);
     AddEntry(entry);
 }
 
@@ -138,7 +130,7 @@ void Trace::Dump(std::ostream* out, int flags) const {
     // (whereas doing the logging itself while holding the lock might be
     // too slow, if the output stream is a file, for example).
     std::vector<TraceEntry*> entries;
-    std::vector<pair<StringPiece, scoped_refptr<Trace>>> child_traces;
+    std::vector<pair<std::string_view, scoped_refptr<Trace>>> child_traces;
     {
         std::lock_guard<SpinLock> l(lock_);
         for (TraceEntry* cur = entries_head_; cur != nullptr; cur = cur->next) {
@@ -216,7 +208,7 @@ void Trace::MetricsToJSON(rapidjson::Writer<rapidjson::StringBuffer>* jw) const 
         jw->String(e.first.c_str());
         jw->Int64(e.second);
     }
-    std::vector<pair<StringPiece, scoped_refptr<Trace>>> child_traces;
+    std::vector<pair<std::string_view, scoped_refptr<Trace>>> child_traces;
     {
         std::lock_guard<SpinLock> l(lock_);
         child_traces = child_traces_;
@@ -246,15 +238,15 @@ void Trace::DumpCurrentTrace() {
     t->Dump(&std::cerr, true);
 }
 
-void Trace::AddChildTrace(StringPiece label, Trace* child_trace) {
-    //CHECK(arena_->RelocateStringPiece(label, &label));
+void Trace::AddChildTrace(std::string_view label, Trace* child_trace) {
+    //CHECK(arena_->Relocatestd::string_view(label, &label));
 
     std::lock_guard<SpinLock> l(lock_);
     scoped_refptr<Trace> ptr(child_trace);
     child_traces_.emplace_back(label, ptr);
 }
 
-std::vector<std::pair<StringPiece, scoped_refptr<Trace>>> Trace::ChildTraces() const {
+std::vector<std::pair<std::string_view, scoped_refptr<Trace>>> Trace::ChildTraces() const {
     std::lock_guard<SpinLock> l(lock_);
     return child_traces_;
 }

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/lake/update_manager.h"
+#include "absl/strings/substitute.h"
 
 #include "base/container/lru_cache.h"
 #include "base/debug/trace.h"
@@ -96,7 +97,7 @@ UpdateManager::PkIndexShard& UpdateManager::_get_pk_index_shard(int64_t tabletId
 }
 
 inline std::string cache_key(uint32_t tablet_id, int64_t txn_id) {
-    return strings::Substitute("$0_$1", tablet_id, txn_id);
+    return absl::Substitute("$0_$1", tablet_id, txn_id);
 }
 
 PersistentIndexBlockCache::PersistentIndexBlockCache(MemTracker* mem_tracker, int64_t cache_limit)
@@ -184,7 +185,7 @@ StatusOr<IndexEntry*> UpdateManager::prepare_primary_index(
         // MUST release lock guard before remove index entry
         guard.reset(nullptr);
         _index_cache.remove(index_entry);
-        std::string msg = strings::Substitute("prepare_primary_index: load primary index failed: $0", st.to_string());
+        std::string msg = absl::Substitute("prepare_primary_index: load primary index failed: $0", st.to_string());
         LOG(ERROR) << msg;
         return Status::InternalError(msg);
     }
@@ -195,7 +196,7 @@ StatusOr<IndexEntry*> UpdateManager::prepare_primary_index(
         guard.reset(nullptr);
         _index_cache.remove(index_entry);
         std::string msg =
-                strings::Substitute("prepare_primary_index: prepare primary index failed: $0", st.to_string());
+                absl::Substitute("prepare_primary_index: prepare primary index failed: $0", st.to_string());
         LOG(ERROR) << msg;
         return Status::InternalError(msg);
     }
@@ -248,7 +249,7 @@ Status UpdateManager::publish_primary_key_tablet(const TxnLogPB_OpWrite& op_writ
         return Status::OK();
     });
     auto& index = index_entry->value();
-    VLOG(2) << strings::Substitute(
+    VLOG(2) << absl::Substitute(
             "[publish_pk_tablet][begin] tablet:$0 txn:$1 base_version:$2 new_version:$3 segments:$4 dels:$5 batch:$6",
             tablet->id(), txn_id, base_version, metadata->version(), op_write.rowset().segments_size(),
             op_write.dels_size(), batch_apply);
@@ -326,7 +327,7 @@ Status UpdateManager::publish_primary_key_tablet(const TxnLogPB_OpWrite& op_writ
         RETURN_IF_ERROR(state.rewrite_segment(local_id, txn_id, params, &replace_segments, &orphan_files));
         rssid_fileinfo_container.add_rssid_to_file(op_write.rowset(), metadata->next_rowset_id(), local_id,
                                                    replace_segments);
-        VLOG(2) << strings::Substitute(
+        VLOG(2) << absl::Substitute(
                 "[publish_pk_tablet][segment_loop] tablet:$0 txn:$1 assigned:$2 local_id:$3 global_id:$4 "
                 "segments_local:$5",
                 tablet->id(), txn_id, assigned_global_segments, local_id, global_segment_id, local_segments);
@@ -464,7 +465,7 @@ Status UpdateManager::publish_primary_key_tablet(const TxnLogPB_OpWrite& op_writ
             }
             if (cur_old + cur_add != cur_new) {
                 // should not happen, data inconsistent
-                std::string error_msg = strings::Substitute(
+                std::string error_msg = absl::Substitute(
                         "delvec inconsistent tablet:$0 rssid:$1 #old:$2 #add:$3 #new:$4 old_v:$5 "
                         "v:$6",
                         tablet->id(), rssid, cur_old, cur_add, cur_new, old_del_vec->version(), metadata->version());
@@ -490,12 +491,12 @@ Status UpdateManager::publish_primary_key_tablet(const TxnLogPB_OpWrite& op_writ
     }
 
     if (batch_apply) {
-        VLOG(1) << strings::Substitute(
+        VLOG(1) << absl::Substitute(
                 "[publish_pk_tablet][apply_opwrite_batch] tablet:$0 txn:$1 replace_segments:$2 orphan_files:$3",
                 tablet->id(), txn_id, replace_segments.size(), orphan_files.size());
         builder->batch_apply_opwrite(op_write, replace_segments, orphan_files);
     } else {
-        VLOG(1) << strings::Substitute(
+        VLOG(1) << absl::Substitute(
                 "[publish_pk_tablet][apply_opwrite_single] tablet:$0 txn:$1 replace_segments:$2 orphan_files:$3",
                 tablet->id(), txn_id, replace_segments.size(), orphan_files.size());
         builder->apply_opwrite(op_write, replace_segments, orphan_files);
@@ -516,7 +517,7 @@ Status UpdateManager::publish_primary_key_tablet(const TxnLogPB_OpWrite& op_writ
     TRACE_COUNTER_INCREMENT("segment_io_count_local_disk",
                             state.stats().io_count_local_disk - io_count_local_disk_before);
     TRACE_COUNTER_INCREMENT("segment_io_count_remote", state.stats().io_count_remote - io_count_remote_before);
-    VLOG(1) << strings::Substitute(
+    VLOG(1) << absl::Substitute(
             "[publish_pk_tablet][end] tablet:$0 txn:$1 rowset_id:$2 upsert_segments:$3 dels:$4 new_del:$5 total_del:$6 "
             "upsert_rows:$7 base_version:$8 new_version:$9",
             tablet->id(), txn_id, rowset_id, op_write.rowset().segments_size(), op_write.dels_size(), new_del,
@@ -1486,7 +1487,7 @@ void UpdateManager::expire_cache() {
         ssize_t compaction_cache_size = _compaction_cache.size();
         ssize_t compaction_cache_obj_size = _compaction_cache.object_size();
 
-        LOG(INFO) << strings::Substitute(
+        LOG(INFO) << absl::Substitute(
                 "update state cache expire: ($0 $1), index cache expire: ($2 $3), compaction cache expire: ($4 $5)",
                 update_state_orig_obj_size - update_state_obj_size,
                 PrettyPrinter::print_bytes(update_state_orig_size - update_state_size),
@@ -1793,7 +1794,7 @@ Status UpdateManager::update_primary_index_memory_limit(int32_t update_memory_li
 void UpdateManager::_print_memory_stats() {
     static std::atomic<int64_t> last_print_ts;
     if (time(nullptr) > last_print_ts.load() + kPrintMemoryStatsInterval && _update_mem_tracker != nullptr) {
-        LOG(INFO) << strings::Substitute(
+        LOG(INFO) << absl::Substitute(
                 "[lake update manager memory]index:$0 update_state:$1 compact_state:$2 total:$3/$4",
                 PrettyPrinter::print_bytes(_index_cache_mem_tracker->consumption()),
                 PrettyPrinter::print_bytes(_update_state_mem_tracker->consumption()),
@@ -1902,10 +1903,10 @@ void UpdateManager::preload_update_state(const TxnLog& txnlog, Tablet* tablet) {
         if (!st.ok()) {
             _update_state_cache.remove(state_entry);
             if (!st.is_uninitialized() && !st.is_cancelled()) {
-                LOG(ERROR) << strings::Substitute("lake primary table preload_update_state id:$0 error:$1",
+                LOG(ERROR) << absl::Substitute("lake primary table preload_update_state id:$0 error:$1",
                                                   tablet->id(), st.to_string());
             } else {
-                LOG(INFO) << strings::Substitute("lake primary table preload_update_state id:$0 failed:$1",
+                LOG(INFO) << absl::Substitute("lake primary table preload_update_state id:$0 failed:$1",
                                                  tablet->id(), st.to_string());
             }
             // not return error even it fail, because we can load update state in publish again.
@@ -1959,7 +1960,7 @@ void UpdateManager::preload_compaction_state(const TxnLog& txnlog, const Tablet&
     }
     if (!st.ok()) {
         _compaction_cache.remove(compaction_entry);
-        LOG(ERROR) << strings::Substitute("lake primary table preload_compaction_state id:$0 error:$1", tablet.id(),
+        LOG(ERROR) << absl::Substitute("lake primary table preload_compaction_state id:$0 error:$1", tablet.id(),
                                           st.to_string());
         // not return error even it fail, because we can load compaction state in publish again.
     } else {

@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <numeric>
+#include <string_view>
 #include <utility>
 
 #include "base/bit/bit_util.h"
@@ -37,7 +38,7 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "gutil/strings/escaping.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "storage/chunk_helper.h"
@@ -92,7 +93,7 @@ T pad(T v, P p) {
 }
 
 static std::string get_l0_index_file_name(std::string& dir, const EditVersion& version) {
-    return strings::Substitute("$0/index.l0.$1.$2", dir, version.major_number(), version.minor_number());
+    return absl::Substitute("$0/index.l0.$1.$2", dir, version.major_number(), version.minor_number());
 }
 
 struct IndexHash {
@@ -764,7 +765,7 @@ Status ImmutableIndexWriter::write_bf() {
     }
     if (pos_before != _idx_wb->size()) {
         std::string err_msg =
-                strings::Substitute("immmutable index file size inconsistent. file: $0, expect: $1, actual: $2",
+                absl::Substitute("immmutable index file size inconsistent. file: $0, expect: $1, actual: $2",
                                     _idx_wb->filename(), pos_before, _idx_wb->size());
         LOG(ERROR) << err_msg;
         return Status::InternalError(err_msg);
@@ -779,7 +780,7 @@ Status ImmutableIndexWriter::finish() {
     if (write_pindex_bf) {
         RETURN_IF_ERROR(write_bf());
     }
-    VLOG(2) << strings::Substitute(
+    VLOG(2) << absl::Substitute(
             "finish writing immutable index $0 #shard:$1 #kv:$2 #moved:$3($4) kv_bytes:$5 usage:$6 bf_bytes:$7 "
             "compression_type:$8",
             _idx_file_path_tmp, _nshard, _total, _total_moved, _total_moved * 1000 / std::max(_total, 1UL) / 1000.0,
@@ -895,7 +896,7 @@ public:
                     auto old_rssid = (uint32_t)((*old) >> 32);
                     auto old_rowid = (uint32_t)((*old) & ROWID_MASK);
                     auto new_value = reinterpret_cast<uint64_t*>(const_cast<IndexValue*>(&value));
-                    std::string msg = strings::Substitute(
+                    std::string msg = absl::Substitute(
                             "FixedMutableIndex<$0> insert found duplicate key, new(rssid=$1 rowid=$2), old(rssid=$3 "
                             "rowid=$4)",
                             KeySize, (uint32_t)((*new_value) >> 32), (uint32_t)((*new_value) & ROWID_MASK), old_rssid,
@@ -1292,7 +1293,7 @@ public:
                     auto old_rssid = (uint32_t)(old_value >> 32);
                     auto old_rowid = (uint32_t)(old_value & ROWID_MASK);
                     auto new_value = reinterpret_cast<uint64_t*>(const_cast<IndexValue*>(&value));
-                    std::string msg = strings::Substitute(
+                    std::string msg = absl::Substitute(
                             "SliceMutableIndex key_size=$0 insert found duplicate key, "
                             "new(rssid=$1 rowid=$2), old(rssid=$3 rowid=$4)",
                             skey.size, (uint32_t)((*new_value) >> 32), (uint32_t)((*new_value) & ROWID_MASK), old_rssid,
@@ -2175,7 +2176,7 @@ Status ShardByLengthMutableIndex::commit(MutableIndexMetaPB* meta, const EditVer
             RETURN_IF_ERROR(dump(ar_out, dumped_shard_idxes));
             if (!ar_out.close()) {
                 std::string err_msg =
-                        strings::Substitute("failed to dump snapshot to file $0, because of close", file_name);
+                        absl::Substitute("failed to dump snapshot to file $0, because of close", file_name);
                 LOG(WARNING) << err_msg;
                 return Status::InternalError(err_msg);
             }
@@ -2236,7 +2237,7 @@ Status ShardByLengthMutableIndex::load(const MutableIndexMetaPB& meta) {
     if (format_version != PERSISTENT_INDEX_VERSION_2 && format_version != PERSISTENT_INDEX_VERSION_3 &&
         format_version != PERSISTENT_INDEX_VERSION_4 && format_version != PERSISTENT_INDEX_VERSION_5 &&
         format_version != PERSISTENT_INDEX_VERSION_6 && format_version != PERSISTENT_INDEX_VERSION_7) {
-        std::string msg = strings::Substitute("different l0 format, should rebuid index. actual:$0, expect:$1",
+        std::string msg = absl::Substitute("different l0 format, should rebuid index. actual:$0, expect:$1",
                                               format_version, PERSISTENT_INDEX_VERSION_5);
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
@@ -2331,7 +2332,7 @@ Status ShardByLengthMutableIndex::flush_to_immutable_index(const std::string& pa
     auto writer = std::make_unique<ImmutableIndexWriter>();
     std::string idx_file_path;
     if (!write_tmp_l1) {
-        idx_file_path = strings::Substitute("$0/index.l1.$1.$2", path, version.major_number(), version.minor_number());
+        idx_file_path = absl::Substitute("$0/index.l1.$1.$2", path, version.major_number(), version.minor_number());
     } else {
         idx_file_path = path;
     }
@@ -2387,7 +2388,7 @@ void ShardByLengthMutableIndex::clear() {
 
 Status ShardByLengthMutableIndex::create_index_file(std::string& path) {
     if (_index_file != nullptr) {
-        std::string msg = strings::Substitute("l0 index file already exist: $0", _index_file->filename());
+        std::string msg = absl::Substitute("l0 index file already exist: $0", _index_file->filename());
         return Status::InternalError(msg);
     }
     ASSIGN_OR_RETURN(_fs, FileSystemFactory::CreateSharedFromString(_path));
@@ -3106,7 +3107,7 @@ StatusOr<std::unique_ptr<ImmutableIndex>> ImmutableIndex::load(std::unique_ptr<R
     ASSIGN_OR_RETURN(auto file_size, file->get_size());
     if (file_size < 12) {
         return Status::Corruption(
-                strings::Substitute("Bad segment file $0: file size $1 < 12", file->filename(), file_size));
+                absl::Substitute("Bad segment file $0: file size $1 < 12", file->filename(), file_size));
     }
     size_t footer_read_size = std::min<size_t>(4096, file_size);
     std::string buff;
@@ -3117,7 +3118,7 @@ StatusOr<std::unique_ptr<ImmutableIndex>> ImmutableIndex::load(std::unique_ptr<R
     uint32_t magic = UNALIGNED_LOAD32(buff.data() + footer_read_size - 4);
     if (magic != UNALIGNED_LOAD32(kIndexFileMagic)) {
         return Status::Corruption(
-                strings::Substitute("load immutable index failed $0 illegal magic", file->filename()));
+                absl::Substitute("load immutable index failed $0 illegal magic", file->filename()));
     }
     std::string_view meta_str;
     if (footer_length <= footer_read_size - 12) {
@@ -3130,12 +3131,12 @@ StatusOr<std::unique_ptr<ImmutableIndex>> ImmutableIndex::load(std::unique_ptr<R
     auto actual_checksum = crc32c::Value(meta_str.data(), meta_str.size());
     if (checksum != actual_checksum) {
         return Status::Corruption(
-                strings::Substitute("load immutable index failed $0 checksum not match", file->filename()));
+                absl::Substitute("load immutable index failed $0 checksum not match", file->filename()));
     }
     ImmutableIndexMetaPB meta;
     if (!meta.ParseFromArray(meta_str.data(), meta_str.size() - 4)) {
         return Status::Corruption(
-                strings::Substitute("load immutable index failed $0 parse meta pb failed", file->filename()));
+                absl::Substitute("load immutable index failed $0 parse meta pb failed", file->filename()));
     }
 
     auto format_version = meta.format_version();
@@ -3143,7 +3144,7 @@ StatusOr<std::unique_ptr<ImmutableIndex>> ImmutableIndex::load(std::unique_ptr<R
         format_version != PERSISTENT_INDEX_VERSION_4 && format_version != PERSISTENT_INDEX_VERSION_5 &&
         format_version != PERSISTENT_INDEX_VERSION_6 && format_version != PERSISTENT_INDEX_VERSION_7) {
         std::string msg =
-                strings::Substitute("different immutable index format, should rebuid index. actual:$0, expect:$1",
+                absl::Substitute("different immutable index format, should rebuid index. actual:$0, expect:$1",
                                     format_version, PERSISTENT_INDEX_VERSION_7);
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
@@ -3371,7 +3372,7 @@ Status PersistentIndex::_load(const PersistentIndexMetaPB& index_meta, bool relo
             if (index_meta.has_l1_version()) {
                 EditVersion version = index_meta.l1_version();
                 auto l1_file_path =
-                        strings::Substitute("$0/index.l1.$1.$2", _path, version.major_number(), version.minor_number());
+                        absl::Substitute("$0/index.l1.$1.$2", _path, version.major_number(), version.minor_number());
                 auto l1_st = _fs->get_file_size(l1_file_path);
                 if (!l1_st.ok()) {
                     return l1_st.status();
@@ -3407,7 +3408,7 @@ Status PersistentIndex::_load(const PersistentIndexMetaPB& index_meta, bool relo
     if (index_meta.has_l1_version()) {
         _l1_version = index_meta.l1_version();
         auto l1_block_path =
-                strings::Substitute("$0/index.l1.$1.$2", _path, _l1_version.major_number(), _l1_version.minor_number());
+                absl::Substitute("$0/index.l1.$1.$2", _path, _l1_version.major_number(), _l1_version.minor_number());
         ASSIGN_OR_RETURN(auto l1_rfile, _fs->new_random_access_file(l1_block_path));
         // TODO
         // we can reduce load bf data diskio after flush or compaction
@@ -3425,7 +3426,7 @@ Status PersistentIndex::_load(const PersistentIndexMetaPB& index_meta, bool relo
     if (index_meta.l2_versions_size() > 0) {
         DCHECK(index_meta.l2_versions_size() == index_meta.l2_version_merged_size());
         for (int i = 0; i < index_meta.l2_versions_size(); i++) {
-            auto l2_block_path = strings::Substitute(
+            auto l2_block_path = absl::Substitute(
                     "$0/index.l2.$1.$2$3", _path, index_meta.l2_versions(i).major_number(),
                     index_meta.l2_versions(i).minor_number(), index_meta.l2_version_merged(i) ? MergeSuffix : "");
             ASSIGN_OR_RETURN(auto l2_rfile, _fs->new_random_access_file(l2_block_path));
@@ -3727,7 +3728,7 @@ Status PersistentIndex::commit(PersistentIndexMetaPB* index_meta, IOStat* stat) 
     }
     _calc_memory_usage();
 
-    VLOG(2) << strings::Substitute("commit persistent index successfully, version: [$0,$1]", _version.major_number(),
+    VLOG(2) << absl::Substitute("commit persistent index successfully, version: [$0,$1]", _version.major_number(),
                                    _version.minor_number());
     return Status::OK();
 }
@@ -3828,7 +3829,7 @@ Status PersistentIndex::get_from_one_immutable_index(ImmutableIndex* immu_index,
     for (auto& [key_size, keys_info] : (*keys_info_by_key_size)) {
         st = immu_index->get(n, keys, keys_info, values, found_keys_info, key_size, nullptr);
         if (!st.ok()) {
-            std::string msg = strings::Substitute("get from one immutableindex failed, file: $0, status: $1",
+            std::string msg = absl::Substitute("get from one immutableindex failed, file: $0, status: $1",
                                                   immu_index->filename(), st.to_string());
             LOG(ERROR) << msg;
             _set_error(true, msg);
@@ -3863,7 +3864,7 @@ Status PersistentIndex::_get_from_immutable_index_parallel(size_t n, const Slice
                 &_found_keys_info[i], this, IOProfiler::get_context()));
         auto st = StorageEngine::instance()->update_manager()->get_pindex_thread_pool()->submit(std::move(r));
         if (!st.ok()) {
-            error_msg = strings::Substitute("get from immutable index failed: $0", st.to_string());
+            error_msg = absl::Substitute("get from immutable index failed: $0", st.to_string());
             LOG(ERROR) << error_msg;
             return st;
         }
@@ -3960,7 +3961,7 @@ Status PersistentIndex::_update_usage_and_size_by_key_length(
         DCHECK(iter != _usage_and_size_by_key_length.end());
         if (iter == _usage_and_size_by_key_length.end()) {
             std::string msg =
-                    strings::Substitute("update pindex info failed, no key_size: $0 in usage info", _key_size);
+                    absl::Substitute("update pindex info failed, no key_size: $0 in usage info", _key_size);
             LOG(WARNING) << msg;
             return Status::InternalError(msg);
         } else {
@@ -3972,7 +3973,7 @@ Status PersistentIndex::_update_usage_and_size_by_key_length(
             auto iter = _usage_and_size_by_key_length.find(key_size);
             if (iter == _usage_and_size_by_key_length.end()) {
                 std::string msg =
-                        strings::Substitute("update pindex info failed, no key_size: $0 in usage info", key_size);
+                        absl::Substitute("update pindex info failed, no key_size: $0 in usage info", key_size);
                 LOG(WARNING) << msg;
                 return Status::InternalError(msg);
             } else {
@@ -3991,7 +3992,7 @@ Status PersistentIndex::_update_usage_and_size_by_key_length(
         auto iter = _usage_and_size_by_key_length.find(_key_size);
         if (iter == _usage_and_size_by_key_length.end()) {
             std::string msg =
-                    strings::Substitute("update pindex info failed, no key_size: $0 in usage info", _key_size);
+                    absl::Substitute("update pindex info failed, no key_size: $0 in usage info", _key_size);
             LOG(WARNING) << msg;
             return Status::InternalError(msg);
         }
@@ -4150,7 +4151,7 @@ Status PersistentIndex::try_replace(size_t n, const Slice* keys, const IndexValu
 Status PersistentIndex::flush_advance() {
     // flush l0 into _l1_vec
     int idx = _l1_vec.size();
-    std::string l1_tmp_file = strings::Substitute("$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(),
+    std::string l1_tmp_file = absl::Substitute("$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(),
                                                   _version.minor_number(), idx);
     RETURN_IF_ERROR(_l0->flush_to_immutable_index(l1_tmp_file, _version, true, true));
 
@@ -4240,16 +4241,16 @@ static StatusOr<EditVersionWithMerge> parse_l2_filename(const std::string& filen
     if (sscanf(filename.c_str(), "index.l2.%" PRId64 ".%" PRId64, &major, &minor) != 2) {
         return Status::InvalidArgument(fmt::format("invalid l2 filename: {}", filename));
     }
-    bool merged = StringPiece(filename).ends_with(".merged");
+    bool merged = std::string_view(filename).ends_with(".merged");
     return EditVersionWithMerge(major, minor, merged);
 }
 
 Status PersistentIndex::_delete_expired_index_file(const EditVersion& l0_version, const EditVersion& l1_version,
                                                    const EditVersionWithMerge& min_l2_version) {
     std::string l0_file_name =
-            strings::Substitute("index.l0.$0.$1", l0_version.major_number(), l0_version.minor_number());
+            absl::Substitute("index.l0.$0.$1", l0_version.major_number(), l0_version.minor_number());
     std::string l1_file_name =
-            strings::Substitute("index.l1.$0.$1", l1_version.major_number(), l1_version.minor_number());
+            absl::Substitute("index.l1.$0.$1", l1_version.major_number(), l1_version.minor_number());
     std::string l0_prefix("index.l0");
     std::string l1_prefix("index.l1");
     std::string l2_prefix("index.l2");
@@ -4730,7 +4731,7 @@ size_t PersistentIndex::_get_tmp_l1_count() {
 Status PersistentIndex::_minor_compaction(PersistentIndexMetaPB* index_meta) {
     // 1. flush l0 to l1
     const std::string new_l1_filename =
-            strings::Substitute("$0/index.l1.$1.$2", _path, _version.major_number(), _version.minor_number());
+            absl::Substitute("$0/index.l1.$1.$2", _path, _version.major_number(), _version.minor_number());
     const size_t tmp_l1_cnt = _get_tmp_l1_count();
     // maybe need to dump snapshot in 1.a
     bool need_snapshot = false;
@@ -4778,9 +4779,9 @@ Status PersistentIndex::_minor_compaction(PersistentIndexMetaPB* index_meta) {
     if (_has_l1) {
         // just link old l1 file to l2
         const std::string l2_file_path =
-                strings::Substitute("$0/index.l2.$1.$2", _path, _l1_version.major_number(), _l1_version.minor_number());
+                absl::Substitute("$0/index.l2.$1.$2", _path, _l1_version.major_number(), _l1_version.minor_number());
         const std::string old_l1_file_path =
-                strings::Substitute("$0/index.l1.$1.$2", _path, _l1_version.major_number(), _l1_version.minor_number());
+                absl::Substitute("$0/index.l1.$1.$2", _path, _l1_version.major_number(), _l1_version.minor_number());
         VLOG(2) << "PersistentIndex minor compaction, link from " << old_l1_file_path << " to " << l2_file_path;
         // Make new file doesn't exist
         (void)FileSystem::Default()->delete_file(l2_file_path);
@@ -4805,7 +4806,7 @@ Status PersistentIndex::_merge_compaction() {
     }
     auto writer = std::make_unique<ImmutableIndexWriter>();
     const std::string idx_file_path =
-            strings::Substitute("$0/index.l1.$1.$2", _path, _version.major_number(), _version.minor_number());
+            absl::Substitute("$0/index.l1.$1.$2", _path, _version.major_number(), _version.minor_number());
     RETURN_IF_ERROR(writer->init(idx_file_path, _version, true));
     RETURN_IF_ERROR(_merge_compaction_internal(writer.get(), 0, _l1_vec.size(), _usage_and_size_by_key_length,
                                                !_l2_vec.empty()));
@@ -4817,7 +4818,7 @@ Status PersistentIndex::_merge_compaction() {
     }
     if (_l2_vec.size() == 0 && _size != writer->total_kv_num()) {
         std::string msg =
-                strings::Substitute("inconsistent kv num after merge compaction, actual:$0, expect:$1, index_file:$2",
+                absl::Substitute("inconsistent kv num after merge compaction, actual:$0, expect:$1, index_file:$2",
                                     writer->total_kv_num(), _size, writer->index_file());
         LOG(ERROR) << msg;
         return Status::InternalError(msg);
@@ -4828,12 +4829,12 @@ Status PersistentIndex::_merge_compaction() {
 Status PersistentIndex::_merge_compaction_advance() {
     DCHECK(_l1_vec.size() >= config::max_tmp_l1_num);
     auto writer = std::make_unique<ImmutableIndexWriter>();
-    const std::string idx_file_path_tmp = strings::Substitute(
+    const std::string idx_file_path_tmp = absl::Substitute(
             "$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(), _version.minor_number(), _l1_vec.size());
     RETURN_IF_ERROR(writer->init(idx_file_path_tmp, _version, false));
     int merge_l1_start_idx = _l1_vec.size() - config::max_tmp_l1_num;
     int merge_l1_end_idx = _l1_vec.size();
-    VLOG(2) << strings::Substitute("merge compaction advance, path: $0, start_idx: $1, end_idx: $2", _path,
+    VLOG(2) << absl::Substitute("merge compaction advance, path: $0, start_idx: $1, end_idx: $2", _path,
                                    merge_l1_start_idx, merge_l1_end_idx);
     // keep delete flag when older l1 or l2 exist
     bool keep_delete = (merge_l1_start_idx != 0) || !_l2_vec.empty();
@@ -4886,7 +4887,7 @@ Status PersistentIndex::_merge_compaction_advance() {
         _l1_vec[i]->destroy();
     }
 
-    const std::string idx_file_path = strings::Substitute("$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(),
+    const std::string idx_file_path = absl::Substitute("$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(),
                                                           _version.minor_number(), new_l1_vec.size());
     RETURN_IF_ERROR(FileSystem::Default()->rename_file(idx_file_path_tmp, idx_file_path));
     std::unique_ptr<RandomAccessFile> l1_rfile;
@@ -4936,7 +4937,7 @@ StatusOr<EditVersion> PersistentIndex::_major_compaction_impl(
     auto writer = std::make_unique<ImmutableIndexWriter>();
     // use latest l2 edit version as new l2 edit version
     EditVersion new_l2_version = l2_versions.back();
-    const std::string idx_file_path = strings::Substitute("$0/index.l2.$1.$2$3", _path, new_l2_version.major_number(),
+    const std::string idx_file_path = absl::Substitute("$0/index.l2.$1.$2$3", _path, new_l2_version.major_number(),
                                                           new_l2_version.minor_number(), MergeSuffix);
     RETURN_IF_ERROR(writer->init(idx_file_path, new_l2_version, true));
     std::map<uint32_t, std::pair<int64_t, int64_t>> usage_and_size_stat;
@@ -5064,7 +5065,7 @@ Status PersistentIndex::TEST_major_compaction(PersistentIndexMetaPB& index_meta)
     DCHECK(index_meta.l2_versions_size() == index_meta.l2_version_merged_size());
     for (int i = 0; i < index_meta.l2_versions_size(); i++) {
         l2_versions.emplace_back(index_meta.l2_versions(i));
-        auto l2_block_path = strings::Substitute("$0/index.l2.$1.$2$3", _path, index_meta.l2_versions(i).major_number(),
+        auto l2_block_path = absl::Substitute("$0/index.l2.$1.$2$3", _path, index_meta.l2_versions(i).major_number(),
                                                  index_meta.l2_versions(i).minor_number(),
                                                  index_meta.l2_version_merged(i) ? MergeSuffix : "");
         ASSIGN_OR_RETURN(auto l2_rfile, _fs->new_random_access_file(l2_block_path));
@@ -5119,7 +5120,7 @@ Status PersistentIndex::major_compaction(DataDir* data_dir, int64_t tablet_id, s
     DCHECK(prev_index_meta.l2_versions_size() == prev_index_meta.l2_version_merged_size());
     for (int i = 0; i < prev_index_meta.l2_versions_size(); i++) {
         l2_versions.emplace_back(prev_index_meta.l2_versions(i));
-        auto l2_block_path = strings::Substitute(
+        auto l2_block_path = absl::Substitute(
                 "$0/index.l2.$1.$2$3", _path, prev_index_meta.l2_versions(i).major_number(),
                 prev_index_meta.l2_versions(i).minor_number(), prev_index_meta.l2_version_merged(i) ? MergeSuffix : "");
         ASSIGN_OR_RETURN(auto l2_rfile, fs->new_random_access_file(l2_block_path));
@@ -5330,14 +5331,14 @@ Status PersistentIndex::_load_by_loader(TabletLoader* loader) {
                 if (index_meta.has_l0_meta()) {
                     EditVersion l0_version = index_meta.l0_meta().snapshot().version();
                     std::string l0_file_name =
-                            strings::Substitute("index.l0.$0.$1", l0_version.major_number(), l0_version.minor_number());
+                            absl::Substitute("index.l0.$0.$1", l0_version.major_number(), l0_version.minor_number());
                     Status st = FileSystem::Default()->delete_file(l0_file_name);
                     LOG_IF(WARNING, !st.ok()) << "delete error l0 index file: " << l0_file_name << ", status: " << st;
                 }
                 if (index_meta.has_l1_version()) {
                     EditVersion l1_version = index_meta.l1_version();
                     std::string l1_file_name =
-                            strings::Substitute("index.l1.$0.$1", l1_version.major_number(), l1_version.minor_number());
+                            absl::Substitute("index.l1.$0.$1", l1_version.major_number(), l1_version.minor_number());
                     Status st = FileSystem::Default()->delete_file(l1_file_name);
                     LOG_IF(WARNING, !st.ok()) << "delete error l1 index file: " << l1_file_name << ", status: " << st;
                 }
@@ -5345,7 +5346,7 @@ Status PersistentIndex::_load_by_loader(TabletLoader* loader) {
                     DCHECK(index_meta.l2_versions_size() == index_meta.l2_version_merged_size());
                     for (int i = 0; i < index_meta.l2_versions_size(); i++) {
                         EditVersion l2_version = index_meta.l2_versions(i);
-                        std::string l2_file_name = strings::Substitute(
+                        std::string l2_file_name = absl::Substitute(
                                 "index.l2.$0.$1$2", l2_version.major_number(), l2_version.minor_number(),
                                 index_meta.l2_version_merged(i) ? MergeSuffix : "");
                         Status st = FileSystem::Default()->delete_file(l2_file_name);
@@ -5389,7 +5390,7 @@ Status PersistentIndex::_load_by_loader(TabletLoader* loader) {
         if (auto [_, inserted] =
                     _usage_and_size_by_key_length.insert({key_size, {l0_kv_pairs_usage, l0_kv_pairs_size}});
             !inserted) {
-            std::string msg = strings::Substitute(
+            std::string msg = absl::Substitute(
                     "load persistent index from tablet failed, insert usage and size by key size failed, key_size: $0",
                     key_size);
             LOG(WARNING) << msg;

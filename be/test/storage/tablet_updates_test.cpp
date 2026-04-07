@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/tablet_updates_test.h"
+#include "absl/strings/substitute.h"
 
 #include <random>
 
@@ -38,7 +39,7 @@ static TabletSharedPtr load_same_tablet_from_store(const TabletSharedPtr& tablet
     auto tablet_id = tablet->tablet_id();
     auto schema_hash = tablet->schema_hash();
 
-    std::string enc_key = strings::Substitute("tabletmeta_$0_$1", tablet_id, schema_hash);
+    std::string enc_key = absl::Substitute("tabletmeta_$0_$1", tablet_id, schema_hash);
     std::string serialized_meta;
     auto meta = tablet->data_dir()->get_meta();
     auto st = meta->get(META_COLUMN_FAMILY_INDEX, enc_key, &serialized_meta);
@@ -2405,7 +2406,7 @@ void TabletUpdatesTest::load_snapshot(const std::string& meta_dir, const TabletS
     ASSERT_EQ(1, num_segments);
     std::string rowset_path = last_rowset->rowset_path();
     std::string segment_path =
-            strings::Substitute("$0/$1_$2.dat", rowset_path, last_rowset->rowset_id().to_string(), 0);
+            absl::Substitute("$0/$1_$2.dat", rowset_path, last_rowset->rowset_id().to_string(), 0);
     ASSIGN_OR_ABORT(auto fs, FileSystemFactory::CreateSharedFromString("posix://"));
     ASSIGN_OR_ABORT(auto read_file, fs->new_random_access_file(segment_path));
 

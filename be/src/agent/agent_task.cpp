@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "agent/agent_task.h"
+#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
@@ -24,7 +25,7 @@
 #include "common/config_agent_fwd.h"
 #include "common/status.h"
 #include "common/system/backend_options.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
@@ -85,7 +86,7 @@ static void alter_tablet(const TAlterTabletReqV2& agent_task_req, int64_t signat
     }
 
     std::string alter_msg_head =
-            strings::Substitute("[Alter Job:$0, tablet:$1]: ", agent_task_req.job_id, agent_task_req.base_tablet_id);
+            absl::Substitute("[Alter Job:$0, tablet:$1]: ", agent_task_req.job_id, agent_task_req.base_tablet_id);
     if (status == STARROCKS_SUCCESS) {
         g_report_version.fetch_add(1, std::memory_order_relaxed);
         VLOG(1) << alter_msg_head << "alter finished. signature: " << signature;
@@ -294,7 +295,7 @@ void run_create_tablet_task(const std::shared_ptr<CreateTabletAgentTaskRequest>&
 
 void run_alter_tablet_task(const std::shared_ptr<AlterTabletAgentTaskRequest>& agent_task_req, ExecEnv* exec_env) {
     int64_t signatrue = agent_task_req->signature;
-    std::string alter_msg_head = strings::Substitute("[Alter Job:$0, tablet:$1]: ", agent_task_req->task_req.job_id,
+    std::string alter_msg_head = absl::Substitute("[Alter Job:$0, tablet:$1]: ", agent_task_req->task_req.job_id,
                                                      agent_task_req->task_req.base_tablet_id);
     VLOG(1) << alter_msg_head << "get alter table task, signature: " << agent_task_req->signature;
     bool is_task_req_expired = false;
@@ -660,7 +661,7 @@ void run_update_schema_task(const std::shared_ptr<UpdateSchemaTaskRequest>& agen
     auto& error_tablet_ids = finish_task_request.error_tablet_ids;
     if (!st.ok()) {
         status_code = TStatusCode::RUNTIME_ERROR;
-        std::string msg = strings::Substitute("update schema fail because convert column fail: $0", st.to_string());
+        std::string msg = absl::Substitute("update schema fail because convert column fail: $0", st.to_string());
         LOG(WARNING) << msg;
         error_msgs.emplace_back(msg);
         for (auto tablet_id : update_schema_req.tablet_ids) {
@@ -680,7 +681,7 @@ void run_update_schema_task(const std::shared_ptr<UpdateSchemaTaskRequest>& agen
             if (!ret.ok()) {
                 status_code = TStatusCode::RUNTIME_ERROR;
                 std::string msg =
-                        strings::Substitute("update schema fail because build tablet schema fail: $0", st.to_string());
+                        absl::Substitute("update schema fail because build tablet schema fail: $0", st.to_string());
                 LOG(WARNING) << msg;
                 error_msgs.emplace_back(msg);
                 error_tablet_ids.push_back(tablet_id);
@@ -707,7 +708,7 @@ void run_update_schema_task(const std::shared_ptr<UpdateSchemaTaskRequest>& agen
     remove_task_info(agent_task_req->task_type, agent_task_req->signature);
     LOG_IF(INFO, error_tablet_ids.size() > 0)
             << "Update schema task signature=" << agent_task_req->signature << " error_tablets["
-            << error_tablet_ids.size() << "):" << JoinInts(error_tablet_ids, ",");
+            << error_tablet_ids.size() << "):" << absl::StrJoin(error_tablet_ids, ",");
 }
 
 void run_upload_task(const std::shared_ptr<UploadAgentTaskRequest>& agent_task_req, ExecEnv* exec_env) {

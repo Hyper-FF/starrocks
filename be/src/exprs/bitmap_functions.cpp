@@ -27,8 +27,8 @@
 #include "exprs/function_context.h"
 #include "exprs/unary_function.h"
 #include "gutil/casts.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -49,7 +49,7 @@ StatusOr<ColumnPtr> BitmapFunctions::to_bitmap(FunctionContext* context, const s
             auto raw_value = viewer.value(row);
             // To be compatible with varchar type, set it null if raw value is less than 0 and less than uint64::max.
             if (UNLIKELY(raw_value < 0 || raw_value > std::numeric_limits<uint64_t>::max())) {
-                context->set_error(strings::Substitute("The input: {0} is not valid, to_bitmap only "
+                context->set_error(absl::Substitute("The input: {0} is not valid, to_bitmap only "
                                                        "support bigint value from 0 to "
                                                        "18446744073709551615 currently",
                                                        raw_value)
@@ -64,7 +64,7 @@ StatusOr<ColumnPtr> BitmapFunctions::to_bitmap(FunctionContext* context, const s
             auto slice = viewer.value(row);
             value = StringParser::string_to_unsigned_int<uint64_t>(slice.data, slice.size, &parse_result);
             if (parse_result != StringParser::PARSE_SUCCESS) {
-                context->set_error(strings::Substitute("The input: {0} is not valid, to_bitmap only "
+                context->set_error(absl::Substitute("The input: {0} is not valid, to_bitmap only "
                                                        "support bigint value from 0 to "
                                                        "18446744073709551615 currently",
                                                        slice.to_string())
@@ -232,7 +232,19 @@ StatusOr<ColumnPtr> BitmapFunctions::bitmap_from_string(FunctionContext* context
         auto slice = viewer.value(row);
 
         bits.clear();
-        if (slice.size > INT32_MAX || !SplitStringAndParse({slice.data, (int)slice.size}, ",", &safe_strtou64, &bits)) {
+        bool parse_ok = (slice.size <= INT32_MAX);
+        if (parse_ok) {
+            for (auto piece : absl::StrSplit(std::string_view(slice.data, slice.size),
+                                              absl::ByAnyChar(","), absl::SkipEmpty())) {
+                uint64 val;
+                if (safe_strtou64(std::string(piece), &val)) {
+                    bits.push_back(val);
+                } else {
+                    parse_ok = false;
+                }
+            }
+        }
+        if (!parse_ok) {
             builder.append_null();
             continue;
         }

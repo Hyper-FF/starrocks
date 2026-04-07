@@ -57,7 +57,7 @@
 #include "exprs/unary_function.h"
 #include "gutil/strings/fastmem.h"
 #include "gutil/strings/strip.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/exception.h"
 #include "runtime/runtime_state.h"
 #include "storage/olap_define.h"
@@ -2698,11 +2698,11 @@ static Status url_decode_slice(const char* value, size_t len, std::string* to) {
             char r = value[i + 2];
             if ((l < 'A' || l > 'F') && (l < '0' || l > '9')) {
                 return Status::RuntimeError(
-                        strings::Substitute("decode string contains illegal hex chars: $0$1", l, r));
+                        absl::Substitute("decode string contains illegal hex chars: $0$1", l, r));
             }
             if ((r < 'A' || r > 'F') && (r < '0' || r > '9')) {
                 return Status::RuntimeError(
-                        strings::Substitute("decode string contains illegal hex chars: $0$1", l, r));
+                        absl::Substitute("decode string contains illegal hex chars: $0$1", l, r));
             }
             // if l in 'A'..'F', then l-'A' > 0; otherwise l-'A' < 0; we arithmetic shift right 8 bit
             // yields mask, so all bits of mask are 0 if l in 'A'..'F', all bits are 1 if l in '0'..'9'
@@ -3408,7 +3408,7 @@ static ColumnPtr regexp_extract_general(FunctionContext* context, re2::RE2::Opti
         std::string ptn_value = ptn_viewer.value(row).to_string();
         re2::RE2 local_re(ptn_value, *options);
         if (!local_re.ok()) {
-            context->set_error(strings::Substitute("Invalid regex: $0", ptn_value).c_str());
+            context->set_error(absl::Substitute("Invalid regex: $0", ptn_value).c_str());
             result.append_null();
             continue;
         }
@@ -3582,7 +3582,7 @@ static ColumnPtr regexp_extract_all_general(FunctionContext* context, re2::RE2::
         std::string ptn_value = ptn_viewer.value(row).to_string();
         re2::RE2 local_re(ptn_value, *options);
         if (!local_re.ok()) {
-            context->set_error(strings::Substitute("Invalid regex: $0", ptn_value).c_str());
+            context->set_error(absl::Substitute("Invalid regex: $0", ptn_value).c_str());
             offset_col->append(index);
             nl_col->append(1);
             continue;
@@ -3752,7 +3752,7 @@ static ColumnPtr regexp_replace_general(FunctionContext* context, re2::RE2::Opti
         std::string ptn_value = ptn_viewer.value(row).to_string();
         re2::RE2 local_re(ptn_value, *options);
         if (!local_re.ok()) {
-            context->set_error(strings::Substitute("Invalid regex: $0", ptn_value).c_str());
+            context->set_error(absl::Substitute("Invalid regex: $0", ptn_value).c_str());
             result.append_null();
             continue;
         }
@@ -3855,7 +3855,7 @@ static StatusOr<ColumnPtr> hyperscan_vec_evaluate(const BinaryColumn* src, Strin
     hs_scratch_t* scratch = nullptr;
     hs_error_t status;
     if ((status = hs_clone_scratch(state->scratch, &scratch) != HS_SUCCESS)) {
-        return Status::InternalError(strings::Substitute("Unable to clone scratch space. status: $0", status));
+        return Status::InternalError(absl::Substitute("Unable to clone scratch space. status: $0", status));
     }
 
     DeferOp op([&] {
@@ -3998,7 +3998,7 @@ StatusOr<ColumnPtr> StringFunctions::regexp_replace_use_hyperscan(StringFunction
     hs_scratch_t* scratch = nullptr;
     hs_error_t status;
     if ((status = hs_clone_scratch(state->scratch, &scratch)) != HS_SUCCESS) {
-        return Status::InternalError(strings::Substitute("Unable to clone scratch space. status: $0", status));
+        return Status::InternalError(absl::Substitute("Unable to clone scratch space. status: $0", status));
     }
     DeferOp op([&] {
         if (scratch != nullptr) {
@@ -4244,7 +4244,7 @@ static StatusOr<ColumnPtr> regexp_split_general(FunctionContext* context, re2::R
         if (ptn_value.size()) {
             local_re = std::make_unique<re2::RE2>(ptn_value, *options);
             if (!local_re.get()->ok()) {
-                context->set_error(strings::Substitute("Invalid regex: $0", ptn_value).c_str());
+                context->set_error(absl::Substitute("Invalid regex: $0", ptn_value).c_str());
                 offset_col->append(index);
                 nl_col->append(1);
                 continue;
@@ -4592,7 +4592,7 @@ static StatusOr<ColumnPtr> regexp_position_general(FunctionContext* context, re2
         // compile the pattern for each new row, keep in stack memory
         re2::RE2 local_re(pattern_str, *options);
         if (!local_re.ok()) {
-            return Status::InvalidArgument(strings::Substitute("Invalid regex expression: $0", pattern_str));
+            return Status::InvalidArgument(absl::Substitute("Invalid regex expression: $0", pattern_str));
         }
 
         int utf8_length = utf8_len(str_value.data, str_value.data + str_value.size);
@@ -5322,7 +5322,7 @@ static Status initcap_impl(const Slice& str, std::string* result) {
             std::stringstream ss;
             ss << "0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(bad_byte);
             return Status::InvalidArgument(
-                    strings::Substitute("Invalid UTF-8 sequence at index $0, byte: $1", old_i, ss.str()));
+                    absl::Substitute("Invalid UTF-8 sequence at index $0, byte: $1", old_i, ss.str()));
         }
 
         if (u_isalnum(c)) {

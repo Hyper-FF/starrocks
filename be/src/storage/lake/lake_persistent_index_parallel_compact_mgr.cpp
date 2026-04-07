@@ -28,7 +28,7 @@
 #include "common/system/cpu_info.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/starrocks_metrics.h"
 #include "storage/lake/filenames.h"
 #include "storage/lake/lake_persistent_index.h"
@@ -352,7 +352,7 @@ Status LakePersistentIndexParallelCompactMgr::compact(
                                             }));
     if (cb == nullptr) return Status::OK();
     RETURN_IF_ERROR(cb->wait_for());
-    LOG(INFO) << strings::Substitute(
+    LOG(INFO) << absl::Substitute(
             "Lake persistent index parallel compaction completed for tablet $0, merge_base_level=$1, "
             "input filesets=$2, output sstables=$3, trace=$4",
             metadata->id(), merge_base_level, candidates.size(), output_sstables->size(), cb->trace()->MetricsAsJSON());

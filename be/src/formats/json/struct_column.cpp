@@ -17,7 +17,7 @@
 #include "column/struct_column.h"
 #include "common/statusor.h"
 #include "formats/json/nullable_column.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -46,7 +46,7 @@ Status add_struct_column(Column* column, const TypeDescriptor& type_desc, const 
             } else if (err != simdjson::NO_SUCH_FIELD) {
                 // if returns error, the struct field columns may be inconsistent.
                 // so fill null if error.
-                auto err_msg = strings::Substitute("Failed to parse value, field=$0.$1, error=$2", name, field_name,
+                auto err_msg = absl::Substitute("Failed to parse value, field=$0.$1, error=$2", name, field_name,
                                                    simdjson::error_message(err));
                 LOG(WARNING) << err_msg;
             }
@@ -54,7 +54,7 @@ Status add_struct_column(Column* column, const TypeDescriptor& type_desc, const 
         }
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to parse value as object, column=$0, error=$1", name,
+        auto err_msg = absl::Substitute("Failed to parse value as object, column=$0, error=$1", name,
                                            simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }

@@ -14,7 +14,7 @@
 
 #include "io/shared_buffered_input_stream.h"
 
-#include <gutil/strings/substitute.h>
+#include "absl/strings/substitute.h"
 
 #include "common/config_scan_io_fwd.h"
 #include "common/runtime_profile.h"
@@ -39,7 +39,7 @@ void SharedBufferedInputStream::SharedBuffer::align(int64_t align_size, int64_t 
 }
 
 std::string SharedBufferedInputStream::SharedBuffer::debug_string() const {
-    return strings::Substitute(
+    return absl::Substitute(
             "SharedBuffer raw_offset=$0, raw_size=$1, offset=$2, size=$3, ref_count=$4, buffer_capacity=$5", raw_offset,
             raw_size, offset, size, ref_count, buffer.capacity());
 }

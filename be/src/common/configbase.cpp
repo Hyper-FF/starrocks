@@ -26,6 +26,7 @@
 #include <set>
 #include <string>
 
+#include "absl/strings/str_split.h"
 #include "common/configbase_impl.h"
 #include "common/status.h"
 #include "fmt/format.h"
@@ -141,7 +142,7 @@ inline bool parse_key_value_pairs(std::istream& input) {
         }
 
         // Read key and value.
-        std::pair<std::string, std::string> kv = strings::Split(line, strings::delimiter::Limit("=", 1));
+        std::pair<std::string, std::string> kv = absl::StrSplit(line, absl::MaxSplits("=", 1));
         StripWhiteSpace(&kv.first);
 
         // compatible with doris_config

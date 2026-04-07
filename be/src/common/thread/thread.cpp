@@ -58,7 +58,7 @@
 #include "gutil/atomicops.h"
 #include "gutil/dynamic_annotations.h"
 #include "gutil/once.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -256,7 +256,7 @@ const std::string& Thread::category() const {
 }
 
 std::string Thread::to_string() const {
-    return strings::Substitute(R"(Thread $0 (name: "$1", category: "$2"))", tid(), _name, _category);
+    return absl::Substitute(R"(Thread $0 (name: "$1", category: "$2"))", tid(), _name, _category);
 }
 
 Thread* Thread::current_thread() {
@@ -469,7 +469,7 @@ Status ThreadJoiner::join() {
     bool keep_trying = true;
     while (keep_trying) {
         if (waited_ms >= _warn_after_ms) {
-            LOG(WARNING) << strings::Substitute("Waited for $0ms trying to join with $1 (tid $2)", waited_ms,
+            LOG(WARNING) << absl::Substitute("Waited for $0ms trying to join with $1 (tid $2)", waited_ms,
                                                 _thread->_name, _thread->_tid);
         }
 

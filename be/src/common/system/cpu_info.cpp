@@ -76,8 +76,8 @@
 #include "common/config_runtime_fwd.h"
 #include "common/logging.h"
 #include "gflags/gflags.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 
 using boost::algorithm::contains;
 using boost::algorithm::trim;
@@ -240,7 +240,7 @@ void CpuInfo::_init_numa() {
     for (int core = 0; core < max_num_cores_; ++core) {
         bool found_numa_node = false;
         for (int node = 0; node < max_num_numa_nodes_; ++node) {
-            if (std::filesystem::exists(strings::Substitute("/sys/devices/system/cpu/cpu$0/node$1", core, node))) {
+            if (std::filesystem::exists(absl::Substitute("/sys/devices/system/cpu/cpu$0/node$1", core, node))) {
                 core_to_numa_node_[core] = node;
                 found_numa_node = true;
                 break;
@@ -256,7 +256,7 @@ void CpuInfo::_init_numa() {
 
 std::vector<size_t> CpuInfo::parse_cpus(const std::string& cpus_str) {
     std::vector<size_t> cpuids;
-    std::vector<std::string> fields = strings::Split(cpus_str, ",", strings::SkipWhitespace());
+    std::vector<std::string> fields = absl::StrSplit(cpus_str, ",", absl::SkipWhitespace());
     for (const auto& field : fields) {
         StringParser::ParseResult result;
         if (field.find('-') == std::string::npos) {
@@ -267,7 +267,7 @@ std::vector<size_t> CpuInfo::parse_cpus(const std::string& cpus_str) {
             continue;
         }
 
-        std::vector<std::string> pair = strings::Split(field, "-", strings::SkipWhitespace());
+        std::vector<std::string> pair = absl::StrSplit(field, "-", absl::SkipWhitespace());
         if (pair.size() != 2) {
             continue;
         }

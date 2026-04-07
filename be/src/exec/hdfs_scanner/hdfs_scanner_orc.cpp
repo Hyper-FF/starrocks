@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/hdfs_scanner/hdfs_scanner_orc.h"
+#include "absl/strings/substitute.h"
 
 #include <utility>
 
@@ -135,7 +136,7 @@ bool OrcRowReaderFilter::filterMinMax(size_t rowGroupIdx,
             int64_t tz_offset_in_seconds = _reader->tzoffset_in_seconds() - _writer_tzoffset_in_seconds;
             Status st = OrcMinMaxDecoder::decode(slot, orc_type, stats, min_col, max_col, tz_offset_in_seconds);
             if (!st.ok()) {
-                LOG(INFO) << strings::Substitute(
+                LOG(INFO) << absl::Substitute(
                         "OrcMinMaxDecoder decode failed, may occur performance degradation. Because SR's column($0) "
                         "can't convert to orc file's column($1)",
                         slot->debug_string(), orc_type->toString());
@@ -331,7 +332,7 @@ Status HdfsOrcScanner::build_iceberg_delete_builder() {
         if (delete_file->file_content == TIcebergFileContent::POSITION_DELETES) {
             RETURN_IF_ERROR(iceberg_delete_builder->build_orc(*delete_file));
         } else {
-            const auto s = strings::Substitute("Unsupported iceberg file content: $0 in the scanner thread",
+            const auto s = absl::Substitute("Unsupported iceberg file content: $0 in the scanner thread",
                                                delete_file->file_content);
             LOG(WARNING) << s;
             return Status::InternalError(s);
@@ -494,7 +495,7 @@ Status HdfsOrcScanner::do_open(RuntimeState* runtime_state) {
         reader = orc::createReader(std::move(_input_stream), options);
     } catch (std::exception& e) {
         bool is_not_found = (errno == ENOENT);
-        auto s = strings::Substitute("HdfsOrcScanner::do_open failed. reason = $0", e.what());
+        auto s = absl::Substitute("HdfsOrcScanner::do_open failed. reason = $0", e.what());
         LOG(WARNING) << s;
         if (is_not_found || s.find("404") != std::string::npos) {
             return Status::RemoteFileNotFound(s);

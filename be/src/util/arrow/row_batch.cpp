@@ -53,13 +53,13 @@
 #include "exprs/column_ref.h"
 #include "exprs/expr_context.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 namespace {
 
@@ -157,7 +157,7 @@ Status convert_to_arrow_type(const TypeDescriptor& type, std::shared_ptr<arrow::
         break;
     }
     default:
-        return Status::InvalidArgument(strings::Substitute("Unknown logical type($0)", type.type));
+        return Status::InvalidArgument(absl::Substitute("Unknown logical type($0)", type.type));
     }
     return Status::OK();
 }
@@ -250,7 +250,7 @@ Status convert_to_arrow_type_for_flight_sql(const TypeDescriptor& type, std::sha
         break;
     }
     default:
-        return Status::InvalidArgument(strings::Substitute("Unknown logical type($0)", type.type));
+        return Status::InvalidArgument(absl::Substitute("Unknown logical type($0)", type.type));
     }
     return Status::OK();
 }

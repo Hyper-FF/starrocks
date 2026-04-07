@@ -16,7 +16,7 @@
 
 #include <fmt/format.h>
 #include <gtest/gtest.h>
-#include <gutil/strings/substitute.h>
+#include "absl/strings/substitute.h"
 
 #include <tuple>
 #include <vector>
@@ -192,7 +192,7 @@ TEST(JsonValueTest, ConvertFromSimdjsonBigInteger) {
 
     ASSERT_EQ(double_json.value().to_string_uncheck(), big_integer_json.value().to_string_uncheck());
 
-    padded_string double_overflow_str = strings::Substitute("{\"a\":$0}", std::string(400, '1'));
+    padded_string double_overflow_str = absl::Substitute("{\"a\":$0}", std::string(400, '1'));
     ondemand::document double_overflow_doc = parser.iterate(double_overflow_str);
     ondemand::object double_overflow_obj = double_overflow_doc.get_object();
     auto double_overflow_json = JsonValue::from_simdjson(&double_overflow_obj);

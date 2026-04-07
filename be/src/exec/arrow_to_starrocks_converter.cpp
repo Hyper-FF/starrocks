@@ -35,7 +35,7 @@
 #endif
 #include "base/utility/pred_guard.h"
 #include "gutil/strings/fastmem.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
@@ -47,7 +47,7 @@
 namespace starrocks {
 
 Status illegal_converting_error(const std::string& arrow_type_name, const std::string& type_name) {
-    return Status::InternalError(strings::Substitute("Illegal converting from arrow type($0) to StarRocks type($1)",
+    return Status::InternalError(absl::Substitute("Illegal converting from arrow type($0) to StarRocks type($1)",
                                                      arrow_type_name, type_name));
 }
 
@@ -250,7 +250,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, BinaryATGuard<AT>, StringO
 
     static Status length_exceeds_limit_error(int length, int limit) {
         std::string s = (LT == TYPE_VARCHAR) ? "varchar" : ((LT == TYPE_CHAR) ? "char" : "binary");
-        return Status::InternalError(strings::Substitute("Length($0) exceeds limit($1) of $2", length, limit, s));
+        return Status::InternalError(absl::Substitute("Length($0) exceeds limit($1) of $2", length, limit, s));
     }
 
     static Status apply(const arrow::Array* array, size_t array_start_idx, size_t num_elements, Column* column,
@@ -284,7 +284,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, BinaryATGuard<AT>, StringO
 
                     if (ctx != nullptr) {
                         std::string raw_data = "arrow data is fixed size binary type";
-                        std::string reason = strings::Substitute("type length $0 exceeds max length $1", width,
+                        std::string reason = absl::Substitute("type length $0 exceeds max length $1", width,
                                                                  binary_max_length<LT>);
                         ctx->report_error_message(reason, raw_data);
                     }
@@ -319,7 +319,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, BinaryATGuard<AT>, StringO
                             const char* s_data = reinterpret_cast<const char*>(concrete_array->GetValue(i, &s_size));
                             std::string raw_data = std::string(s_data, s_size);
                             std::string reason =
-                                    strings::Substitute("string length $0 exceeds max length $1", s_size, max_length);
+                                    absl::Substitute("string length $0 exceeds max length $1", s_size, max_length);
                             ctx->report_error_message(reason, raw_data);
                         }
                     }
@@ -586,7 +586,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, DateOrDateTimeATGuard<AT>,
             }
 
             if (convert_one_datetime(data[i], arrow_data[i], 0, ctz)) {
-                return Status::InternalError(strings::Substitute("Illegal timestamp value($0)", arrow_data[i]));
+                return Status::InternalError(absl::Substitute("Illegal timestamp value($0)", arrow_data[i]));
             }
         }
         return Status::OK();
@@ -603,7 +603,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, DateOrDateTimeATGuard<AT>,
             }
 
             if (convert_one_datetime(data[i], arrow_data[i] / 1000, arrow_data[i] % 1000 * 1000, ctz)) {
-                return Status::InternalError(strings::Substitute("Illegal timestamp value($0)", arrow_data[i]));
+                return Status::InternalError(absl::Substitute("Illegal timestamp value($0)", arrow_data[i]));
             }
         }
         return Status::OK();
@@ -620,7 +620,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, DateOrDateTimeATGuard<AT>,
             }
 
             if (convert_one_datetime(data[i], arrow_data[i] / 1000000, arrow_data[i] % 1000000, ctz)) {
-                return Status::InternalError(strings::Substitute("Illegal timestamp value($0)", arrow_data[i]));
+                return Status::InternalError(absl::Substitute("Illegal timestamp value($0)", arrow_data[i]));
             }
         }
         return Status::OK();
@@ -637,7 +637,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, DateOrDateTimeATGuard<AT>,
             }
 
             if (convert_one_datetime(data[i], arrow_data[i] / 1000000000, arrow_data[i] % 1000000000 / 1000, ctz)) {
-                return Status::InternalError(strings::Substitute("Illegal timestamp value($0)", arrow_data[i]));
+                return Status::InternalError(absl::Substitute("Illegal timestamp value($0)", arrow_data[i]));
             }
         }
         return Status::OK();
@@ -664,7 +664,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, DateOrDateTimeATGuard<AT>,
             break;
         }
         default:
-            return Status::InternalError(strings::Substitute("Not support TimeUnit($0)", unit));
+            return Status::InternalError(absl::Substitute("Not support TimeUnit($0)", unit));
         }
 
         fill_null(data, num_elements, null_data);
@@ -721,7 +721,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, DateOrDateTimeATGuard<AT>,
 
             cctz::time_zone ctz;
             if (!TimezoneUtils::find_cctz_time_zone(timezone, ctz)) {
-                return Status::InternalError(strings::Substitute("Not found TimeZone($0)", timezone));
+                return Status::InternalError(absl::Substitute("Not found TimeZone($0)", timezone));
             }
             return convert_datetime(data, arrow_data, num_elements, ctz, null_data, concrete_type->unit());
         }
@@ -845,7 +845,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, ArrayGuard<LT>> {
         } else if (is_fixed_size_list(type_id)) {
             fixed_size_list_map_offsets_copy(array, array_start_idx, num_elements, col_offsets);
         } else {
-            return Status::InternalError(strings::Substitute("Invalid arrow list type($0)", array->type()->name()));
+            return Status::InternalError(absl::Substitute("Invalid arrow list type($0)", array->type()->name()));
         }
 
         size_t child_array_start_idx;
@@ -1068,7 +1068,7 @@ void ArrowConvertContext::report_error_message(const std::string& reason, const 
     if (error_message_counter > MAX_ERROR_MESSAGE_COUNTER) return;
     error_message_counter += 1;
     std::string error_msg =
-            strings::Substitute("file = $0, column = $1, raw data = $2", current_file,
+            absl::Substitute("file = $0, column = $1, raw data = $2", current_file,
                                 (current_slot == nullptr) ? "null" : current_slot->col_name(), raw_data);
     RuntimeStateHelper::append_error_msg_to_file(state, error_msg, reason);
 }

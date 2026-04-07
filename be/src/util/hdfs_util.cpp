@@ -20,7 +20,7 @@
 #include <string>
 
 #include "fmt/format.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -71,13 +71,13 @@ Status get_namenode_from_path(const std::string& path, std::string* namenode) {
             *namenode = "default";
         }
     } else if (n == 0) {
-        return Status::InvalidArgument(strings::Substitute("Path missing scheme: $0", path));
+        return Status::InvalidArgument(absl::Substitute("Path missing scheme: $0", path));
     } else {
         // Path is qualified, i.e. "scheme://authority/path/to/file".  Extract
         // "scheme://authority/".
         n = path.find('/', n + 3);
         if (n == std::string::npos) {
-            return Status::InvalidArgument(strings::Substitute("Path missing '/' after authority: $0", path));
+            return Status::InvalidArgument(absl::Substitute("Path missing '/' after authority: $0", path));
         } else {
             // Include the trailing '/' for local filesystem case, i.e. "file:///".
             *namenode = path.substr(0, n + 1);

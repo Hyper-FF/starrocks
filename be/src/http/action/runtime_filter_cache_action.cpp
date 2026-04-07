@@ -22,7 +22,7 @@
 #include <string>
 
 #include "common/logging.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
 #include "http/http_request.h"
@@ -48,7 +48,7 @@ void RuntimeFilterCacheAction::handle(HttpRequest* req) {
         } else if (action == ACTION_TRACE) {
             _handle_trace(req);
         } else {
-            _handle_error(req, strings::Substitute("Not support GET method: '$0'", req->uri()));
+            _handle_error(req, absl::Substitute("Not support GET method: '$0'", req->uri()));
         }
     } else if (req->method() == HttpMethod::PUT) {
         if (action == ACTION_ENABLE_TRACE) {
@@ -56,11 +56,11 @@ void RuntimeFilterCacheAction::handle(HttpRequest* req) {
         } else if (action == ACTION_DISABLE_TRACE) {
             _handle_trace_switch(req, false);
         } else {
-            _handle_error(req, strings::Substitute("Not support PUT method: '$0'", req->uri()));
+            _handle_error(req, absl::Substitute("Not support PUT method: '$0'", req->uri()));
         }
     } else {
         _handle_error(req,
-                      strings::Substitute("Not support $0 method: '$1'", to_method_desc(req->method()), req->uri()));
+                      absl::Substitute("Not support $0 method: '$1'", to_method_desc(req->method()), req->uri()));
     }
 }
 void RuntimeFilterCacheAction::_handle(HttpRequest* req, const std::function<void(rapidjson::Document&)>& func) {

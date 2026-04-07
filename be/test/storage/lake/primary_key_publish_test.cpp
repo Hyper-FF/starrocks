@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include "absl/strings/substitute.h"
 
 #include <random>
 
@@ -1011,7 +1012,7 @@ TEST_P(LakePrimaryKeyPublishTest, test_write_rebuild_persistent_index) {
         version++;
         // clear persistent index path
         EXPECT_TRUE(_update_mgr->try_remove_primary_index_cache(tablet_id));
-        std::string path = strings::Substitute(
+        std::string path = absl::Substitute(
                 "$0/$1/", StorageEngine::instance()->get_persistent_index_store(tablet_id)->get_persistent_index_path(),
                 tablet_id);
         ASSERT_OK(fs::remove_all(path));

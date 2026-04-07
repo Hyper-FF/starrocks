@@ -35,7 +35,7 @@
 #include "formats/avro/nullable_column.h"
 #include "fs/fs.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
 #include "runtime/stream_load/stream_load_pipe.h"
@@ -444,13 +444,13 @@ Status AvroScanner::_construct_cast_exprs() {
             continue;
         }
 
-        VLOG(3) << strings::Substitute("The field name($0) cast STARROCKS($1) to STARROCKS($2).", slot_desc->col_name(),
+        VLOG(3) << absl::Substitute("The field name($0) cast STARROCKS($1) to STARROCKS($2).", slot_desc->col_name(),
                                        from_type.debug_string(), to_type.debug_string());
 
         Expr* cast = VectorizedCastExprFactory::from_type(from_type, to_type, slot, &_pool);
 
         if (cast == nullptr) {
-            return Status::InternalError(strings::Substitute("Not support cast $0 to $1.", from_type.debug_string(),
+            return Status::InternalError(absl::Substitute("Not support cast $0 to $1.", from_type.debug_string(),
                                                              to_type.debug_string()));
         }
 
@@ -709,7 +709,7 @@ Status AvroScanner::_extract_field(const avro_value_t& input_value, const std::v
             }
         } else {
             // If no field can be found, end the parsing of the row and return not found.
-            auto msg = strings::Substitute("Cannot get field: $0. err msg: $1.", paths[i].key, avro_strerror());
+            auto msg = absl::Substitute("Cannot get field: $0. err msg: $1.", paths[i].key, avro_strerror());
             return Status::NotFound(msg);
         }
     }

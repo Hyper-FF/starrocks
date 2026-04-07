@@ -23,7 +23,7 @@
 #include "exec/pipeline/schedule/observer.h"
 #include "exec/runtime_filter/runtime_filter_probe.h"
 #include "exec/spill/operator_mem_resource_manager.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/descriptors.h"
 #include "runtime/mem_tracker.h"
 
@@ -157,7 +157,7 @@ public:
     MemTracker* mem_tracker() const { return _mem_tracker.get(); }
 
     virtual std::string get_name() const {
-        return strings::Substitute("$0_$1_$2($3)", _name, _plan_node_id, this, is_finished() ? "X" : "O");
+        return absl::Substitute("$0_$1_$2($3)", _name, _plan_node_id, this, is_finished() ? "X" : "O");
     }
 
     std::string get_raw_name() const { return _name; }

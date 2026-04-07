@@ -33,7 +33,7 @@
 #include "exprs/expr_factory.h"
 #include "exprs/function_context.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
@@ -272,7 +272,7 @@ Status Analytor::prepare(RuntimeState* state, ObjectPool* pool, RuntimeProfile* 
             func = get_window_function(real_fn_name, real_arg_type, return_type.type, is_input_nullable, fn.binary_type,
                                        state->func_version());
             if (func == nullptr) {
-                return Status::InternalError(strings::Substitute(
+                return Status::InternalError(absl::Substitute(
                         "Invalid window function plan: ($0, $1, $2, $3, $4, $5)", real_fn_name, arg_type.type,
                         return_type.type, is_input_nullable, fn.binary_type, state->func_version()));
             }

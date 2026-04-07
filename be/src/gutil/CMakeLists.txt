@@ -37,14 +37,10 @@ SET(SOURCE_FILES
         strings/ascii_ctype.cc
         strings/charset.cc
         strings/escaping.cc
-        strings/join.cc
         strings/memutil.cc
         strings/numbers.cc
-        strings/split.cc
         strings/strip.cc
-        strings/strcat.cc
         strings/stringpiece.cc
-        strings/substitute.cc
         strings/util.cc
         strtoint.cc
         sysinfo.cc

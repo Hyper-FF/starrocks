@@ -32,9 +32,8 @@
 #include "fs/fs_memory.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/Types_constants.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/stringpiece.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "gutil/strings/util.h"
 #include "http/http_client.h"
 #include "runtime/client_cache.h"
@@ -704,8 +703,8 @@ Status ReplicationTxnManager::publish_snapshot(Tablet* tablet, const string& sna
 
     do {
         // load src header
-        std::string header_file = strings::Substitute("$0/$1.hdr", snapshot_dir, tablet->tablet_id());
-        std::string dcgs_snapshot_file = strings::Substitute("$0/$1.dcgs_snapshot", snapshot_dir, tablet->tablet_id());
+        std::string header_file = absl::Substitute("$0/$1.hdr", snapshot_dir, tablet->tablet_id());
+        std::string dcgs_snapshot_file = absl::Substitute("$0/$1.dcgs_snapshot", snapshot_dir, tablet->tablet_id());
         TabletMeta cloned_tablet_meta;
         res = cloned_tablet_meta.create_from_file(header_file);
         if (!res.ok()) {
@@ -730,9 +729,9 @@ Status ReplicationTxnManager::publish_snapshot(Tablet* tablet, const string& sna
             break;
         }
 
-        clone_files.erase(strings::Substitute("$0.hdr", tablet->tablet_id()));
+        clone_files.erase(absl::Substitute("$0.hdr", tablet->tablet_id()));
         if (has_dcgs_snapshot_file) {
-            clone_files.erase(strings::Substitute("$0.dcgs_snapshot", tablet->tablet_id()));
+            clone_files.erase(absl::Substitute("$0.dcgs_snapshot", tablet->tablet_id()));
         }
 
         std::set<string> local_files;
@@ -751,8 +750,8 @@ Status ReplicationTxnManager::publish_snapshot(Tablet* tablet, const string& sna
                 continue;
             }
 
-            std::string from = strings::Substitute("$0/$1", snapshot_dir, clone_file);
-            std::string to = strings::Substitute("$0/$1", tablet_dir, clone_file);
+            std::string from = absl::Substitute("$0/$1", snapshot_dir, clone_file);
+            std::string to = absl::Substitute("$0/$1", tablet_dir, clone_file);
             res = FileSystem::Default()->link_file(from, to);
             if (!res.ok()) {
                 LOG(WARNING) << "Failed to link " << from << " to " << to << ", status: " << res;
@@ -833,7 +832,7 @@ Status ReplicationTxnManager::publish_snapshot(Tablet* tablet, const string& sna
 }
 
 Status ReplicationTxnManager::publish_snapshot_for_primary(Tablet* tablet, const std::string& snapshot_dir) {
-    auto meta_file = strings::Substitute("$0/meta", snapshot_dir);
+    auto meta_file = absl::Substitute("$0/meta", snapshot_dir);
     ASSIGN_OR_RETURN(auto snapshot_meta, SnapshotManager::instance()->parse_snapshot_meta(meta_file));
 
     // check all files in /clone and /tablet
@@ -911,7 +910,7 @@ Status ReplicationTxnManager::publish_incremental_meta(Tablet* tablet, const Tab
             LOG(WARNING) << "Missed version is not found in cloned incremental tablet meta. tablet="
                          << tablet->full_name() << ", snapshot_version=" << snapshot_version
                          << ", missed_version=" << version.first << "-" << version.second;
-            return Status::NotFound(strings::Substitute("version not found"));
+            return Status::NotFound(absl::Substitute("version not found"));
         }
 
         rowsets_to_clone.push_back(inc_rs_meta);

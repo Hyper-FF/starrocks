@@ -18,6 +18,7 @@
 #include "exec/pipeline/operator.h"
 #include "exec/pipeline/operator_with_dependency.h"
 #include "exec/pipeline/pipeline_fwd.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks::pipeline {
 
@@ -42,7 +43,7 @@ public:
 
     bool is_ready() const override;
     std::string get_name() const override {
-        return strings::Substitute("$0(HashJoiner=$1)", Operator::get_name(), _join_prober.get());
+        return absl::Substitute("$0(HashJoiner=$1)", Operator::get_name(), _join_prober.get());
     }
 
     Status push_chunk(RuntimeState* state, const ChunkPtr& chunk) override;

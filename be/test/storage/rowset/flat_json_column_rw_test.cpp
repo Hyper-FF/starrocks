@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 #include <lz4/lz4.h>
+#include "absl/strings/substitute.h"
 
 #include <iostream>
 #include <memory>
@@ -2202,7 +2203,7 @@ GROUP_SLOW_TEST_F(FlatJsonColumnRWTest, testJsonColumnCompression) {
         const std::string& op = op_dict[rand() % op_dict.size()];
         const std::string& coll = coll_dict[rand() % coll_dict.size()];
         const std::string& type = type_dict[rand() % type_dict.size()];
-        std::string s = strings::Substitute(
+        std::string s = absl::Substitute(
                 R"( {"commit":{"cid":"$0","collection":"$1","operation":"$2","record":{"type":"$3","createdAt":"$4","subject":"$5"},"rev":"$6","rkey":"$7"},"did":"$8","time_us":$9 } )",
                 cid, coll, op, type, create_at, subject, rev, rkey, did, time_us);
 

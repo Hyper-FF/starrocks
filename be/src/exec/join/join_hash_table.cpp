@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/join/join_hash_table.h"
+#include "absl/strings/substitute.h"
 
 #include <memory>
 
@@ -662,7 +663,7 @@ Status JoinHashTable::build(RuntimeState* state, bool allow_build_empty_table) {
             static constexpr auto LT = JoinKeyConstructorUnaryTypeTraits<CUT>::logical_type;
             if constexpr (LT != JoinHashMapMethodUnaryTypeTraits<MUT>::logical_type) {
                 return Status::InvalidArgument(
-                        strings::Substitute("Join key logical type {} does not match hash map logical type {}",
+                        absl::Substitute("Join key logical type {} does not match hash map logical type {}",
                                             static_cast<int>(CUT), static_cast<int>(MUT)));
             } else {
                 static constexpr auto CT = JoinKeyConstructorUnaryTypeTraits<CUT>::key_constructor_type;

@@ -31,8 +31,8 @@
 #include <optional>
 #include <set>
 
-#include "gutil/strings/join.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "gutil/strings/strip.h"
 
 namespace starrocks::config {
@@ -107,14 +107,13 @@ public:
             : Field(type, name, storage, defval, valmutable) {}
 
     std::string value() const override {
-        auto as_str = [](const T& v) { return fmt::format("{}", v); };
         const auto& v = *reinterpret_cast<const std::vector<T>*>(_storage);
-        return JoinMapped(v, as_str, ",");
+        return absl::StrJoin(v, ",", [](std::string* out, const T& elem) { out->append(fmt::format("{}", elem)); });
     }
 
     bool parse_value(const std::string& valstr) override {
         std::vector<T> tmp;
-        std::vector<std::string> parts = strings::Split(valstr, ",");
+        std::vector<std::string> parts = absl::StrSplit(valstr, ",");
         for (auto& part : parts) {
             T v;
             StripWhiteSpace(&part);
@@ -156,7 +155,7 @@ public:
 
     bool parse_value(const std::string& valstr) override {
         if (enums.empty()) {
-            std::vector<std::string> parts = strings::Split(raw_enum_values, ",");
+            std::vector<std::string> parts = absl::StrSplit(raw_enum_values, ",");
             for (auto& part : parts) {
                 StripWhiteSpace(&part);
                 if (!Base::parse_value(part)) {

@@ -65,8 +65,8 @@
 #include "gen_cpp/segment.pb.h"
 #include "gen_cpp/types.pb.h"
 #include "gutil/strings/numbers.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "json2pb/pb_to_json.h"
 #include "runtime/memory/mem_chunk_allocator.h"
 #include "storage/chunk_helper.h"
@@ -105,7 +105,7 @@ using starrocks::MetaStoreStats;
 using starrocks::Slice;
 using starrocks::RandomAccessFile;
 using starrocks::MemTracker;
-using strings::Substitute;
+using absl::Substitute;
 using starrocks::SegmentFooterPB;
 using starrocks::ColumnReader;
 using starrocks::BinaryPlainPageDecoder;
@@ -668,7 +668,7 @@ void batch_delete_meta(const std::string& tablet_file) {
     std::unordered_map<std::string, std::unique_ptr<DataDir>> dir_map;
     while (std::getline(infile, line)) {
         total_num++;
-        std::vector<string> v = strings::Split(line, ",");
+        std::vector<string> v = absl::StrSplit(line, ",");
         if (!(v.size() == 2 || v.size() == 3)) {
             std::cout << "invalid line in tablet_file: " << line << std::endl;
             err_num++;
@@ -746,7 +746,7 @@ Status get_segment_footer(RandomAccessFile* input_file, SegmentFooterPB* footer)
     ASSIGN_OR_RETURN(const uint64_t file_size, input_file->get_size());
 
     if (file_size < 12) {
-        return Status::Corruption(strings::Substitute("Bad segment file $0: file size $1 < 12", file_name, file_size));
+        return Status::Corruption(absl::Substitute("Bad segment file $0: file size $1 < 12", file_name, file_size));
     }
 
     uint8_t fixed_buf[12];
@@ -756,13 +756,13 @@ Status get_segment_footer(RandomAccessFile* input_file, SegmentFooterPB* footer)
     const char* k_segment_magic = "D0R1";
     const uint32_t k_segment_magic_length = 4;
     if (memcmp(fixed_buf + 8, k_segment_magic, k_segment_magic_length) != 0) {
-        return Status::Corruption(strings::Substitute("Bad segment file $0: magic number not match", file_name));
+        return Status::Corruption(absl::Substitute("Bad segment file $0: magic number not match", file_name));
     }
 
     // read footer PB
     uint32_t footer_length = starrocks::decode_fixed32_le(fixed_buf);
     if (file_size < 12 + footer_length) {
-        return Status::Corruption(strings::Substitute("Bad segment file $0: file size $1 < $2", file_name, file_size,
+        return Status::Corruption(absl::Substitute("Bad segment file $0: file size $1 < $2", file_name, file_size,
                                                       12 + footer_length));
     }
     std::string footer_buf;
@@ -774,14 +774,14 @@ Status get_segment_footer(RandomAccessFile* input_file, SegmentFooterPB* footer)
     uint32_t actual_checksum = starrocks::crc32c::Value(footer_buf.data(), footer_buf.size());
     if (actual_checksum != expect_checksum) {
         return Status::Corruption(
-                strings::Substitute("Bad segment file $0: footer checksum not match, actual=$1 vs expect=$2", file_name,
+                absl::Substitute("Bad segment file $0: footer checksum not match, actual=$1 vs expect=$2", file_name,
                                     actual_checksum, expect_checksum));
     }
 
     // deserialize footer PB
     if (!footer->ParseFromString(footer_buf)) {
         return Status::Corruption(
-                strings::Substitute("Bad segment file $0: failed to parse SegmentFooterPB", file_name));
+                absl::Substitute("Bad segment file $0: failed to parse SegmentFooterPB", file_name));
     }
     return Status::OK();
 }
@@ -1025,7 +1025,7 @@ void check_meta_consistency(DataDir* data_dir) {
         for (const auto& rs : tablet_meta->all_rs_metas()) {
             for (int64_t seg_id = 0; seg_id < rs->num_segments(); ++seg_id) {
                 std::string seg_path =
-                        strings::Substitute("$0/$1_$2.dat", tablet_path, rs->rowset_id().to_string(), seg_id);
+                        absl::Substitute("$0/$1_$2.dat", tablet_path, rs->rowset_id().to_string(), seg_id);
                 auto res = starrocks::FileSystem::Default()->new_random_access_file(seg_path);
                 if (!res.ok()) {
                     continue;

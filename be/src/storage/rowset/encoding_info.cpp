@@ -38,7 +38,7 @@
 #include <type_traits>
 
 #include "common/config_rowset_fwd.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/olap_common.h"
 #include "storage/rowset/binary_dict_page.h"
 #include "storage/rowset/binary_plain_page.h"
@@ -336,7 +336,7 @@ Status EncodingInfoResolver::get(LogicalType data_type, EncodingTypePB encoding_
     auto key = std::make_pair(delegate_type(data_type), encoding_type);
     auto it = _encoding_map.find(key);
     if (it == std::end(_encoding_map)) {
-        return Status::InternalError(strings::Substitute("fail to find valid type encoding, type:$0, encoding:$1",
+        return Status::InternalError(absl::Substitute("fail to find valid type encoding, type:$0, encoding:$1",
                                                          data_type, encoding_type));
     }
     *out = it->second;

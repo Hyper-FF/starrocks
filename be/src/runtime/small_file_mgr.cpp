@@ -45,8 +45,8 @@
 #include "common/system/master_info.h"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "http/http_client.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"
@@ -89,20 +89,20 @@ Status SmallFileMgr::_load_local_files() {
 Status SmallFileMgr::_load_single_file(const std::string& path, const std::string& file_name) {
     // file name format should be like:
     // file_id.md5
-    std::vector<std::string> parts = strings::Split(file_name, ".");
+    std::vector<std::string> parts = absl::StrSplit(file_name, ".");
     if (parts.size() != 2) {
-        return Status::InternalError(strings::Substitute("Not a valid file name: $0", file_name));
+        return Status::InternalError(absl::Substitute("Not a valid file name: $0", file_name));
     }
     int64_t file_id = std::stol(parts[0]);
     const std::string& md5 = parts[1];
 
     if (_file_cache.find(file_id) != _file_cache.end()) {
-        return Status::InternalError(strings::Substitute("File with same id is already been loaded: $0", file_id));
+        return Status::InternalError(absl::Substitute("File with same id is already been loaded: $0", file_id));
     }
 
     ASSIGN_OR_RETURN(auto file_md5, fs::md5sum(path + "/" + file_name));
     if (file_md5 != md5) {
-        return Status::InternalError(strings::Substitute("Invalid md5 of file: $0", file_name));
+        return Status::InternalError(absl::Substitute("Invalid md5 of file: $0", file_name));
     }
 
     CacheEntry entry;

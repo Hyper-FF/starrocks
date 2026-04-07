@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "types/checker/type_checker_xml_loader.h"
+#include "absl/strings/substitute.h"
 
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -28,7 +29,7 @@ StatusOr<std::vector<TypeCheckerXMLLoader::TypeMapping>> TypeCheckerXMLLoader::l
     xmlDocPtr doc = xmlReadFile(xml_file_path.c_str(), nullptr, 0);
     if (doc == nullptr) {
         xmlCleanupParser();
-        return Status::NotFound(strings::Substitute("Failed to parse XML configuration file: $0", xml_file_path));
+        return Status::NotFound(absl::Substitute("Failed to parse XML configuration file: $0", xml_file_path));
     }
 
     // Get root element
@@ -63,7 +64,7 @@ StatusOr<std::vector<TypeCheckerXMLLoader::TypeMapping>> TypeCheckerXMLLoader::l
             xmlFreeDoc(doc);
             xmlCleanupParser();
             return Status::InvalidArgument(
-                    strings::Substitute("type-mapping for $0 missing display_name attribute", java_class));
+                    absl::Substitute("type-mapping for $0 missing display_name attribute", java_class));
         }
         std::string display_name = reinterpret_cast<const char*>(display_name_attr);
         xmlFree(display_name_attr);
@@ -106,7 +107,7 @@ StatusOr<std::vector<TypeCheckerXMLLoader::TypeMapping>> TypeCheckerXMLLoader::l
             if (allowed_type == TYPE_UNKNOWN || return_type == TYPE_UNKNOWN) {
                 xmlFreeDoc(doc);
                 xmlCleanupParser();
-                return Status::InvalidArgument(strings::Substitute(
+                return Status::InvalidArgument(absl::Substitute(
                         "Invalid logical type in type-rule: allowed=$0, return=$1", allowed_type_str, return_type_str));
             }
 
@@ -120,7 +121,7 @@ StatusOr<std::vector<TypeCheckerXMLLoader::TypeMapping>> TypeCheckerXMLLoader::l
             xmlFreeDoc(doc);
             xmlCleanupParser();
             return Status::InvalidArgument(
-                    strings::Substitute("type-mapping for $0 has no type-rule children", java_class));
+                    absl::Substitute("type-mapping for $0 has no type-rule children", java_class));
         }
 
         mappings.push_back(mapping);

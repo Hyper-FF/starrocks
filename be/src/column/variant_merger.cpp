@@ -24,7 +24,7 @@
 #include "column/variant_converter.h"
 #include "column/variant_encoder.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/datum.h"
 #include "types/logical_type.h"
 
@@ -132,7 +132,7 @@ static StatusOr<long double> datum_to_long_double(const Datum& datum, LogicalTyp
         return static_cast<long double>(datum.get_double());
     default:
         return Status::NotSupported(
-                strings::Substitute("unsupported source type for cast: $0", logical_type_to_string(src_type)));
+                absl::Substitute("unsupported source type for cast: $0", logical_type_to_string(src_type)));
     }
 }
 
@@ -175,7 +175,7 @@ static StatusOr<MutableColumnPtr> cast_numeric_column(const Column& src_col, Log
             break;
         default:
             return Status::NotSupported(
-                    strings::Substitute("unsupported target type for cast: $0", logical_type_to_string(dst_type)));
+                    absl::Substitute("unsupported target type for cast: $0", logical_type_to_string(dst_type)));
         }
         dst_col->append_datum(out);
     }
@@ -224,7 +224,7 @@ static StatusOr<int128_t> datum_to_decimalv3_int128(const Datum& datum, LogicalT
         return datum.get_int128();
     default:
         return Status::NotSupported(
-                strings::Substitute("unsupported decimal source type for cast: $0", logical_type_to_string(src_type)));
+                absl::Substitute("unsupported decimal source type for cast: $0", logical_type_to_string(src_type)));
     }
 }
 
@@ -345,7 +345,7 @@ StatusOr<MutableColumnPtr> VariantColumnMerger::cast_typed_column(const Column& 
         is_supported_numeric_for_variant_merge(dst_type_desc.type)) {
         return cast_numeric_column(src_col, src_type_desc.type, dst_type_desc.type);
     }
-    return Status::NotSupported(strings::Substitute("unsupported typed column cast for variant merge: $0 -> $1",
+    return Status::NotSupported(absl::Substitute("unsupported typed column cast for variant merge: $0 -> $1",
                                                     src_type_desc.debug_string(), dst_type_desc.debug_string()));
 }
 
@@ -355,7 +355,7 @@ static Status build_path_index(const VariantColumn& column, std::unordered_map<s
     for (size_t i = 0; i < column.shredded_paths().size(); ++i) {
         if (!out->emplace(column.shredded_paths()[i], i).second) {
             return Status::InvalidArgument(
-                    strings::Substitute("duplicate shredded path found during merge: $0", column.shredded_paths()[i]));
+                    absl::Substitute("duplicate shredded path found during merge: $0", column.shredded_paths()[i]));
         }
     }
     return Status::OK();
@@ -366,7 +366,7 @@ static Status check_duplicate_shredded_paths(const VariantColumn& column) {
     path_set.reserve(column.shredded_paths().size());
     for (const auto& path : column.shredded_paths()) {
         if (!path_set.emplace(path).second) {
-            return Status::InvalidArgument(strings::Substitute("duplicate shredded path found during merge: $0", path));
+            return Status::InvalidArgument(absl::Substitute("duplicate shredded path found during merge: $0", path));
         }
     }
     return Status::OK();
@@ -414,7 +414,7 @@ Status VariantColumnMerger::arbitrate_type_conflicts(VariantColumn* dst, Variant
                 auto casted_dst_st = VariantColumnMerger::cast_typed_column(
                         *dst_typed_columns[dst_index], dst_types[dst_index], TypeDescriptor(TYPE_VARIANT));
                 if (!casted_dst_st.ok()) {
-                    return Status::NotSupported(strings::Substitute(
+                    return Status::NotSupported(absl::Substitute(
                             "failed to hoist dst typed column to VARIANT on path=$0, src_type=$1, dst_type=$2, err=$3",
                             path, logical_type_to_string(src_type), logical_type_to_string(dst_type),
                             casted_dst_st.status().to_string()));
@@ -425,7 +425,7 @@ Status VariantColumnMerger::arbitrate_type_conflicts(VariantColumn* dst, Variant
                 auto casted_src_st = VariantColumnMerger::cast_typed_column(
                         *src_typed_columns[src_index], src_types[src_index], TypeDescriptor(TYPE_VARIANT));
                 if (!casted_src_st.ok()) {
-                    return Status::NotSupported(strings::Substitute(
+                    return Status::NotSupported(absl::Substitute(
                             "failed to hoist src typed column to VARIANT on path=$0, src_type=$1, dst_type=$2, err=$3",
                             path, logical_type_to_string(src_type), logical_type_to_string(dst_type),
                             casted_src_st.status().to_string()));
@@ -451,7 +451,7 @@ Status VariantColumnMerger::arbitrate_type_conflicts(VariantColumn* dst, Variant
                 auto casted_dst_st = VariantColumnMerger::cast_typed_column(*dst_typed_columns[dst_index],
                                                                             dst_types[dst_index], common_type_desc);
                 if (!casted_dst_st.ok()) {
-                    return Status::NotSupported(strings::Substitute(
+                    return Status::NotSupported(absl::Substitute(
                             "failed to widen dst decimal typed column on path=$0 from $1 to $2, err=$3", path,
                             dst_types[dst_index].debug_string(), common_type_desc.debug_string(),
                             casted_dst_st.status().to_string()));
@@ -462,7 +462,7 @@ Status VariantColumnMerger::arbitrate_type_conflicts(VariantColumn* dst, Variant
                 auto casted_src_st = VariantColumnMerger::cast_typed_column(*src_typed_columns[src_index],
                                                                             src_types[src_index], common_type_desc);
                 if (!casted_src_st.ok()) {
-                    return Status::NotSupported(strings::Substitute(
+                    return Status::NotSupported(absl::Substitute(
                             "failed to widen src decimal typed column on path=$0 from $1 to $2, err=$3", path,
                             src_types[src_index].debug_string(), common_type_desc.debug_string(),
                             casted_src_st.status().to_string()));
@@ -488,7 +488,7 @@ Status VariantColumnMerger::arbitrate_type_conflicts(VariantColumn* dst, Variant
                     *dst_typed_columns[dst_index], dst_types[dst_index], TypeDescriptor(common_type));
             if (!casted_dst_st.ok()) {
                 return Status::NotSupported(
-                        strings::Substitute("failed to widen dst typed column on path=$0 from $1 to $2, err=$3", path,
+                        absl::Substitute("failed to widen dst typed column on path=$0 from $1 to $2, err=$3", path,
                                             logical_type_to_string(dst_type), logical_type_to_string(common_type),
                                             casted_dst_st.status().to_string()));
             }
@@ -499,7 +499,7 @@ Status VariantColumnMerger::arbitrate_type_conflicts(VariantColumn* dst, Variant
                     *src_typed_columns[src_index], src_types[src_index], TypeDescriptor(common_type));
             if (!casted_src_st.ok()) {
                 return Status::NotSupported(
-                        strings::Substitute("failed to widen src typed column on path=$0 from $1 to $2, err=$3", path,
+                        absl::Substitute("failed to widen src typed column on path=$0 from $1 to $2, err=$3", path,
                                             logical_type_to_string(src_type), logical_type_to_string(common_type),
                                             casted_src_st.status().to_string()));
             }

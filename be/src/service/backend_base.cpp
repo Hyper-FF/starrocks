@@ -47,7 +47,7 @@
 #include "common/logging.h"
 #include "common/status.h"
 #include "common/util/thrift_server.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/data_stream_mgr.h"
 #include "runtime/exec_env.h"
 #include "runtime/external_scan_context_mgr.h"
@@ -195,7 +195,7 @@ void BackendServiceBase::get_next(TScanBatchResult& result_, const TScanNextBatc
         LOG(ERROR) << "getNext error: context offset [" << context->offset << " ]"
                    << " ,client offset [ " << offset << " ]";
         // invalid offset
-        std::string error_msg = strings::Substitute("context_id=$0, send_offset=$1, context_offset=$2", context_id,
+        std::string error_msg = absl::Substitute("context_id=$0, send_offset=$1, context_offset=$2", context_id,
                                                     offset, context->offset);
         Status st = Status::NotFound(error_msg);
         st.to_thrift(&t_status);

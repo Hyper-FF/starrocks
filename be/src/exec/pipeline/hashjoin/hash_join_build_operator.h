@@ -15,6 +15,7 @@
 #pragma once
 
 #include <exprs/predicate.h>
+#include "absl/strings/substitute.h"
 
 #include <atomic>
 
@@ -55,7 +56,7 @@ public:
     StatusOr<ChunkPtr> pull_chunk(RuntimeState* state) override;
 
     std::string get_name() const override {
-        return strings::Substitute("$0(HashJoiner=$1)", Operator::get_name(), _join_builder.get());
+        return absl::Substitute("$0(HashJoiner=$1)", Operator::get_name(), _join_builder.get());
     }
 
     size_t output_amplification_factor() const override;

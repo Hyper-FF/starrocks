@@ -47,7 +47,7 @@
 #include "fmt/compile.h"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 #include "util/download_util.h"
 
 namespace starrocks {
@@ -174,7 +174,7 @@ Status UserFunctionCache::_load_entry_from_lib(const std::string& dir, const std
     if (type == UDF_TYPE_UNKNOWN) {
         return Status::InternalError(fmt::format("unknown udf type:{} for file:{}", type, file));
     }
-    std::vector<std::string> split_parts = strings::Split(file, ".");
+    std::vector<std::string> split_parts = absl::StrSplit(file, ".");
     if (split_parts.size() != 3) {
         return Status::InternalError("user function's name should be function_id.checksum.type");
     }

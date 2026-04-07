@@ -18,7 +18,7 @@
 #include "column/array_column.h"
 #include "column/nullable_column.h"
 #include "formats/json/binary_column.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -169,13 +169,13 @@ static Status add_nullable_column(Column* column, const TypeDescriptor& type_des
             auto* elems_column = array_column->elements_column_raw_ptr();
             size_t n = 0;
             if (avro_value_get_size(&value, &n) != 0) {
-                auto err_msg = strings::Substitute("Failed to get array size, column=$0", name);
+                auto err_msg = absl::Substitute("Failed to get array size, column=$0", name);
                 return Status::InvalidArgument(err_msg);
             }
             for (int i = 0; i < n; i++) {
                 avro_value_t element;
                 if (avro_value_get_by_index(&value, i, &element, nullptr) != 0) {
-                    auto err_msg = strings::Substitute("Failed to get array element, column=$0", name);
+                    auto err_msg = absl::Substitute("Failed to get array element, column=$0", name);
                     return Status::InvalidArgument(err_msg);
                 }
                 RETURN_IF_ERROR(add_nullable_column(elems_column, type_desc.children[0], name, element));
@@ -188,7 +188,7 @@ static Status add_nullable_column(Column* column, const TypeDescriptor& type_des
 
             return Status::OK();
         } else {
-            auto err_msg = strings::Substitute("Failed to parse value as array, column=$0", name);
+            auto err_msg = absl::Substitute("Failed to parse value as array, column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
     }
@@ -226,13 +226,13 @@ static Status add_adpative_nullable_column(Column* column, const TypeDescriptor&
             auto* elems_column = array_column->elements_column_raw_ptr();
             size_t n = 0;
             if (avro_value_get_size(&value, &n) != 0) {
-                auto err_msg = strings::Substitute("Failed to get array size, column=$0", name);
+                auto err_msg = absl::Substitute("Failed to get array size, column=$0", name);
                 return Status::InvalidArgument(err_msg);
             }
             for (int i = 0; i < n; i++) {
                 avro_value_t element;
                 if (avro_value_get_by_index(&value, i, &element, nullptr) != 0) {
-                    auto err_msg = strings::Substitute("Failed to get array element, column=$0", name);
+                    auto err_msg = absl::Substitute("Failed to get array element, column=$0", name);
                     return Status::InvalidArgument(err_msg);
                 }
                 RETURN_IF_ERROR(add_nullable_column(elems_column, type_desc.children[0], name, element));
@@ -246,7 +246,7 @@ static Status add_adpative_nullable_column(Column* column, const TypeDescriptor&
 
             return Status::OK();
         } else {
-            auto err_msg = strings::Substitute("Failed to parse value as array, column=$0", name);
+            auto err_msg = absl::Substitute("Failed to parse value as array, column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
     }

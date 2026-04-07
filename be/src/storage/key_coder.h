@@ -39,7 +39,7 @@
 
 #include "base/bit/bit_util.h"
 #include "common/status.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/mem_pool.h"
 #include "storage/types.h"
 #include "types/datum.h"
@@ -47,7 +47,7 @@
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 using FullEncodeAscendingFunc = void (*)(const void* value, std::string* buf);
 using EncodeAscendingFunc = void (*)(const void* value, size_t index_size, std::string* buf);

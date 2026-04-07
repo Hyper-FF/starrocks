@@ -33,7 +33,7 @@
 #include "exec/tablet_info.h"
 #include "gen_cpp/internal_service.pb.h"
 #include "gutil/ref_counted.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/closure_guard.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
@@ -616,7 +616,7 @@ void LocalTabletsChannel::_abort_replica_tablets(
         auto& endpoint = _node_id_to_endpoint[node_id];
         FAIL_POINT_TRIGGER_EXECUTE(tablets_channel_abort_replica_failure, {
             std::string tablets_str;
-            JoinInts(tablet_ids, ",", &tablets_str);
+            absl::StrJoin(tablet_ids, ",", &tablets_str);
             LOG(INFO) << "tablets_channel_abort_replica_failure, load_id: " << print_id(request.id())
                       << ", txn_id: " << _txn_id << ", node: " << endpoint.host() << ":" << endpoint.port()
                       << ", abort_reason: " << abort_reason << ", tablet_id: " << tablets_str;
@@ -641,7 +641,7 @@ void LocalTabletsChannel::_abort_replica_tablets(
         cancel_request.set_sink_id(request.sink_id());
 
         string node_abort_tablet_id_list_str;
-        JoinInts(tablet_ids, ",", &node_abort_tablet_id_list_str);
+        absl::StrJoin(tablet_ids, ",", &node_abort_tablet_id_list_str);
 
         struct Context {
             PUniqueId load_id;
@@ -710,7 +710,7 @@ void LocalTabletsChannel::_commit_tablets(const PTabletWriterAddChunkRequest& re
         }
     }
     string commit_tablet_id_list_str;
-    JoinInts(commit_tablet_ids, ",", &commit_tablet_id_list_str);
+    absl::StrJoin(commit_tablet_ids, ",", &commit_tablet_id_list_str);
     LOG(INFO) << "LocalTabletsChannel txn_id: " << _txn_id << " load_id: " << print_id(request.id())
               << " sink_id: " << request.sink_id() << " commit " << commit_tablet_ids.size()
               << " tablets: " << commit_tablet_id_list_str;
@@ -836,7 +836,7 @@ void LocalTabletsChannel::abort() {
         tablet_ids.emplace_back(it.first);
     }
     string tablet_id_list_str;
-    JoinInts(tablet_ids, ",", &tablet_id_list_str);
+    absl::StrJoin(tablet_ids, ",", &tablet_id_list_str);
     LOG(INFO) << "cancel LocalTabletsChannel txn_id: " << _txn_id << " load_id: " << print_id(_key.id)
               << " index_id: " << _key.index_id << " #tablet:" << _delta_writers.size()
               << " tablet_ids:" << tablet_id_list_str;
@@ -856,7 +856,7 @@ void LocalTabletsChannel::abort(const std::vector<int64_t>& tablet_ids, const st
         }
     }
     string tablet_id_list_str;
-    JoinInts(tablet_ids, ",", &tablet_id_list_str);
+    absl::StrJoin(tablet_ids, ",", &tablet_id_list_str);
     LOG(INFO) << "cancel LocalTabletsChannel txn_id: " << _txn_id << " load_id: " << print_id(_key.id)
               << " index_id: " << _key.index_id << " tablet_ids:" << tablet_id_list_str << ", reason: " << reason;
 }

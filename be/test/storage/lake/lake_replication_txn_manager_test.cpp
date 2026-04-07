@@ -47,7 +47,7 @@
 #include "fs/fs_starlet.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
 #include "service/staros_worker.h"

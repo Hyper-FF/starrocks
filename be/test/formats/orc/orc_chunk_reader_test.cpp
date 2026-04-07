@@ -30,7 +30,7 @@
 #include "formats/orc/memory_stream/MemoryInputStream.hh"
 #include "formats/orc/memory_stream/MemoryOutputStream.hh"
 #include "gen_cpp/Exprs_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
@@ -516,7 +516,7 @@ Buffer<DecimalV2Value> convert_orc_to_starrocks_decimalv2(RuntimeState* state, O
     std::filesystem::remove(filename);
     ORC_UNIQUE_PTR<orc::OutputStream> outStream = orc::writeLocalFile(filename);
     ORC_UNIQUE_PTR<orc::Type> schema(
-            orc::Type::buildTypeFromString(strings::Substitute("struct<c0:decimal($0,$1)>", ORC_PRECISION, ORC_SCALE)));
+            orc::Type::buildTypeFromString(absl::Substitute("struct<c0:decimal($0,$1)>", ORC_PRECISION, ORC_SCALE)));
     ORC_UNIQUE_PTR<orc::Writer> writer = createWriter(*schema, outStream.get(), orc::WriterOptions{});
 
     CHECK_LE(values.size(), 1024);
