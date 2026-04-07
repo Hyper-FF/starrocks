@@ -2,6 +2,7 @@
 // Self-contained version moved from base/gutil/bits.h.
 #pragma once
 #include <cstdint>
+
 #include "base/gutil/integral_types.h"
 
 class Bits {
@@ -56,9 +57,13 @@ public:
     static int Log2Floor64_Portable(uint64 n);
     static int Log2FloorNonZero64_Portable(uint64 n);
     static int FindLSBSetNonZero64_Portable(uint64 n);
-    template <class T> static bool BytesContainByte(T bytes, uint8 c);
-    template <class T> static bool BytesContainByteLessThan(T bytes, uint8 c);
-    template <class T> static bool BytesAllInRange(T bytes, uint8 lo, uint8 hi);
+    template <class T>
+    static bool BytesContainByte(T bytes, uint8 c);
+    template <class T>
+    static bool BytesContainByteLessThan(T bytes, uint8 c);
+    template <class T>
+    static bool BytesAllInRange(T bytes, uint8 lo, uint8 hi);
+
 private:
     static const char num_bits[];
     static const unsigned char bit_reverse_table[];
@@ -74,19 +79,33 @@ struct BitPattern {
 };
 
 #if defined(__GNUC__) && ((__GNUC__ == 3 && __GNUC_MINOR__ >= 4) || __GNUC__ >= 4)
-inline int Bits::Log2Floor(uint32 n) { return n == 0 ? -1 : 31 ^ __builtin_clz(n); }
-inline int Bits::Log2FloorNonZero(uint32 n) { return 31 ^ __builtin_clz(n); }
-inline int Bits::FindLSBSetNonZero(uint32 n) { return __builtin_ctz(n); }
-inline int Bits::Log2Floor64(uint64 n) { return n == 0 ? -1 : 63 ^ __builtin_clzll(n); }
-inline int Bits::Log2FloorNonZero64(uint64 n) { return 63 ^ __builtin_clzll(n); }
-inline int Bits::FindLSBSetNonZero64(uint64 n) { return __builtin_ctzll(n); }
+inline int Bits::Log2Floor(uint32 n) {
+    return n == 0 ? -1 : 31 ^ __builtin_clz(n);
+}
+inline int Bits::Log2FloorNonZero(uint32 n) {
+    return 31 ^ __builtin_clz(n);
+}
+inline int Bits::FindLSBSetNonZero(uint32 n) {
+    return __builtin_ctz(n);
+}
+inline int Bits::Log2Floor64(uint64 n) {
+    return n == 0 ? -1 : 63 ^ __builtin_clzll(n);
+}
+inline int Bits::Log2FloorNonZero64(uint64 n) {
+    return 63 ^ __builtin_clzll(n);
+}
+inline int Bits::FindLSBSetNonZero64(uint64 n) {
+    return __builtin_ctzll(n);
+}
 #elif defined(_MSC_VER)
 #include "base/gutil/bits-internal-windows.h"
 #else
 #include "base/gutil/bits-internal-unknown.h"
 #endif
 
-inline int Bits::CountOnesInByte(unsigned char n) { return num_bits[n]; }
+inline int Bits::CountOnesInByte(unsigned char n) {
+    return num_bits[n];
+}
 inline uint8 Bits::ReverseBits8(unsigned char n) {
     n = ((n >> 1) & 0x55) | ((n & 0x55) << 1);
     n = ((n >> 2) & 0x33) | ((n & 0x33) << 2);
@@ -111,7 +130,9 @@ inline uint64 Bits::ReverseBits64(uint64 n) {
     return ReverseBits32(n >> 32) | (static_cast<uint64>(ReverseBits32(n & 0xffffffff)) << 32);
 #endif
 }
-inline int Bits::Log2FloorNonZero_Portable(uint32 n) { return Log2Floor(n); }
+inline int Bits::Log2FloorNonZero_Portable(uint32 n) {
+    return Log2Floor(n);
+}
 inline int Bits::Log2Floor64_Portable(uint64 n) {
     const uint32 topbits = static_cast<uint32>(n >> 32);
     if (topbits == 0) return Log2Floor(static_cast<uint32>(n));
@@ -129,7 +150,8 @@ inline int Bits::FindLSBSetNonZero64_Portable(uint64 n) {
 }
 template <class T>
 inline bool Bits::BytesContainByteLessThan(T bytes, uint8 c) {
-    T l = BitPattern<T>::l; T h = BitPattern<T>::h;
+    T l = BitPattern<T>::l;
+    T h = BitPattern<T>::h;
     return c <= 0x80 ? ((h & (bytes - l * c) & ~bytes) != 0) : ((((bytes - l * c) | (bytes ^ h)) & h) != 0);
 }
 template <class T>
@@ -138,12 +160,25 @@ inline bool Bits::BytesContainByte(T bytes, uint8 c) {
 }
 template <class T>
 inline bool Bits::BytesAllInRange(T bytes, uint8 lo, uint8 hi) {
-    T l = BitPattern<T>::l; T h = BitPattern<T>::h;
+    T l = BitPattern<T>::l;
+    T h = BitPattern<T>::h;
     if (lo > hi) return false;
-    if (hi - lo < 128) { T x = bytes - l * lo; T y = bytes + l * (127 - hi); return ((x | y) & h) == 0; }
+    if (hi - lo < 128) {
+        T x = bytes - l * lo;
+        T y = bytes + l * (127 - hi);
+        return ((x | y) & h) == 0;
+    }
     return !Bits::BytesContainByteLessThan(bytes + (255 - hi) * l, lo + (255 - hi));
 }
-inline int Bits::CountTrailingZerosNonZero32(uint32_t n) { return Bits::FindLSBSetNonZero(n); }
-inline int Bits::CountTrailingZeros32(uint32_t n) { return n == 0 ? 32 : Bits::CountTrailingZerosNonZero32(n); }
-inline int Bits::CountTrailingZerosNonZero64(uint64_t n) { return Bits::FindLSBSetNonZero64(n); }
-inline int Bits::CountTrailingZeros64(uint64_t n) { return n == 0 ? 64 : Bits::CountTrailingZerosNonZero64(n); }
+inline int Bits::CountTrailingZerosNonZero32(uint32_t n) {
+    return Bits::FindLSBSetNonZero(n);
+}
+inline int Bits::CountTrailingZeros32(uint32_t n) {
+    return n == 0 ? 32 : Bits::CountTrailingZerosNonZero32(n);
+}
+inline int Bits::CountTrailingZerosNonZero64(uint64_t n) {
+    return Bits::FindLSBSetNonZero64(n);
+}
+inline int Bits::CountTrailingZeros64(uint64_t n) {
+    return n == 0 ? 64 : Bits::CountTrailingZerosNonZero64(n);
+}
