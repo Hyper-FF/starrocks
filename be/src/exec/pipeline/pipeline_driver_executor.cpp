@@ -16,10 +16,10 @@
 
 #include <memory>
 
-#include "agent/master_info.h"
 #include "base/failpoint/fail_point.h"
 #include "base/utility/defer_op.h"
 #include "common/config_exec_flow_fwd.h"
+#include "common/system/master_info.h"
 #include "exec/pipeline/pipeline_metrics.h"
 #include "exec/pipeline/stream_pipeline_driver.h"
 #include "exec/workgroup/work_group.h"
@@ -83,7 +83,9 @@ void GlobalDriverExecutor::_finalize_driver(DriverRawPtr driver, RuntimeState* r
 }
 
 void GlobalDriverExecutor::_worker_thread() {
-    auto current_thread = Thread::current_thread();
+    // This executor is dedicated to query pipeline drivers.
+    SET_MODULE_TYPE(ThreadModuleType::QUERY);
+    auto* current_thread = Thread::current_thread();
     const int worker_id = _next_id++;
     std::queue<DriverRawPtr> local_driver_queue;
     while (true) {
