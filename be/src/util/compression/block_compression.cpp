@@ -41,9 +41,9 @@
 #endif
 #include <zlib.h>
 
+#include "absl/base/internal/endian.h"
 #include "absl/strings/substitute.h"
 #include "base/coding.h"
-#include "absl/base/internal/endian.h"
 #include "base/string/faststring.h"
 #include "util/compression/compression_context_pool_singletons.h"
 #include "util/compression/compression_headers.h"

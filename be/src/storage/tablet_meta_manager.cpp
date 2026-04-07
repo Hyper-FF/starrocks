@@ -649,7 +649,8 @@ static bool decode_meta_log_key(std::string_view key, TTabletId* id, uint64_t* l
         return false;
     }
     *id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length()));
-    *logid = absl::big_endian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length() + sizeof(uint64_t)));
+    *logid = absl::big_endian::ToHost64(
+            UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length() + sizeof(uint64_t)));
     return true;
 }
 
@@ -667,8 +668,8 @@ static string encode_meta_rowset_key(TTabletId id, uint32_t rowsetid) {
         return false;
     }
     *id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_ROWSET_PREFIX.length()));
-    *rowsetid =
-            absl::big_endian::ToHost32(UNALIGNED_LOAD32(key.data() + TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t)));
+    *rowsetid = absl::big_endian::ToHost32(
+            UNALIGNED_LOAD32(key.data() + TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t)));
     return true;
 }
 
