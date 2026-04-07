@@ -34,7 +34,7 @@
 
 #include "base/uid_util.h"
 
-#include "base/endian.h"
+#include "absl/base/internal/endian.h"
 #include "base/uuid/uuid_generator.h"
 
 namespace starrocks {
@@ -46,8 +46,8 @@ std::ostream& operator<<(std::ostream& os, const UniqueId& uid) {
 
 std::string print_id(const UniqueId& id) {
     boost::uuids::uuid uuid{};
-    int64_t hi = gbswap_64(id.hi);
-    int64_t lo = gbswap_64(id.lo);
+    int64_t hi = absl::gbswap_64(id.hi);
+    int64_t lo = absl::gbswap_64(id.lo);
     memcpy(uuid.data + 0, &hi, 8);
     memcpy(uuid.data + 8, &lo, 8);
     return boost::uuids::to_string(uuid);
@@ -55,8 +55,8 @@ std::string print_id(const UniqueId& id) {
 
 std::string print_id(const TUniqueId& id) {
     boost::uuids::uuid uuid{};
-    int64_t hi = gbswap_64(id.hi);
-    int64_t lo = gbswap_64(id.lo);
+    int64_t hi = absl::gbswap_64(id.hi);
+    int64_t lo = absl::gbswap_64(id.lo);
     memcpy(uuid.data + 0, &hi, 8);
     memcpy(uuid.data + 8, &lo, 8);
     return boost::uuids::to_string(uuid);
@@ -64,8 +64,8 @@ std::string print_id(const TUniqueId& id) {
 
 std::string print_id(const PUniqueId& id) {
     boost::uuids::uuid uuid{};
-    int64_t lo = gbswap_64(id.lo());
-    int64_t hi = gbswap_64(id.hi());
+    int64_t lo = absl::gbswap_64(id.lo());
+    int64_t hi = absl::gbswap_64(id.hi());
     memcpy(uuid.data + 0, &hi, 8);
     memcpy(uuid.data + 8, &lo, 8);
     return boost::uuids::to_string(uuid);

@@ -43,7 +43,7 @@
 #include <memory>
 #include <mutex>
 
-#include "base/endian.h"
+#include "absl/base/internal/endian.h"
 #include "base/process/lite_exec.h"
 #include "base/stringprintf.h"
 #include "base/sysinfo.h"
@@ -85,8 +85,8 @@ static int print_unique_id(char* buffer, const TUniqueId& uid) {
         int64_t hi;
         int64_t lo;
     } data;
-    data.hi = gbswap_64(uid.hi);
-    data.lo = gbswap_64(uid.lo);
+    data.hi = absl::gbswap_64(uid.hi);
+    data.lo = absl::gbswap_64(uid.lo);
     to_hex(data.hi, buff + 16);
     to_hex(data.lo, buff);
 

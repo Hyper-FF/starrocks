@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "base/endian.h"
 #include "base/stringprintf.h"
 #include "column/field.h"
 #include "column/vectorized_fwd.h"

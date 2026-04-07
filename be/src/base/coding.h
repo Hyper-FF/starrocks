@@ -56,7 +56,7 @@ inline void encode_fixed64_le(uint8_t* buf, uint64_t val) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     memcpy(buf, &val, sizeof(val));
 #else
-    uint64_t res = gbswap_64(val);
+    uint64_t res = absl::gbswap_64(val);
     memcpy(buf, &res, sizeof(res));
 #endif
 }
@@ -110,7 +110,7 @@ inline uint64_t decode_fixed64_le(const uint8_t* buf) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     return res;
 #else
-    return gbswap_64(res);
+    return absl::gbswap_64(res);
 #endif
 }
 

@@ -40,7 +40,7 @@
 #include <numeric>
 #include <type_traits>
 
-#include "base/endian.h"
+#include "absl/base/internal/endian.h"
 #include "base/stringprintf.h"
 #include "column/binary_column.h"
 #include "column/chunk.h"

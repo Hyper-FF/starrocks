@@ -31,7 +31,6 @@
 #pragma once
 
 #include "absl/strings/substitute.h"
-#include "base/endian.h"
 #include "base/string/faststring.h"
 #include "common/status.h"
 #include "common/statusor.h"

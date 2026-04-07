@@ -45,6 +45,7 @@
 #include <set>
 #include <string>
 
+#include "absl/base/internal/endian.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "base/coding.h"
@@ -547,7 +548,7 @@ void delete_persistent_index_meta(DataDir* data_dir) {
         std::cout << "delete table persistent index meta successfully" << std::endl;
     } else {
         std::string key = "tpi_";
-        starrocks::put_fixed64_le(&key, BigEndian::FromHost64(FLAGS_tablet_id));
+        starrocks::put_fixed64_le(&key, absl::big_endian::FromHost64(FLAGS_tablet_id));
         Status st = data_dir->get_meta()->remove(starrocks::META_COLUMN_FAMILY_INDEX, key);
         if (st.ok()) {
             std::cout << "delete tablet persistent index meta success, tablet_id: " << FLAGS_tablet_id << std::endl;

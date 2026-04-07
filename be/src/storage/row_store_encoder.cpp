@@ -14,7 +14,6 @@
 
 #include "storage/row_store_encoder.h"
 
-#include "base/endian.h"
 #include "column/binary_column.h"
 #include "column/chunk.h"
 #include "column/fixed_length_column.h"

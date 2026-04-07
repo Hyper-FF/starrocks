@@ -19,7 +19,6 @@
 #include <numeric>
 
 #include "absl/strings/substitute.h"
-#include "base/endian.h"
 #include "base/failpoint/fail_point.h"
 #include "base/time/time.h"
 #include "base/utility/pretty_printer.h"
