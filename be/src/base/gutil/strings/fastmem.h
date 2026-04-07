@@ -29,9 +29,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "base/gutil/compiler_util.h"
-#include "base/gutil/integral_types.h"
-#include "base/gutil/port.h"
+#include "base/compiler_util.h"
 
 namespace strings {
 
@@ -47,12 +45,12 @@ inline bool memeq(const void* a_v, const void* b_v, size_t n) {
     const uint8_t* b = reinterpret_cast<const uint8_t*>(b_v);
 
     size_t n_rounded_down = n & ~static_cast<size_t>(7);
-    if (PREDICT_FALSE(n_rounded_down == 0)) { // n <= 7
+    if (UNLIKELY(n_rounded_down == 0)) { // n <= 7
         return memcmp(a, b, n) == 0;
     }
     // n >= 8
-    uint64 u = UNALIGNED_LOAD64(a) ^ UNALIGNED_LOAD64(b);
-    uint64 v = UNALIGNED_LOAD64(a + n - 8) ^ UNALIGNED_LOAD64(b + n - 8);
+    uint64_t u = UNALIGNED_LOAD64(a) ^ UNALIGNED_LOAD64(b);
+    uint64_t v = UNALIGNED_LOAD64(a + n - 8) ^ UNALIGNED_LOAD64(b + n - 8);
     if ((u | v) != 0) { // The first or last 8 bytes differ.
         return false;
     }
@@ -66,8 +64,8 @@ inline bool memeq(const void* a_v, const void* b_v, size_t n) {
         return memcmp(a, b, n) == 0;
     }
     for (; n >= 16; n -= 16) {
-        uint64 x = UNALIGNED_LOAD64(a) ^ UNALIGNED_LOAD64(b);
-        uint64 y = UNALIGNED_LOAD64(a + 8) ^ UNALIGNED_LOAD64(b + 8);
+        uint64_t x = UNALIGNED_LOAD64(a) ^ UNALIGNED_LOAD64(b);
+        uint64_t y = UNALIGNED_LOAD64(a + 8) ^ UNALIGNED_LOAD64(b + 8);
         if ((x | y) != 0) {
             return false;
         }
@@ -86,18 +84,18 @@ inline int fastmemcmp_inlined(const void* a_void, const void* b_void, size_t n) 
         return memcmp(a, b, n);
     }
     const void* a_limit = a + n;
-    const size_t sizeof_uint64 = sizeof(uint64); // NOLINT(runtime/sizeof)
+    const size_t sizeof_uint64 = sizeof(uint64_t); // NOLINT(runtime/sizeof)
     while (a + sizeof_uint64 <= a_limit && UNALIGNED_LOAD64(a) == UNALIGNED_LOAD64(b)) {
         a += sizeof_uint64;
         b += sizeof_uint64;
     }
-    const size_t sizeof_uint32 = sizeof(uint32); // NOLINT(runtime/sizeof)
+    const size_t sizeof_uint32 = sizeof(uint32_t); // NOLINT(runtime/sizeof)
     if (a + sizeof_uint32 <= a_limit && UNALIGNED_LOAD32(a) == UNALIGNED_LOAD32(b)) {
         a += sizeof_uint32;
         b += sizeof_uint32;
     }
     while (a < a_limit) {
-        int d = static_cast<uint32>(*a++) - static_cast<uint32>(*b++);
+        int d = static_cast<uint32_t>(*a++) - static_cast<uint32_t>(*b++);
         if (d) return d;
     }
     return 0;
