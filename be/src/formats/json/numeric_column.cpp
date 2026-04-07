@@ -16,10 +16,10 @@
 
 #include "absl/strings/substitute.h"
 #include "base/string/string_parser.hpp"
-#include "fmt/format.h"
 #include "base/types/numeric_types.h"
 #include "column/fixed_length_column.h"
 #include "common/simdjson_util.h"
+#include "fmt/format.h"
 
 namespace starrocks {
 
