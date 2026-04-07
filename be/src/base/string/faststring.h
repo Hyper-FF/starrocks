@@ -39,7 +39,7 @@
 #include <string>
 
 #include "base/compiler_util.h"
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "base/string/posion.h"
 #include "base/string/slice.h"
 

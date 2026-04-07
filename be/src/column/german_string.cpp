@@ -15,7 +15,7 @@
 #include "column/german_string.h"
 
 #include "base/container/raw_container.h"
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "base/hash/hash_util.hpp"
 #include "base/string/slice.h"
 

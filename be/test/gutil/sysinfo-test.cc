@@ -32,7 +32,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "base/gutil/sysinfo.h"
+#include "gutil/sysinfo.h"
 
 #include <gtest/gtest.h>
 

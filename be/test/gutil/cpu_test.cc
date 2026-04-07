@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "base/gutil/cpu.h"
+#include "gutil/cpu.h"
 
 #include <gtest/gtest.h>
 

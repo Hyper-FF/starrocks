@@ -82,7 +82,7 @@ Run `python3 build-support/check_be_module_boundaries.py --mode full` to validat
 ### Base (`base`)
 Lowest-level BE primitives. Keep it free of higher-level StarRocks module dependencies.
 - Targets: `Base`
-- Allowed internal include prefixes: `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `Gutil`
 - Core tests: `base_test`
 - Remediation: Move shared helpers into Base/Gutil or introduce a lower-level interface instead of pulling in higher-level BE modules.
@@ -90,13 +90,13 @@ Lowest-level BE primitives. Keep it free of higher-level StarRocks module depend
 ### Gutil (`gutil`)
 Standalone utility substrate. Do not couple it to BE modules.
 - Targets: `Gutil`
-- Allowed internal include prefixes: `base/gutil/`
+- Allowed internal include prefixes: `gutil/`
 - Remediation: Keep Gutil independent; move BE-specific logic out instead of importing BE modules.
 
 ### Common (`common`)
 Core shared infrastructure above Base/Gutil only. Higher-level BE modules must not leak back into it.
 - Targets: `Common`
-- Allowed internal include prefixes: `common/`, `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `common/`, `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `Base`, `Gutil`
 - Core tests: `common_test`
 - Remediation: Move the dependency upward or add a lower-level abstraction; Common may only depend on Base, Gutil, and generated headers.
@@ -104,7 +104,7 @@ Core shared infrastructure above Base/Gutil only. Higher-level BE modules must n
 ### IOCore (`iocore`)
 Minimal IO foundation used by upper IO/FS layers.
 - Targets: `IOCore`
-- Allowed internal include prefixes: `io/core/`, `common/`, `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `io/core/`, `common/`, `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `Common`, `Base`, `Gutil`
 - Core tests: `io_test`
 - Remediation: Keep IOCore free of higher IO/FS/runtime/storage code; lift the dependency into IO or FileSystem instead.
@@ -112,7 +112,7 @@ Minimal IO foundation used by upper IO/FS layers.
 ### FSCore (`fscore`)
 Minimal filesystem core on top of IOCore.
 - Targets: `FSCore`
-- Allowed internal include prefixes: `fs/`, `io/core/`, `common/`, `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `fs/`, `io/core/`, `common/`, `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `IOCore`, `Common`, `Base`, `Gutil`
 - Core tests: `fs_core_test`
 - Remediation: Keep FSCore limited to IOCore plus core FS abstractions; move backend-specific behavior into FileSystem.
@@ -120,7 +120,7 @@ Minimal filesystem core on top of IOCore.
 ### TypesCore (`typecore`)
 Core type system without runtime/storage/exec coupling.
 - Targets: `TypesCore`
-- Allowed internal include prefixes: `types/`, `common/`, `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `types/`, `common/`, `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `Common`, `Base`, `Gutil`
 - Core tests: `types_test`
 - Remediation: Keep TypesCore independent of runtime/util/storage/exec layers; move integration code into higher layers.
@@ -128,7 +128,7 @@ Core type system without runtime/storage/exec coupling.
 ### ColumnCore (`columncore`)
 Core column representations that must stay independent of ChunkCore and higher layers.
 - Targets: `ColumnCore`
-- Allowed internal include prefixes: `column/`, `types/`, `common/`, `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `column/`, `types/`, `common/`, `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `TypesCore`, `Common`, `Base`, `Gutil`, `StarRocksGen`
 - Core tests: `column_test`
 - Remediation: Keep ColumnCore free of ChunkCore/Runtime/Exec/Storage coupling; move integration code upward or introduce an interface.
@@ -136,7 +136,7 @@ Core column representations that must stay independent of ChunkCore and higher l
 ### RuntimeCore (`runtimecore`)
 Core runtime building blocks without full Runtime/Exec/Storage coupling.
 - Targets: `RuntimeCore`
-- Allowed internal include prefixes: `runtime/`, `column/`, `types/`, `common/`, `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `runtime/`, `column/`, `types/`, `common/`, `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `ChunkCore`, `ColumnCore`, `TypesCore`, `Common`, `Base`, `Gutil`, `StarRocksGen`
 - Core tests: `runtime_core_test`
 - Remediation: Keep RuntimeCore restricted to core runtime infrastructure; move service/storage/stream-load/integration code into Runtime.
@@ -144,7 +144,7 @@ Core runtime building blocks without full Runtime/Exec/Storage coupling.
 ### ExprCore (`exprcore`)
 Core expression infrastructure that depends only on RuntimeCore and lower layers.
 - Targets: `ExprCore`
-- Allowed internal include prefixes: `exprs/`, `runtime/`, `column/`, `types/`, `common/`, `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `exprs/`, `runtime/`, `column/`, `types/`, `common/`, `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `RuntimeCore`, `ChunkCore`, `ColumnCore`, `TypesCore`, `Common`, `Base`, `Gutil`, `StarRocksGen`
 - Core tests: `expr_core_test`
 - Remediation: Keep ExprCore limited to core expression infrastructure; move aggregate/UDF/integration code into Exprs.
@@ -152,7 +152,7 @@ Core expression infrastructure that depends only on RuntimeCore and lower layers
 ### ExecCore (`execcore`)
 Execution-layer runtime-filter infrastructure on top of ExprCore without broader Exec/Runtime service coupling.
 - Targets: `ExecCore`
-- Allowed internal include prefixes: `exec/runtime_filter/`, `exprs/`, `runtime/`, `column/`, `types/`, `common/`, `base/`, `base/gutil/`, `gen_cpp/`
+- Allowed internal include prefixes: `exec/runtime_filter/`, `exprs/`, `runtime/`, `column/`, `types/`, `common/`, `base/`, `gutil/`, `gen_cpp/`
 - Allowed target deps: `ExprCore`, `RuntimeCore`, `ChunkCore`, `ColumnCore`, `TypesCore`, `Common`, `Base`, `Gutil`, `StarRocksGen`
 - Core tests: `exec_core_test`
 - Remediation: Keep ExecCore limited to execution-layer runtime-filter orchestration; move broader pipeline/operator/service integration into Exec or Runtime.

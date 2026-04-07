@@ -16,7 +16,7 @@
 
 #include <utility>
 
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "base/phmap/phmap.h"
 #include "column/chunk.h"
 #include "column/column_hash.h"

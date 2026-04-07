@@ -6,7 +6,7 @@
       "summary": "Lowest-level BE primitives. Keep it free of higher-level StarRocks module dependencies.",
       "owned_targets": ["Base"],
       "owned_roots": ["be/src/base"],
-      "allowed_include_prefixes": ["base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["base/", "gutil/", "gen_cpp/"],
       "allowed_target_deps": ["Gutil"],
       "allowed_test_targets": ["base_test"],
       "allowed_test_link_deps": ["Base", "Gutil", "StarRocksGen"],
@@ -17,8 +17,8 @@
       "doc_label": "Gutil",
       "summary": "Standalone utility substrate. Do not couple it to BE modules.",
       "owned_targets": ["Gutil"],
-      "owned_roots": ["be/src/base/gutil"],
-      "allowed_include_prefixes": ["base/gutil/"],
+      "owned_roots": ["be/src/gutil"],
+      "allowed_include_prefixes": ["gutil/"],
       "allowed_target_deps": [],
       "allowed_test_targets": [],
       "allowed_test_link_deps": [],
@@ -30,7 +30,7 @@
       "summary": "Core shared infrastructure above Base/Gutil only. Higher-level BE modules must not leak back into it.",
       "owned_targets": ["Common"],
       "owned_roots": ["be/src/common"],
-      "allowed_include_prefixes": ["common/", "base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["common/", "base/", "gutil/", "gen_cpp/"],
       "allowed_target_deps": ["Base", "Gutil"],
       "allowed_test_targets": ["common_test"],
       "allowed_test_link_deps": ["Common", "Base", "Gutil", "StarRocksGen"],
@@ -42,7 +42,7 @@
       "summary": "Minimal IO foundation used by upper IO/FS layers.",
       "owned_targets": ["IOCore"],
       "owned_globs": ["be/src/io/core/**"],
-      "allowed_include_prefixes": ["io/core/", "common/", "base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["io/core/", "common/", "base/", "gutil/", "gen_cpp/"],
       "forbidden_include_prefixes": ["io/"],
       "allowed_target_deps": ["Common", "Base", "Gutil"],
       "allowed_test_targets": ["io_test"],
@@ -60,7 +60,7 @@
         "be/src/fs/bundle_file.*",
         "be/src/fs/fs_options.*"
       ],
-      "allowed_include_prefixes": ["fs/", "io/core/", "common/", "base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["fs/", "io/core/", "common/", "base/", "gutil/", "gen_cpp/"],
       "forbidden_include_prefixes": ["fs/azure/", "fs/credential/", "fs/hdfs/", "fs/s3/"],
       "forbidden_includes": [
         "fs/fd_cache.h",
@@ -92,7 +92,7 @@
         "be/src/types/logical_type_size.*",
         "be/src/types/type_checker_manager.*"
       ],
-      "allowed_include_prefixes": ["types/", "common/", "base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["types/", "common/", "base/", "gutil/", "gen_cpp/"],
       "allowed_target_deps": ["Common", "Base", "Gutil"],
       "allowed_test_targets": ["types_test"],
       "allowed_test_link_deps": ["TypesCore", "Common", "Base", "Gutil", "StarRocksGen"],
@@ -116,7 +116,7 @@
         "be/src/column/schema.*",
         "be/src/column/stream_chunk.*"
       ],
-      "allowed_include_prefixes": ["column/", "types/", "common/", "base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["column/", "types/", "common/", "base/", "gutil/", "gen_cpp/"],
       "allowed_target_deps": ["TypesCore", "Common", "Base", "Gutil", "StarRocksGen"],
       "allowed_test_targets": ["column_test"],
       "allowed_test_link_deps": ["ColumnCore", "TypesCore", "Common", "Base", "Gutil", "StarRocksGen"],
@@ -142,7 +142,7 @@
         "be/src/runtime/starrocks_metrics.h",
         "be/src/runtime/memory/*.h"
       ],
-      "allowed_include_prefixes": ["runtime/", "column/", "types/", "common/", "base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["runtime/", "column/", "types/", "common/", "base/", "gutil/", "gen_cpp/"],
       "forbidden_include_prefixes": [
         "runtime/batch_write/",
         "runtime/global_dict/",
@@ -214,7 +214,7 @@
       "additional_owned_globs": [
         "be/src/exprs/table_function/table_function.h"
       ],
-      "allowed_include_prefixes": ["exprs/", "runtime/", "column/", "types/", "common/", "base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["exprs/", "runtime/", "column/", "types/", "common/", "base/", "gutil/", "gen_cpp/"],
       "forbidden_include_prefixes": ["exprs/agg/"],
       "forbidden_includes": [
         "exprs/array_functions.h",
@@ -250,7 +250,7 @@
       "additional_owned_globs": [
         "be/src/exec/runtime_filter/**"
       ],
-      "allowed_include_prefixes": ["exec/runtime_filter/", "exprs/", "runtime/", "column/", "types/", "common/", "base/", "base/gutil/", "gen_cpp/"],
+      "allowed_include_prefixes": ["exec/runtime_filter/", "exprs/", "runtime/", "column/", "types/", "common/", "base/", "gutil/", "gen_cpp/"],
       "allowed_target_deps": ["ExprCore", "RuntimeCore", "ChunkCore", "ColumnCore", "TypesCore", "Common", "Base", "Gutil", "StarRocksGen"],
       "allowed_test_targets": ["exec_core_test"],
       "allowed_test_link_deps": ["ExecCore", "ExprCore", "RuntimeCore", "ChunkCore", "ColumnCore", "TypesCore", "Common", "Base", "Gutil", "StarRocksGen"],

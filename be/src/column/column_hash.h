@@ -31,7 +31,7 @@
 #include <xmmintrin.h>
 #endif
 
-#include "base/gutil/hash/hash.h"
+#include "gutil/hash/hash.h"
 #include "base/string/slice.h"
 #include "column/runtime_type_traits.h"
 #include "types/logical_type.h"

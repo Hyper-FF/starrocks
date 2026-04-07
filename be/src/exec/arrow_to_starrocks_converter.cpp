@@ -34,7 +34,7 @@
 #include "exec/file_scanner/parquet_scanner.h"
 #endif
 #include "absl/strings/substitute.h"
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "base/utility/pred_guard.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"

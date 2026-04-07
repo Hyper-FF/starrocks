@@ -18,7 +18,7 @@
 
 #include "absl/strings/str_join.h"
 #include "base/failpoint/fail_point.h"
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "base/testutil/sync_point.h"
 #include "column/chunk.h"
 #include "column/column_viewer.h"

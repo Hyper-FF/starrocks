@@ -19,7 +19,7 @@
 #include <utility>
 
 #include "absl/strings/str_split.h"
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "base/hash/hash_std.hpp"
 #include "common/config_network_fwd.h"
 #include "common/runtime_profile.h"

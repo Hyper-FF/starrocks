@@ -38,7 +38,7 @@
 #include <cstring>
 #include <type_traits>
 
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 
 // Must include headers out of namespace
 #if defined(__SSE4_1__) && !defined(ADDRESS_SANITIZER)

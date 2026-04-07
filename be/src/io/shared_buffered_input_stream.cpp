@@ -15,7 +15,7 @@
 #include "io/shared_buffered_input_stream.h"
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "common/config_scan_io_fwd.h"
 #include "common/runtime_profile.h"
 #include "runtime/current_thread.h"

@@ -15,7 +15,7 @@
 #include "column/fixed_length_column_base.h"
 
 #include "absl/strings/substitute.h"
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "base/hash/hash_util.hpp"
 #include "base/simd/gather.h"
 #include "base/types/decimal12.h"

@@ -19,7 +19,7 @@
 #include <sstream>
 #include <type_traits>
 
-#include "base/gutil/strings/fastmem.h"
+#include "gutil/strings/fastmem.h"
 #include "base/string/slice.h"
 #include "column/bytes.h"
 #include "column/column.h"

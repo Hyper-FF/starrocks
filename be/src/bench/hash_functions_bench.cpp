@@ -22,7 +22,7 @@
 #include <random>
 #include <vector>
 
-#include "base/gutil/hash/hash.h"
+#include "gutil/hash/hash.h"
 #include "base/phmap/phmap.h"
 #include "bench/bench_util.h"
 #include "exprs/hash_functions.h"
