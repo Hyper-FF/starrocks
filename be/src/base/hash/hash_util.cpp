@@ -20,7 +20,6 @@
 
 #include <mutex>
 
-#include "base/gutil/cpu.h"
 #include "base/hash/murmur_hash3.h"
 #include "base/hash/unaligned_access.h"
 #include "base/hash/xxh3.h"

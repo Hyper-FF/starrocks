@@ -20,7 +20,7 @@
 
 #include <string>
 
-#include "base/gutil/ref_counted.h"
+#include "base/ref_counted.h"
 
 namespace starrocks {
 
