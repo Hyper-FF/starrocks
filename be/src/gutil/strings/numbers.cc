@@ -19,11 +19,11 @@ using std::numeric_limits;
 #include <string>
 using std::string;
 
+#include "fmt/printf.h"
 #include "gutil/gscoped_ptr.h"
 #include "gutil/int128.h"
 #include "gutil/integral_types.h"
 #include "gutil/logging.h"
-#include "fmt/printf.h"
 #include "gutil/strings/ascii_ctype.h"
 #include "gutil/strtoint.h"
 
