@@ -48,8 +48,8 @@
 #include "fslib/star_cache_handler.h"
 #endif
 #include "absl/strings/str_split.h" // for string split
-#include "base/metrics.h"
 #include "base/gutil/strtoint.h"
+#include "base/metrics.h"
 #include "cache/mem_cache/page_cache.h"
 #include "common/config_cache_fwd.h"
 #include "exec/query_cache/cache_manager.h"

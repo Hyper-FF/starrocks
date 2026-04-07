@@ -19,8 +19,8 @@
 #include <sstream>
 #include <type_traits>
 
-#include "base/string/slice.h"
 #include "base/gutil/strings/fastmem.h"
+#include "base/string/slice.h"
 #include "column/bytes.h"
 #include "column/column.h"
 #include "column/container_resource.h"
