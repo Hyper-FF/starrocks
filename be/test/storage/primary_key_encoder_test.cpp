@@ -14,12 +14,11 @@
 
 #include "storage/primary_key_encoder.h"
 
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include <limits>
 #include <memory>
-
-#include <fmt/format.h>
 
 #include "column/binary_column.h"
 #include "column/chunk.h"

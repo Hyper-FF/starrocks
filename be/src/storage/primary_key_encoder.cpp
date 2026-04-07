@@ -35,12 +35,12 @@
 
 #include "storage/primary_key_encoder.h"
 
+#include <fmt/format.h>
+
 #include <cstring>
 #include <memory>
 #include <numeric>
 #include <type_traits>
-
-#include <fmt/format.h>
 
 #include "absl/base/internal/endian.h"
 #include "column/binary_column.h"

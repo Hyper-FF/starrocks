@@ -40,6 +40,7 @@
 #include <thrift/transport/TSocket.h>
 
 #include <cinttypes>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -47,8 +48,6 @@
 
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
-#include <cstdlib>
-
 #include "base/coding.h"
 #include "base/endian.h"
 #include "base/hash/crc32c.h"

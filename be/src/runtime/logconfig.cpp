@@ -32,6 +32,9 @@
 #include <pthread.h>
 #endif
 
+#include <fmt/format.h>
+#include <sys/resource.h>
+
 #include <atomic>
 #include <cerrno>
 #include <cstdio>
@@ -43,10 +46,7 @@
 #include <memory>
 #include <mutex>
 
-#include <sys/resource.h>
-
 #include "absl/base/internal/endian.h"
-#include <fmt/format.h>
 #include "base/process/lite_exec.h"
 #include "cache/datacache.h"
 #include "cache/mem_cache/page_cache.h"
@@ -469,8 +469,8 @@ std::string FormatTimestampForLog(int64_t micros_since_epoch) {
     struct tm tm_time;
     localtime_r(&secs_since_epoch, &tm_time);
 
-    return fmt::format("{:02d}{:02d} {:02d}:{:02d}:{:02d}.{:06d}", 1 + tm_time.tm_mon, tm_time.tm_mday,
-                       tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec, usecs);
+    return fmt::format("{:02d}{:02d} {:02d}:{:02d}:{:02d}.{:06d}", 1 + tm_time.tm_mon, tm_time.tm_mday, tm_time.tm_hour,
+                       tm_time.tm_min, tm_time.tm_sec, usecs);
 }
 
 void update_logging() {

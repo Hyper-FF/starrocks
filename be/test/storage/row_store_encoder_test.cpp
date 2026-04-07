@@ -14,9 +14,8 @@
 
 #include "storage/row_store_encoder.h"
 
-#include <gtest/gtest.h>
-
 #include <fmt/format.h>
+#include <gtest/gtest.h>
 
 #include "column/chunk.h"
 #include "column/column_helper.h"
