@@ -41,7 +41,7 @@
 #include "formats/parquet/types.h"
 #include "gutil/casts.h"
 #include "gutil/integral_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/olap_common.h"
 #include "types/date_value.h"
 #include "types/logical_type.h"
@@ -543,7 +543,7 @@ Status ColumnConverterFactory::create_converter(const ParquetField& field, const
     }
 
     if (need_convert && *converter == nullptr) {
-        return Status::NotSupported(strings::Substitute(
+        return Status::NotSupported(absl::Substitute(
                 "parquet column reader: not supported convert from parquet `$0` to `$1`, field=$2",
                 ::tparquet::to_string(parquet_type), type_to_string(col_type), field.debug_string()));
     }
@@ -666,7 +666,7 @@ Status parquet::Int32ToDateTimeConverter::convert(const Column* src, Column* dst
 
 Status Int96ToDateTimeConverter::init(const std::string& timezone) {
     if (!TimezoneUtils::find_cctz_time_zone(timezone, _ctz)) {
-        return Status::InternalError(strings::Substitute("can not find cctz time zone $0", timezone));
+        return Status::InternalError(absl::Substitute("can not find cctz time zone $0", timezone));
     }
     const auto tp = std::chrono::system_clock::now();
     const cctz::time_zone::absolute_lookup al = _ctz.lookup(tp);
@@ -723,7 +723,7 @@ Status Int64ToDateTimeConverter::init(const std::string& timezone, const tparque
             std::stringstream ss;
             schema_element.logicalType.printTo(ss);
             return Status::InternalError(
-                    strings::Substitute("expect parquet logical type is TIMESTAMP, actual is $0", ss.str()));
+                    absl::Substitute("expect parquet logical type is TIMESTAMP, actual is $0", ss.str()));
         }
 
         _is_adjusted_to_utc = schema_element.logicalType.TIMESTAMP.isAdjustedToUTC;
@@ -742,7 +742,7 @@ Status Int64ToDateTimeConverter::init(const std::string& timezone, const tparque
         } else {
             std::stringstream ss;
             time_unit.printTo(ss);
-            return Status::InternalError(strings::Substitute("unexpected time unit $0", ss.str()));
+            return Status::InternalError(absl::Substitute("unexpected time unit $0", ss.str()));
         }
     } else if (schema_element.__isset.converted_type) {
         _is_adjusted_to_utc = true;
@@ -756,16 +756,16 @@ Status Int64ToDateTimeConverter::init(const std::string& timezone, const tparque
             _scale_to_nano_factor = 1000;
         } else {
             return Status::InternalError(
-                    strings::Substitute("unexpected converted type $0", tparquet::to_string(converted_type)));
+                    absl::Substitute("unexpected converted type $0", tparquet::to_string(converted_type)));
         }
     } else {
-        return Status::InternalError(strings::Substitute("can not convert parquet type $0 to date time",
+        return Status::InternalError(absl::Substitute("can not convert parquet type $0 to date time",
                                                          tparquet::to_string(schema_element.type)));
     }
 
     if (_is_adjusted_to_utc) {
         if (!TimezoneUtils::find_cctz_time_zone(timezone, _ctz)) {
-            return Status::InternalError(strings::Substitute("can not find cctz time zone $0", timezone));
+            return Status::InternalError(absl::Substitute("can not find cctz time zone $0", timezone));
         }
         const auto tp = std::chrono::system_clock::now();
         const cctz::time_zone::absolute_lookup al = _ctz.lookup(tp);

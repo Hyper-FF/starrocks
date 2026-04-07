@@ -20,7 +20,7 @@
 #include "common/config_compaction_fwd.h"
 #include "common/config_primary_key_fwd.h"
 #include "common/logging.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/exec_env.h"
 #include "storage/lake/meta_file.h"
 #include "storage/lake/primary_key_compaction_policy.h"
@@ -286,9 +286,9 @@ void BaseAndCumulativeCompactionPolicy::debug_rowsets(CompactionType type,
                        << ", type: " << to_string(type) << ", version: " << _tablet_metadata->version()
                        << ", cumulative point: " << _tablet_metadata->cumulative_point()
                        << ", input rowsets size: " << input_rowset_ids.size() << ", input rowsets: ["
-                       << JoinInts(input_rowset_ids, ",") << "]"
-                       << ", rowsets: [" << JoinInts(rowset_ids, ",") << "]"
-                       << ", delete rowsets: [" << JoinInts(delete_rowset_ids, ",") + "]";
+                       << absl::StrJoin(input_rowset_ids, ",") << "]"
+                       << ", rowsets: [" << absl::StrJoin(rowset_ids, ",") << "]"
+                       << ", delete rowsets: [" << absl::StrJoin(delete_rowset_ids, ",") + "]";
 }
 
 double cumulative_compaction_score(const std::shared_ptr<const TabletMetadataPB>& metadata) {
@@ -546,7 +546,7 @@ StatusOr<std::vector<RowsetPtr>> SizeTieredCompactionPolicy::pick_rowsets() {
     const auto& level_rowsets = selected_level->rowsets;
     auto type = !level_rowsets.empty() && level_rowsets[0] == 0 ? BASE_COMPACTION : CUMULATIVE_COMPACTION;
     VLOG(log_level) << "Pick compaction input rowsets. tablet: " << _tablet_metadata->id()
-                    << ", type: " << to_string(type) << ", input rowsets: [" << JoinInts(input_rowset_ids, ",") << "]"
+                    << ", type: " << to_string(type) << ", input rowsets: [" << absl::StrJoin(input_rowset_ids, ",") << "]"
                     << ", input rowsets size: " << input_rowset_ids.size()
                     << ", level rowsets size: " << level_rowsets.size()
                     << ", level segment num: " << selected_level->segment_num

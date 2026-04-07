@@ -21,7 +21,7 @@
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
 #include "exprs/expr_factory.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -89,7 +89,7 @@ Status RuntimeFilterProbeDescriptor::prepare(RuntimeState* state, RuntimeProfile
         _exchange_hash_function_version = 0; // Default to FNV
     }
     _open_timestamp = UnixMillis();
-    _latency_timer = ADD_COUNTER(p, strings::Substitute("JoinRuntimeFilter/$0/latency", _filter_id), TUnit::TIME_NS);
+    _latency_timer = ADD_COUNTER(p, absl::Substitute("JoinRuntimeFilter/$0/latency", _filter_id), TUnit::TIME_NS);
     // not set yet.
     COUNTER_SET(_latency_timer, (int64_t)(-1));
     return Status::OK();

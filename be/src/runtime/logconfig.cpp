@@ -49,7 +49,7 @@
 #include "common/config_diagnostic_fwd.h"
 #include "common/config_path_fwd.h"
 #include "gutil/endian.h"
-#include "gutil/stringprintf.h"
+#include "fmt/printf.h"
 #include "gutil/sysinfo.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
@@ -464,7 +464,7 @@ std::string FormatTimestampForLog(MicrosecondsInt64 micros_since_epoch) {
     struct tm tm_time;
     localtime_r(&secs_since_epoch, &tm_time);
 
-    return StringPrintf("%02d%02d %02d:%02d:%02d.%06" PRId64, 1 + tm_time.tm_mon, tm_time.tm_mday, tm_time.tm_hour,
+    return fmt::sprintf("%02d%02d %02d:%02d:%02d.%06" PRId64, 1 + tm_time.tm_mon, tm_time.tm_mday, tm_time.tm_hour,
                         tm_time.tm_min, tm_time.tm_sec, usecs);
 }
 

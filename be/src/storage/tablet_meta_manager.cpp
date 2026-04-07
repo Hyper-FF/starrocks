@@ -55,8 +55,8 @@
 #include "common/util/debug_util.h"
 #include "fmt/format.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "gutil/strings/numbers.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/substitute.h"
 #include "storage/del_vector.h"
 #include "storage/delta_column_group.h"
 #include "storage/kv_store.h"
@@ -94,7 +94,7 @@ void decode_delta_column_group_key(std::string_view enc_key, TTabletId* tablet_i
                                    int64_t* version);
 
 static std::string encode_tablet_meta_key(TTabletId tablet_id, TSchemaHash schema_hash) {
-    return strings::Substitute("$0$1_$2", HEADER_PREFIX, tablet_id, schema_hash);
+    return absl::Substitute("$0$1_$2", HEADER_PREFIX, tablet_id, schema_hash);
 }
 
 static bool decode_tablet_meta_key(std::string_view key, TTabletId* tablet_id, TSchemaHash* schema_hash) {
@@ -109,12 +109,12 @@ static bool decode_tablet_meta_key(std::string_view key, TTabletId* tablet_id, T
     if (UNLIKELY(sep == nullptr)) {
         return false;
     }
-    if (!safe_strto64(str, sep - str, tablet_id)) {
+    if (!absl::SimpleAtoi(absl::string_view(str, sep - str), tablet_id)) {
         return false;
     }
     str = sep + 1;
     // |key| is not a zero terminated string, cannot use std::strtol here.
-    return safe_strto32(str, end - str, schema_hash);
+    return absl::SimpleAtoi(absl::string_view(str, end - str), schema_hash);
 }
 
 Status TabletMetaManager::get_primary_meta(KVStore* meta, TTabletId tablet_id, TabletMetaPB& tablet_meta_pb,
@@ -383,7 +383,7 @@ Status TabletMetaManager::get_json_meta(DataDir* store, TTabletId tablet_id, std
             return false;
         }
     };
-    string prefix = strings::Substitute("$0$1_", HEADER_PREFIX, tablet_id);
+    string prefix = absl::Substitute("$0$1_", HEADER_PREFIX, tablet_id);
     RETURN_IF_ERROR(meta->iterate(META_COLUMN_FAMILY_INDEX, prefix, traverse_tabletmeta_func));
     RETURN_IF_ERROR(st);
     TabletMetaPB tablet_meta_pb;
@@ -1087,10 +1087,10 @@ Status TabletMetaManager::get_del_vector(KVStore* meta, TTabletId tablet_id, uin
         return st;
     }
     if (!found) {
-        return Status::NotFound(strings::Substitute("no delete vector found tablet:$0 segment:$1 version:$2", tablet_id,
+        return Status::NotFound(absl::Substitute("no delete vector found tablet:$0 segment:$1 version:$2", tablet_id,
                                                     segment_id, version));
     }
-    VLOG(3) << strings::Substitute("get_del_vec in-meta tablet_id=$0 segment_id=$1 version=$2 actual_version=$3",
+    VLOG(3) << absl::Substitute("get_del_vec in-meta tablet_id=$0 segment_id=$1 version=$2 actual_version=$3",
                                    tablet_id, segment_id, version, delvec ? delvec->version() : -1);
     return st;
 }
@@ -1110,7 +1110,7 @@ Status TabletMetaManager::del_vector_iterate(KVStore* meta, TTabletId tablet_id,
                 decode_del_vector_key(key, &dummy, &segment_id, &version);
                 DCHECK_EQ(tablet_id, dummy);
                 if (!func(segment_id, version, value)) {
-                    std::string msg = strings::Substitute("fail to get delvecs. tablet:$0 rowset:$1", tablet_id, lower);
+                    std::string msg = absl::Substitute("fail to get delvecs. tablet:$0 rowset:$1", tablet_id, lower);
                     LOG(WARNING) << msg;
                     st = Status::InternalError(msg);
                     return false;
@@ -1702,7 +1702,7 @@ Status TabletMetaManager::remove(DataDir* store, TTabletId tablet_id) {
             return false;
         }
     };
-    string prefix = strings::Substitute("$0$1_", HEADER_PREFIX, tablet_id);
+    string prefix = absl::Substitute("$0$1_", HEADER_PREFIX, tablet_id);
     RETURN_IF_ERROR(meta->iterate(META_COLUMN_FAMILY_INDEX, prefix, traverse_tabletmeta_func));
     if (is_primary) {
         (void)remove_primary_key_meta(store, &batch, tablet_id);

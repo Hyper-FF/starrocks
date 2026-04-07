@@ -35,19 +35,19 @@
 #include "storage/rowset/indexed_column_reader.h"
 
 #include "fs/fs.h"
-#include "gutil/strings/substitute.h" // for Substitute
+#include "absl/strings/substitute.h" // for Substitute
 #include "storage/key_coder.h"
 #include "storage/rowset/encoding_info.h" // for EncodingInfo
 #include "storage/rowset/page_io.h"
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 Status IndexedColumnReader::load(const IndexReadOptions& opts) {
     _type_info = get_type_info((LogicalType)_meta.data_type());
     if (_type_info == nullptr) {
-        return Status::NotSupported(strings::Substitute("unsupported type=$0", _meta.data_type()));
+        return Status::NotSupported(absl::Substitute("unsupported type=$0", _meta.data_type()));
     }
     RETURN_IF_ERROR(EncodingInfo::get(_type_info->type(), _meta.encoding(), &_encoding_info));
     RETURN_IF_ERROR(get_block_compression_codec(_meta.compression(), &_compress_codec));

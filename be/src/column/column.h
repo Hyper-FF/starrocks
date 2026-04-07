@@ -29,7 +29,7 @@
 #include "common/memory/column_allocator.h"
 #include "common/statusor.h"
 #include "gutil/casts.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks {
 

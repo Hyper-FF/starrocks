@@ -17,7 +17,7 @@
 #include "base/time/time.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -63,7 +63,7 @@ Status SchemaBeLogsScanner::start(RuntimeState* state) {
     Status st = grep_log(start_ts, end_ts, level[0], pattern, limit, _infos);
     int64_t ts1 = MonotonicMillis();
     string msg =
-            strings::Substitute("grep_log pattern:$0 level:$1 start_ts:$2 end_ts:$3 limit:$4 #result:$5 duration:$6ms",
+            absl::Substitute("grep_log pattern:$0 level:$1 start_ts:$2 end_ts:$3 limit:$4 #result:$5 duration:$6ms",
                                 pattern, level, start_ts, end_ts, limit, _infos.size(), (ts1 - ts0));
     if (st.ok()) {
         VLOG(3) << msg;
@@ -71,7 +71,7 @@ Status SchemaBeLogsScanner::start(RuntimeState* state) {
         LOG(WARNING) << msg << " error:" << st.message();
         // send err info to client as log
         auto& err_log = _infos.emplace_back();
-        err_log.log = strings::Substitute("grep_log failed pattern:$0 level:$1 limit:$2 error:$3", pattern, level,
+        err_log.log = absl::Substitute("grep_log failed pattern:$0 level:$1 limit:$2 error:$3", pattern, level,
                                           _param->limit, st.message());
     }
     _cur_idx = 0;
@@ -85,7 +85,7 @@ Status SchemaBeLogsScanner::fill_chunk(ChunkPtr* chunk) {
         auto& info = _infos[_cur_idx];
         for (const auto& [slot_id, index] : slot_id_to_index_map) {
             if (slot_id < 1 || slot_id > 5) {
-                return Status::InternalError(strings::Substitute("invalid slot id:$0", slot_id));
+                return Status::InternalError(absl::Substitute("invalid slot id:$0", slot_id));
             }
             auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(slot_id);
             switch (slot_id) {

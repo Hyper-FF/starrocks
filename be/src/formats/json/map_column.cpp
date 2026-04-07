@@ -17,7 +17,7 @@
 #include "fmt/format.h"
 #include "formats/json/map_column.h"
 #include "formats/json/nullable_column.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -60,7 +60,7 @@ Status add_map_column(Column* column, const TypeDescriptor& type_desc, const std
 
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to parse value as object, column=$0, error=$1", name,
+        auto err_msg = absl::Substitute("Failed to parse value as object, column=$0, error=$1", name,
                                            simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }

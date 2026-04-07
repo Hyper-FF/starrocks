@@ -44,7 +44,7 @@
 #include "base/coding.h"
 #include "base/string/faststring.h"
 #include "gutil/endian.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "util/compression/compression_context_pool_singletons.h"
 #include "util/compression/compression_headers.h"
 namespace orc {
@@ -57,7 +57,7 @@ namespace starrocks {
 // use the compression_buffer.
 const static int COMPRESSION_BUFFER_THRESHOLD = 1024 * 1024 * 10;
 
-using strings::Substitute;
+using absl::Substitute;
 
 Status BlockCompressionCodec::compress(const std::vector<Slice>& inputs, Slice* output, bool use_compression_buffer,
                                        size_t uncompressed_size, faststring* compressed_body1,
@@ -98,7 +98,7 @@ public:
         auto decompressed_len = LZ4_decompress_safe(input.data, output->data, input.size, output->size);
         if (decompressed_len < 0) {
             return Status::InvalidArgument(
-                    strings::Substitute("fail to do LZ4 decompress, error=$0", decompressed_len));
+                    absl::Substitute("fail to do LZ4 decompress, error=$0", decompressed_len));
         }
         output->size = decompressed_len;
         return Status::OK();
@@ -293,7 +293,7 @@ private:
         // bytes.
         if (input.size < kHadoopLz4PrefixLength + kHadoopLz4InnerBlockPrefixLength) {
             return Status::InvalidArgument(
-                    strings::Substitute("fail to do hadoop-lz4 decompress, input size=$0", input.size));
+                    absl::Substitute("fail to do hadoop-lz4 decompress, input size=$0", input.size));
         }
 
         std::size_t decompressed_total_len = 0;
@@ -305,7 +305,7 @@ private:
         while (input_len > 0) {
             if (input_len < sizeof(uint32_t)) {
                 return Status::InvalidArgument(
-                        strings::Substitute("fail to do hadoop-lz4 decompress, input_len=$0", input_len));
+                        absl::Substitute("fail to do hadoop-lz4 decompress, input_len=$0", input_len));
             }
             uint32_t decompressed_block_len = BigEndian::Load32(input_ptr);
             input_ptr += sizeof(uint32_t);
@@ -313,7 +313,7 @@ private:
             std::size_t remaining_output_size = buffer_size - decompressed_total_len;
             if (remaining_output_size < decompressed_block_len) {
                 return Status::InvalidArgument(
-                        strings::Substitute("fail to do hadoop-lz4 decompress, "
+                        absl::Substitute("fail to do hadoop-lz4 decompress, "
                                             "remaining_output_size=$0, decompressed_block_len=$1",
                                             remaining_output_size, decompressed_block_len));
             }
@@ -325,7 +325,7 @@ private:
                 // Check that input length should not be negative.
                 if (input_len < sizeof(uint32_t)) {
                     return Status::InvalidArgument(
-                            strings::Substitute("fail to do hadoop-lz4 decompress, "
+                            absl::Substitute("fail to do hadoop-lz4 decompress, "
                                                 "decompressed_total_len=$0, input_len=$1",
                                                 decompressed_total_len, input_len));
                 }
@@ -340,7 +340,7 @@ private:
 
                 if (compressed_len > input_len) {
                     return Status::InvalidArgument(
-                            strings::Substitute("fail to do hadoop-lz4 decompress, "
+                            absl::Substitute("fail to do hadoop-lz4 decompress, "
                                                 "decompressed_total_len=$0, "
                                                 "compressed_len=$1, input_len=$2",
                                                 decompressed_total_len, compressed_len, input_len));
@@ -431,7 +431,7 @@ private:
         if (LZ4F_isError(wbytes)) {
             context->compression_fail = true;
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to do LZ4FRAME compress begin, res=$0", LZ4F_getErrorName(wbytes)));
+                    absl::Substitute("Fail to do LZ4FRAME compress begin, res=$0", LZ4F_getErrorName(wbytes)));
         }
         size_t offset = wbytes;
         for (auto input : inputs) {
@@ -440,7 +440,7 @@ private:
             if (LZ4F_isError(wbytes)) {
                 context->compression_fail = true;
                 return Status::InvalidArgument(
-                        strings::Substitute("Fail to do LZ4FRAME compress update, res=$0", LZ4F_getErrorName(wbytes)));
+                        absl::Substitute("Fail to do LZ4FRAME compress update, res=$0", LZ4F_getErrorName(wbytes)));
             }
             offset += wbytes;
         }
@@ -448,7 +448,7 @@ private:
         if (LZ4F_isError(wbytes)) {
             context->compression_fail = true;
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to do LZ4FRAME compress end, res=$0", LZ4F_getErrorName(wbytes)));
+                    absl::Substitute("Fail to do LZ4FRAME compress end, res=$0", LZ4F_getErrorName(wbytes)));
         }
         offset += wbytes;
         output->size = offset;
@@ -491,18 +491,18 @@ private:
         if (LZ4F_isError(lres)) {
             context->decompression_fail = true;
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to do LZ4FRAME decompress, res=$0", LZ4F_getErrorName(lres)));
+                    absl::Substitute("Fail to do LZ4FRAME decompress, res=$0", LZ4F_getErrorName(lres)));
         } else if (input_size != input.size) {
             context->decompression_fail = true;
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to do LZ4FRAME decompress: trailing "
+                    absl::Substitute("Fail to do LZ4FRAME decompress: trailing "
                                         "data left in compressed data, "
                                         "read=$0 vs given=$1",
                                         input_size, input.size));
         } else if (lres != 0) {
             context->decompression_fail = true;
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to do LZ4FRAME decompress: expect "
+                    absl::Substitute("Fail to do LZ4FRAME decompress: expect "
                                         "more compressed data, expect=$0",
                                         lres));
         }
@@ -650,7 +650,7 @@ public:
         auto zres = deflateInit(&zstrm, Z_DEFAULT_COMPRESSION);
         if (zres != Z_OK) {
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(zres), zres));
+                    absl::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(zres), zres));
         }
         return Status::OK();
     }
@@ -659,7 +659,7 @@ public:
                     faststring* compressed_body1, raw::RawString* compressed_body2) const override {
         auto zres = ::compress((Bytef*)output->data, &output->size, (Bytef*)input.data, input.size);
         if (zres != Z_OK) {
-            return Status::InvalidArgument(strings::Substitute("Fail to do ZLib compress, error=$0", zError(zres)));
+            return Status::InvalidArgument(absl::Substitute("Fail to do ZLib compress, error=$0", zError(zres)));
         }
         return Status::OK();
     }
@@ -684,7 +684,7 @@ public:
             zres = deflate(&zstrm, flush);
             if (zres != Z_OK && zres != Z_STREAM_END) {
                 return Status::InvalidArgument(
-                        strings::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(zres), zres));
+                        absl::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(zres), zres));
             }
         }
 
@@ -692,7 +692,7 @@ public:
         zres = deflateEnd(&zstrm);
         if (zres != Z_OK) {
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to do deflateEnd on ZLib stream, error=$0, res=$1", zError(zres), zres));
+                    absl::Substitute("Fail to do deflateEnd on ZLib stream, error=$0, res=$1", zError(zres), zres));
         }
         return Status::OK();
     }
@@ -701,7 +701,7 @@ public:
         size_t input_size = input.size;
         auto zres = ::uncompress2((Bytef*)output->data, &output->size, (Bytef*)input.data, &input_size);
         if (zres != Z_OK) {
-            return Status::InvalidArgument(strings::Substitute("Fail to do ZLib decompress, error=$0", zError(zres)));
+            return Status::InvalidArgument(absl::Substitute("Fail to do ZLib decompress, error=$0", zError(zres)));
         }
         return Status::OK();
     }
@@ -774,13 +774,13 @@ private:
         // What we should do here is simply set the level as we wanted.
         if (_level != -1) {
             if (_level < 1 || _level > 22) {
-                return Status::InternalError(strings::Substitute("ZSTD with invalid compression level: $0", _level));
+                return Status::InternalError(absl::Substitute("ZSTD with invalid compression level: $0", _level));
             }
             ret = ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, _level);
             if (ZSTD_isError(ret)) {
                 context->compression_fail = true;
                 return Status::InternalError(
-                        strings::Substitute("ZSTD set level failed: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
+                        absl::Substitute("ZSTD set level failed: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
             }
         }
 
@@ -823,10 +823,10 @@ private:
             if (ZSTD_isError(ret)) {
                 context->compression_fail = true;
                 return Status::InvalidArgument(
-                        strings::Substitute("ZSTD compress failed: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
+                        absl::Substitute("ZSTD compress failed: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
             } else if (input.size != in_buf.pos) {
                 context->compression_fail = true;
-                return Status::InvalidArgument(strings::Substitute("ZSTD compress failed, buffer is too small"));
+                return Status::InvalidArgument(absl::Substitute("ZSTD compress failed, buffer is too small"));
             }
         }
 
@@ -834,10 +834,10 @@ private:
         if (ZSTD_isError(ret)) {
             context->compression_fail = true;
             return Status::InvalidArgument(
-                    strings::Substitute("ZSTD compress failed: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
+                    absl::Substitute("ZSTD compress failed: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
         } else if (ret > 0) {
             context->compression_fail = true;
-            return Status::InvalidArgument(strings::Substitute("ZSTD compress failed, buffer is too small"));
+            return Status::InvalidArgument(absl::Substitute("ZSTD compress failed, buffer is too small"));
         }
         output->size = out_buf.pos;
 
@@ -890,7 +890,7 @@ private:
         if (ZSTD_isError(ret)) {
             context->decompression_fail = true;
             return Status::InvalidArgument(
-                    strings::Substitute("ZSTD compress failed: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
+                    absl::Substitute("ZSTD compress failed: $0", ZSTD_getErrorString(ZSTD_getErrorCode(ret))));
         }
         output->size = ret;
         return Status::OK();
@@ -918,7 +918,7 @@ public:
                                  Z_DEFAULT_STRATEGY);
         if (zres != Z_OK) {
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(zres), zres));
+                    absl::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(zres), zres));
         }
         return Status::OK();
     }
@@ -941,7 +941,7 @@ public:
         int ret = inflateInit2(&z_strm, MAX_WBITS + GZIP_CODEC);
         if (ret != Z_OK) {
             return Status::InternalError(
-                    strings::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(ret), ret));
+                    absl::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(ret), ret));
         }
 
         // 1. set input and output
@@ -957,7 +957,7 @@ public:
             if (ret != Z_OK && ret != Z_STREAM_END) {
                 (void)inflateEnd(&z_strm);
                 return Status::InternalError(
-                        strings::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(ret), ret));
+                        absl::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(ret), ret));
             }
         }
         (void)inflateEnd(&z_strm);
@@ -975,13 +975,13 @@ public:
         if (zres != Z_OK) {
             // Fall back to zlib estimate logic for deflate, notice this may
             // cause decompress error
-            LOG(WARNING) << strings::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(zres), zres)
+            LOG(WARNING) << absl::Substitute("Fail to do ZLib stream compress, error=$0, res=$1", zError(zres), zres)
                                     .c_str();
             return ZlibBlockCompression::max_compressed_len(len);
         } else {
             zres = deflateEnd(&zstrm);
             if (zres != Z_OK) {
-                LOG(WARNING) << strings::Substitute(
+                LOG(WARNING) << absl::Substitute(
                                         "Fail to do deflateEnd on ZLib stream, "
                                         "error=$0, res=$1",
                                         zError(zres), zres)
@@ -1145,7 +1145,7 @@ Status get_block_compression_codec(CompressionTypePB type, const BlockCompressio
         *codec = LzoBlockCompression::instance();
         break;
     default:
-        return Status::NotFound(strings::Substitute("unknown compression type($0)", type));
+        return Status::NotFound(absl::Substitute("unknown compression type($0)", type));
     }
     return Status::OK();
 }

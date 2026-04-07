@@ -19,7 +19,7 @@
 #include <string_view>
 #include <variant>
 
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks {
 class Cache;

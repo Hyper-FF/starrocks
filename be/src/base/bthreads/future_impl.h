@@ -23,7 +23,7 @@
 #include <utility>
 
 #include "base/time/time.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks::bthreads {
 

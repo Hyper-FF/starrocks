@@ -19,7 +19,7 @@
 #include "base/string/utf8_check.h"
 #include "column/column_helper.h"
 #include "exprs/chunk_predicate_evaluator.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "util/compression/compression_utils.h"
 #include "util/compression/stream_decompressor.h"
@@ -352,7 +352,7 @@ Status HdfsTextScanner::_parse_csv(int chunk_size, ChunkPtr* chunk) {
         if (status.is_end_of_file()) {
             break;
         } else if (!status.ok()) {
-            LOG(WARNING) << strings::Substitute("Parse csv file $0 failed: $1", _file->filename(), status.message());
+            LOG(WARNING) << absl::Substitute("Parse csv file $0 failed: $1", _file->filename(), status.message());
             return status;
         }
 
@@ -382,7 +382,7 @@ Status HdfsTextScanner::_parse_csv(int chunk_size, ChunkPtr* chunk) {
                 options.type_desc = &(column_info.slot_type());
                 if (!_converters[j]->read_string(column, field, options)) {
                     return Status::InternalError(
-                            strings::Substitute("CSV converter encountered an error for field: $0, column name is: $1",
+                            absl::Substitute("CSV converter encountered an error for field: $0, column name is: $1",
                                                 field.to_string(), column_info.name()));
                 }
             } else {

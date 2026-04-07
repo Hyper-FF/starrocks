@@ -19,7 +19,7 @@
 #include "base/uid_util.h"
 #include "common/system/backend_options.h"
 #include "common/thread/thread.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -70,7 +70,7 @@ public:
               ts(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count()),
               msg(std::move(msg)) {}
     ~RfEvent() = default;
-    std::string to_string() { return strings::Substitute("[$0][$1] $2: $3", print_id(query_id), filter_id, ts, msg); }
+    std::string to_string() { return absl::Substitute("[$0][$1] $2: $3", print_id(query_id), filter_id, ts, msg); }
 
 private:
     TUniqueId query_id;
@@ -201,7 +201,7 @@ RuntimeFilterPtr RuntimeFilterCache::get(const TUniqueId& query_id, int filter_i
 
 void RuntimeFilterCache::add_rf_event(const RfTracePoint& pt) {
     std::string msg =
-            strings::Substitute("$0($1)", pt.msg, pt.network.empty() ? BackendOptions::get_localhost() : pt.network);
+            absl::Substitute("$0($1)", pt.msg, pt.network.empty() ? BackendOptions::get_localhost() : pt.network);
     add_rf_event(pt.query_id, pt.filter_id, std::move(msg));
 }
 

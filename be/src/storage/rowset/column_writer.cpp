@@ -43,7 +43,7 @@
 #include "common/config_rowset_fwd.h"
 #include "common/config_scan_io_fwd.h"
 #include "fs/fs.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "object_column_writer.h"
 #include "storage/index/inverted/inverted_index_option.h"
 
@@ -87,7 +87,7 @@ ColumnWriterOptions::ColumnWriterOptions() : data_page_size(config::data_page_si
         }                             \
     } while (0)
 
-using strings::Substitute;
+using absl::Substitute;
 
 class ByteIterator {
 public:
@@ -550,7 +550,7 @@ inline Status ScalarColumnWriter::set_encoding(const EncodingTypePB& encoding) {
     opts.data_page_size = _opts.data_page_size;
     RETURN_IF_ERROR(_encoding_info->create_page_builder(opts, &page_builder));
     if (page_builder == nullptr) {
-        return Status::NotSupported(strings::Substitute("Failed to create page builder for type $0 and encoding $1",
+        return Status::NotSupported(absl::Substitute("Failed to create page builder for type $0 and encoding $1",
                                                         type_info()->type(), _opts.meta->encoding()));
     }
     // should store more concrete encoding type instead of DEFAULT_ENCODING
@@ -1038,7 +1038,7 @@ inline Status DictColumnWriter::speculate_column_and_set_encoding(const Column& 
         detect_encoding = speculate_encoding<TYPE_DECIMALV2>(column);
         break;
     default:
-        return Status::InternalError(strings::Substitute("$0 type should not use dictionary encoding", logicalType));
+        return Status::InternalError(absl::Substitute("$0 type should not use dictionary encoding", logicalType));
     }
     st = _scalar_column_writer->set_encoding(detect_encoding);
     CHECK(st.ok()) << st;

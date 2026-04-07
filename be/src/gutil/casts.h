@@ -14,7 +14,7 @@
 #include <cstring> // for memcpy
 
 #include "gutil/logging.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "gutil/template_util.h"
 #include "gutil/type_traits.h"
 

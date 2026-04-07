@@ -37,7 +37,7 @@
 #include <memory>
 
 #include "gen_cpp/segment.pb.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/utils.h"
 #include "util/block_split_bloom_filter.h"
 
@@ -67,7 +67,7 @@ Status BloomFilter::create(BloomFilterAlgorithmPB algorithm, std::unique_ptr<Blo
     if (algorithm == BLOCK_BLOOM_FILTER) {
         *bf = std::make_unique<BlockSplitBloomFilter>();
     } else {
-        return Status::InternalError(strings::Substitute("invalid bloom filter algorithm:$0", algorithm));
+        return Status::InternalError(absl::Substitute("invalid bloom filter algorithm:$0", algorithm));
     }
     return Status::OK();
 }

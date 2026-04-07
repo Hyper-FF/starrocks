@@ -17,7 +17,7 @@
 #include <rapidjson/document.h>
 
 #include "common/configbase.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/action/update_config_action.h"
 #include "script/script.h"
 
@@ -49,7 +49,7 @@ Status execute_command(const std::string& command, const std::string& params, st
     } else if (command == "execute_script") {
         return execute_script(params, *result);
     }
-    return Status::NotSupported(strings::Substitute("command $0 not supported", command));
+    return Status::NotSupported(absl::Substitute("command $0 not supported", command));
 }
 
 } // namespace starrocks

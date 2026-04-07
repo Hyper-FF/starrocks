@@ -21,7 +21,7 @@
 #include "column/chunk_extra_data.h"
 #include "column/column_helper.h"
 #include "common/statusor.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
 #include "serde/column_array_serde.h"
@@ -166,7 +166,7 @@ StatusOr<Chunk> ProtobufChunkSerde::deserialize(const RowDescriptor& row_desc, c
         size_t expected = ProtobufChunkSerde::max_serialized_size(*chunk);
         // if encode_level != 0, chunk_pb.data().size() is usually not equal to expected.
         if (encode_level == 0 && UNLIKELY(chunk_pb.data().size() != expected)) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "deserialize chunk data failed. len: $0, expected: $1, ser_size: $2, deser_size: $3",
                     chunk_pb.data().size(), expected, chunk_pb.serialized_size(), deserialized_size));
         }

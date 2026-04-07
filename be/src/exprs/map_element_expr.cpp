@@ -14,7 +14,7 @@
 
 #include "exprs/map_element_expr.h"
 
-#include <gutil/strings/substitute.h>
+#include <absl/strings/substitute.h>
 
 #include "base/container/raw_container.h"
 #include "column/chunk.h"
@@ -114,7 +114,7 @@ public:
                 if (_check_is_out_of_bounds && !has_null) {
                     // row is not null, and specific key not found, return error
                     return Status::InvalidArgument(
-                            strings::Substitute("Key not present in map: $0", key_column->debug_item(key_idx)));
+                            absl::Substitute("Key not present in map: $0", key_column->debug_item(key_idx)));
                 }
                 res->append_nulls(1);
             }

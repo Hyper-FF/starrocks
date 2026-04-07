@@ -39,7 +39,7 @@
 #include <string>
 
 #include "base/concurrency/spinlock.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "gutil/map_util.h"
 
 namespace starrocks {

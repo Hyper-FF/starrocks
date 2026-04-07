@@ -14,7 +14,7 @@
 
 #include "exprs/in_const_predicate.hpp"
 
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/logical_type_infra.h"
 
 namespace starrocks {
@@ -47,7 +47,7 @@ ExprContext* VectorizedInConstPredicateBuilder::_create() {
     case LogicalType::NAME: {                                                                                        \
         if (_array_size != 0 && !VectorizedInConstPredicate<LogicalType::NAME>::can_use_array()) {                   \
             _st = Status::NotSupported(                                                                              \
-                    strings::Substitute("Can not create in-const-predicate with array set on type $0", probe_type)); \
+                    absl::Substitute("Can not create in-const-predicate with array set on type $0", probe_type)); \
             return nullptr;                                                                                          \
         }                                                                                                            \
         auto* in_pred = _pool->add(new VectorizedInConstPredicate<LogicalType::NAME>(node));                         \
@@ -64,7 +64,7 @@ ExprContext* VectorizedInConstPredicateBuilder::_create() {
         APPLY_FOR_ALL_SCALAR_TYPE(M)
 #undef M
     default:
-        _st = Status::NotSupported(strings::Substitute("Can not create in-const-predicate on type $0", probe_type));
+        _st = Status::NotSupported(absl::Substitute("Can not create in-const-predicate on type $0", probe_type));
         return nullptr;
     }
 }

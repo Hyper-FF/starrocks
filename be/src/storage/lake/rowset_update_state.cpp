@@ -22,7 +22,7 @@
 #include "common/tracer.h"
 #include "fs/fs_factory.h"
 #include "fs/key_cache.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "serde/column_array_serde.h"
 #include "storage/chunk_helper.h"
@@ -614,7 +614,7 @@ Status RowsetUpdateState::rewrite_segment(uint32_t segment_id, int64_t txn_id, c
         need_rename = false;
     }
     int64_t t_rewrite_end = MonotonicMillis();
-    LOG(INFO) << strings::Substitute(
+    LOG(INFO) << absl::Substitute(
             "lake apply partial segment tablet:$0 rowset:$1 seg:$2 #column:$3 #rewrite:$4ms [$5 -> $6]",
             params.tablet->id(), rowset_meta.id(), segment_id, unmodified_column_ids.size(),
             t_rewrite_end - t_rewrite_start, src_path, dest_path);
@@ -672,7 +672,7 @@ Status RowsetUpdateState::_resolve_conflict(uint32_t segment_id, const RowsetUpd
         RETURN_IF_ERROR(_resolve_conflict_auto_increment(params, new_rss_rowids, segment_id, total_conflicts));
     }
     int64_t t_end = MonotonicMillis();
-    LOG(INFO) << strings::Substitute(
+    LOG(INFO) << absl::Substitute(
             "lake resolve_conflict tablet:$0 base_version:$1 #conflict-row:$2 "
             "#column:$3 time:$4ms",
             params.tablet->id(), _base_versions[segment_id], total_conflicts, read_column_ids.size(), t_end - t_start);
@@ -892,7 +892,7 @@ const MutableColumnPtr& RowsetUpdateState::auto_increment_deletes(uint32_t segme
 }
 
 std::string RowsetUpdateState::to_string() const {
-    return strings::Substitute("RowsetUpdateState tablet:$0", _tablet_id);
+    return absl::Substitute("RowsetUpdateState tablet:$0", _tablet_id);
 }
 
 } // namespace starrocks::lake

@@ -31,9 +31,9 @@
 #include <optional>
 #include <set>
 
+#include "absl/strings/ascii.h"
 #include "gutil/strings/join.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/strip.h"
+#include "absl/strings/str_split.h"
 
 namespace starrocks::config {
 
@@ -114,10 +114,10 @@ public:
 
     bool parse_value(const std::string& valstr) override {
         std::vector<T> tmp;
-        std::vector<std::string> parts = strings::Split(valstr, ",");
+        std::vector<std::string> parts = absl::StrSplit(valstr, ",");
         for (auto& part : parts) {
             T v;
-            StripWhiteSpace(&part);
+            part = std::string(absl::StripAsciiWhitespace(part));
             if (part.empty()) {
                 continue;
             }
@@ -156,9 +156,9 @@ public:
 
     bool parse_value(const std::string& valstr) override {
         if (enums.empty()) {
-            std::vector<std::string> parts = strings::Split(raw_enum_values, ",");
+            std::vector<std::string> parts = absl::StrSplit(raw_enum_values, ",");
             for (auto& part : parts) {
-                StripWhiteSpace(&part);
+                part = std::string(absl::StripAsciiWhitespace(part));
                 if (!Base::parse_value(part)) {
                     return false;
                 }

@@ -31,7 +31,7 @@
 #include "exprs/agg/count.h"
 #include "exprs/expr.h"
 #include "exprs/expr_factory.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {

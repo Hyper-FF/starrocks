@@ -17,7 +17,7 @@
 #include "base/metrics.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/starrocks_metrics.h"
 #include "types/logical_type.h"
 
@@ -89,7 +89,7 @@ Status SchemaBeConfigsScanner::fill_chunk(ChunkPtr* chunk) {
                 break;
             }
             default:
-                return Status::InternalError(strings::Substitute("invalid slot id:$0", slot_id));
+                return Status::InternalError(absl::Substitute("invalid slot id:$0", slot_id));
             }
         }
     }

@@ -74,7 +74,7 @@
 #include "exec/topn_node.h"
 #include "exec/union_node.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -354,7 +354,7 @@ Status ExecFactory::create_vectorized_node(RuntimeState* state, ObjectPool* pool
         return Status::OK();
     }
     default:
-        return Status::InternalError(strings::Substitute("Vectorized engine not support node: $0", tnode.node_type));
+        return Status::InternalError(absl::Substitute("Vectorized engine not support node: $0", tnode.node_type));
     }
 }
 

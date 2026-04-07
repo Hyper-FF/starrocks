@@ -45,7 +45,7 @@
 
 #include "base/status.h"
 #include "base/statusor_internal.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks {
 

@@ -27,7 +27,7 @@
 #include "common/config_primary_key_fwd.h"
 #include "common/config_storage_fwd.h"
 #include "common/system/master_info.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "storage/lake/lake_primary_index.h"
@@ -565,7 +565,7 @@ private:
                 std::vector<uint32_t> input_ids(subtask_op.input_rowsets().begin(), subtask_op.input_rowsets().end());
                 LOG(WARNING) << "Parallel compaction subtask " << i << " skipped due to missing input rowsets"
                              << ", tablet=" << _tablet.id() << ", first_input_ids=["
-                             << JoinInts(std::vector<uint32_t>(input_ids.begin(),
+                             << absl::StrJoin(std::vector<uint32_t>(input_ids.begin(),
                                                                input_ids.begin() + std::min(5, (int)input_ids.size())),
                                          ",")
                              << "]";
@@ -1230,8 +1230,8 @@ private:
         }
         LOG(INFO) << "Compaction finish. tablet: " << _metadata->id() << ", version: " << _metadata->version()
                   << ", cumulative point: " << _metadata->cumulative_point() << ", rowsets: ["
-                  << JoinInts(rowset_ids, ",") << "]"
-                  << ", delete rowsets: [" << JoinInts(delete_rowset_ids, ",") + "]";
+                  << absl::StrJoin(rowset_ids, ",") << "]"
+                  << ", delete rowsets: [" << absl::StrJoin(delete_rowset_ids, ",") + "]";
         return Status::OK();
     }
 

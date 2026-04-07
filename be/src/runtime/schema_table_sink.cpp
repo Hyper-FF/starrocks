@@ -27,7 +27,7 @@
 #include "exprs/expr.h"
 #include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/action/update_config_action.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
@@ -59,7 +59,7 @@ Status SchemaTableSink::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(DataSink::prepare(state));
     RETURN_IF_ERROR(ExprExecutor::prepare(_output_expr_ctxs, state));
     _profile =
-            state->obj_pool()->add(new RuntimeProfile(strings::Substitute("SchemaTableSink (table=$0)", _table_name)));
+            state->obj_pool()->add(new RuntimeProfile(absl::Substitute("SchemaTableSink (table=$0)", _table_name)));
     return Status::OK();
 }
 
@@ -71,16 +71,16 @@ static Status set_config_remote(const StarRocksNodesInfo& nodes_info, int64_t be
                                 const string& value) {
     auto node_info = nodes_info.find_node(be_id);
     if (node_info == nullptr) {
-        return Status::InternalError(strings::Substitute("set_config fail: be $0 not found", be_id));
+        return Status::InternalError(absl::Substitute("set_config fail: be $0 not found", be_id));
     }
     auto stub = ExecEnv::GetInstance()->brpc_stub_cache()->get_stub(node_info->host, node_info->brpc_port);
     if (stub == nullptr) {
-        return Status::InternalError(strings::Substitute("set_config fail to get brpc stub for $0:$1", node_info->host,
+        return Status::InternalError(absl::Substitute("set_config fail to get brpc stub for $0:$1", node_info->host,
                                                          node_info->brpc_port));
     }
     ExecuteCommandRequestPB request;
     request.set_command("set_config");
-    request.set_params(strings::Substitute(R"({"name":"$0","value":"$1"})", name, value));
+    request.set_params(absl::Substitute(R"({"name":"$0","value":"$1"})", name, value));
     auto* closure = new RefCountClosure<ExecuteCommandResultPB>();
     closure->cntl.set_timeout_ms(10000);
     closure->ref();
@@ -98,7 +98,7 @@ static Status set_config_remote(const StarRocksNodesInfo& nodes_info, int64_t be
     auto& result = closure->result;
     Status st = result.status();
     if (!st.ok()) {
-        LOG(WARNING) << strings::Substitute("set_config_remote failed be:$0 name:$1 value:$2 ret:$3 st:$4", be_id, name,
+        LOG(WARNING) << absl::Substitute("set_config_remote failed be:$0 name:$1 value:$2 ret:$3 st:$4", be_id, name,
                                             value, result.result(), st.to_string());
         return st;
     }
@@ -122,14 +122,14 @@ static Status write_be_configs_table(const StarRocksNodesInfo& nodes_info, int64
         string mode;
         Status s;
         if (be_id == -1) {
-            LOG(INFO) << strings::Substitute("set_config ignored: be_id=-1 name:$0 value:$1", name, value);
+            LOG(INFO) << absl::Substitute("set_config ignored: be_id=-1 name:$0 value:$1", name, value);
             continue;
         } else if (self_be_id == be_id) {
             s = update_config->update_config(name, value);
             mode = "local";
         } else {
             s = set_config_remote(nodes_info, be_id, name, value);
-            mode = strings::Substitute("remote be:$0", be_id);
+            mode = absl::Substitute("remote be:$0", be_id);
         }
         if (s.ok()) {
             LOG(INFO) << "set_config " << mode << " " << name << "=" << value << " success";

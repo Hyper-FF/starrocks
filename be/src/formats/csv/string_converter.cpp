@@ -17,7 +17,7 @@
 #include "base/string/utf8.h"
 #include "column/binary_column.h"
 #include "common/config_scan_io_fwd.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/type_descriptor.h"
 
 namespace starrocks::csv {
@@ -66,7 +66,7 @@ bool StringConverter::read_string(Column* column, const Slice& s, const Options&
     } else {
         if (config::enable_check_string_lengths &&
             ((s.size > TypeDescriptor::MAX_VARCHAR_LENGTH) || (max_size > 0 && s.size > max_size))) {
-            VLOG(3) << strings::Substitute("Column [$0]'s length exceed max varchar length. str_size($1), max_size($2)",
+            VLOG(3) << absl::Substitute("Column [$0]'s length exceed max varchar length. str_size($1), max_size($2)",
                                            column->get_name(), s.size, max_size);
             return false;
         }
@@ -127,7 +127,7 @@ bool StringConverter::read_quoted_string(Column* column, const Slice& tmp_s, con
     }
     if (!length_check_status) {
         bytes.resize(old_size);
-        VLOG(3) << strings::Substitute(
+        VLOG(3) << absl::Substitute(
                 "Column [$0]'s length exceed max varchar length. old_size($1), new_size($2), ext_size($3), "
                 "max_size($4)",
                 column->get_name(), old_size, new_size, ext_size, max_size);

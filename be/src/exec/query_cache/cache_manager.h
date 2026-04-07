@@ -22,7 +22,7 @@
 #include "base/string/slice.h"
 #include "column/chunk.h"
 #include "common/status.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks::query_cache {
 class CacheManager;

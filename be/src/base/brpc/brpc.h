@@ -39,7 +39,7 @@
 // include this file instead of include <brpc/xxx.h>
 // and this file must put the first include in soure file
 
-#include "gutil/macros.h"
+#include "base/macros.h"
 // Macros in the guti/macros.h, use butil's define
 #ifdef DISALLOW_IMPLICIT_CONSTRUCTORS
 #undef DISALLOW_IMPLICIT_CONSTRUCTORS

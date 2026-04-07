@@ -41,7 +41,7 @@
 #include "base/string/slice.h"
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "runtime/mem_pool.h"
 #include "runtime/mem_tracker.h"
 #include "storage/rowset/common.h"

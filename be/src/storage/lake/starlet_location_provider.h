@@ -18,7 +18,7 @@
 
 #include <set>
 
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "storage/lake/location_provider.h"
 
 namespace starrocks::lake {

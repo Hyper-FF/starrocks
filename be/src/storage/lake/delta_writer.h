@@ -21,7 +21,7 @@
 #include "common/runtime_profile.h"
 #include "common/statusor.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "runtime/global_dict/types_fwd_decl.h"
 #include "storage/lake/delta_writer_finish_mode.h"
 #include "storage/memtable_flush_executor.h"

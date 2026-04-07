@@ -9,7 +9,7 @@
 #include <utility> // IWYU pragma: keep
 
 #include "gutil/atomicops.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "gutil/threading/thread_collision_warner.h"
 
 namespace starrocks {

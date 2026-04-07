@@ -141,7 +141,7 @@ inline bool parse_key_value_pairs(std::istream& input) {
         }
 
         // Read key and value.
-        std::pair<std::string, std::string> kv = strings::Split(line, strings::delimiter::Limit("=", 1));
+        std::pair<std::string, std::string> kv = absl::StrSplit(line, absl::MaxSplits("=", 1));
         StripWhiteSpace(&kv.first);
 
         // compatible with doris_config

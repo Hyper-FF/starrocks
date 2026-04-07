@@ -33,7 +33,7 @@
 #include <vector>
 
 #include "base/logging.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "gutil/walltime.h"
 
 using std::pair;

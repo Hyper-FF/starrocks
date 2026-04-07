@@ -18,7 +18,7 @@
 
 #include "base/time/time.h"
 #include "common/config_storage_fwd.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks::lake {
 

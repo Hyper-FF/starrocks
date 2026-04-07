@@ -22,7 +22,7 @@
 #include "formats/orc/orc_input_stream.h"
 #include "fs/fs.h"
 #include "gen_cpp/orc_proto.pb.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/broker_mgr.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
@@ -149,11 +149,11 @@ StatusOr<ChunkPtr> ORCScanner::_next_orc_chunk() {
         }
         return std::move(chunk);
     } catch (orc::ParseError& e) {
-        std::string s = strings::Substitute("ParseError: $0", e.what());
+        std::string s = absl::Substitute("ParseError: $0", e.what());
         LOG(WARNING) << s;
         return Status::InternalError(s);
     } catch (orc::InvalidArgument& e) {
-        std::string s = strings::Substitute("ParseError: $0", e.what());
+        std::string s = absl::Substitute("ParseError: $0", e.what());
         LOG(WARNING) << s;
         return Status::InternalError(s);
     }

@@ -36,7 +36,7 @@
 
 #include <utility>
 
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks {
 

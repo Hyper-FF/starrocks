@@ -23,7 +23,7 @@
 #include "common/runtime_profile.h"
 #include "common/system/backend_options.h"
 #include "gutil/strings/fastmem.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 #include "util/stack_util.h"
 
 namespace starrocks::io {
@@ -534,7 +534,7 @@ void CacheInputStream::set_peer_cache_node(const std::string& peer_node) {
     if (peer_node.empty()) {
         return;
     }
-    std::vector<std::string> parts = strings::Split(peer_node.c_str(), ":", strings::SkipWhitespace());
+    std::vector<std::string> parts = absl::StrSplit(peer_node.c_str(), ":", absl::SkipWhitespace());
     if (parts.size() < 2) {
         return;
     }

@@ -24,7 +24,7 @@
 #include "common/config_agent_fwd.h"
 #include "common/status.h"
 #include "common/system/backend_options.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
@@ -707,7 +707,7 @@ void run_update_schema_task(const std::shared_ptr<UpdateSchemaTaskRequest>& agen
     remove_task_info(agent_task_req->task_type, agent_task_req->signature);
     LOG_IF(INFO, error_tablet_ids.size() > 0)
             << "Update schema task signature=" << agent_task_req->signature << " error_tablets["
-            << error_tablet_ids.size() << "):" << JoinInts(error_tablet_ids, ",");
+            << error_tablet_ids.size() << "):" << absl::StrJoin(error_tablet_ids, ",");
 }
 
 void run_upload_task(const std::shared_ptr<UploadAgentTaskRequest>& agent_task_req, ExecEnv* exec_env) {

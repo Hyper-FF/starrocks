@@ -52,7 +52,7 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_starlet.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/raw_container_checked.h"
 #include "storage/olap_common.h"
@@ -61,7 +61,7 @@
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 Status PageIO::compress_page_body(const BlockCompressionCodec* codec, double min_space_saving,
                                   const std::vector<Slice>& body, faststring* compressed_body) {
@@ -182,7 +182,7 @@ static Status parse_page_from_cache(PageHandle* handle, Slice* body, PageFooterP
 
     std::string_view footer_buf(reinterpret_cast<const char*>(page->data() + footer_offset), footer_size);
     if (!footer->ParseFromArray(footer_buf.data(), footer_buf.size())) {
-        return Status::Corruption(strings::Substitute("Bad page: invalid footer (cache), file=$0, footer_size=$1",
+        return Status::Corruption(absl::Substitute("Bad page: invalid footer (cache), file=$0, footer_size=$1",
                                                       opts.read_file->filename(), footer_size));
     }
     *body = Slice(page->data(), footer_offset);
@@ -194,7 +194,7 @@ static Status read_page_from_file(const PageReadOptions& opts, std::unique_ptr<s
     const uint32_t page_size = opts.page_pointer.size;
     if (page_size < 8) {
         return Status::Corruption(
-                strings::Substitute("Bad page: too small ($0), file($1)", page_size, opts.read_file->filename()));
+                absl::Substitute("Bad page: too small ($0), file($1)", page_size, opts.read_file->filename()));
     }
 
     auto page = std::make_unique<std::vector<uint8_t>>();
@@ -225,7 +225,7 @@ static StatusOr<uint32_t> verify_and_parse_footer(Slice& page_slice, const PageR
         const uint32_t actual = crc32c::Value(page_slice.data, page_slice.size - 4);
         if (expect != actual) {
             return Status::Corruption(
-                    strings::Substitute("Bad page: checksum mismatch (actual=$0 vs expect=$1), file=$2", actual, expect,
+                    absl::Substitute("Bad page: checksum mismatch (actual=$0 vs expect=$1), file=$2", actual, expect,
                                         opts.read_file->filename()));
         }
     }
@@ -236,7 +236,7 @@ static StatusOr<uint32_t> verify_and_parse_footer(Slice& page_slice, const PageR
     // parse and set footer
     const uint32_t footer_size = decode_fixed32_le((uint8_t*)page_slice.data + page_slice.size - 4);
     if (!footer->ParseFromArray(page_slice.data + page_slice.size - 4 - footer_size, footer_size)) {
-        return Status::Corruption(strings::Substitute("Bad page: invalid footer, file=$0, footer_size=$1",
+        return Status::Corruption(absl::Substitute("Bad page: invalid footer, file=$0, footer_size=$1",
                                                       opts.read_file->filename(), footer_size));
     }
 
@@ -255,7 +255,7 @@ static Status decompress_if_needed(const PageReadOptions& opts, const PageFooter
     // need decompress body
     if (!opts.codec) {
         return Status::Corruption(
-                strings::Substitute("Bad page: compressed but codec=NONE, file=$0", opts.read_file->filename()));
+                absl::Substitute("Bad page: compressed but codec=NONE, file=$0", opts.read_file->filename()));
     }
 
     SCOPED_RAW_TIMER(&opts.stats->decompress_ns);
@@ -273,7 +273,7 @@ static Status decompress_if_needed(const PageReadOptions& opts, const PageFooter
     RETURN_IF_ERROR(opts.codec->decompress(compressed_body, &decompressed_body));
 
     if (decompressed_body.size != decompressed_size) {
-        return Status::Corruption(strings::Substitute("Bad page: uncompressed size mismatch ($0 vs $1), file=$2",
+        return Status::Corruption(absl::Substitute("Bad page: uncompressed size mismatch ($0 vs $1), file=$2",
                                                       decompressed_size, decompressed_body.size,
                                                       opts.read_file->filename()));
     }

@@ -43,7 +43,7 @@
 #include "common/config_storage_fwd.h"
 #include "fs/fs.h"
 #include "gen_cpp/Types_constants.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "storage/del_vector.h"
@@ -110,7 +110,7 @@ Status SnapshotManager::make_snapshot(const TSnapshotRequest& request, string* s
     rdlock.unlock();
     if (request.__isset.missing_version) {
         LOG(INFO) << "make incremental snapshot tablet:" << request.tablet_id << " cur_version:" << cur_tablet_version
-                  << " req_version:" << JoinInts(request.missing_version, ",") << " timeout:" << timeout_s;
+                  << " req_version:" << absl::StrJoin(request.missing_version, ",") << " timeout:" << timeout_s;
         res = snapshot_incremental(tablet, request.missing_version, timeout_s);
     } else if (request.__isset.missing_version_ranges) {
         if (tablet->updates() == nullptr) {
@@ -121,7 +121,7 @@ Status SnapshotManager::make_snapshot(const TSnapshotRequest& request, string* s
             return Status::NotSupported(msg);
         }
         LOG(INFO) << "make primary snapshot tablet:" << request.tablet_id << " cur_version:" << cur_tablet_version
-                  << " missing_version_ranges:" << JoinInts(request.missing_version_ranges, ",")
+                  << " missing_version_ranges:" << absl::StrJoin(request.missing_version_ranges, ",")
                   << " timeout:" << timeout_s;
         res = snapshot_primary(tablet, request.missing_version_ranges, timeout_s);
     } else if (request.__isset.version) {

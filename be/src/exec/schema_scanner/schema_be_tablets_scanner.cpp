@@ -17,7 +17,7 @@
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
 #include "gen_cpp/Types_types.h" // for TStorageMedium::type
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "storage/lake/tablet_manager.h"
 #include "storage/storage_engine.h"
@@ -136,7 +136,7 @@ Status SchemaBeTabletsScanner::start(RuntimeState* state) {
     }
 #endif // __APPLE__
 
-    LOG(INFO) << strings::Substitute("get_tablets_basic_infos table_id:$0 partition:$1 tablet:$2 #info:$3",
+    LOG(INFO) << absl::Substitute("get_tablets_basic_infos table_id:$0 partition:$1 tablet:$2 #info:$3",
                                      _param->table_id, _param->partition_id, _param->tablet_id, _infos.size());
     _cur_idx = 0;
     return Status::OK();
@@ -192,7 +192,7 @@ Status SchemaBeTabletsScanner::fill_chunk(ChunkPtr* chunk) {
         auto& info = _infos[_cur_idx];
         for (const auto& [slot_id, index] : slot_id_to_index_map) {
             if (slot_id < 1 || slot_id > 20) {
-                return Status::InternalError(strings::Substitute("invalid slot id:$0", slot_id));
+                return Status::InternalError(absl::Substitute("invalid slot id:$0", slot_id));
             }
             auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(slot_id);
             switch (slot_id) {

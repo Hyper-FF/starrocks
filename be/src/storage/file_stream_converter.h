@@ -15,7 +15,7 @@
 #pragma once
 
 #include "fs/fs.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks {
 

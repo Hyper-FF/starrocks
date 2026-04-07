@@ -49,8 +49,8 @@
 #include "common/config_rowset_fwd.h"
 #include "common/logging.h"
 #include "fs/key_cache.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"
@@ -84,7 +84,7 @@ namespace starrocks {
 bool Segment::_s_allow_batch_update_mode = true;
 #endif
 
-using strings::Substitute;
+using absl::Substitute;
 
 StatusOr<std::shared_ptr<Segment>> Segment::open(std::shared_ptr<FileSystem> fs, FileInfo segment_file_info,
                                                  uint32_t segment_id, std::shared_ptr<const TabletSchema> tablet_schema,
@@ -106,7 +106,7 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
 
     if (file_size < 12) {
         return Status::Corruption(
-                strings::Substitute("Bad segment file $0: file size $1 < 12", read_file->filename(), file_size));
+                absl::Substitute("Bad segment file $0: file size $1 < 12", read_file->filename(), file_size));
     }
 
     size_t hint_size = footer_length_hint ? *footer_length_hint : 4096;
@@ -115,7 +115,7 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
     if (partial_rowset_footer != nullptr) {
         if (file_size < partial_rowset_footer->position() + partial_rowset_footer->size()) {
             return Status::Corruption(
-                    strings::Substitute("Bad partial segment file $0: file size $1 < $2", read_file->filename(),
+                    absl::Substitute("Bad partial segment file $0: file size $1 < $2", read_file->filename(),
                                         file_size, partial_rowset_footer->position() + partial_rowset_footer->size()));
         }
         footer_read_size = partial_rowset_footer->size();
@@ -133,7 +133,7 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
     // validate magic number
     if (magic_number != UNALIGNED_LOAD32(k_segment_magic)) {
         return Status::Corruption(
-                strings::Substitute("Bad segment file $0: magic number not match", read_file->filename()));
+                absl::Substitute("Bad segment file $0: magic number not match", read_file->filename()));
     }
 
     if (footer_length_hint != nullptr && footer_length > *footer_length_hint) {
@@ -141,7 +141,7 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
     }
 
     if (file_size < 12 + footer_length) {
-        return Status::Corruption(strings::Substitute("Bad segment file $0: file size $1 < $2", read_file->filename(),
+        return Status::Corruption(absl::Substitute("Bad segment file $0: file size $1 < $2", read_file->filename(),
                                                       file_size, 12 + footer_length));
     }
 
@@ -156,7 +156,7 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
         actual_checksum = crc32c::Value(buf_footer.data(), buf_footer.size());
         if (!footer->ParseFromArray(buf_footer.data(), buf_footer.size())) {
             return Status::Corruption(
-                    strings::Substitute("Bad segment file $0: failed to parse footer", read_file->filename()));
+                    absl::Substitute("Bad segment file $0: failed to parse footer", read_file->filename()));
         }
     } else { // Need read file again.
         g_open_segments << 1;
@@ -175,14 +175,14 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
         ::google::protobuf::io::ConcatenatingInputStream concatenating_stream(streams, 2);
         if (!footer->ParseFromZeroCopyStream(&concatenating_stream)) {
             return Status::Corruption(
-                    strings::Substitute("Bad segment file $0: failed to parse footer", read_file->filename()));
+                    absl::Substitute("Bad segment file $0: failed to parse footer", read_file->filename()));
         }
     }
 
     // validate footer PB's checksum
     if (actual_checksum != checksum) {
         return Status::Corruption(
-                strings::Substitute("Bad segment file $0: footer checksum not match, actual=$1 vs expect=$2",
+                absl::Substitute("Bad segment file $0: footer checksum not match, actual=$1 vs expect=$2",
                                     read_file->filename(), actual_checksum, checksum));
     }
 
@@ -344,7 +344,7 @@ StatusOr<ChunkIteratorPtr> Segment::_new_iterator(const Schema& schema, const Se
         if (read_options.is_first_split_of_segment) {
             read_options.stats->segment_stats_filtered += num_rows();
         }
-        return Status::EndOfFile(strings::Substitute("End of file $0, empty iterator", _segment_file_info.path));
+        return Status::EndOfFile(absl::Substitute("End of file $0, empty iterator", _segment_file_info.path));
     }
 
     return new_segment_iterator(shared_from_this(), schema, read_options);
@@ -591,7 +591,7 @@ StatusOr<ColumnIteratorUPtr> Segment::_new_extended_column_iterator(const Tablet
     auto& column_reader = _column_readers[source_id];
     bool may_contains = column_reader->has_remain_json();
     if (may_contains && column_reader->get_remain_filter() != nullptr) {
-        std::vector<std::string> paths = strings::Split(full_path, ".");
+        std::vector<std::string> paths = absl::StrSplit(full_path, ".");
         std::string_view leaf = paths.back();
         may_contains = column_reader->get_remain_filter()->test_bytes(leaf.data(), leaf.size());
     }

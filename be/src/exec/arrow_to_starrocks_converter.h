@@ -25,7 +25,7 @@
 #include "common/status.h"
 #include "exec/arrow_type_traits.h"
 #include "gutil/strings/fastmem.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 #include "types/type_descriptor.h"
 

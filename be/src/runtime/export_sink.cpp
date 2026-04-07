@@ -46,7 +46,7 @@
 #include "exprs/expr_factory.h"
 #include "fs/fs_broker.h"
 #include "fs/fs_factory.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
 
@@ -141,7 +141,7 @@ Status ExportSink::open_file_writer(int timeout_ms) {
         }
     }
     case TFileType::FILE_STREAM:
-        return Status::NotSupported(strings::Substitute("Unsupported file type $0", file_type));
+        return Status::NotSupported(absl::Substitute("Unsupported file type $0", file_type));
     }
 
     _file_builder = std::make_unique<PlainTextBuilder>(

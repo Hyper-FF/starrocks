@@ -45,7 +45,7 @@
 #include "column/nullable_column.h"
 #include "common/logging.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h" // for Substitute
+#include "absl/strings/substitute.h" // for Substitute
 #include "storage/chunk_helper.h"
 #include "storage/column_predicate.h"
 #include "storage/range.h"
@@ -54,7 +54,7 @@
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 BinaryDictPageBuilder::BinaryDictPageBuilder(const PageBuilderOptions& options)
         : _options(options),
@@ -189,7 +189,7 @@ Status BinaryDictPageDecoder<Type>::init() {
     CHECK(!_parsed);
     if (_data.size < BINARY_DICT_PAGE_HEADER_SIZE) {
         return Status::Corruption(
-                strings::Substitute("invalid data size:$0, header size:$1", _data.size, BINARY_DICT_PAGE_HEADER_SIZE));
+                absl::Substitute("invalid data size:$0, header size:$1", _data.size, BINARY_DICT_PAGE_HEADER_SIZE));
     }
     size_t type = decode_fixed32_le((const uint8_t*)&_data.data[0]);
     _encoding_type = static_cast<EncodingTypePB>(type);
@@ -203,7 +203,7 @@ Status BinaryDictPageDecoder<Type>::init() {
         _data_page_decoder.reset(new BinaryPlainPageDecoder<Type>(_data));
     } else {
         LOG(WARNING) << "invalid encoding type:" << _encoding_type;
-        return Status::Corruption(strings::Substitute("invalid encoding type:$0", _encoding_type));
+        return Status::Corruption(absl::Substitute("invalid encoding type:$0", _encoding_type));
     }
 
     RETURN_IF_ERROR(_data_page_decoder->init());

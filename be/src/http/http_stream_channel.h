@@ -16,7 +16,7 @@
 
 #include <string_view>
 
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "http/http_request.h"
 
 struct evbuffer;

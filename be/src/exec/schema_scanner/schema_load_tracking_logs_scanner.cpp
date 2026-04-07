@@ -18,7 +18,7 @@
 
 #include "base/time/time.h"
 #include "exec/schema_scanner/schema_helper.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/http_client.h"
 #include "runtime/runtime_state.h"
 
@@ -73,7 +73,7 @@ Status SchemaLoadTrackingLogsScanner::fill_chunk(ChunkPtr* chunk) {
         auto& info = _result.trackingLoads[_cur_idx];
         for (const auto& [slot_id, index] : slot_id_to_index_map) {
             if (slot_id < 1 || slot_id > 6) {
-                return Status::InternalError(strings::Substitute("invalid slot id: $0", slot_id));
+                return Status::InternalError(absl::Substitute("invalid slot id: $0", slot_id));
             }
             auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(slot_id);
             switch (slot_id) {

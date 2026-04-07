@@ -28,7 +28,7 @@
 #include "fs/fs_util.h"
 #include "fs/hdfs/hdfs_fs_cache.h"
 #include "gen_cpp/AgentService_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/file_result_writer.h"
 #include "udf/java/utils.h"
 #include "util/hdfs_util.h"
@@ -712,7 +712,7 @@ StatusOr<std::unique_ptr<WritableFile>> HdfsFileSystem::new_writable_file(const 
     } else if (opts.mode == CREATE_OR_OPEN) {
         return Status::NotSupported("Open with CREATE_OR_OPEN not supported by hdfs writer");
     } else if (opts.mode != CREATE_OR_OPEN_WITH_TRUNCATE) {
-        auto msg = strings::Substitute("Unsupported open mode $0", opts.mode);
+        auto msg = absl::Substitute("Unsupported open mode $0", opts.mode);
         return Status::NotSupported(msg);
     }
 

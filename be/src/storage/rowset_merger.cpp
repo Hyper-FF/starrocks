@@ -17,6 +17,8 @@
 #include <memory>
 #include <queue>
 
+#include "fmt/printf.h"
+
 #include "base/utility/pretty_printer.h"
 #include "column/binary_column.h"
 #include "common/config_compaction_fwd.h"
@@ -69,13 +71,13 @@ struct MergeEntry {
 
     string debug_string() {
         string ret;
-        StringAppendF(&ret, "%u: %ld/%ld : ", rowset_seg_id, offset(pk_cur), offset(pk_last) + 1);
+        ret.append(fmt::sprintf("%u: %ld/%ld : ", rowset_seg_id, offset(pk_cur), offset(pk_last) + 1));
         for (const T* cur = pk_cur; cur <= pk_last; cur++) {
             if constexpr (std::is_arithmetic_v<T>) {
-                StringAppendF(&ret, " %ld", (long int)*cur);
+                ret.append(fmt::sprintf(" %ld", (long int)*cur));
             } else {
                 // must be Slice
-                StringAppendF(&ret, " %s", cur->to_string().c_str());
+                ret.append(fmt::sprintf(" %s", cur->to_string().c_str()));
             }
         }
         return ret;
@@ -673,7 +675,7 @@ Status compaction_merge_rowsets(Tablet& tablet, int64_t version, const vector<Ro
         merger = std::make_unique<RowsetMergerImpl<int64_t>>();
         break;
     default:
-        return Status::NotSupported(StringPrintf("primary key type not support: %s", logical_type_to_string(key_type)));
+        return Status::NotSupported(fmt::sprintf("primary key type not support: %s", logical_type_to_string(key_type)));
     }
     return merger->do_merge(tablet, final_tablet_schema, version, schema, rowsets, writer, cfg);
 }

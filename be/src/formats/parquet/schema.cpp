@@ -20,7 +20,7 @@
 #include <utility>
 
 #include "base/string/slice.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks::parquet {
@@ -226,7 +226,7 @@ Status SchemaDescriptor::map_to_field(const std::vector<tparquet::SchemaElement>
     }
 
     if (key_value_schema->num_children != 1 && key_value_schema->num_children != 2) {
-        return Status::InvalidArgument(strings::Substitute(
+        return Status::InvalidArgument(absl::Substitute(
                 "Key-value map node must have 1 or 2 child elements. Found: $0", key_value_schema->num_children));
     }
 
@@ -401,7 +401,7 @@ Status SchemaDescriptor::from_thrift(const std::vector<tparquet::SchemaElement>&
             _fields[i].name = boost::algorithm::to_lower_copy(_fields[i].name);
         }
         if (_formatted_column_name_2_field_idx.find(_fields[i].name) != _formatted_column_name_2_field_idx.end()) {
-            return Status::InvalidArgument(strings::Substitute("Duplicate field name: $0", _fields[i].name));
+            return Status::InvalidArgument(absl::Substitute("Duplicate field name: $0", _fields[i].name));
         }
 
         _formatted_column_name_2_field_idx.emplace(_fields[i].name, i);
@@ -410,7 +410,7 @@ Status SchemaDescriptor::from_thrift(const std::vector<tparquet::SchemaElement>&
     _case_sensitive = case_sensitive;
 
     if (next_pos != t_schemas.size()) {
-        return Status::InvalidArgument(strings::Substitute("Remaining $0 unparsed field", t_schemas.size() - next_pos));
+        return Status::InvalidArgument(absl::Substitute("Remaining $0 unparsed field", t_schemas.size() - next_pos));
     }
 
     return Status::OK();

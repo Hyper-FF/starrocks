@@ -34,7 +34,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 
 namespace starrocks {
 
@@ -57,7 +57,7 @@ void DiskInfo::get_device_names() {
         getline(partitions, line);
         boost::trim(line);
 
-        std::vector<std::string> fields = strings::Split(line, " ", strings::SkipWhitespace());
+        std::vector<std::string> fields = absl::StrSplit(line, " ", absl::SkipWhitespace());
 
         if (fields.size() != 4) {
             continue;

@@ -52,7 +52,7 @@ using std::string;
 using std::vector;
 
 #include "gutil/integral_types.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "gutil/port.h"
 
 // Sort and remove duplicates of an STL vector or deque.

@@ -27,7 +27,7 @@
 #include "exprs/agg/combinator/state_function.h"
 #include "exprs/builtin_functions.h"
 #include "exprs/expr_context.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/user_function_cache.h"
 #include "types/logical_type.h"
@@ -106,7 +106,7 @@ Status VectorizedFunctionCallExpr::prepare(starrocks::RuntimeState* state, starr
     }
 
     if (_fn_desc->args_nums > _children.size()) {
-        return Status::InternalError(strings::Substitute("Vectorized function $0 requires $1 arguments but given $2",
+        return Status::InternalError(absl::Substitute("Vectorized function $0 requires $1 arguments but given $2",
                                                          _fn.name.function_name, _fn_desc->args_nums,
                                                          _children.size()));
     }

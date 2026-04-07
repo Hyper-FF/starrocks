@@ -32,7 +32,7 @@
 #include "exec/tablet_info.h"
 #include "fs/bundle_file.h"
 #include "gen_cpp/internal_service.pb.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "runtime/closure_guard.h"
 #include "runtime/descriptors.h"
 #include "runtime/load_channel.h"

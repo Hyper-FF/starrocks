@@ -42,8 +42,8 @@
 
 #include "common/statusor.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "gutil/macros.h"
-#include "gutil/strings/substitute.h"
+#include "base/macros.h"
+#include "absl/strings/substitute.h"
 #include "runtime/mem_tracker.h"
 #include "storage/olap_common.h"
 #include "storage/olap_define.h"
@@ -95,7 +95,7 @@ public:
             _rowset_state = ROWSET_LOADED;
             break;
         default:
-            return Status::InternalError(strings::Substitute("rowset state on_load error, $0", _rowset_state));
+            return Status::InternalError(absl::Substitute("rowset state on_load error, $0", _rowset_state));
         }
         return Status::OK();
     }
@@ -111,7 +111,7 @@ public:
             break;
 
         default:
-            return Status::InternalError(strings::Substitute("rowset state on_close error, $0", _rowset_state));
+            return Status::InternalError(absl::Substitute("rowset state on_close error, $0", _rowset_state));
         }
         return Status::OK();
     }
@@ -122,7 +122,7 @@ public:
             _rowset_state = ROWSET_UNLOADED;
             break;
         default:
-            return Status::InternalError(strings::Substitute("rowset state on_release error, $0", _rowset_state));
+            return Status::InternalError(absl::Substitute("rowset state on_release error, $0", _rowset_state));
         }
         return Status::OK();
     }
@@ -343,7 +343,7 @@ public:
                     // first do close, then change state
                     do_close();
                     WARN_IF_ERROR(_rowset_state_machine.on_release(),
-                                  strings::Substitute("rowset state on_release error, $0",
+                                  absl::Substitute("rowset state on_release error, $0",
                                                       _rowset_state_machine.rowset_state()));
                 }
             }

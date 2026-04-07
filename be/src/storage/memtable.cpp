@@ -23,7 +23,7 @@
 #include "common/config_primary_key_fwd.h"
 #include "common/logging.h"
 #include "exec/sorting/sorting.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
@@ -286,7 +286,7 @@ Status MemTable::finalize() {
                 int64_t t2 = MonotonicMicros();
                 _aggregate(true);
                 int64_t t3 = MonotonicMicros();
-                VLOG(2) << strings::Substitute("memtable final sort:$0 agg:$1 total:$2", t2 - t1, t3 - t2, t3 - t1);
+                VLOG(2) << absl::Substitute("memtable final sort:$0 agg:$1 total:$2", t2 - t1, t3 - t2, t3 - t1);
             } else {
                 // if there is only one data chunk and merge once,
                 // no need to perform an additional merge.
@@ -398,7 +398,7 @@ Status MemTable::_merge() {
     int64_t t2 = MonotonicMicros();
     _aggregate(false);
     int64_t t3 = MonotonicMicros();
-    VLOG(2) << strings::Substitute("memtable sort:$0 agg:$1 total:$2", t2 - t1, t3 - t2, t3 - t1);
+    VLOG(2) << absl::Substitute("memtable sort:$0 agg:$1 total:$2", t2 - t1, t3 - t2, t3 - t1);
     ++_merge_count;
     return Status::OK();
 }
@@ -545,7 +545,7 @@ Status MemTable::_sort_column_inc(bool by_sort_key) {
             key_idxes.resize(_vectorized_schema->num_key_fields());
             std::iota(key_idxes.begin(), key_idxes.end(), 0);
             if (!std::equal(tmp.begin(), tmp.end(), key_idxes.begin(), key_idxes.end())) {
-                std::string msg = strings::Substitute("tablet type: $0 sort key columns is different with key columns",
+                std::string msg = absl::Substitute("tablet type: $0 sort key columns is different with key columns",
                                                       _keys_type);
                 LOG(ERROR) << msg;
                 return Status::InternalError(msg);

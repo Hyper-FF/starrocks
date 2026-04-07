@@ -96,7 +96,7 @@ using __gnu_cxx::hash_set;
 #include "gutil/hash/string_hash.h"
 #include "gutil/int128.h"
 #include "gutil/integral_types.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "gutil/port.h"
 
 namespace __gnu_cxx {

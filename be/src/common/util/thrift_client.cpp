@@ -26,7 +26,7 @@
 #include "base/time/monotime.h"
 #include "base/time/time.h"
 #include "common/config_rpc_client_fwd.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -45,7 +45,7 @@ Status ThriftClientImpl::open() {
         // happen quite frequently. Let's print this error message without the stack
         // trace as there aren't many callers of this function.
         const std::string& err_msg =
-                strings::Substitute("Couldn't open transport for $0:$1 ($2)", ipaddress(), port(), e.what());
+                absl::Substitute("Couldn't open transport for $0:$1 ($2)", ipaddress(), port(), e.what());
         VLOG(2) << err_msg;
         return Status::ThriftRpcError(err_msg);
     }

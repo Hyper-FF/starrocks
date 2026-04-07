@@ -33,7 +33,7 @@
 #include <string>
 using std::string;
 #include "gutil/integral_types.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "gutil/port.h"
 
 // Adapter functions for handling overflow and errno.

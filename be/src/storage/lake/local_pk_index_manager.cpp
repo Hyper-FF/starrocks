@@ -22,7 +22,7 @@
 #include "common/config_lake_fwd.h"
 #include "common/config_starlet_fwd.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/exec_env.h"
 #include "storage/lake/tablet_manager.h"
 #include "storage/lake/update_manager.h"
@@ -143,9 +143,9 @@ void LocalPkIndexManager::gc(UpdateManager* update_manager, DataDir* data_dir, s
     }
     int64_t t_end = MonotonicMillis();
     LOG(INFO) << "finish gc local persistent index dir: " << pk_path
-              << ", found tablet not in the worker, tablet_ids: " << JoinInts(not_in_worker_tablet_ids, ",")
-              << ", data_dir changed tablet_ids: " << JoinInts(dir_changed_tablet_ids, ",")
-              << ", and removed dir successfully, tablet_ids: " << JoinInts(removed_dir_tablet_ids, ",")
+              << ", found tablet not in the worker, tablet_ids: " << absl::StrJoin(not_in_worker_tablet_ids, ",")
+              << ", data_dir changed tablet_ids: " << absl::StrJoin(dir_changed_tablet_ids, ",")
+              << ", and removed dir successfully, tablet_ids: " << absl::StrJoin(removed_dir_tablet_ids, ",")
               << ", cost:" << t_end - t_start << "ms, fail reason(ref/delete fail/lock fail): " << gc_fail_because_ref
               << "/" << gc_fail_because_delete_fail << "/" << gc_fail_because_lock_fail;
 }
@@ -236,8 +236,8 @@ void LocalPkIndexManager::evict(UpdateManager* update_manager, DataDir* data_dir
 
     int64_t t_end = MonotonicMillis();
     LOG(INFO) << "finish evict local persistent index dir: " << pk_path
-              << ", found tablet_ids to be evicted: " << JoinInts(tablet_ids_to_be_evicted, ",")
-              << ", and removed dir successfully, tablet_ids: " << JoinInts(removed_dir_tablet_ids, ",")
+              << ", found tablet_ids to be evicted: " << absl::StrJoin(tablet_ids_to_be_evicted, ",")
+              << ", and removed dir successfully, tablet_ids: " << absl::StrJoin(removed_dir_tablet_ids, ",")
               << ", cost:" << t_end - t_start
               << "ms, fail reason(ref/delete fail/lock fail): " << evict_fail_because_ref << "/"
               << evict_fail_because_delete_fail << "/" << evict_fail_because_lock_fail;

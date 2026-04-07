@@ -25,7 +25,6 @@
 #include "fmt/format.h"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/split.h"
 #include "util/download_util.h"
 
 namespace starrocks {

@@ -18,6 +18,8 @@
 #include <memory>
 #include <numeric>
 
+#include "fmt/printf.h"
+
 #include "base/failpoint/fail_point.h"
 #include "base/time/time.h"
 #include "base/utility/pretty_printer.h"
@@ -502,11 +504,11 @@ string UpdateManager::detail_memory_stats() {
         total_memory += e.second;
     }
     string ret;
-    StringAppendF(&ret, "primary index stats: total:%zu memory:%zu\n  tabletid       memory\n",
-                  primary_index_stats.size(), total_memory);
+    ret.append(fmt::sprintf("primary index stats: total:%zu memory:%zu\n  tabletid       memory\n",
+                  primary_index_stats.size(), total_memory));
     for (size_t i = 0; i < std::min(primary_index_stats.size(), (size_t)200); i++) {
         auto& e = primary_index_stats[i];
-        StringAppendF(&ret, "%10lu %12zu\n", (unsigned long)e.first, e.second);
+        ret.append(fmt::sprintf("%10lu %12zu\n", (unsigned long)e.first, e.second));
     }
     return ret;
 }
@@ -520,7 +522,7 @@ string UpdateManager::topn_memory_stats(size_t topn) {
     string ret;
     for (size_t i = 0; i < std::min(primary_index_stats.size(), topn); i++) {
         auto& e = primary_index_stats[i];
-        StringAppendF(&ret, "%lu(%zuM)", (unsigned long)e.first, e.second / (1024 * 1024));
+        ret.append(fmt::sprintf("%lu(%zuM)", (unsigned long)e.first, e.second / (1024 * 1024)));
     }
     return ret;
 }

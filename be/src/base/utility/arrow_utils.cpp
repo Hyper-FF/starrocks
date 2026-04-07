@@ -21,11 +21,11 @@
 #include <arrow/record_batch.h>
 #include <arrow/type.h>
 
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
-using strings::Substitute;
+using absl::Substitute;
 
 Status to_status(const arrow::Status& status) {
     if (status.ok()) {

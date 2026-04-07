@@ -20,7 +20,7 @@
 #include <unordered_map>
 
 #include "base/concurrency/spinlock.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks::query_cache {
 

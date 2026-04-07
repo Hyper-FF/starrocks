@@ -23,7 +23,7 @@
 
 #include "common/status.h"
 #include "formats/utils.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/descriptors.h"
 #include "types/type_descriptor.h"
 

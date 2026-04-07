@@ -45,8 +45,8 @@
 #include "common/status.h"
 #include "common/tracer.h"
 #include "fmt/core.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
 #include "http/http_request.h"
@@ -85,7 +85,7 @@ Status CompactionAction::_handle_show_compaction(HttpRequest* req, std::string* 
         tablet_id = std::stoull(req_tablet_id);
     } catch (const std::exception& e) {
         LOG(WARNING) << "invalid argument.tablet_id:" << req_tablet_id;
-        return Status::InternalError(strings::Substitute("convert failed, $0", e.what()));
+        return Status::InternalError(absl::Substitute("convert failed, $0", e.what()));
     }
 
     TabletSharedPtr tablet = StorageEngine::instance()->tablet_manager()->get_tablet(tablet_id);
@@ -125,7 +125,7 @@ Status CompactionAction::do_compaction(uint64_t tablet_id, const string& compact
         if (rowset_ids_string.empty()) {
             res = tablet->updates()->compaction(mem_tracker);
         } else {
-            vector<string> id_str_list = strings::Split(rowset_ids_string, ",", strings::SkipEmpty());
+            vector<string> id_str_list = absl::StrSplit(rowset_ids_string, ",", absl::SkipEmpty());
             vector<uint32_t> rowset_ids;
             for (const auto& id_str : id_str_list) {
                 try {

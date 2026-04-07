@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <gutil/strings/substitute.h>
+#include <absl/strings/substitute.h>
 
 #include <cstdint>
 #include <map>
@@ -65,7 +65,7 @@ struct BinlogConfig {
     }
 
     std::string to_string() const {
-        return strings::Substitute(
+        return absl::Substitute(
                 "BinlogConfig={version=$0, binlog_enable=$1, binlog_ttl_second=$2, binlog_max_size=$3}", version,
                 binlog_enable, binlog_ttl_second, binlog_max_size);
     }

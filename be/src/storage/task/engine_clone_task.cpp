@@ -56,9 +56,9 @@
 #include "fs/fs.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/Types_constants.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 #include "gutil/strings/stringpiece.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/http_client.h"
 #include "runtime/client_cache.h"
 #include "runtime/current_thread.h"
@@ -71,9 +71,9 @@
 
 using std::set;
 using std::stringstream;
-using strings::Substitute;
-using strings::Split;
-using strings::SkipWhitespace;
+using absl::Substitute;
+using absl::StrSplit;
+using absl::SkipWhitespace;
 
 using namespace fmt::literals;
 
@@ -242,10 +242,10 @@ Status EngineCloneTask::_do_clone(Tablet* tablet) {
         auto tablet_manager = StorageEngine::instance()->tablet_manager();
         auto tablet_id = _clone_req.tablet_id;
         auto schema_hash = _clone_req.schema_hash;
-        auto tablet_dir = strings::Substitute("$0/$1", shard_path, tablet_id);
-        auto schema_hash_dir = strings::Substitute("$0/$1", tablet_dir, schema_hash);
-        auto clone_header_file = strings::Substitute("$0/$1.hdr", schema_hash_dir, tablet_id);
-        auto clone_meta_file = strings::Substitute("$0/meta", schema_hash_dir);
+        auto tablet_dir = absl::Substitute("$0/$1", shard_path, tablet_id);
+        auto schema_hash_dir = absl::Substitute("$0/$1", tablet_dir, schema_hash);
+        auto clone_header_file = absl::Substitute("$0/$1.hdr", schema_hash_dir, tablet_id);
+        auto clone_meta_file = absl::Substitute("$0/meta", schema_hash_dir);
 
         // old tablet may not exists in tablet map, it may still in shutdown tablet map(tablet path not deleted)
         // new tablet's path maybe the same as old tablet's path, so we need to clear that path before cloning
@@ -276,7 +276,7 @@ Status EngineCloneTask::_do_clone(Tablet* tablet) {
                 return status;
             }
 
-            std::string dcgs_snapshot_file = strings::Substitute("$0/$1.dcgs_snapshot", schema_hash_dir, tablet_id);
+            std::string dcgs_snapshot_file = absl::Substitute("$0/$1.dcgs_snapshot", schema_hash_dir, tablet_id);
             DeltaColumnGroupSnapshotPB dcg_snapshot_pb;
             bool has_dcgs_snapshot_file = fs::path_exist(dcgs_snapshot_file);
             if (has_dcgs_snapshot_file) {
@@ -288,7 +288,7 @@ Status EngineCloneTask::_do_clone(Tablet* tablet) {
 
                 auto new_tablet = StorageEngine::instance()->tablet_manager()->get_tablet(tablet_id);
                 if (new_tablet == nullptr) {
-                    std::string error_msg = strings::Substitute("tablet: $0 is not exist", tablet_id);
+                    std::string error_msg = absl::Substitute("tablet: $0 is not exist", tablet_id);
                     LOG(WARNING) << error_msg;
                     return Status::InternalError(error_msg);
                 }
@@ -419,7 +419,7 @@ Status EngineCloneTask::_clone_copy(DataDir& data_dir, const string& local_data_
             continue;
         }
 
-        std::string download_url = strings::Substitute(
+        std::string download_url = absl::Substitute(
                 "http://$0$1?token=$2&type=V2&file=$3/$4/$5/", get_host_port(src.host, src.http_port),
                 HTTP_REQUEST_PREFIX, token, snapshot_path, _clone_req.tablet_id, _clone_req.schema_hash);
 
@@ -558,10 +558,10 @@ Status EngineCloneTask::_download_files(DataDir* data_dir, const std::string& re
 
     bool use_file_name_and_size_format = file_list_str.find(FILE_NAME_SIZE_DELIMETER) != string::npos;
     if (use_file_name_and_size_format) {
-        for (auto file_str : strings::Split(file_list_str, FILE_DELIMETER_IN_DIR_RESPONSE, strings::SkipWhitespace())) {
-            std::vector<string> list = strings::Split(file_str, FILE_NAME_SIZE_DELIMETER);
+        for (auto file_str : absl::StrSplit(file_list_str, FILE_DELIMETER_IN_DIR_RESPONSE, absl::SkipWhitespace())) {
+            std::vector<string> list = absl::StrSplit(file_str, FILE_NAME_SIZE_DELIMETER);
             if (list.size() != 2) {
-                return Status::InternalError(fmt::format("invalid directory entry {}", file_str.as_string()));
+                return Status::InternalError(fmt::format("invalid directory entry {}", std::string(file_str)));
             }
 
             StringParser::ParseResult result;
@@ -575,7 +575,7 @@ Status EngineCloneTask::_download_files(DataDir* data_dir, const std::string& re
             file_size_list.emplace_back(file_size);
         }
     } else {
-        file_name_list = strings::Split(file_list_str, FILE_DELIMETER_IN_DIR_RESPONSE, strings::SkipWhitespace());
+        file_name_list = absl::StrSplit(file_list_str, FILE_DELIMETER_IN_DIR_RESPONSE, absl::SkipWhitespace());
     }
 
     // If the header file is not exist, the table could't loaded by olap engine.
@@ -694,8 +694,8 @@ Status EngineCloneTask::_finish_clone(Tablet* tablet, const string& clone_dir, i
 
     do {
         // load src header
-        std::string header_file = strings::Substitute("$0/$1.hdr", clone_dir, tablet->tablet_id());
-        std::string dcgs_snapshot_file = strings::Substitute("$0/$1.dcgs_snapshot", clone_dir, tablet->tablet_id());
+        std::string header_file = absl::Substitute("$0/$1.hdr", clone_dir, tablet->tablet_id());
+        std::string dcgs_snapshot_file = absl::Substitute("$0/$1.dcgs_snapshot", clone_dir, tablet->tablet_id());
         TabletMeta cloned_tablet_meta;
         res = cloned_tablet_meta.create_from_file(header_file);
         if (!res.ok()) {
@@ -748,8 +748,8 @@ Status EngineCloneTask::_finish_clone(Tablet* tablet, const string& clone_dir, i
                 continue;
             }
 
-            std::string from = strings::Substitute("$0/$1", clone_dir, clone_file);
-            std::string to = strings::Substitute("$0/$1", tablet_dir, clone_file);
+            std::string from = absl::Substitute("$0/$1", clone_dir, clone_file);
+            std::string to = absl::Substitute("$0/$1", tablet_dir, clone_file);
             res = FileSystem::Default()->link_file(from, to);
             if (!res.ok()) {
                 LOG(WARNING) << "Fail to link " << from << " to " << to << ": " << res;
@@ -846,7 +846,7 @@ Status EngineCloneTask::_clone_incremental_data(Tablet* tablet, const TabletMeta
         if (inc_rs_meta == nullptr) {
             LOG(WARNING) << "missed version is not found in cloned tablet meta."
                          << ", missed_version=" << version.first << "-" << version.second;
-            return Status::NotFound(strings::Substitute("version not found"));
+            return Status::NotFound(absl::Substitute("version not found"));
         }
 
         rowsets_to_clone.push_back(inc_rs_meta);
@@ -955,7 +955,7 @@ Status EngineCloneTask::_finish_clone_primary(Tablet* tablet, const std::string&
         return Status::InternalError("Process is going to quit. The snapshot will stop.");
     }
 
-    auto meta_file = strings::Substitute("$0/meta", clone_dir);
+    auto meta_file = absl::Substitute("$0/meta", clone_dir);
     auto res = SnapshotManager::instance()->parse_snapshot_meta(meta_file);
     if (!res.ok()) {
         return res.status();

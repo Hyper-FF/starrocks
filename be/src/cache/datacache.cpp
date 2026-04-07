@@ -25,8 +25,8 @@
 #include "common/config_starlet_fwd.h"
 #include "common/config_storage_fwd.h"
 #include "common/status.h"
+#include "absl/strings/ascii.h"
 #include "gutil/strings/split.h"
-#include "gutil/strings/strip.h"
 #include "runtime/exec_env.h"
 
 #ifdef WITH_STARCACHE
@@ -244,8 +244,8 @@ StatusOr<DiskCacheOptions> DataCache::_init_disk_cache_options() {
 static bool parse_resource_str(const string& str, string* value) {
     if (!str.empty()) {
         std::string tmp_str = str;
-        StripLeadingWhiteSpace(&tmp_str);
-        StripTrailingWhitespace(&tmp_str);
+        tmp_str = std::string(absl::StripLeadingAsciiWhitespace(tmp_str));
+        tmp_str = std::string(absl::StripTrailingAsciiWhitespace(tmp_str));
         if (tmp_str.empty()) {
             return false;
         } else {

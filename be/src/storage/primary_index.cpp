@@ -20,7 +20,7 @@
 #include "base/hash/xxh3.h"
 #include "base/types/int128.h"
 #include "common/tracer.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/starrocks_metrics.h"
@@ -136,7 +136,7 @@ public:
             auto p = _map.insert({keys[i], v});
             if (!p.second) {
                 uint64_t old = p.first->second.value;
-                std::string msg = strings::Substitute(
+                std::string msg = absl::Substitute(
                         "insert found duplicate key new(rssid=$0 rowid=$1) old(rssid=$2 rowid=$3) "
                         "key=$4",
                         rssid, rowids[i], (uint32_t)(old >> 32), (uint32_t)(old & ROWID_MASK), keys[i]);
@@ -324,7 +324,7 @@ public:
                 auto p = _map.emplace_with_hash(prefetch_hashes[pslot], prefetch_keys[pslot], v);
                 if (!p.second) {
                     uint64_t old = p.first->second.value;
-                    std::string msg = strings::Substitute(
+                    std::string msg = absl::Substitute(
                             "insert found duplicate key new(rssid=$0 rowid=$1) old(rssid=$2 rowid=$3) "
                             "key=$4 [$5]",
                             rssid, rowids[i], (uint32_t)(old >> 32), (uint32_t)(old & ROWID_MASK), keys[i].to_string(),
@@ -345,7 +345,7 @@ public:
                 auto p = _map.emplace(FixSlice<S>(keys[i]), v);
                 if (!p.second) {
                     uint64_t old = p.first->second.value;
-                    std::string msg = strings::Substitute(
+                    std::string msg = absl::Substitute(
                             "insert found duplicate key new(rssid=$0 rowid=$1) old(rssid=$2 rowid=$3) "
                             "key=$4 [$5]",
                             rssid, rowids[i], (uint32_t)(old >> 32), (uint32_t)(old & ROWID_MASK), keys[i].to_string(),
@@ -634,7 +634,7 @@ public:
             auto p = _map.insert({keys[i].to_string(), v});
             if (!p.second) {
                 uint64_t old = p.first->second;
-                std::string msg = strings::Substitute(
+                std::string msg = absl::Substitute(
                         "insert found duplicate key new(rssid=$0 rowid=$1) old(rssid=$2 rowid=$3) "
                         "key=$4 [$5]",
                         rssid, rowids[i], (uint32_t)(old >> 32), (uint32_t)(old & ROWID_MASK), keys[i].to_string(),
@@ -1289,7 +1289,7 @@ Status PrimaryIndex::_do_load(Tablet* tablet) {
         }
     }
     if (size() != total_rows - total_dels) {
-        LOG(WARNING) << strings::Substitute("load primary index row count not match tablet:$0 index:$1 != stats:$2",
+        LOG(WARNING) << absl::Substitute("load primary index row count not match tablet:$0 index:$1 != stats:$2",
                                             _tablet_id, size(), total_rows - total_dels);
     }
     LOG(INFO) << "load primary index finish table:" << tablet->belonged_table_id() << " tablet:" << tablet->tablet_id()
@@ -1584,7 +1584,7 @@ void PrimaryIndex::reserve(size_t s) {
 }
 
 std::string PrimaryIndex::to_string() const {
-    return strings::Substitute("PrimaryIndex tablet:$0", _tablet_id);
+    return absl::Substitute("PrimaryIndex tablet:$0", _tablet_id);
 }
 
 std::unique_ptr<PrimaryIndex> TEST_create_primary_index(const Schema& pk_schema) {

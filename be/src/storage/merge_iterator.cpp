@@ -20,7 +20,7 @@
 
 #include "column/chunk.h"
 #include "exec/sorting/sorting.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/chunk_helper.h"
 
 namespace starrocks {
@@ -369,7 +369,7 @@ inline Status HeapMergeIterator::fill(size_t child) {
         size_t num_rows = chunk->num_rows();
         DCHECK_GT(num_rows, 0u);
         if (num_rows > max_merge_chunk_size) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "Merge iterator only supports merging chunks with rows less than $0", max_merge_chunk_size));
         }
         if (need_rssid_rowids) {
@@ -498,7 +498,7 @@ inline Status MaskMergeIterator::do_get_next(Chunk* chunk, std::vector<RowSource
         uint16_t child = mask.get_source_num();
         auto& min_chunk = _chunks[child];
         if (min_chunk._chunk == nullptr) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "Mask buffer expects more rows from child $0, but child iterator is exhausted", child));
         }
         DCHECK_GT(min_chunk.remaining_rows(), 0);
@@ -581,7 +581,7 @@ inline Status MaskMergeIterator::fill(size_t child) {
         size_t num_rows = chunk->num_rows();
         DCHECK_GT(num_rows, 0u);
         if (num_rows > max_merge_chunk_size) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "Merge iterator only supports merging chunks with rows less than $0", max_merge_chunk_size));
         }
         _chunks[child] = MergingChunk(chunk);

@@ -30,9 +30,9 @@
 #include "fs/fs_util.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/Types_constants.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 #include "gutil/strings/stringpiece.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/http_client.h"
 #include "runtime/client_cache.h"
 #include "runtime/exec_env.h"
@@ -69,10 +69,10 @@ static Status list_remote_files(const std::string& remote_url_prefix, std::vecto
 
     bool use_file_name_and_size_format = file_list_str.find(FILE_NAME_SIZE_DELIMETER) != string::npos;
     if (use_file_name_and_size_format) {
-        for (auto file_str : strings::Split(file_list_str, FILE_DELIMETER_IN_DIR_RESPONSE, strings::SkipWhitespace())) {
-            std::vector<string> list = strings::Split(file_str, FILE_NAME_SIZE_DELIMETER);
+        for (auto file_str : absl::StrSplit(file_list_str, FILE_DELIMETER_IN_DIR_RESPONSE, absl::SkipWhitespace())) {
+            std::vector<string> list = absl::StrSplit(file_str, FILE_NAME_SIZE_DELIMETER);
             if (list.size() != 2) {
-                return Status::InternalError(fmt::format("invalid directory entry {}", file_str.as_string()));
+                return Status::InternalError(fmt::format("invalid directory entry {}", std::string(file_str)));
             }
 
             StringParser::ParseResult result;
@@ -86,7 +86,7 @@ static Status list_remote_files(const std::string& remote_url_prefix, std::vecto
             file_size_list->emplace_back(file_size);
         }
     } else {
-        *file_name_list = strings::Split(file_list_str, FILE_DELIMETER_IN_DIR_RESPONSE, strings::SkipWhitespace());
+        *file_name_list = absl::StrSplit(file_list_str, FILE_DELIMETER_IN_DIR_RESPONSE, absl::SkipWhitespace());
     }
     return Status::OK();
 }
@@ -243,7 +243,7 @@ Status ReplicationUtils::download_remote_snapshot(const std::string& host, int32
     auto output_file_name = file_converter->output_file_name();
     auto local_path_prefix = output_file_name.substr(0, output_file_name.size() - test_file.size());
     std::error_code error_code;
-    std::filesystem::copy(strings::Substitute("$0/$1/$2/", remote_snapshot_path, remote_tablet_id, remote_schema_hash),
+    std::filesystem::copy(absl::Substitute("$0/$1/$2/", remote_snapshot_path, remote_tablet_id, remote_schema_hash),
                           local_path_prefix, error_code);
     if (error_code) {
         return Status::InternalError(error_code.message());
@@ -251,7 +251,7 @@ Status ReplicationUtils::download_remote_snapshot(const std::string& host, int32
     return Status::OK();
 #else
 
-    std::string remote_url_prefix = strings::Substitute(
+    std::string remote_url_prefix = absl::Substitute(
             "http://$0$1?token=$2&type=V2&file=$3/$4/$5/", get_host_port(host, http_port), HTTP_REQUEST_PREFIX,
             remote_token, remote_snapshot_path, remote_tablet_id, remote_schema_hash);
 
@@ -320,12 +320,12 @@ StatusOr<std::string> ReplicationUtils::download_remote_snapshot_file(
 
 #ifdef BE_TEST
     std::string path =
-            strings::Substitute("$0/$1/$2/$3", remote_snapshot_path, remote_tablet_id, remote_schema_hash, file_name);
+            absl::Substitute("$0/$1/$2/$3", remote_snapshot_path, remote_tablet_id, remote_schema_hash, file_name);
     ASSIGN_OR_RETURN(auto file, fs::new_random_access_file(path));
     return file->read_all();
 #else
 
-    std::string remote_file_url = strings::Substitute(
+    std::string remote_file_url = absl::Substitute(
             "http://$0$1?token=$2&type=V2&file=$3/$4/$5/$6", get_host_port(host, http_port), HTTP_REQUEST_PREFIX,
             remote_token, remote_snapshot_path, remote_tablet_id, remote_schema_hash, file_name);
 

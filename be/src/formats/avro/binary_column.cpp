@@ -23,7 +23,7 @@
 #include "column/json_column.h"
 #include "common/config_avro_fwd.h"
 #include "common/status.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/json_value.h"
 
 namespace starrocks {
@@ -34,12 +34,12 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
     case AVRO_INT32: {
         int in;
         if (avro_value_get_int(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get int value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get int value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         std::string sv = std::to_string(in);
         if (UNLIKELY(type_desc.len < sv.size())) {
-            auto err_msg = strings::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
+            auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
                                                type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
@@ -51,12 +51,12 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
     case AVRO_INT64: {
         int64_t in;
         if (avro_value_get_long(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get int64 value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get int64 value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         std::string sv = std::to_string(in);
         if (UNLIKELY(type_desc.len < sv.size())) {
-            auto err_msg = strings::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
+            auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
                                                type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
@@ -68,12 +68,12 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
     case AVRO_FLOAT: {
         float in;
         if (avro_value_get_float(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get float value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get float value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         std::string sv = std::to_string(in);
         if (UNLIKELY(type_desc.len < sv.size())) {
-            auto err_msg = strings::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
+            auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
                                                type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
@@ -86,12 +86,12 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
     case AVRO_DOUBLE: {
         double in;
         if (avro_value_get_double(&value, &in) != 0) {
-            auto err_msg = strings::Substitute("Get double value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get double value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         std::string sv = std::to_string(in);
         if (UNLIKELY(type_desc.len < sv.size())) {
-            auto err_msg = strings::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
+            auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
                                                type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
@@ -102,7 +102,7 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
     }
 
     default: {
-        auto err_msg = strings::Substitute("Unsupported value type. column=$0", name);
+        auto err_msg = absl::Substitute("Unsupported value type. column=$0", name);
         return Status::InternalError(err_msg);
     }
     }
@@ -116,12 +116,12 @@ static Status add_column_with_string_value(BinaryColumn* column, const TypeDescr
         const char* in;
         size_t size;
         if (UNLIKELY(avro_value_get_string(&value, &in, &size) != 0)) {
-            auto err_msg = strings::Substitute("Get string value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get string value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         --size;
         if (UNLIKELY(type_desc.len < size)) {
-            auto err_msg = strings::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
+            auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
                                                type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
@@ -135,7 +135,7 @@ static Status add_column_with_string_value(BinaryColumn* column, const TypeDescr
         int symbol_value;
         const char* symbol_name;
         if (UNLIKELY(avro_value_get_enum(&value, &symbol_value) != 0)) {
-            auto err_msg = strings::Substitute("Get enum value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get enum value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         enum_schema = avro_value_get_schema(&value);
@@ -149,12 +149,12 @@ static Status add_column_with_string_value(BinaryColumn* column, const TypeDescr
         const char* in;
         size_t size;
         if (UNLIKELY(avro_value_get_fixed(&value, (const void**)&in, &size) != 0)) {
-            auto err_msg = strings::Substitute("Get fixed value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get fixed value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
 
         if (UNLIKELY(type_desc.len < size)) {
-            auto err_msg = strings::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
+            auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
                                                type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
@@ -167,12 +167,12 @@ static Status add_column_with_string_value(BinaryColumn* column, const TypeDescr
         const char* in;
         size_t size;
         if (UNLIKELY(avro_value_get_bytes(&value, (const void**)&in, &size) != 0)) {
-            auto err_msg = strings::Substitute("Get bytes value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get bytes value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
 
         if (UNLIKELY(type_desc.len < size)) {
-            auto err_msg = strings::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
+            auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
                                                type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
@@ -182,7 +182,7 @@ static Status add_column_with_string_value(BinaryColumn* column, const TypeDescr
     }
 
     default: {
-        auto err_msg = strings::Substitute("Unsupported value type. column=$0", name);
+        auto err_msg = absl::Substitute("Unsupported value type. column=$0", name);
         return Status::InternalError(err_msg);
     }
     }
@@ -193,7 +193,7 @@ static Status add_column_with_boolean_value(BinaryColumn* column, const TypeDesc
                                             const std::string& name, const avro_value_t& value) {
     int in;
     if (avro_value_get_boolean(&value, &in) != 0) {
-        auto err_msg = strings::Substitute("Get boolean value error. column=$0", name);
+        auto err_msg = absl::Substitute("Get boolean value error. column=$0", name);
         return Status::InvalidArgument(err_msg);
     }
     if (in == 1) {
@@ -211,7 +211,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
         const char* in;
         size_t size;
         if (avro_value_get_string(&value, &in, &size) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get string value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get string value error $0", avro_strerror()));
         }
         out.SetString(in, allocator);
         return Status::OK();
@@ -220,7 +220,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
         const char* in;
         size_t size;
         if (avro_value_get_bytes(&value, (const void**)&in, &size) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get bytes value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get bytes value error $0", avro_strerror()));
         }
         out.SetString(in, allocator);
         return Status::OK();
@@ -228,7 +228,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_INT32: {
         int32_t in;
         if (avro_value_get_int(&value, &in) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get int32 value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get int32 value error $0", avro_strerror()));
         }
         out.SetInt(in);
         return Status::OK();
@@ -236,7 +236,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_INT64: {
         int64_t in;
         if (avro_value_get_long(&value, &in) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get int64 value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get int64 value error $0", avro_strerror()));
         }
         out.SetInt64(in);
         return Status::OK();
@@ -244,7 +244,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_FLOAT: {
         float in;
         if (avro_value_get_float(&value, &in) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get float value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get float value error $0", avro_strerror()));
         }
         out.SetFloat(in);
         return Status::OK();
@@ -252,7 +252,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_DOUBLE: {
         double in;
         if (avro_value_get_double(&value, &in) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get double value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get double value error $0", avro_strerror()));
         }
         out.SetDouble(in);
         return Status::OK();
@@ -260,7 +260,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_BOOLEAN: {
         int in;
         if (avro_value_get_boolean(&value, &in) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get boolean value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get boolean value error $0", avro_strerror()));
         }
         out.SetBool(in);
         return Status::OK();
@@ -272,7 +272,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_RECORD: {
         size_t field_count = 0;
         if (avro_value_get_size(&value, &field_count) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get record field count error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get record field count error $0", avro_strerror()));
         }
 
         out.SetObject();
@@ -280,7 +280,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
             avro_value_t field_value;
             const char* field_name;
             if (avro_value_get_by_index(&value, i, &field_value, &field_name) != 0) {
-                return Status::InvalidArgument(strings::Substitute("Get record field error $0", avro_strerror()));
+                return Status::InvalidArgument(absl::Substitute("Get record field error $0", avro_strerror()));
             }
 
             rapidjson::Value field_name_val;
@@ -295,7 +295,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
         avro_schema_t enum_schema;
         int symbol_value;
         if (avro_value_get_enum(&value, &symbol_value) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get enum value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get enum value error $0", avro_strerror()));
         }
 
         enum_schema = avro_value_get_schema(&value);
@@ -308,7 +308,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
         const char* in;
         size_t size;
         if (avro_value_get_fixed(&value, (const void**)&in, &size) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get fixed value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get fixed value error $0", avro_strerror()));
         }
         out.SetString(in, allocator);
         return Status::OK();
@@ -316,7 +316,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_MAP: {
         size_t map_size = 0;
         if (avro_value_get_size(&value, &map_size) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get map size error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get map size error $0", avro_strerror()));
         }
 
         out.SetObject();
@@ -324,7 +324,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
             const char* key;
             avro_value_t map_value;
             if (avro_value_get_by_index(&value, i, &map_value, &key) != 0) {
-                return Status::InvalidArgument(strings::Substitute("Get map key value error $0", avro_strerror()));
+                return Status::InvalidArgument(absl::Substitute("Get map key value error $0", avro_strerror()));
             }
 
             rapidjson::Value key_val;
@@ -338,14 +338,14 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_ARRAY: {
         size_t array_size = 0;
         if (avro_value_get_size(&value, &array_size) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get array size error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get array size error $0", avro_strerror()));
         }
 
         out.SetArray();
         for (int i = 0; i < array_size; ++i) {
             avro_value_t element;
             if (avro_value_get_by_index(&value, i, &element, nullptr) != 0) {
-                return Status::InvalidArgument(strings::Substitute("Get array element error $0", avro_strerror()));
+                return Status::InvalidArgument(absl::Substitute("Get array element error $0", avro_strerror()));
             }
 
             rapidjson::Value element_value;
@@ -357,7 +357,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_UNION: {
         avro_value_t union_value;
         if (avro_value_get_current_branch(&value, &union_value) != 0) {
-            return Status::InvalidArgument(strings::Substitute("Get union value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get union value error $0", avro_strerror()));
         }
         RETURN_IF_ERROR(avro_value_to_rapidjson(union_value, allocator, out));
         return Status::OK();
@@ -423,7 +423,7 @@ static Status add_column_with_array_object_value(BinaryColumn* column, const Typ
         if (!st.ok()) {
             LOG(WARNING) << "avro to json failed. column=" << name << ", err=" << st;
             return Status::InternalError(
-                    strings::Substitute("avro to json failed. column=$0, err=$1", name, st.message()));
+                    absl::Substitute("avro to json failed. column=$0, err=$1", name, st.message()));
         }
 
         column->append(Slice(json_str));
@@ -432,7 +432,7 @@ static Status add_column_with_array_object_value(BinaryColumn* column, const Typ
         if (avro_value_to_json(&value, 1, &as_json)) {
             LOG(WARNING) << "avro to json failed. column=" << name << ", err=" << avro_strerror();
             return Status::InternalError(
-                    strings::Substitute("avro to json failed. column=$0, err=$1", name, avro_strerror()));
+                    absl::Substitute("avro to json failed. column=$0, err=$1", name, avro_strerror()));
         }
         DeferOp json_deleter([&] { free(as_json); });
         column->append(Slice(as_json));
@@ -471,7 +471,7 @@ Status add_binary_column(Column* column, const TypeDescriptor& type_desc, const 
     }
 
     default: {
-        auto err_msg = strings::Substitute("Unsupported value type. Binary type is required. column=$0", name);
+        auto err_msg = absl::Substitute("Unsupported value type. Binary type is required. column=$0", name);
         return Status::DataQualityError(err_msg);
     }
     }
@@ -488,7 +488,7 @@ Status add_native_json_column(Column* column, const TypeDescriptor& type_desc, c
         if (!st.ok()) {
             LOG(WARNING) << "avro to json failed. column=" << name << ", err=" << st;
             return Status::InternalError(
-                    strings::Substitute("avro to json failed. column=$0, err=$1", name, st.message()));
+                    absl::Substitute("avro to json failed. column=$0, err=$1", name, st.message()));
         }
 
         st = JsonValue::parse(Slice(json_str), &json_value);
@@ -497,7 +497,7 @@ Status add_native_json_column(Column* column, const TypeDescriptor& type_desc, c
         if (avro_value_to_json(&value, 1, &as_json)) {
             LOG(WARNING) << "avro to json failed. column=" << name << ", err=" << avro_strerror();
             return Status::InternalError(
-                    strings::Substitute("avro to json failed. column=$0, err=$1", name, avro_strerror()));
+                    absl::Substitute("avro to json failed. column=$0, err=$1", name, avro_strerror()));
         }
 
         DeferOp json_deleter([&] { free(as_json); });
@@ -505,7 +505,7 @@ Status add_native_json_column(Column* column, const TypeDescriptor& type_desc, c
     }
 
     if (!st.ok()) {
-        return Status::InternalError(strings::Substitute("parse json failed. column=$0, err=$1", name, st.message()));
+        return Status::InternalError(absl::Substitute("parse json failed. column=$0, err=$1", name, st.message()));
     }
 
     auto json_column = down_cast<JsonColumn*>(column);

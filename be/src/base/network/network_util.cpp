@@ -52,7 +52,7 @@
 #include <utility>
 
 #include "base/logging.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 #ifdef __APPLE__
 #ifndef HOST_NAME_MAX
@@ -156,7 +156,7 @@ Status hostname_to_ipv4(const std::string& host, std::string& ip) {
     hints.ai_family = AF_INET;
     int err = getaddrinfo(host.c_str(), nullptr, &hints, &res);
     if (err != 0) {
-        std::string err_msg = strings::Substitute("failed to get ipv4 from host: $0, err: $1", host, gai_strerror(err));
+        std::string err_msg = absl::Substitute("failed to get ipv4 from host: $0, err: $1", host, gai_strerror(err));
         LOG(WARNING) << err_msg;
         return Status::InternalError(err_msg);
     }
@@ -179,7 +179,7 @@ Status hostname_to_ipv6(const std::string& host, std::string& ip) {
 
     int err = getaddrinfo(host.c_str(), nullptr, &hint, &answer);
     if (err != 0) {
-        std::string err_msg = strings::Substitute("failed to get ipv6 from host: $0, err: $1", host, gai_strerror(err));
+        std::string err_msg = absl::Substitute("failed to get ipv6 from host: $0, err: $1", host, gai_strerror(err));
         LOG(WARNING) << err_msg;
         return Status::InternalError(err_msg);
     }
@@ -308,7 +308,7 @@ StatusOr<std::vector<std::string>> resolve_hostname_all_ips(const std::string& h
     int err = getaddrinfo(hostname.c_str(), nullptr, &hints, &res);
     if (err != 0) {
         return Status::InvalidArgument(
-                strings::Substitute("DNS resolution failed for $0: $1", hostname, gai_strerror(err)));
+                absl::Substitute("DNS resolution failed for $0: $1", hostname, gai_strerror(err)));
     }
 
     for (struct addrinfo* p = res; p != nullptr; p = p->ai_next) {
@@ -328,7 +328,7 @@ StatusOr<std::vector<std::string>> resolve_hostname_all_ips(const std::string& h
     freeaddrinfo(res);
 
     if (results.empty()) {
-        return Status::InvalidArgument(strings::Substitute("No IP addresses found for $0", hostname));
+        return Status::InvalidArgument(absl::Substitute("No IP addresses found for $0", hostname));
     }
 
     return results;

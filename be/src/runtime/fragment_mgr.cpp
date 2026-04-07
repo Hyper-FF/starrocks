@@ -60,7 +60,7 @@
 #include "gen_cpp/FrontendService.h"
 #include "gen_cpp/HeartbeatService.h"
 #include "gen_cpp/QueryPlanExtra_types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/client_cache.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
@@ -217,7 +217,7 @@ Status FragmentExecState::execute() {
     {
         SCOPED_RAW_TIMER(&duration_ns);
         WARN_IF_ERROR(_executor.open(),
-                      strings::Substitute("Fail to open fragment $0", print_id(_fragment_instance_id)));
+                      absl::Substitute("Fail to open fragment $0", print_id(_fragment_instance_id)));
         _executor.close();
     }
     StarRocksMetrics::instance()->fragment_requests_total.increment(1);
@@ -399,7 +399,7 @@ void FragmentMgr::exec_actual(const std::shared_ptr<FragmentExecState>& exec_sta
     DeferOp op([&] { tls_thread_status.set_mem_tracker(prev_tracker); });
 
     WARN_IF_ERROR(exec_state->execute(),
-                  strings::Substitute("Fail to execute fragment $0", print_id(exec_state->fragment_instance_id())));
+                  absl::Substitute("Fail to execute fragment $0", print_id(exec_state->fragment_instance_id())));
 
     // Callback after remove from this id
     cb(exec_state->executor());
@@ -464,7 +464,7 @@ Status FragmentMgr::exec_plan_fragment(const TExecPlanFragmentParams& params, co
     auto st = _thread_pool->submit_func([this, exec_state, cb] { exec_actual(exec_state, cb); });
     if (!st.ok()) {
         exec_state->cancel(PPlanFragmentCancelReason::INTERNAL_ERROR);
-        std::string error_msg = strings::Substitute("Put planfragment $0 to thread pool failed. err = $1",
+        std::string error_msg = absl::Substitute("Put planfragment $0 to thread pool failed. err = $1",
                                                     print_id(fragment_instance_id), st.message());
         LOG(WARNING) << error_msg;
         {
@@ -557,7 +557,7 @@ void FragmentMgr::close() {
     // cancel all the fragments without lock.
     for (auto& id : frag_instance_ids) {
         WARN_IF_ERROR(cancel(id, PPlanFragmentCancelReason::USER_CANCEL),
-                      strings::Substitute("Fail to cancel fragment $0", print_id(id)));
+                      absl::Substitute("Fail to cancel fragment $0", print_id(id)));
     }
     // Stop cancel_worker thread to avoid waiting in destructor
     _stop = true;
@@ -581,7 +581,7 @@ void FragmentMgr::cancel_worker() {
         }
         for (auto& id : to_delete) {
             WARN_IF_ERROR(cancel(id, PPlanFragmentCancelReason::TIMEOUT),
-                          strings::Substitute("Fail to cancel fragment $0", print_id(id)));
+                          absl::Substitute("Fail to cancel fragment $0", print_id(id)));
             LOG(INFO) << "FragmentMgr cancel worker going to cancel timeout fragment " << print_id(id);
         }
         nap_sleep(1, [this] { return _stop; });

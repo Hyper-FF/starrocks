@@ -42,8 +42,8 @@
 #include "common/logging.h"
 #include "common/status.h"
 #include "fs/fs.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -66,7 +66,7 @@ static std::string to_upper(const std::string& str) {
 // format: /data,medium:ssd
 // deprecated format: /data,capacity:50 or /data,50
 Status parse_root_path(const string& root_path, StorePath* path) {
-    std::vector<string> tmp_vec = strings::Split(root_path, ",", strings::SkipWhitespace());
+    std::vector<string> tmp_vec = absl::StrSplit(root_path, ",", absl::SkipWhitespace());
 
     // parse root path name
     StripWhiteSpace(&tmp_vec[0]);
@@ -102,10 +102,10 @@ Status parse_root_path(const string& root_path, StorePath* path) {
         // <property>:<value> or <value>
         string property;
         string value;
-        std::pair<string, string> pair = strings::Split(tmp_vec[i], strings::delimiter::Limit(":", 1));
+        std::pair<string, string> pair = absl::StrSplit(tmp_vec[i], absl::MaxSplits(":", 1));
         if (pair.second.empty()) {
             LOG(WARNING) << "invalid property of store path, " << tmp_vec[i];
-            return Status::InvalidArgument(strings::Substitute("invalid property of store path, $0", tmp_vec[i]));
+            return Status::InvalidArgument(absl::Substitute("invalid property of store path, $0", tmp_vec[i]));
         } else {
             // format_2
             property = to_upper(pair.first);
@@ -144,7 +144,7 @@ Status parse_root_path(const string& root_path, StorePath* path) {
 
 Status parse_conf_store_paths(const string& config_path, std::vector<StorePath>* paths,
                               std::string_view configvar_name) {
-    std::vector<string> path_vec = strings::Split(config_path, ";", strings::SkipWhitespace());
+    std::vector<string> path_vec = absl::StrSplit(config_path, ";", absl::SkipWhitespace());
     for (auto& item : path_vec) {
         StorePath path;
         auto res = parse_root_path(item, &path);

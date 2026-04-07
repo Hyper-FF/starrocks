@@ -5,7 +5,7 @@
 #pragma once
 
 #include "gutil/integral_types.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 // Used to explicitly mark the return value of a function as unused. If you are
 // really sure you don't want to do anything with the return value of a function

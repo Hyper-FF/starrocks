@@ -43,8 +43,8 @@
 #include "boost/lexical_cast.hpp"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/split.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_request.h"
 #include "http/http_response.h"
@@ -131,7 +131,7 @@ Status RestoreTabletAction::_reload_tablet(const std::string& key, const std::st
         LOG(WARNING) << "load header failed. status: " << res << ", signature: " << tablet_id;
         // remove tablet data path in data path
         // path: /root_path/data/shard/tablet_id
-        std::string tablet_path = strings::Substitute("$0/$1/$2", shard_path, tablet_id, schema_hash);
+        std::string tablet_path = absl::Substitute("$0/$1/$2", shard_path, tablet_id, schema_hash);
         LOG(INFO) << "remove schema_hash_path:" << tablet_path;
         if (!fs::remove_all(tablet_path).ok()) {
             LOG(WARNING) << "remove invalid tablet schema hash path:" << tablet_path << " failed";
@@ -282,7 +282,7 @@ bool RestoreTabletAction::_get_latest_tablet_path_from_trash(int64_t tablet_id, 
 bool RestoreTabletAction::_get_timestamp_and_count_from_schema_hash_path(const std::string& schema_hash_dir,
                                                                          uint64_t* timestamp, uint64_t* counter) {
     std::string time_label = std::filesystem::path(schema_hash_dir).parent_path().parent_path().filename().string();
-    std::vector<std::string> parts = strings::Split(time_label, ".");
+    std::vector<std::string> parts = absl::StrSplit(time_label, ".");
     if (parts.size() != 2) {
         LOG(WARNING) << "invalid time label:" << time_label;
         return false;

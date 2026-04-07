@@ -17,7 +17,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "storage/lake/rowset.h"
 #include "storage/lake/tablet.h"
 #include "storage/lake/tablet_metadata.h"

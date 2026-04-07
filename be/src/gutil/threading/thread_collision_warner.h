@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "gutil/atomicops.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 #ifndef BASE_EXPORT
 #define BASE_EXPORT

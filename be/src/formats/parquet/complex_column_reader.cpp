@@ -32,7 +32,7 @@
 #include "formats/parquet/predicate_filter_evaluator.h"
 #include "formats/parquet/schema.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/column_expr_predicate.h"
 #include "types/variant_value.h"
 
@@ -257,12 +257,12 @@ Status StructColumnReader::read_range(const Range<uint64_t>& range, const Filter
                 first_read = false;
             }
         } else {
-            return Status::InternalError(strings::Substitute("there is no match subfield reader for $0", field_name));
+            return Status::InternalError(absl::Substitute("there is no match subfield reader for $0", field_name));
         }
     }
 
     if (UNLIKELY(first_read)) {
-        return Status::InternalError(strings::Substitute("All used subfield of struct type $0 is not exist",
+        return Status::InternalError(absl::Substitute("All used subfield of struct type $0 is not exist",
                                                          get_column_parquet_field()->name));
     }
 
@@ -359,7 +359,7 @@ Status StructColumnReader::fill_dst_column(ColumnPtr& dst, ColumnPtr& src) {
                 RETURN_IF_ERROR(_child_readers[field_name]->fill_dst_column(dst_field, src_field));
             }
         } else {
-            return Status::InternalError(strings::Substitute("there is no match subfield reader for $0", field_name));
+            return Status::InternalError(absl::Substitute("there is no match subfield reader for $0", field_name));
         }
     }
     return Status::OK();
@@ -736,12 +736,12 @@ static Status _read_shredded_field_node(const Range<uint64_t>& range, const Filt
     if (node->value_column != nullptr && node->typed_value_column != nullptr &&
         node->value_column->size() != node->typed_value_column->size()) {
         return Status::InternalError(
-                strings::Substitute("shredded field '$0': value_column size $1 != typed_value_column size $2",
+                absl::Substitute("shredded field '$0': value_column size $1 != typed_value_column size $2",
                                     node->name, node->value_column->size(), node->typed_value_column->size()));
     }
     if (node->typed_value_column != nullptr && node->array_element_value_column != nullptr &&
         node->typed_value_column->size() != node->array_element_value_column->size()) {
-        return Status::InternalError(strings::Substitute(
+        return Status::InternalError(absl::Substitute(
                 "shredded field '$0': typed_value_column size $1 != array_element_value_column size $2", node->name,
                 node->typed_value_column->size(), node->array_element_value_column->size()));
     }
@@ -894,7 +894,7 @@ static StatusOr<std::optional<VariantRowValue>> _rebuild_array_overlay(size_t ro
                 auto built = VariantBuilder::build_row_from_overlays(base_element, std::move(element_overlays));
                 if (!built.ok()) {
                     return built.status().clone_and_prepend(
-                            strings::Substitute("rebuild shredded array object element failed, path=$0, index=$1",
+                            absl::Substitute("rebuild shredded array object element failed, path=$0, index=$1",
                                                 array_node.full_path, i));
                 }
                 array_builder.add(std::move(built).value());
@@ -948,7 +948,7 @@ static StatusOr<std::optional<VariantRowValue>> _rebuild_array_overlay(size_t ro
                     array_builder.add(std::move(element_value).value());
                     continue;
                 }
-                return element_value.status().clone_and_prepend(strings::Substitute(
+                return element_value.status().clone_and_prepend(absl::Substitute(
                         "encode shredded array scalar element failed, path=$0, index=$1", array_node.full_path, i));
             }
 
@@ -991,7 +991,7 @@ static Status _collect_overlays_for_array_element(size_t element_row, const std:
         return Status::InvalidArgument("variant element overlays output is null");
     }
     if (depth > kMaxShreddedArrayNestingDepth) {
-        return Status::ResourceBusy(strings::Substitute(
+        return Status::ResourceBusy(absl::Substitute(
                 "variant shredded array element nesting depth exceeded limit ($0)", kMaxShreddedArrayNestingDepth));
     }
     for (const auto& node : nodes) {
@@ -1002,7 +1002,7 @@ static Status _collect_overlays_for_array_element(size_t element_row, const std:
                                                                &typed_row)) {
                 auto typed_value = VariantEncoder::encode_datum(typed_col->get(typed_row), *node.typed_value_read_type);
                 if (!typed_value.ok()) {
-                    return typed_value.status().clone_and_prepend(strings::Substitute(
+                    return typed_value.status().clone_and_prepend(absl::Substitute(
                             "encode shredded array element scalar failed, path=$0", node.full_path));
                 }
                 overlays->emplace_back(VariantBuilder::Overlay{.path = node.parsed_full_path,
@@ -1022,7 +1022,7 @@ static Status _collect_overlays_for_array_element(size_t element_row, const std:
             auto array_overlay = _rebuild_array_overlay(element_row, node, metadata_raw, base_array_raw, depth + 1);
             if (!array_overlay.ok()) {
                 return array_overlay.status().clone_and_prepend(
-                        strings::Substitute("rebuild shredded array element failed, path=$0", node.full_path));
+                        absl::Substitute("rebuild shredded array element failed, path=$0", node.full_path));
             }
             if (array_overlay.value().has_value()) {
                 overlays->emplace_back(VariantBuilder::Overlay{.path = node.parsed_full_path,
@@ -1067,7 +1067,7 @@ StatusOr<std::optional<VariantRowValue>> VariantColumnReader::build_variant_bind
             auto typed_value = VariantEncoder::encode_datum(typed_col->get(typed_row), *node.typed_value_read_type);
             if (!typed_value.ok()) {
                 return typed_value.status().clone_and_prepend(
-                        strings::Substitute("encode shredded scalar failed, path=$0", node.full_path));
+                        absl::Substitute("encode shredded scalar failed, path=$0", node.full_path));
             }
             return std::optional<VariantRowValue>(std::move(typed_value).value());
         }
@@ -1086,7 +1086,7 @@ StatusOr<std::optional<VariantRowValue>> VariantColumnReader::build_variant_bind
         auto array_overlay = _rebuild_array_overlay(row, node, metadata_raw, base_array_raw);
         if (!array_overlay.ok()) {
             return array_overlay.status().clone_and_prepend(
-                    strings::Substitute("rebuild shredded array failed, path=$0", node.full_path));
+                    absl::Substitute("rebuild shredded array failed, path=$0", node.full_path));
         }
         return array_overlay;
     }
@@ -1303,7 +1303,7 @@ Status VariantColumnReader::append_variant_binding_row(size_t row, const TopBind
         auto value = VariantColumnReader::build_variant_binding_from_node(row, *binding.node, raw_metadata);
         if (!value.ok()) {
             return value.status().clone_and_prepend(
-                    strings::Substitute("build shredded variant binding failed, path=$0", binding.path));
+                    absl::Substitute("build shredded variant binding failed, path=$0", binding.path));
         }
         if (!value->has_value()) {
             append_null();
@@ -1316,13 +1316,13 @@ Status VariantColumnReader::append_variant_binding_row(size_t row, const TopBind
     auto parsed_path = VariantPathParser::parse_shredded_path(std::string_view(binding.path));
     if (!parsed_path.ok()) {
         return parsed_path.status().clone_and_prepend(
-                strings::Substitute("parse variant binding path failed, path=$0", binding.path));
+                absl::Substitute("parse variant binding path failed, path=$0", binding.path));
     }
 
     auto field = VariantPath::seek_view(full_row, parsed_path.value(), 0);
     if (!field.ok()) {
         return field.status().clone_and_prepend(
-                strings::Substitute("seek variant binding path failed, path=$0", binding.path));
+                absl::Substitute("seek variant binding path failed, path=$0", binding.path));
     }
     append_value_ref(field.value());
     return Status::OK();
@@ -1576,7 +1576,7 @@ private:
         _row_metadata = std::string_view(_built_metadata_buf.data(), _built_metadata_buf.size());
         _row_value = std::string_view(_built_value_buf.data(), _built_value_buf.size());
         if (_row_metadata.empty() || _row_value.empty()) {
-            return Status::InternalError(strings::Substitute(
+            return Status::InternalError(absl::Substitute(
                     "build full variant row produced empty payload, row=$0, metadata_size=$1, value_size=$2", _row,
                     _row_metadata.size(), _row_value.size()));
         }

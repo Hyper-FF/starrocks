@@ -25,7 +25,7 @@
 #include "exec/pipeline/query_context.h"
 #include "exprs/chunk_predicate_evaluator.h"
 #include "exprs/expr_context.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "runtime/mem_tracker.h"
 #include "runtime/runtime_filter_cache.h"
@@ -46,7 +46,7 @@ Operator::Operator(OperatorFactory* factory, int32_t id, std::string name, int32
           _runtime_filter_probe_sequence(driver_sequence) {
     std::string upper_name(_name);
     std::transform(upper_name.begin(), upper_name.end(), upper_name.begin(), ::toupper);
-    std::string profile_name = strings::Substitute("$0 (plan_node_id=$1)", upper_name, _plan_node_id);
+    std::string profile_name = absl::Substitute("$0 (plan_node_id=$1)", upper_name, _plan_node_id);
     // some pipeline may have multiple limit operators with same plan_node_id, so add operator id to profile name
     if (upper_name == "LIMIT") {
         profile_name += " (operator id=" + std::to_string(id) + ")";
@@ -333,7 +333,7 @@ OperatorFactory::OperatorFactory(int32_t id, std::string name, int32_t plan_node
     std::string upper_name(_name);
     std::transform(upper_name.begin(), upper_name.end(), upper_name.begin(), ::toupper);
     _runtime_profile =
-            std::make_shared<RuntimeProfile>(strings::Substitute("$0_factory (id=$1)", upper_name, _plan_node_id));
+            std::make_shared<RuntimeProfile>(absl::Substitute("$0_factory (id=$1)", upper_name, _plan_node_id));
     _runtime_profile->set_metadata(_id);
 }
 
@@ -417,7 +417,7 @@ void OperatorFactory::acquire_runtime_filter(RuntimeState* state) {
         auto grf = state->exec_env()->runtime_filter_cache()->get(state->query_id(), filter_id);
         ExecEnv::GetInstance()->runtime_filter_cache()->add_rf_event(
                 {state->query_id(), filter_id, BackendOptions::get_localhost(),
-                 strings::Substitute("INSTALL_GRF_TO_OPERATOR(op_id=$0, success=$1", this->_plan_node_id,
+                 absl::Substitute("INSTALL_GRF_TO_OPERATOR(op_id=$0, success=$1", this->_plan_node_id,
                                      grf != nullptr)});
 
         if (grf == nullptr) {

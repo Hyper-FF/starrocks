@@ -18,7 +18,7 @@
 #include "base/types/numeric_types.h"
 #include "column/fixed_length_column.h"
 #include "common/simdjson_util.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -54,7 +54,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -87,7 +87,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast_flag) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -98,7 +98,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         StringParser::ParseResult r;
         auto in = StringParser::string_to_int<int128_t>(s.data(), s.size(), &r);
         if (r != StringParser::PARSE_SUCCESS) {
-            auto err_msg = strings::Substitute("Fail to convert big integer. column=$0, value=$1", name, s);
+            auto err_msg = absl::Substitute("Fail to convert big integer. column=$0, value=$1", name, s);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -106,7 +106,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -119,7 +119,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -155,12 +155,12 @@ static Status add_column_with_string_value(FixedLengthColumn<T>* column, const T
                 column->append_numbers(&v, sizeof(v));
                 return Status::OK();
             } else {
-                auto err_msg = strings::Substitute("Value is overflow. column=$0, value=$1", name, d);
+                auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, d);
                 return Status::InvalidArgument(err_msg);
             }
         }
 
-        std::string err_msg = strings::Substitute("Unable to cast string value to BIGINT. value=$0, column=$1",
+        std::string err_msg = absl::Substitute("Unable to cast string value to BIGINT. value=$0, column=$1",
                                                   std::string(sv.data(), sv.size()), name);
         return Status::InvalidArgument(err_msg);
     }
@@ -183,12 +183,12 @@ Status add_numeric_column(Column* column, const TypeDescriptor& type_desc, const
         }
 
         default: {
-            auto err_msg = strings::Substitute("Unsupported value type. Numeric type is required. column=$0", name);
+            auto err_msg = absl::Substitute("Unsupported value type. Numeric type is required. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         }
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to parse value as number, column=$0, error=$1", name,
+        auto err_msg = absl::Substitute("Failed to parse value as number, column=$0, error=$1", name,
                                            simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }

@@ -44,7 +44,7 @@
 #include "common/system/cpu_info.h"
 #include "common/thread/thread.h"
 #include "fs/key_cache.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/closure_guard.h"
 #include "runtime/load_channel.h"
 #include "runtime/mem_tracker.h"

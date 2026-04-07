@@ -63,7 +63,7 @@ bool RowStoreEncoder::is_field_supported(const Field& f) {
 Status RowStoreEncoder::is_supported(const Schema& schema) {
     for (size_t i = schema.num_key_fields(); i < schema.num_fields(); i++) {
         if (!is_field_supported(*(schema.field(i).get()))) {
-            return Status::NotSupported(StringPrintf("row encode type not supported: %s ",
+            return Status::NotSupported(fmt::sprintf("row encode type not supported: %s ",
                                                      logical_type_to_string(schema.field(i).get()->type()->type())));
         }
     }

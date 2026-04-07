@@ -24,7 +24,7 @@
 #include "common/logging.h"
 #include "exec/pipeline/pipeline_driver_executor.h"
 #include "exec/workgroup/work_group.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
 #include "http/http_request.h"
@@ -60,11 +60,11 @@ void PipelineBlockingDriversAction::handle(HttpRequest* req) {
         if (action == ACTION_STAT) {
             _handle_stat(req);
         } else {
-            _handle_error(req, strings::Substitute("Not support GET method: '$0'", req->uri()));
+            _handle_error(req, absl::Substitute("Not support GET method: '$0'", req->uri()));
         }
     } else {
         _handle_error(req,
-                      strings::Substitute("Not support $0 method: '$1'", to_method_desc(req->method()), req->uri()));
+                      absl::Substitute("Not support $0 method: '$1'", to_method_desc(req->method()), req->uri()));
     }
 }
 

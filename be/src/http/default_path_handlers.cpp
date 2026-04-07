@@ -34,8 +34,7 @@
 
 #include "http/default_path_handlers.h"
 
-#include <gutil/strings/numbers.h>
-#include <gutil/strings/substitute.h>
+#include <absl/strings/substitute.h>
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
@@ -107,7 +106,7 @@ void print_mem_str(std::stringstream* output, const MemTracker::SimpleItem& item
     if (item.parent != nullptr) {
         parent_label = item.parent->label;
     }
-    (*output) << strings::Substitute("<tr><td>$0</td><td>$1</td><td>$2</td><td>$3</td><td>$4</td><td>$5</td></tr>\n",
+    (*output) << absl::Substitute("<tr><td>$0</td><td>$1</td><td>$2</td><td>$3</td><td>$4</td><td>$5</td></tr>\n",
                                      item.level, item.label, parent_label, limit_str, current_consumption_str,
                                      peak_consumption_str);
     for (const auto* child : item.childs) {

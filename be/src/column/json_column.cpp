@@ -25,7 +25,7 @@
 #include "common/compiler_util.h"
 #include "glog/logging.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -429,7 +429,7 @@ void JsonColumn::reset_column() {
 
 Status JsonColumn::capacity_limit_reached() const {
     if (size() > Column::MAX_CAPACITY_LIMIT) {
-        return Status::CapacityLimitExceed(strings::Substitute("row count of object column exceed the limit: $0",
+        return Status::CapacityLimitExceed(absl::Substitute("row count of object column exceed the limit: $0",
                                                                std::to_string(Column::MAX_CAPACITY_LIMIT)));
     }
     return Status::OK();

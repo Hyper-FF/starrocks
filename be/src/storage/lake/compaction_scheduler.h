@@ -23,7 +23,7 @@
 #include "common/status.h"
 #include "common/util/stack_trace_mutex.h"
 #include "compaction_task_context.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace google::protobuf {
 class RpcController;

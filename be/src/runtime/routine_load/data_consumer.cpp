@@ -46,7 +46,7 @@
 #include "common/status.h"
 #include "common/system/backend_options.h"
 #include "fmt/format.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 #include "runtime/exec_env.h"
 #include "runtime/small_file_mgr.h"
 
@@ -117,7 +117,7 @@ Status KafkaDataConsumer::init(StreamLoadContext* ctx) {
     for (auto& item : ctx->kafka_info->properties) {
         if (boost::algorithm::starts_with(item.second, "FILE:")) {
             // file property should has format: FILE:file_id:md5
-            std::vector<std::string> parts = strings::Split(item.second, ":", strings::SkipWhitespace());
+            std::vector<std::string> parts = absl::StrSplit(item.second, ":", absl::SkipWhitespace());
             if (parts.size() != 3) {
                 return Status::InternalError("PAUSE: Invalid file property of kafka: " + item.second);
             }

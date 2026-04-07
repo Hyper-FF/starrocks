@@ -31,7 +31,7 @@
 #include "exec/tablet_sink.h"
 #include "exprs/expr_context.h"
 #include "gutil/strings/fastmem.h"
-#include "gutil/strings/join.h"
+#include "absl/strings/str_join.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/global_dict/fragment_dict_state.h"
@@ -370,7 +370,7 @@ Status NodeChannel::_open_wait(RefCountClosure<PTabletWriterOpenResult>* open_cl
                                         open_closure->result.immutable_partition_ids().end());
         if (_immutable_partition_ids.size() != immutable_partition_ids_size) {
             string partition_ids_str;
-            JoinInts(_immutable_partition_ids, ",", &partition_ids_str);
+            partition_ids_str = absl::StrJoin(_immutable_partition_ids, ",");
             LOG(INFO) << "NodeChannel[" << _load_info << "] immutable partition ids : " << partition_ids_str;
         }
     }
@@ -870,7 +870,7 @@ Status NodeChannel::_wait_request(ReusableClosure<PTabletWriterAddBatchResult>* 
                                         closure->result.immutable_partition_ids().end());
         if (_immutable_partition_ids.size() != immutable_partition_ids_size) {
             string partition_ids_str;
-            JoinInts(_immutable_partition_ids, ",", &partition_ids_str);
+            partition_ids_str = absl::StrJoin(_immutable_partition_ids, ",");
             LOG(INFO) << "NodeChannel[" << _load_info << "] immutable partition ids : " << partition_ids_str;
         }
     }
@@ -911,7 +911,7 @@ Status NodeChannel::_wait_request(ReusableClosure<PTabletWriterAddBatchResult>* 
 
     if (!tablet_ids.empty()) {
         string commit_tablet_id_list_str;
-        JoinInts(tablet_ids, ",", &commit_tablet_id_list_str);
+        commit_tablet_id_list_str = absl::StrJoin(tablet_ids, ",");
         LOG(INFO) << "OlapTableSink txn_id: " << _parent->_txn_id << " load_id: " << print_id(_parent->_load_id)
                   << " commit " << _tablet_commit_infos.size() << " tablets: " << commit_tablet_id_list_str;
     }

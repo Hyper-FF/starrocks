@@ -18,7 +18,7 @@
 #include "exprs/cast_expr.h"
 #include "formats/orc/orc_mapping.h"
 #include "fs/fs.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -47,7 +47,7 @@ void ORCHdfsFileStream::read(void* buf, uint64_t length, uint64_t offset) {
     }
     Status status = _file->read_at_fully(offset, buf, length);
     if (!status.ok()) {
-        auto msg = strings::Substitute("Failed to read $0: $1", _file->filename(), status.to_string());
+        auto msg = absl::Substitute("Failed to read $0: $1", _file->filename(), status.to_string());
         throw orc::ParseError(msg);
     }
 }
@@ -98,7 +98,7 @@ void ORCHdfsFileStream::setIORanges(std::vector<IORange>& io_ranges) {
     const Status st = setIORanges(bs_io_ranges, active_lazy_column_coalesce);
 
     if (!st.ok()) {
-        auto msg = strings::Substitute("Failed to setIORanges $0: $1", _file->filename(), st.to_string());
+        auto msg = absl::Substitute("Failed to setIORanges $0: $1", _file->filename(), st.to_string());
         throw orc::ParseError(msg);
     }
 }

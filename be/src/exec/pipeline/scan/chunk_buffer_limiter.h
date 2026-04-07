@@ -18,7 +18,7 @@
 #include <memory>
 #include <mutex>
 
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks::pipeline {
 

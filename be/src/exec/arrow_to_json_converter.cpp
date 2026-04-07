@@ -25,7 +25,7 @@
 #include "column/json_column.h"
 #include "common/statusor.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/json_value.h"
 
 namespace starrocks {
@@ -192,7 +192,7 @@ static Status convert_multi_arrow_primitive(const Array* array, JsonColumn* outp
         break;
     }
     default: {
-        return Status::NotSupported(strings::Substitute("type $0 is not supported", type_id));
+        return Status::NotSupported(absl::Substitute("type $0 is not supported", type_id));
     }
     }
 
@@ -238,7 +238,7 @@ static StatusOr<std::string> convert_array_element_to_string(const Array* array,
 #undef M
 
     default:
-        return Status::NotSupported(strings::Substitute("key type of map not supported: $0", array->type()->name()));
+        return Status::NotSupported(absl::Substitute("key type of map not supported: $0", array->type()->name()));
     }
 }
 
@@ -301,7 +301,7 @@ static Status convert_arrow_to_json_element(const Array* array, Type::type type_
     }
 
     default:
-        return Status::NotSupported(strings::Substitute("arrow type $0 is not supported", type_id));
+        return Status::NotSupported(absl::Substitute("arrow type $0 is not supported", type_id));
     }
 
     return Status::OK();
@@ -351,7 +351,7 @@ static Status convert_arrow_to_json_array(const Array* array, Type::type value_t
         break;
     }
     default:
-        return Status::NotSupported(strings::Substitute("arrow type $0 is not supported", array->type()->ToString()));
+        return Status::NotSupported(absl::Substitute("arrow type $0 is not supported", array->type()->ToString()));
     }
 
     return Status::OK();
@@ -401,7 +401,7 @@ Status convert_arrow_to_json(const Array* array, JsonColumn* output, size_t arra
 #undef M
 
     default:
-        return Status::NotSupported(strings::Substitute("arrow type $0 not supported", array->type()->name()));
+        return Status::NotSupported(absl::Substitute("arrow type $0 not supported", array->type()->name()));
     }
 
     return Status::OK();

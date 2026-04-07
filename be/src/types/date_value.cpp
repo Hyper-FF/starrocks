@@ -14,7 +14,7 @@
 
 #include "types/date_value.h"
 
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

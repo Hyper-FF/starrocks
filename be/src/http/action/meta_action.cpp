@@ -38,7 +38,7 @@
 #include <string>
 
 #include "common/logging.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
 #include "http/http_request.h"
@@ -62,7 +62,7 @@ Status MetaAction::_handle_header(HttpRequest* req, std::string* json_meta) {
         tablet_id = std::stoull(req_tablet_id);
     } catch (const std::exception& e) {
         LOG(WARNING) << "invalid argument.tablet_id:" << req_tablet_id;
-        return Status::InternalError(strings::Substitute("convert failed, $0", e.what()));
+        return Status::InternalError(absl::Substitute("convert failed, $0", e.what()));
     }
 
     TabletSharedPtr tablet = StorageEngine::instance()->tablet_manager()->get_tablet(tablet_id);

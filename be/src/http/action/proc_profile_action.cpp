@@ -20,7 +20,7 @@
 
 #include "common/config_path_fwd.h"
 #include "common/logging.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "http/action/profile_utils.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
@@ -44,11 +44,11 @@ void ProcProfileAction::handle(HttpRequest* req) {
         if (action == ACTION_LIST) {
             _handle_list(req);
         } else {
-            _handle_error(req, strings::Substitute("Not support action: '$0'", action));
+            _handle_error(req, absl::Substitute("Not support action: '$0'", action));
         }
     } else {
         _handle_error(req,
-                      strings::Substitute("Not support $0 method: '$1'", to_method_desc(req->method()), req->uri()));
+                      absl::Substitute("Not support $0 method: '$1'", to_method_desc(req->method()), req->uri()));
     }
 }
 
@@ -89,7 +89,7 @@ void ProcProfileAction::_handle_list(HttpRequest* req) {
             }
         }
     } catch (const std::filesystem::filesystem_error& e) {
-        _handle_error(req, strings::Substitute("Error reading profile directory: $0", e.what()));
+        _handle_error(req, absl::Substitute("Error reading profile directory: $0", e.what()));
         return;
     }
 

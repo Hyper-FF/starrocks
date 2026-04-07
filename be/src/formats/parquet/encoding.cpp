@@ -26,7 +26,7 @@
 #include "formats/parquet/encoding_dict.h"
 #include "formats/parquet/encoding_plain.h"
 #include "formats/parquet/types.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks::parquet {
 
@@ -294,7 +294,7 @@ Status EncodingInfoResolver::get(tparquet::Type::type type, tparquet::Encoding::
     auto key = std::make_pair(type, encoding);
     auto it = _encoding_map.find(key);
     if (it == std::end(_encoding_map)) {
-        return Status::InternalError(strings::Substitute("fail to find valid type encoding, type:$0, encoding:$1",
+        return Status::InternalError(absl::Substitute("fail to find valid type encoding, type:$0, encoding:$1",
                                                          ::tparquet::to_string(type), ::tparquet::to_string(encoding)));
     }
     *out = it->second;

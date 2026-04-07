@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "common/status.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "types/checker/type_checker.h"
 
 namespace starrocks {

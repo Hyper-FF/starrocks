@@ -24,7 +24,6 @@
 #include "base/string/parse_util.h"
 #include "cache/mem_cache/local_mem_cache_engine.h"
 #include "fs/fs.h"
-#include "gutil/strings/split.h"
 
 namespace starrocks {
 
@@ -92,7 +91,7 @@ Status DataCacheUtils::parse_conf_datacache_disk_paths(const std::string& config
     }
 
     size_t duplicated_count = 0;
-    std::vector<std::string> path_vec = strings::Split(config_path, ";", strings::SkipWhitespace());
+    std::vector<std::string> path_vec = absl::StrSplit(config_path, ";", absl::SkipWhitespace());
     for (auto& item : path_vec) {
         StripWhiteSpace(&item);
         item.erase(item.find_last_not_of('/') + 1);

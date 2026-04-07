@@ -14,7 +14,7 @@
 #include "gen_cpp/Status_types.h"  // for TStatus
 #include "gen_cpp/status.pb.h"     // for StatusPB
 #include "gutil/strings/fastmem.h" // for memcpy_inlined
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 
 #if defined(ENABLE_STATUS_FAILED)
 namespace starrocks::config {
@@ -115,7 +115,7 @@ int32_t Status::get_cardinality_of_inject() {
 
 void Status::access_directory_of_inject() {
     std::string directs = starrocks::config::directory_of_inject;
-    vector<string> fields = strings::Split(directs, ",");
+    vector<string> fields = absl::StrSplit(directs, ",");
     for (const auto& direct : fields) {
         dircetory_enable[direct] = true;
     }
@@ -127,7 +127,7 @@ bool Status::in_directory_of_inject(const std::string& direct_name) {
         return false;
     }
 
-    vector<string> fields = strings::Split(direct_name, "/");
+    vector<string> fields = absl::StrSplit(direct_name, "/");
     if (fields.size() > 1) {
         std::stringstream ss;
         for (int i = 1; i < fields.size(); ++i) {

@@ -36,9 +36,9 @@
 #include "fs/fd_cache.h"
 #include "fs/fs.h"
 #include "gutil/gscoped_ptr.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "gutil/port.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "gutil/strings/util.h"
 #include "io/fd_input_stream.h"
 #include "io/io_profiler.h"
@@ -63,7 +63,7 @@ DEFINE_HISTOGRAM_METRIC_KEY_WITH_TAG_BUCKET(s_sr_posix_write_iolatency, staros::
 namespace starrocks {
 
 using std::string;
-using strings::Substitute;
+using absl::Substitute;
 
 // Close file descriptor when object goes out of scope.
 class ScopedFdCloser {
@@ -136,7 +136,7 @@ static Status do_open(const string& filename, FileSystem::OpenMode mode, int* fd
     case FileSystem::MUST_EXIST:
         break;
     default:
-        return Status::NotSupported(strings::Substitute("Unknown create mode $0", mode));
+        return Status::NotSupported(absl::Substitute("Unknown create mode $0", mode));
     }
     int f;
     RETRY_ON_EINTR(f, open(filename.c_str(), flags, 0666));
@@ -626,7 +626,7 @@ public:
         // because the buffer is allocated by malloc(), see `man 3 realpath`.
         std::unique_ptr<char[], FreeDeleter> r(realpath(path.c_str(), nullptr));
         if (r == nullptr) {
-            return io_error(strings::Substitute("Unable to canonicalize $0", path), errno);
+            return io_error(absl::Substitute("Unable to canonicalize $0", path), errno);
         }
         *result = std::string(r.get());
         return Status::OK();

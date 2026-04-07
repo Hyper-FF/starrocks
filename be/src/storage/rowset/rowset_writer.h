@@ -41,7 +41,7 @@
 #include "gen_cpp/data.pb.h"
 #include "gen_cpp/olap_file.pb.h"
 #include "gen_cpp/types.pb.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "runtime/global_dict/types.h"
 #include "runtime/global_dict/types_fwd_decl.h"
 #include "storage/column_mapping.h"

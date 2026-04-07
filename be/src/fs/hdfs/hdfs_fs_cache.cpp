@@ -18,7 +18,7 @@
 
 #include "common/config_hdfs_fwd.h"
 #include "fs/fs_options_helper.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "udf/java/java_udf.h"
 #include "util/hdfs_util.h"
 
@@ -76,7 +76,7 @@ static Status create_hdfs_fs_handle(const std::string& namenode, const std::shar
 
     hdfs_client->hdfs_fs = hdfsBuilderConnect(hdfs_builder);
     if (hdfs_client->hdfs_fs == nullptr) {
-        return Status::InternalError(strings::Substitute("fail to connect hdfs namenode, namenode=$0, err=$1", namenode,
+        return Status::InternalError(absl::Substitute("fail to connect hdfs namenode, namenode=$0, err=$1", namenode,
                                                          get_hdfs_err_msg()));
     }
     return Status::OK();

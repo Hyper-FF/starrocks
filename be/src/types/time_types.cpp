@@ -21,7 +21,7 @@
 #endif
 
 #include "base/container/raw_container.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

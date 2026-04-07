@@ -15,7 +15,7 @@
 #pragma once
 
 #include "gen_cpp/data.pb.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 #include "storage/memtable_sink.h"
 #include "storage/rowset/rowset_writer.h"
 

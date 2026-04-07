@@ -25,7 +25,7 @@
 #include "common/config_network_fwd.h"
 #include "common/logging.h"
 #include "common/status.h"
-#include "gutil/strings/split.h"
+#include "absl/strings/str_split.h"
 
 namespace starrocks {
 
@@ -188,7 +188,7 @@ bool BackendOptions::analyze_priority_cidrs() {
     }
     LOG(INFO) << "priority cidrs in conf: " << config::priority_networks;
 
-    std::vector<std::string> cidr_strs = strings::Split(config::priority_networks, PRIORITY_CIDR_SEPARATOR);
+    std::vector<std::string> cidr_strs = absl::StrSplit(config::priority_networks, PRIORITY_CIDR_SEPARATOR);
 
     for (auto& cidr_str : cidr_strs) {
         CIDR cidr;

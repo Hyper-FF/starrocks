@@ -43,7 +43,7 @@
 #include "exprs/jsonpath.h"
 #include "glog/logging.h"
 #include "gutil/casts.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "storage/chunk_helper.h"
 #include "types/json_value.h"
 #include "types/logical_type.h"
@@ -82,7 +82,7 @@ Status JsonFunctions::_get_parsed_paths(const std::vector<std::string>& path_exp
 
         if (UNLIKELY(!RE2::FullMatch(path_exprs[i], SIMPLE_JSONPATH_PATTERN, &col, &index))) {
             parsed_paths->emplace_back("", -1, false);
-            return Status::InvalidArgument(strings::Substitute("Invalid json path: $0", path_exprs[i]));
+            return Status::InvalidArgument(absl::Substitute("Invalid json path: $0", path_exprs[i]));
         } else {
             int idx = -1;
             if (!index.empty()) {
@@ -122,7 +122,7 @@ Status JsonFunctions::json_path_prepare(FunctionContext* context, FunctionContex
                                                                   boost::escaped_list_separator<char>("\\", ".", "\""));
         path_exprs.assign(tok.begin(), tok.end());
     } catch (const boost::escaped_list_error& e) {
-        return Status::InvalidArgument(strings::Substitute("Illegal json path: $0", e.what()));
+        return Status::InvalidArgument(absl::Substitute("Illegal json path: $0", e.what()));
     }
     auto* parsed_paths = new std::vector<SimpleJsonPath>();
     RETURN_IF_ERROR(_get_parsed_paths(path_exprs, parsed_paths));

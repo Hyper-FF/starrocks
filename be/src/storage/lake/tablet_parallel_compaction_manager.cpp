@@ -26,8 +26,8 @@
 #include "common/logging.h"
 #include "common/thread/threadpool.h"
 #include "gen_cpp/lake_types.pb.h"
-#include "gutil/strings/join.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "storage/lake/compaction_policy.h"
 #include "storage/lake/compaction_scheduler.h"
 #include "storage/lake/compaction_task.h"
@@ -94,7 +94,7 @@ std::vector<RowsetPtr> TabletParallelCompactionManager::_filter_compactable_rows
         }
         VLOG(1) << "Parallel compaction: tablet=" << tablet_id << " skipped " << skipped_large_rowsets.size()
                 << " large non-overlapped rowsets (" << skipped_bytes << " bytes) that don't need compaction, ids=["
-                << JoinInts(skipped_ids, ",") << "]";
+                << absl::StrJoin(skipped_ids, ",") << "]";
     }
 
     return compactable_rowsets;
@@ -256,7 +256,7 @@ std::vector<std::vector<RowsetPtr>> TabletParallelCompactionManager::_group_rows
                     has_adjacency_gap ? " (adjacency gap)" : would_exceed_segments ? " (segment limit)" : "";
             VLOG(1) << "Parallel compaction: tablet=" << tablet_id << " group " << valid_groups.size() << ": "
                     << current_group.size() << " rowsets, " << current_bytes << " bytes, " << current_segments
-                    << " segments, ids=[" << JoinInts(group_ids, ",") << "]" << reason;
+                    << " segments, ids=[" << absl::StrJoin(group_ids, ",") << "]" << reason;
 
             valid_groups.push_back(std::move(current_group));
             current_group.clear();
@@ -279,7 +279,7 @@ std::vector<std::vector<RowsetPtr>> TabletParallelCompactionManager::_group_rows
         }
         VLOG(1) << "Parallel compaction: tablet=" << tablet_id << " group " << valid_groups.size() << ": "
                 << current_group.size() << " rowsets, " << current_bytes << " bytes, " << current_segments
-                << " segments, ids=[" << JoinInts(group_ids, ",") << "]";
+                << " segments, ids=[" << absl::StrJoin(group_ids, ",") << "]";
         valid_groups.push_back(std::move(current_group));
     }
 
@@ -319,7 +319,7 @@ std::vector<std::vector<RowsetPtr>> TabletParallelCompactionManager::_filter_inv
 
     if (!discarded_rowset_ids.empty()) {
         VLOG(1) << "Parallel compaction: tablet=" << tablet_id << " discarded " << discarded_rowset_ids.size()
-                << " single non-overlapped rowset groups (ids=[" << JoinInts(discarded_rowset_ids, ",")
+                << " single non-overlapped rowset groups (ids=[" << absl::StrJoin(discarded_rowset_ids, ",")
                 << "]) due to adjacency gaps, will be processed in next compaction cycle";
     }
 
@@ -336,7 +336,7 @@ StatusOr<std::vector<RowsetPtr>> TabletParallelCompactionManager::pick_rowsets_f
     ASSIGN_OR_RETURN(auto tablet, _tablet_mgr->get_tablet(tablet_id, version));
     const auto& metadata = tablet.metadata();
     if (!metadata) {
-        return Status::NotFound(strings::Substitute("Tablet metadata not found: tablet_id=$0, txn_id=$1, version=$2",
+        return Status::NotFound(absl::Substitute("Tablet metadata not found: tablet_id=$0, txn_id=$1, version=$2",
                                                     tablet_id, txn_id, version));
     }
 
@@ -349,13 +349,13 @@ StatusOr<std::vector<RowsetPtr>> TabletParallelCompactionManager::pick_rowsets_f
     }
     VLOG(1) << "Parallel compaction pick_rowsets: tablet=" << tablet_id << " version=" << version
             << " metadata_rowsets_size=" << metadata->rowsets_size() << " next_rowset_id=" << metadata->next_rowset_id()
-            << " first_10_rowset_ids=[" << JoinInts(first_rowset_ids, ",") << "]";
+            << " first_10_rowset_ids=[" << absl::StrJoin(first_rowset_ids, ",") << "]";
 
     // Get all rowsets to compact using standard pick_rowsets()
     ASSIGN_OR_RETURN(auto policy, CompactionPolicy::create(_tablet_mgr, metadata, force_base_compaction));
     auto all_rowsets_or = policy->pick_rowsets();
     if (!all_rowsets_or.ok() || all_rowsets_or.value().empty()) {
-        return Status::NotFound(strings::Substitute(
+        return Status::NotFound(absl::Substitute(
                 "No rowsets to compact: tablet_id=$0, txn_id=$1, version=$2, force_base_compaction=$3, "
                 "pick_rowsets_status=$4",
                 tablet_id, txn_id, version, force_base_compaction,
@@ -411,7 +411,7 @@ std::vector<std::vector<RowsetPtr>> TabletParallelCompactionManager::split_rowse
                                                : not_enough_segments ? "not_enough_segments" : "data_size_small";
         VLOG(1) << "Parallel compaction: tablet=" << tablet_id << " fallback to normal compaction (" << reason
                 << "): " << all_rowsets.size() << " rowsets, " << stats.total_segments << " segments, "
-                << stats.total_bytes << " bytes, ids=[" << JoinInts(group_ids, ",") << "]";
+                << stats.total_bytes << " bytes, ids=[" << absl::StrJoin(group_ids, ",") << "]";
         return {};
     }
 
@@ -445,7 +445,7 @@ TabletParallelCompactionManager::create_and_register_tablet_state(int64_t tablet
     auto it = _tablet_states.find(state_key);
     if (it != _tablet_states.end()) {
         return Status::AlreadyExist(
-                strings::Substitute("Parallel compaction already exists: tablet_id=$0, txn_id=$1, version=$2, "
+                absl::Substitute("Parallel compaction already exists: tablet_id=$0, txn_id=$1, version=$2, "
                                     "existing_version=$3, existing_running_subtasks=$4, existing_completed_subtasks=$5",
                                     tablet_id, txn_id, version, it->second->version,
                                     it->second->running_subtasks.size(), it->second->completed_subtasks.size()));
@@ -523,7 +523,7 @@ StatusOr<int> TabletParallelCompactionManager::submit_subtasks(
 
             if (subtasks_created == 0) {
                 cleanup_tablet(tablet_id, txn_id);
-                return Status::ResourceBusy(strings::Substitute(
+                return Status::ResourceBusy(absl::Substitute(
                         "Failed to acquire limiter token for parallel compaction: tablet_id=$0, txn_id=$1, "
                         "version=$2, subtask_id=$3, total_groups=$4, max_parallel=$5",
                         tablet_id, txn_id, version, subtask_id, groups.size(), max_parallel));
@@ -561,7 +561,7 @@ StatusOr<int> TabletParallelCompactionManager::submit_subtasks(
         subtasks_created++;
 
         VLOG(1) << "Parallel compaction: created subtask " << subtask_id << " for tablet " << tablet_id
-                << ", txn_id=" << txn_id << ", rowsets=" << rowset_ids.size() << " (ids: " << JoinInts(rowset_ids, ",")
+                << ", txn_id=" << txn_id << ", rowsets=" << rowset_ids.size() << " (ids: " << absl::StrJoin(rowset_ids, ",")
                 << "), input_bytes=" << input_bytes;
     }
 
@@ -570,7 +570,7 @@ StatusOr<int> TabletParallelCompactionManager::submit_subtasks(
         // Note: Cannot calculate total_rowsets/total_bytes here because groups elements may have been
         // moved into lambdas during the loop. This edge case should rarely happen since we return
         // immediately when subtask creation fails on the first group.
-        return Status::NotFound(strings::Substitute(
+        return Status::NotFound(absl::Substitute(
                 "Failed to create any subtask for parallel compaction: tablet_id=$0, txn_id=$1, version=$2, "
                 "total_groups=$3, max_parallel=$4",
                 tablet_id, txn_id, version, groups.size(), max_parallel));
@@ -643,7 +643,7 @@ StatusOr<int> TabletParallelCompactionManager::create_parallel_tasks(
 
     if (max_parallel <= 0 || max_bytes <= 0) {
         return Status::InvalidArgument(
-                strings::Substitute("Invalid parallel compaction configuration: tablet_id=$0, txn_id=$1, version=$2, "
+                absl::Substitute("Invalid parallel compaction configuration: tablet_id=$0, txn_id=$1, version=$2, "
                                     "max_parallel=$3, max_bytes=$4, force_base_compaction=$5",
                                     tablet_id, txn_id, version, max_parallel, max_bytes, force_base_compaction));
     }
@@ -900,7 +900,7 @@ void TabletParallelCompactionManager::cleanup_tablet(int64_t tablet_id, int64_t 
 StatusOr<TxnLogPB> TabletParallelCompactionManager::get_merged_txn_log(int64_t tablet_id, int64_t txn_id) {
     auto state = get_tablet_state(tablet_id, txn_id);
     if (state == nullptr) {
-        return Status::NotFound(strings::Substitute(
+        return Status::NotFound(absl::Substitute(
                 "Tablet state not found for get_merged_txn_log: tablet_id=$0, txn_id=$1", tablet_id, txn_id));
     }
 
@@ -950,7 +950,7 @@ StatusOr<TxnLogPB> TabletParallelCompactionManager::get_merged_txn_log(int64_t t
             // ranges are missing and merging would cause data loss.
             if (state->expected_range_split_count > 0 &&
                 static_cast<int32_t>(state->completed_subtasks.size()) != state->expected_range_split_count) {
-                return Status::InternalError(strings::Substitute(
+                return Status::InternalError(absl::Substitute(
                         "Range split compaction incomplete: tablet_id=$0, txn_id=$1, "
                         "expected=$2 subtasks but got $3",
                         tablet_id, txn_id, state->expected_range_split_count, state->completed_subtasks.size()));
@@ -965,7 +965,7 @@ StatusOr<TxnLogPB> TabletParallelCompactionManager::get_merged_txn_log(int64_t t
             }
 
             if (!all_success) {
-                return Status::InternalError(strings::Substitute(
+                return Status::InternalError(absl::Substitute(
                         "Range split compaction requires all subtasks to succeed: tablet_id=$0, txn_id=$1", tablet_id,
                         txn_id));
             }
@@ -1087,7 +1087,7 @@ StatusOr<TxnLogPB> TabletParallelCompactionManager::get_merged_txn_log(int64_t t
                                  << ", large_rowset_id=" << large_rowset_id
                                  << ", actual_subtasks=" << subtask_ids.size()
                                  << ", expected_subtasks=" << expected_count << ", created_subtask_ids=["
-                                 << JoinInts(subtask_ids, ",") << "]"
+                                 << absl::StrJoin(subtask_ids, ",") << "]"
                                  << ". All subtasks in this group will be skipped to prevent data loss.";
                     continue;
                 }
@@ -1105,7 +1105,7 @@ StatusOr<TxnLogPB> TabletParallelCompactionManager::get_merged_txn_log(int64_t t
                     failed_large_rowset_ids.insert(large_rowset_id);
                     LOG(WARNING) << "Large rowset split group failed: tablet=" << tablet_id << ", txn_id=" << txn_id
                                  << ", large_rowset_id=" << large_rowset_id << ", subtask_ids=["
-                                 << JoinInts(subtask_ids, ",") << "]"
+                                 << absl::StrJoin(subtask_ids, ",") << "]"
                                  << ". All subtasks in this group will be skipped.";
                 }
             }
@@ -1151,7 +1151,7 @@ StatusOr<TxnLogPB> TabletParallelCompactionManager::get_merged_txn_log(int64_t t
             //      causing data loss. Returning an error prevents the txn_log from being
             //      added to the response so the compaction fails entirely.
             if (success_subtask_ids.empty() && (actual_failure_count > 0 || !failed_large_rowset_ids.empty())) {
-                return Status::InternalError(strings::Substitute(
+                return Status::InternalError(absl::Substitute(
                         "All subtasks failed for parallel compaction: tablet_id=$0, txn_id=$1, total_subtasks=$2",
                         tablet_id, txn_id, state->completed_subtasks.size()));
             }
@@ -1313,7 +1313,7 @@ StatusOr<TxnLogPB> TabletParallelCompactionManager::get_merged_txn_log(int64_t t
                         << ", merged_ssts=" << merged_compaction->ssts_size()
                         << ", merged_sst_ranges=" << merged_compaction->sst_ranges_size()
                         << ", compact_version=" << merged_compaction->compact_version() << ", input_rowsets=["
-                        << JoinInts(std::vector<uint32_t>(merged_compaction->input_rowsets().begin(),
+                        << absl::StrJoin(std::vector<uint32_t>(merged_compaction->input_rowsets().begin(),
                                                           merged_compaction->input_rowsets().end()),
                                     ",")
                         << "]"
@@ -1352,7 +1352,7 @@ StatusOr<TxnLogPB> TabletParallelCompactionManager::get_merged_txn_log(int64_t t
             if (failed_count > 0) {
                 VLOG(1) << "Parallel compaction partial success: tablet=" << tablet_id << ", txn_id=" << txn_id
                         << ", successful=" << success_subtask_ids.size() << ", failed=" << failed_count
-                        << ", success_subtask_ids=[" << JoinInts(success_subtask_ids, ",") << "]";
+                        << ", success_subtask_ids=[" << absl::StrJoin(success_subtask_ids, ",") << "]";
             }
 
             VLOG(1) << "Merged TxnLog for tablet " << tablet_id << ", txn_id=" << txn_id
@@ -1489,7 +1489,7 @@ void TabletParallelCompactionManager::execute_subtask(int64_t tablet_id, int64_t
     auto cancel_func = [this, tablet_id, txn_id, subtask_id, version]() {
         // Check if tablet state still exists - if not, the compaction has been cancelled/timed out
         if (get_tablet_state(tablet_id, txn_id) == nullptr) {
-            return Status::Cancelled(strings::Substitute(
+            return Status::Cancelled(absl::Substitute(
                     "Tablet parallel compaction state has been cleaned up: tablet_id=$0, txn_id=$1, "
                     "version=$2, subtask_id=$3",
                     tablet_id, txn_id, version, subtask_id));
@@ -1939,7 +1939,7 @@ StatusOr<int> TabletParallelCompactionManager::submit_subtasks_from_groups(
 
     if (groups.empty()) {
         cleanup_tablet(tablet_id, txn_id);
-        return Status::NotFound(strings::Substitute("No groups to submit: tablet_id=$0, txn_id=$1", tablet_id, txn_id));
+        return Status::NotFound(absl::Substitute("No groups to submit: tablet_id=$0, txn_id=$1", tablet_id, txn_id));
     }
 
     // Acquire all tokens upfront to ensure atomic submission of all subtasks.
@@ -1960,7 +1960,7 @@ StatusOr<int> TabletParallelCompactionManager::submit_subtasks_from_groups(
                 release_token(false);
             }
             cleanup_tablet(tablet_id, txn_id);
-            return Status::ResourceBusy(strings::Substitute(
+            return Status::ResourceBusy(absl::Substitute(
                     "Failed to acquire all limiter tokens: tablet_id=$0, txn_id=$1, acquired=$2, total=$3", tablet_id,
                     txn_id, tokens_acquired, total_groups));
         }
@@ -2146,7 +2146,7 @@ StatusOr<int> TabletParallelCompactionManager::submit_subtasks_from_groups(
 
     if (subtasks_created == 0) {
         cleanup_tablet(tablet_id, txn_id);
-        return Status::NotFound(strings::Substitute(
+        return Status::NotFound(absl::Substitute(
                 "Failed to create any subtask: tablet_id=$0, txn_id=$1, total_groups=$2, max_parallel=$3", tablet_id,
                 txn_id, groups.size(), max_parallel));
     }
@@ -2223,7 +2223,7 @@ void TabletParallelCompactionManager::execute_subtask_segment_range(int64_t tabl
 
     if (rowset_index < 0) {
         LOG(WARNING) << "Rowset " << large_rowset_id << " not found in metadata for tablet " << tablet_id;
-        context->status = Status::NotFound(strings::Substitute("Rowset $0 not found in metadata", large_rowset_id));
+        context->status = Status::NotFound(absl::Substitute("Rowset $0 not found in metadata", large_rowset_id));
         on_subtask_complete(tablet_id, txn_id, subtask_id, std::move(context));
         if (release_token) {
             release_token(false);
@@ -2257,7 +2257,7 @@ void TabletParallelCompactionManager::execute_subtask_segment_range(int64_t tabl
     // Execute compaction
     auto cancel_func = [this, tablet_id, txn_id, subtask_id, version]() {
         if (get_tablet_state(tablet_id, txn_id) == nullptr) {
-            return Status::Cancelled(strings::Substitute(
+            return Status::Cancelled(absl::Substitute(
                     "Tablet parallel compaction state has been cleaned up: tablet_id=$0, txn_id=$1, "
                     "version=$2, subtask_id=$3",
                     tablet_id, txn_id, version, subtask_id));
@@ -2580,7 +2580,7 @@ void TabletParallelCompactionManager::execute_subtask_range_split(
 
     auto cancel_func = [this, tablet_id, txn_id, subtask_id, version]() {
         if (get_tablet_state(tablet_id, txn_id) == nullptr) {
-            return Status::Cancelled(strings::Substitute(
+            return Status::Cancelled(absl::Substitute(
                     "Tablet parallel compaction state has been cleaned up: tablet_id=$0, txn_id=$1, "
                     "version=$2, subtask_id=$3",
                     tablet_id, txn_id, version, subtask_id));

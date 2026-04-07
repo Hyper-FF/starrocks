@@ -39,7 +39,7 @@
 
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/macros.h"
+#include "base/macros.h"
 
 namespace starrocks {
 

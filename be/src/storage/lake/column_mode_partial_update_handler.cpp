@@ -25,7 +25,7 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "gutil/strings/substitute.h"
+#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "serde/column_array_serde.h"
 #include "storage/chunk_helper.h"
@@ -399,7 +399,7 @@ Status ColumnModePartialUpdateHandler::execute(const RowsetUpdateStateParams& pa
     for (uint32_t uid : txn_meta.partial_update_column_unique_ids()) {
         auto cid = params.tablet_schema->field_index(uid);
         if (cid == -1) {
-            std::string msg = strings::Substitute("column with unique id:$0 does not exist. tablet:$1", uid,
+            std::string msg = absl::Substitute("column with unique id:$0 does not exist. tablet:$1", uid,
                                                   params.tablet->tablet_id());
             LOG(ERROR) << msg;
             return Status::InternalError(msg);

@@ -45,7 +45,7 @@
 #include "column/fixed_length_column.h"
 #include "column/schema.h"
 #include "gutil/endian.h"
-#include "gutil/stringprintf.h"
+#include "fmt/printf.h"
 #include "storage/dictionary_cache_manager.h"
 #include "storage/tablet_schema.h"
 #include "types/date_value.h"
@@ -298,7 +298,7 @@ Status PrimaryKeyEncoder::create_column(const Schema& schema, MutableColumnPtr* 
             }
             break;
         default:
-            return Status::NotSupported(StringPrintf("primary key type not support: %s", logical_type_to_string(type)));
+            return Status::NotSupported(fmt::sprintf("primary key type not support: %s", logical_type_to_string(type)));
         }
     } else {
         // composite keys encoding to binary
