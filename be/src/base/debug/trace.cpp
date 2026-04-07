@@ -20,6 +20,7 @@
 #include <glog/logging.h>
 #include <rapidjson/rapidjson.h>
 
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -31,8 +32,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <chrono>
 
 #include "base/logging.h"
 
@@ -104,7 +103,9 @@ TraceEntry* Trace::NewEntry(int msg_len, const char* file_path, int line_number)
     //uint8_t* dst = reinterpret_cast<uint8_t*>(arena_->AllocateBytes(size));
     auto* dst = reinterpret_cast<uint8_t*>(malloc(size));
     auto* entry = reinterpret_cast<TraceEntry*>(dst);
-    entry->timestamp_micros = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    entry->timestamp_micros =
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+                    .count();
     entry->message_len = msg_len;
     entry->file_path = file_path;
     entry->line_number = line_number;

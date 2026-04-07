@@ -59,6 +59,7 @@
 #include <filesystem>
 
 #include "base/cpu.h"
+#include "base/gutil/cpu.h"
 #include "base/network/network_util.h"
 #include "base/time/monotime.h"
 #include "base/time/time.h"
@@ -71,7 +72,6 @@
 #include "common/util/debug_util.h"
 #include "common/util/misc.h"
 #include "common/util/thrift_util.h"
-#include "base/gutil/cpu.h"
 #include "fs/encrypt_file.h"
 #include "fs/fs_util.h"
 #include "jemalloc/jemalloc.h"

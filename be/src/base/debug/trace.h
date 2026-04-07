@@ -30,8 +30,8 @@
 #include "base/compiler_util.h"
 #include "base/concurrency/spinlock.h"
 #include "base/debug/trace_metrics.h"
-#include "base/ref_counted.h"
 #include "base/gutil/threading/thread_collision_warner.h"
+#include "base/ref_counted.h"
 
 namespace starrocks {
 class Trace;
@@ -254,11 +254,10 @@ public:
                                   .count()) {}
 
     ~ScopedTraceLatencyCounter() {
-        TRACE_COUNTER_INCREMENT(counter_,
-                                std::chrono::duration_cast<std::chrono::microseconds>(
-                                        std::chrono::system_clock::now().time_since_epoch())
-                                                .count() -
-                                        start_time_);
+        TRACE_COUNTER_INCREMENT(counter_, std::chrono::duration_cast<std::chrono::microseconds>(
+                                                  std::chrono::system_clock::now().time_since_epoch())
+                                                          .count() -
+                                                  start_time_);
     }
     ScopedTraceLatencyCounter(const ScopedTraceLatencyCounter&) = delete;
     const ScopedTraceLatencyCounter& operator=(const ScopedTraceLatencyCounter&) = delete;

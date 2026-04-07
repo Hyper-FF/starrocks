@@ -14,8 +14,8 @@
 
 #include "column/nullable_column.h"
 
-#include "base/strings/fastmem.h"
 #include "base/simd/simd.h"
+#include "base/strings/fastmem.h"
 #include "column/mysql_row_buffer.h"
 #include "column/vectorized_fwd.h"
 

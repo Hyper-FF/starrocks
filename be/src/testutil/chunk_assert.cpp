@@ -15,6 +15,7 @@
 #include "testutil/chunk_assert.h"
 
 #include <glog/logging.h>
+
 #include "column/chunk.h"
 #include "column/column.h"
 

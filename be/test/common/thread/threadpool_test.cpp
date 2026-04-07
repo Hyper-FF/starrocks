@@ -23,6 +23,7 @@
 
 #include <atomic>
 #include <boost/asio/spawn.hpp>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <iterator>
@@ -36,21 +37,18 @@
 #include <vector>
 
 #include "absl/strings/substitute.h"
+#include "base/compiler_util.h"
 #include "base/concurrency/await.h"
 #include "base/concurrency/countdown_latch.h"
 #include "base/concurrency/spinlock.h"
-#include <atomic>
-#include "base/compiler_util.h"
+#include "base/metrics.h"
+#include "base/random/random.h"
 #include "base/ref_counted.h"
 #include "base/sysinfo.h"
-#include "base/walltime.h"
-#include "base/metrics.h"
-#include <chrono>
-
-#include "base/random/random.h"
 #include "base/testutil/assert.h"
 #include "base/time/monotime.h"
 #include "base/utility/scoped_cleanup.h"
+#include "base/walltime.h"
 #include "common/logging.h"
 #include "common/status.h"
 #include "common/system/cpu_info.h"
@@ -473,7 +471,9 @@ TEST_P(ThreadPoolTestTokenTypes, TestTokenSubmitAndWait) {
 
 TEST_F(ThreadPoolTest, TestTokenSubmitsProcessedSerially) {
     std::unique_ptr<ThreadPoolToken> t = _pool->new_token(ThreadPool::ExecutionMode::SERIAL);
-    auto seed = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    auto seed = static_cast<int32_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+                    .count());
     srand(seed);
     Random r(seed);
     string result;
@@ -582,7 +582,9 @@ TEST_P(ThreadPoolTestTokenTypes, TestTokenShutdown) {
 TEST_P(ThreadPoolTestTokenTypes, TestTokenWaitForAll) {
     const int kNumTokens = 3;
     const int kNumSubmissions = 20;
-    auto seed = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    auto seed = static_cast<int32_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+                    .count());
     srand(seed);
     Random r(seed);
     std::vector<std::unique_ptr<ThreadPoolToken>> tokens;
@@ -615,7 +617,9 @@ TEST_P(ThreadPoolTestTokenTypes, TestTokenWaitForAll) {
 
 TEST_F(ThreadPoolTest, TestFuzz) {
     const int kNumOperations = 1000;
-    auto seed = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    auto seed = static_cast<int32_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+                    .count());
     srand(seed);
     Random r(seed);
     std::vector<std::unique_ptr<ThreadPoolToken>> tokens;
@@ -718,7 +722,9 @@ TEST_F(ThreadPoolTest, TestTokenConcurrency) {
     const int kSubmitThreads = 8;
 
     std::vector<shared_ptr<ThreadPoolToken>> tokens;
-    auto seed = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    auto seed = static_cast<int32_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+                    .count());
     srand(seed);
     Random rng(seed);
 
@@ -804,7 +810,9 @@ TEST_F(ThreadPoolTest, TestTokenConcurrency) {
         // Pick a token at random and submit a task to it.
         threads.emplace_back([&]() {
             int num_tokens_submitted = 0;
-            int32_t seed = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+            int32_t seed = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                                                        std::chrono::system_clock::now().time_since_epoch())
+                                                        .count());
             srand(seed);
             Random rng(seed);
             while (latch.count()) {

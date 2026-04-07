@@ -36,9 +36,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <memory>
 
-#include <cstdint>
 #include "base/types/int128.h"
 #include "column/column_helper.h"
 #include "column/column_viewer.h"

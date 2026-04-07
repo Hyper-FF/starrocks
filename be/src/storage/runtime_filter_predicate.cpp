@@ -16,8 +16,8 @@
 
 #include <cstring>
 
-#include "base/strings/fastmem.h"
 #include "base/simd/simd.h"
+#include "base/strings/fastmem.h"
 #include "common/config_rowset_fwd.h"
 #include "runtime/mem_tracker.h"
 #include "storage/rowset/column_iterator.h"

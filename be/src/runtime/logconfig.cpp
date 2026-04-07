@@ -44,9 +44,9 @@
 #include <mutex>
 
 #include "base/endian.h"
+#include "base/process/lite_exec.h"
 #include "base/stringprintf.h"
 #include "base/sysinfo.h"
-#include "base/process/lite_exec.h"
 #include "cache/datacache.h"
 #include "cache/mem_cache/page_cache.h"
 #include "common/config_diagnostic_fwd.h"

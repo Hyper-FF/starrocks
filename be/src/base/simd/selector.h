@@ -23,9 +23,8 @@
 #endif
 
 #include <cstdint>
-#include <type_traits>
-
 #include <cstring>
+#include <type_traits>
 
 #include "base/compiler_util.h"
 #include "base/simd/simd_utils.h"

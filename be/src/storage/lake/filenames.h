@@ -19,8 +19,8 @@
 #include <optional>
 #include <string_view>
 
-#include "base/strings/util.h"
 #include "base/string/string_parser.hpp"
+#include "base/strings/util.h"
 #include "base/uid_util.h"
 #include "gen_cpp/Types_types.h" // for PUniqueId
 

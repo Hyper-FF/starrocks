@@ -37,7 +37,6 @@
 #include <cstdint>
 #include <string>
 
-
 namespace starrocks {
 
 /// @brief A representation of a time interval.

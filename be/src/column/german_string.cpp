@@ -15,9 +15,9 @@
 #include "column/german_string.h"
 
 #include "base/container/raw_container.h"
-#include "base/strings/fastmem.h"
 #include "base/hash/hash_util.hpp"
 #include "base/string/slice.h"
+#include "base/strings/fastmem.h"
 
 namespace starrocks {
 

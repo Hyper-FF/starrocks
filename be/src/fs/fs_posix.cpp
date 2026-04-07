@@ -29,7 +29,6 @@
 #include "absl/strings/substitute.h"
 #include "base/compiler_util.h"
 #include "base/concurrency/stopwatch.hpp"
-#include <memory>
 #include "base/string/slice.h"
 #include "base/system/errno.h"
 #include "base/testutil/sync_point.h"

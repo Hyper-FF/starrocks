@@ -25,8 +25,8 @@
 #include <mutex>
 #include <utility>
 
-#include "base/failpoint/fail_point.h"
 #include "base/compiler_util.h"
+#include "base/failpoint/fail_point.h"
 #include "column/chunk.h"
 #include "common/status.h"
 #include "common/statusor.h"
