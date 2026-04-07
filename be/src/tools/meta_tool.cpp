@@ -45,10 +45,10 @@
 #include <set>
 #include <string>
 
-#include "base/endian.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "base/coding.h"
+#include "base/endian.h"
 #include "base/gutil/strings/numbers.h"
 #include "base/hash/crc32c.h"
 #include "base/path/path_util.h"

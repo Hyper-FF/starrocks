@@ -45,9 +45,9 @@
 #include <string>
 #include <vector>
 
-#include "base/endian.h"
 #include "absl/strings/substitute.h"
 #include "base/coding.h"
+#include "base/endian.h"
 #include "base/failpoint/fail_point.h"
 #include "base/gutil/strings/numbers.h"
 #include "base/url_coding.h"
@@ -649,8 +649,7 @@ static bool decode_meta_log_key(std::string_view key, TTabletId* id, uint64_t* l
         return false;
     }
     *id = BigEndian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length()));
-    *logid = BigEndian::ToHost64(
-            UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length() + sizeof(uint64_t)));
+    *logid = BigEndian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length() + sizeof(uint64_t)));
     return true;
 }
 
@@ -668,8 +667,8 @@ static string encode_meta_rowset_key(TTabletId id, uint32_t rowsetid) {
         return false;
     }
     *id = BigEndian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_ROWSET_PREFIX.length()));
-    *rowsetid = BigEndian::ToHost32(
-            UNALIGNED_LOAD32(key.data() + TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t)));
+    *rowsetid =
+            BigEndian::ToHost32(UNALIGNED_LOAD32(key.data() + TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t)));
     return true;
 }
 
