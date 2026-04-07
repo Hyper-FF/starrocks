@@ -19,13 +19,13 @@
 #include <cstring>
 
 #include "base/container/raw_container.h"
+#include "base/macros.h"
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "common/statusor.h"
 #include "exec/spill/block_manager.h"
 #include "exec/spill/data_stream.h"
 #include "exec/spill/spill_fwd.h"
-#include "base/macros.h"
 
 namespace starrocks::spill {
 

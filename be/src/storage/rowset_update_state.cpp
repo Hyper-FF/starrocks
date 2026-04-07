@@ -14,6 +14,7 @@
 
 #include "rowset_update_state.h"
 
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/phmap/phmap.h"
 #include "base/time/time.h"
@@ -24,7 +25,6 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "serde/column_array_serde.h"
 #include "storage/chunk_helper.h"
@@ -836,8 +836,8 @@ Status RowsetUpdateState::apply(Tablet* tablet, const TabletSchemaCSPtr& tablet_
     bool is_slow = (t_end - t_start) > config::apply_version_slow_log_sec * 1000;
     std::string msg =
             absl::Substitute("apply partial segment tablet:$0 rowset:$1 seg:$2 #column:$3 #duration$4ms($5/$6/$7)",
-                                tablet->tablet_id(), rowset_id, segment_id, read_column_ids.size(), t_end - t_start,
-                                t_rewrite_start - t_start, t_rewrite_end - t_rewrite_start, t_end - t_rewrite_end);
+                             tablet->tablet_id(), rowset_id, segment_id, read_column_ids.size(), t_end - t_start,
+                             t_rewrite_start - t_start, t_rewrite_end - t_rewrite_start, t_end - t_rewrite_end);
     if (is_slow) {
         LOG(INFO) << msg;
     } else {

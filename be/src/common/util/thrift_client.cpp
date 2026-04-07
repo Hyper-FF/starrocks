@@ -23,10 +23,10 @@
 #include <ostream>
 #include <string>
 
+#include "absl/strings/substitute.h"
 #include "base/time/monotime.h"
 #include "base/time/time.h"
 #include "common/config_rpc_client_fwd.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

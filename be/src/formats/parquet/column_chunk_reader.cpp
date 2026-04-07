@@ -20,13 +20,13 @@
 #include <string>
 #include <string_view>
 
+#include "absl/strings/substitute.h"
 #include "common/compiler_util.h"
 #include "common/status.h"
 #include "formats/parquet/encoding.h"
 #include "formats/parquet/types.h"
 #include "formats/parquet/utils.h"
 #include "fs/fs.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/mem_tracker.h"
 #include "util/compression/block_compression.h"

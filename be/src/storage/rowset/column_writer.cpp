@@ -37,13 +37,13 @@
 #include <cstddef>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/simd/simd.h"
 #include "column/column_helper.h"
 #include "column/nullable_column.h"
 #include "common/config_rowset_fwd.h"
 #include "common/config_scan_io_fwd.h"
 #include "fs/fs.h"
-#include "absl/strings/substitute.h"
 #include "object_column_writer.h"
 #include "storage/index/inverted/inverted_index_option.h"
 
@@ -551,7 +551,7 @@ inline Status ScalarColumnWriter::set_encoding(const EncodingTypePB& encoding) {
     RETURN_IF_ERROR(_encoding_info->create_page_builder(opts, &page_builder));
     if (page_builder == nullptr) {
         return Status::NotSupported(absl::Substitute("Failed to create page builder for type $0 and encoding $1",
-                                                        type_info()->type(), _opts.meta->encoding()));
+                                                     type_info()->type(), _opts.meta->encoding()));
     }
     // should store more concrete encoding type instead of DEFAULT_ENCODING
     // because the default encoding of a data type can be changed in the future

@@ -39,6 +39,7 @@
 #include <sstream>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/string/string_util.h"
 #include "base/system/errno.h"
 #include "base/time/monotime.h"
@@ -49,7 +50,6 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "gutil/strings/stringpiece.h"
-#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "storage/olap_define.h"
 #include "storage/rowset/rowset_factory.h"

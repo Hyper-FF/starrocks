@@ -344,21 +344,21 @@ static inline uint64 strtou64_16(const char* source, char** end) {
     return strtou64(source, end, 16);
 }
 
-#define DEFINE_SPLIT_ONE_NUMBER_TOKEN(name, type, function)                                             \
-    bool SplitOne##name##Token(const char** source, const char* delim, type* value) {                   \
-        assert(source);                                                                                 \
-        assert(delim);                                                                                  \
-        assert(value);                                                                                  \
-        if (!*source) return false;                                                                     \
-        char* end;                                                                                      \
-        *value = function(*source, &end);                                                               \
-        if (end == *source) return false;                                                               \
-        if (end[0] && !strchr(delim, end[0])) return false;                                             \
-        if (*end != '\0')                                                                               \
-            *source = const_cast<const char*>(end + 1);                                                 \
-        else                                                                                            \
-            *source = NULL;                                                                             \
-        return true;                                                                                    \
+#define DEFINE_SPLIT_ONE_NUMBER_TOKEN(name, type, function)                           \
+    bool SplitOne##name##Token(const char** source, const char* delim, type* value) { \
+        assert(source);                                                               \
+        assert(delim);                                                                \
+        assert(value);                                                                \
+        if (!*source) return false;                                                   \
+        char* end;                                                                    \
+        *value = function(*source, &end);                                             \
+        if (end == *source) return false;                                             \
+        if (end[0] && !strchr(delim, end[0])) return false;                           \
+        if (*end != '\0')                                                             \
+            *source = const_cast<const char*>(end + 1);                               \
+        else                                                                          \
+            *source = NULL;                                                           \
+        return true;                                                                  \
     }
 
 DEFINE_SPLIT_ONE_NUMBER_TOKEN(Int, int, strto32_0)

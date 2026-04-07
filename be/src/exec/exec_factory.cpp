@@ -41,6 +41,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "common/logging.h"
 #include "connector/connector.h"
 #include "exec/aggregate/aggregate_blocking_node.h"
@@ -74,7 +75,6 @@
 #include "exec/topn_node.h"
 #include "exec/union_node.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

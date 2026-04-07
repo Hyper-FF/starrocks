@@ -34,8 +34,8 @@
 
 #include "storage/rowset/indexed_column_reader.h"
 
-#include "fs/fs.h"
 #include "absl/strings/substitute.h" // for Substitute
+#include "fs/fs.h"
 #include "storage/key_coder.h"
 #include "storage/rowset/encoding_info.h" // for EncodingInfo
 #include "storage/rowset/page_io.h"

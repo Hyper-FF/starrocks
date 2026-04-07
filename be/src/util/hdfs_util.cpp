@@ -19,8 +19,8 @@
 
 #include <string>
 
-#include "fmt/format.h"
 #include "absl/strings/substitute.h"
+#include "fmt/format.h"
 
 namespace starrocks {
 

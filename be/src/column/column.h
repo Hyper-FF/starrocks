@@ -18,6 +18,7 @@
 #include <string>
 #include <type_traits>
 
+#include "base/macros.h"
 #include "base/string/slice.h"
 #include "column/column_visitor.h"
 #include "column/column_visitor_mutable.h"
@@ -29,7 +30,6 @@
 #include "common/memory/column_allocator.h"
 #include "common/statusor.h"
 #include "gutil/casts.h"
-#include "base/macros.h"
 
 namespace starrocks {
 

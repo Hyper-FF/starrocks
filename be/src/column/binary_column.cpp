@@ -18,6 +18,7 @@
 #include <immintrin.h>
 #endif
 
+#include "absl/strings/substitute.h"
 #include "base/container/raw_container.h"
 #include "base/hash/hash_util.hpp"
 #include "column/bytes.h"
@@ -27,7 +28,6 @@
 #include "gutil/bits.h"
 #include "gutil/casts.h"
 #include "gutil/strings/fastmem.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 template <typename T>
@@ -1033,13 +1033,11 @@ Status BinaryColumnBase<T>::capacity_limit_reached() const {
         // The size limit of all elements is 2^32 - 1.
         // The number limit of elements is 2^32 - 1.
         if (get_immutable_bytes().size() >= Column::MAX_CAPACITY_LIMIT) {
-            return Status::CapacityLimitExceed(
-                    absl::Substitute("Total byte size of binary column exceed the limit: $0",
-                                        std::to_string(Column::MAX_CAPACITY_LIMIT)));
+            return Status::CapacityLimitExceed(absl::Substitute("Total byte size of binary column exceed the limit: $0",
+                                                                std::to_string(Column::MAX_CAPACITY_LIMIT)));
         } else if (_offsets.size() >= Column::MAX_CAPACITY_LIMIT) {
-            return Status::CapacityLimitExceed(
-                    absl::Substitute("Total row count of binary column exceed the limit: $0",
-                                        std::to_string(Column::MAX_CAPACITY_LIMIT)));
+            return Status::CapacityLimitExceed(absl::Substitute("Total row count of binary column exceed the limit: $0",
+                                                                std::to_string(Column::MAX_CAPACITY_LIMIT)));
         } else {
             return Status::OK();
         }
@@ -1050,11 +1048,11 @@ Status BinaryColumnBase<T>::capacity_limit_reached() const {
         if (get_immutable_bytes().size() >= Column::MAX_LARGE_CAPACITY_LIMIT) {
             return Status::CapacityLimitExceed(
                     absl::Substitute("Total byte size of large binary column exceed the limit: $0",
-                                        std::to_string(Column::MAX_LARGE_CAPACITY_LIMIT)));
+                                     std::to_string(Column::MAX_LARGE_CAPACITY_LIMIT)));
         } else if (_offsets.size() >= Column::MAX_CAPACITY_LIMIT) {
             return Status::CapacityLimitExceed(
                     absl::Substitute("Total row count of large binary column exceed the limit: $0",
-                                        std::to_string(Column::MAX_CAPACITY_LIMIT)));
+                                     std::to_string(Column::MAX_CAPACITY_LIMIT)));
         } else {
             return Status::OK();
         }

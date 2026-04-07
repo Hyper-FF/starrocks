@@ -14,10 +14,10 @@
 
 #include "exec/schema_scanner/schema_be_metrics_scanner.h"
 
+#include "absl/strings/substitute.h"
 #include "base/metrics.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
-#include "absl/strings/substitute.h"
 #include "runtime/starrocks_metrics.h"
 #include "types/logical_type.h"
 #include "util/global_metrics_registry.h"

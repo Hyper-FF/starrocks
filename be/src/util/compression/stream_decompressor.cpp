@@ -42,9 +42,9 @@
 #include <memory>
 #include <optional>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "fmt/compile.h"
-#include "absl/strings/substitute.h"
 #include "util/compression/compression_context_pool_singletons.h"
 #include "util/compression/compression_headers.h"
 

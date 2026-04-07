@@ -16,12 +16,12 @@
 
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
 #include "common/config_compaction_fwd.h"
 #include "common/config_exec_fwd.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "storage/chunk_helper.h"

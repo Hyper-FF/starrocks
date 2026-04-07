@@ -16,10 +16,10 @@
 
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "column/column.h"
 #include "column/vectorized_fwd.h"
 #include "common/logging.h"
-#include "absl/strings/substitute.h"
 #include "types/datum.h"
 
 namespace starrocks {
@@ -261,7 +261,7 @@ public:
         RETURN_IF_ERROR(_data->capacity_limit_reached());
         if (_size > Column::MAX_CAPACITY_LIMIT) {
             return Status::CapacityLimitExceed(absl::Substitute("Row count of const column reach limit: $0",
-                                                                   std::to_string(Column::MAX_CAPACITY_LIMIT)));
+                                                                std::to_string(Column::MAX_CAPACITY_LIMIT)));
         }
         return Status::OK();
     }

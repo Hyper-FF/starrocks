@@ -33,9 +33,9 @@
 #ifndef __APPLE__
 #include "exec/file_scanner/parquet_scanner.h"
 #endif
+#include "absl/strings/substitute.h"
 #include "base/utility/pred_guard.h"
 #include "gutil/strings/fastmem.h"
-#include "absl/strings/substitute.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
@@ -48,7 +48,7 @@ namespace starrocks {
 
 Status illegal_converting_error(const std::string& arrow_type_name, const std::string& type_name) {
     return Status::InternalError(absl::Substitute("Illegal converting from arrow type($0) to StarRocks type($1)",
-                                                     arrow_type_name, type_name));
+                                                  arrow_type_name, type_name));
 }
 
 DEF_PRED_GUARD(DirectlyCopybleGuard, is_directly_copyable, ArrowTypeId, AT, LogicalType, LT)
@@ -284,8 +284,8 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, BinaryATGuard<AT>, StringO
 
                     if (ctx != nullptr) {
                         std::string raw_data = "arrow data is fixed size binary type";
-                        std::string reason = absl::Substitute("type length $0 exceeds max length $1", width,
-                                                                 binary_max_length<LT>);
+                        std::string reason =
+                                absl::Substitute("type length $0 exceeds max length $1", width, binary_max_length<LT>);
                         ctx->report_error_message(reason, raw_data);
                     }
                 }
@@ -1067,9 +1067,8 @@ void ArrowConvertContext::report_error_message(const std::string& reason, const 
     if (state == nullptr) return;
     if (error_message_counter > MAX_ERROR_MESSAGE_COUNTER) return;
     error_message_counter += 1;
-    std::string error_msg =
-            absl::Substitute("file = $0, column = $1, raw data = $2", current_file,
-                                (current_slot == nullptr) ? "null" : current_slot->col_name(), raw_data);
+    std::string error_msg = absl::Substitute("file = $0, column = $1, raw data = $2", current_file,
+                                             (current_slot == nullptr) ? "null" : current_slot->col_name(), raw_data);
     RuntimeStateHelper::append_error_msg_to_file(state, error_msg, reason);
 }
 

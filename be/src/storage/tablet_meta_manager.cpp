@@ -45,6 +45,8 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/numbers.h"
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/failpoint/fail_point.h"
 #include "base/url_coding.h"
@@ -55,8 +57,6 @@
 #include "common/util/debug_util.h"
 #include "fmt/format.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "absl/strings/numbers.h"
-#include "absl/strings/substitute.h"
 #include "storage/del_vector.h"
 #include "storage/delta_column_group.h"
 #include "storage/kv_store.h"
@@ -1088,10 +1088,10 @@ Status TabletMetaManager::get_del_vector(KVStore* meta, TTabletId tablet_id, uin
     }
     if (!found) {
         return Status::NotFound(absl::Substitute("no delete vector found tablet:$0 segment:$1 version:$2", tablet_id,
-                                                    segment_id, version));
+                                                 segment_id, version));
     }
     VLOG(3) << absl::Substitute("get_del_vec in-meta tablet_id=$0 segment_id=$1 version=$2 actual_version=$3",
-                                   tablet_id, segment_id, version, delvec ? delvec->version() : -1);
+                                tablet_id, segment_id, version, delvec ? delvec->version() : -1);
     return st;
 }
 

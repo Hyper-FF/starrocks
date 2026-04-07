@@ -18,9 +18,9 @@
 
 #include <tenann/util/threads.h>
 
+#include "absl/strings/substitute.h"
 #include "column/array_column.h"
 #include "common/config_vector_index_fwd.h"
-#include "absl/strings/substitute.h"
 #include "storage/index/vector/tenann/tenann_index_utils.h"
 #include "tenann/factory/index_factory.h"
 
@@ -93,8 +93,8 @@ static Status valid_input_vector(const ArrayColumn& input_column, const size_t i
         if (input_dim != index_dim) {
             return Status::InvalidArgument(
                     absl::Substitute("The dimensions of the vector written are inconsistent, index dim is "
-                                        "$0 but data dim is $1",
-                                        index_dim, input_dim));
+                                     "$0 but data dim is $1",
+                                     index_dim, input_dim));
         }
 
         if constexpr (is_input_normalized) {

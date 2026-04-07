@@ -16,6 +16,7 @@
 
 #include <bvar/bvar.h>
 
+#include "absl/strings/str_join.h"
 #include "base/concurrency/countdown_latch.h"
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
@@ -24,7 +25,6 @@
 #include "common/tracer.h"
 #include "fmt/format.h"
 #include "gen_cpp/AgentService_types.h"
-#include "absl/strings/str_join.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"
 #include "storage/data_dir.h"

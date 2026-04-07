@@ -22,6 +22,7 @@
 
 #include "base/concurrency/bthread_shared_mutex.h"
 #include "base/concurrency/countdown_latch.h"
+#include "base/macros.h"
 #include "column/chunk.h"
 #include "common/compiler_util.h"
 #include "common/config_ingest_fwd.h"
@@ -32,7 +33,6 @@
 #include "exec/tablet_info.h"
 #include "fs/bundle_file.h"
 #include "gen_cpp/internal_service.pb.h"
-#include "base/macros.h"
 #include "runtime/closure_guard.h"
 #include "runtime/descriptors.h"
 #include "runtime/load_channel.h"

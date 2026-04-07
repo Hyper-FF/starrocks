@@ -40,6 +40,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_split.h"
 #include "base/concurrency/spinlock.h"
 #include "base/utility/dynamic_util.h"
 #include "common/config_udf_fwd.h"
@@ -47,7 +48,6 @@
 #include "fmt/compile.h"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "absl/strings/str_split.h"
 #include "util/download_util.h"
 
 namespace starrocks {

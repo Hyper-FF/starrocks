@@ -16,10 +16,10 @@
 
 #include <unordered_map>
 
+#include "absl/strings/substitute.h"
 #include "base/string/utf8_check.h"
 #include "column/column_helper.h"
 #include "exprs/chunk_predicate_evaluator.h"
-#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "util/compression/compression_utils.h"
 #include "util/compression/stream_decompressor.h"
@@ -383,7 +383,7 @@ Status HdfsTextScanner::_parse_csv(int chunk_size, ChunkPtr* chunk) {
                 if (!_converters[j]->read_string(column, field, options)) {
                     return Status::InternalError(
                             absl::Substitute("CSV converter encountered an error for field: $0, column name is: $1",
-                                                field.to_string(), column_info.name()));
+                                             field.to_string(), column_info.name()));
                 }
             } else {
                 // The size of hive_column_names may be larger than fields when new columns are added.

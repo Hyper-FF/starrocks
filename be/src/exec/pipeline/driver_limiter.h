@@ -17,8 +17,8 @@
 #include <atomic>
 #include <memory>
 
-#include "common/statusor.h"
 #include "absl/strings/substitute.h"
+#include "common/statusor.h"
 
 namespace starrocks::pipeline {
 

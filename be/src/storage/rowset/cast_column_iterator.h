@@ -14,9 +14,9 @@
 
 #pragma once
 
+#include "base/macros.h"
 #include "column/chunk.h"
 #include "column/vectorized_fwd.h"
-#include "base/macros.h"
 #include "storage/rowset/column_iterator_decorator.h"
 
 namespace starrocks {

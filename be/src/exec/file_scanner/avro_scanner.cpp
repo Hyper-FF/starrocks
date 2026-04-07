@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "column/adaptive_nullable_column.h"
 #include "column/chunk.h"
@@ -35,7 +36,6 @@
 #include "formats/avro/nullable_column.h"
 #include "fs/fs.h"
 #include "gutil/casts.h"
-#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
 #include "runtime/stream_load/stream_load_pipe.h"
@@ -445,13 +445,13 @@ Status AvroScanner::_construct_cast_exprs() {
         }
 
         VLOG(3) << absl::Substitute("The field name($0) cast STARROCKS($1) to STARROCKS($2).", slot_desc->col_name(),
-                                       from_type.debug_string(), to_type.debug_string());
+                                    from_type.debug_string(), to_type.debug_string());
 
         Expr* cast = VectorizedCastExprFactory::from_type(from_type, to_type, slot, &_pool);
 
         if (cast == nullptr) {
-            return Status::InternalError(absl::Substitute("Not support cast $0 to $1.", from_type.debug_string(),
-                                                             to_type.debug_string()));
+            return Status::InternalError(
+                    absl::Substitute("Not support cast $0 to $1.", from_type.debug_string(), to_type.debug_string()));
         }
 
         _cast_exprs[column_pos] = cast;

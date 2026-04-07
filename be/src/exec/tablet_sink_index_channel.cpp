@@ -16,6 +16,7 @@
 
 #include <utility>
 
+#include "absl/strings/str_join.h"
 #include "base/failpoint/fail_point.h"
 #include "base/testutil/sync_point.h"
 #include "column/chunk.h"
@@ -31,7 +32,6 @@
 #include "exec/tablet_sink.h"
 #include "exprs/expr_context.h"
 #include "gutil/strings/fastmem.h"
-#include "absl/strings/str_join.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/global_dict/fragment_dict_state.h"

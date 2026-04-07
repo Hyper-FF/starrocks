@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <optional>
 
+#include "absl/strings/substitute.h"
 #include "base/string/slice.h"
 #include "column/array_column.h"
 #include "column/binary_column.h"
@@ -32,7 +33,6 @@
 #include "formats/parquet/predicate_filter_evaluator.h"
 #include "formats/parquet/schema.h"
 #include "gutil/casts.h"
-#include "absl/strings/substitute.h"
 #include "storage/column_expr_predicate.h"
 #include "types/variant_value.h"
 
@@ -262,8 +262,8 @@ Status StructColumnReader::read_range(const Range<uint64_t>& range, const Filter
     }
 
     if (UNLIKELY(first_read)) {
-        return Status::InternalError(absl::Substitute("All used subfield of struct type $0 is not exist",
-                                                         get_column_parquet_field()->name));
+        return Status::InternalError(
+                absl::Substitute("All used subfield of struct type $0 is not exist", get_column_parquet_field()->name));
     }
 
     for (size_t i = 0; i < field_names.size(); i++) {
@@ -736,8 +736,8 @@ static Status _read_shredded_field_node(const Range<uint64_t>& range, const Filt
     if (node->value_column != nullptr && node->typed_value_column != nullptr &&
         node->value_column->size() != node->typed_value_column->size()) {
         return Status::InternalError(
-                absl::Substitute("shredded field '$0': value_column size $1 != typed_value_column size $2",
-                                    node->name, node->value_column->size(), node->typed_value_column->size()));
+                absl::Substitute("shredded field '$0': value_column size $1 != typed_value_column size $2", node->name,
+                                 node->value_column->size(), node->typed_value_column->size()));
     }
     if (node->typed_value_column != nullptr && node->array_element_value_column != nullptr &&
         node->typed_value_column->size() != node->array_element_value_column->size()) {
@@ -895,7 +895,7 @@ static StatusOr<std::optional<VariantRowValue>> _rebuild_array_overlay(size_t ro
                 if (!built.ok()) {
                     return built.status().clone_and_prepend(
                             absl::Substitute("rebuild shredded array object element failed, path=$0, index=$1",
-                                                array_node.full_path, i));
+                                             array_node.full_path, i));
                 }
                 array_builder.add(std::move(built).value());
                 continue;
@@ -991,8 +991,8 @@ static Status _collect_overlays_for_array_element(size_t element_row, const std:
         return Status::InvalidArgument("variant element overlays output is null");
     }
     if (depth > kMaxShreddedArrayNestingDepth) {
-        return Status::ResourceBusy(absl::Substitute(
-                "variant shredded array element nesting depth exceeded limit ($0)", kMaxShreddedArrayNestingDepth));
+        return Status::ResourceBusy(absl::Substitute("variant shredded array element nesting depth exceeded limit ($0)",
+                                                     kMaxShreddedArrayNestingDepth));
     }
     for (const auto& node : nodes) {
         if (node.kind == ShreddedFieldNode::Kind::SCALAR && node.typed_value_column != nullptr) {
@@ -1002,8 +1002,8 @@ static Status _collect_overlays_for_array_element(size_t element_row, const std:
                                                                &typed_row)) {
                 auto typed_value = VariantEncoder::encode_datum(typed_col->get(typed_row), *node.typed_value_read_type);
                 if (!typed_value.ok()) {
-                    return typed_value.status().clone_and_prepend(absl::Substitute(
-                            "encode shredded array element scalar failed, path=$0", node.full_path));
+                    return typed_value.status().clone_and_prepend(
+                            absl::Substitute("encode shredded array element scalar failed, path=$0", node.full_path));
                 }
                 overlays->emplace_back(VariantBuilder::Overlay{.path = node.parsed_full_path,
                                                                .value = std::move(typed_value).value()});

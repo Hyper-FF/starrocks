@@ -14,9 +14,9 @@
 
 #include "exec/parquet_reader.h"
 
+#include <absl/strings/substitute.h>
 #include <arrow/array.h>
 #include <arrow/status.h>
-#include <absl/strings/substitute.h>
 
 #include <memory>
 #include <utility>

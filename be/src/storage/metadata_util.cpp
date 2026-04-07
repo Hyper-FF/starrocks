@@ -18,6 +18,7 @@
 #include <chrono>
 #include <ctime>
 
+#include "absl/strings/substitute.h"
 #include "column/column_helper.h"
 #include "common/config_rowset_fwd.h"
 #include "common/object_pool.h"
@@ -27,7 +28,6 @@
 #include "exprs/expr_factory.h"
 #include "gen_cpp/AgentService_types.h"
 #include "gen_cpp/Types_types.h"
-#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
 #include "storage/aggregate_type.h"

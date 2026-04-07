@@ -14,9 +14,9 @@
 
 #include "storage/lake/update_compaction_state.h"
 
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "common/config_exec_fwd.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "storage/chunk_helper.h"
 #include "storage/chunk_iterator.h"

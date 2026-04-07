@@ -24,12 +24,12 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/spinlock.h"
 #include "base/debug/trace_metrics.h"
 #include "base/macros.h"
 #include "gutil/ref_counted.h"
 #include "gutil/strings/stringpiece.h"
-#include "absl/strings/substitute.h"
 #include "gutil/threading/thread_collision_warner.h"
 #include "gutil/walltime.h"
 

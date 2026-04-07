@@ -37,13 +37,13 @@
 #include <algorithm>
 #include <filesystem>
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "base/path/path_util.h"
 #include "common/config_storage_fwd.h"
 #include "common/logging.h"
 #include "common/status.h"
 #include "fs/fs.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

@@ -22,6 +22,7 @@
 #include <mutex>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "column/chunk.h"
 #include "column/column_builder.h"
 #include "column/column_helper.h"
@@ -43,7 +44,6 @@
 #include "exprs/jsonpath.h"
 #include "glog/logging.h"
 #include "gutil/casts.h"
-#include "absl/strings/substitute.h"
 #include "storage/chunk_helper.h"
 #include "types/json_value.h"
 #include "types/logical_type.h"

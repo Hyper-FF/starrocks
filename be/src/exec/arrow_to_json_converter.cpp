@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 
+#include "absl/strings/substitute.h"
 #include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -25,7 +26,6 @@
 #include "column/json_column.h"
 #include "common/statusor.h"
 #include "gutil/casts.h"
-#include "absl/strings/substitute.h"
 #include "types/json_value.h"
 
 namespace starrocks {

@@ -14,6 +14,7 @@
 
 #include "rowset_update_state.h"
 
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/phmap/phmap.h"
 #include "base/time/time.h"
@@ -22,7 +23,6 @@
 #include "common/tracer.h"
 #include "fs/fs_factory.h"
 #include "fs/key_cache.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "serde/column_array_serde.h"
 #include "storage/chunk_helper.h"

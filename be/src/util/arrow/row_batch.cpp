@@ -48,12 +48,12 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/arrow_utils.h"
 #include "common/logging.h"
 #include "exprs/column_ref.h"
 #include "exprs/expr_context.h"
 #include "gutil/casts.h"
-#include "absl/strings/substitute.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 

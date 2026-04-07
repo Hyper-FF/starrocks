@@ -17,12 +17,11 @@
 #include <memory>
 #include <queue>
 
-#include "fmt/printf.h"
-
 #include "base/utility/pretty_printer.h"
 #include "column/binary_column.h"
 #include "common/config_compaction_fwd.h"
 #include "common/config_exec_fwd.h"
+#include "fmt/printf.h"
 #include "gutil/stl_util.h"
 #include "runtime/starrocks_metrics.h"
 #include "storage/chunk_helper.h"

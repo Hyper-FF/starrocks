@@ -21,12 +21,12 @@
 #include <boost/tokenizer.hpp>
 #include <memory>
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "column/column_viewer.h"
 #include "common/compiler_util.h"
 #include "common/status.h"
 #include "glog/logging.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 #include "types/json_value.h"
 #include "velocypack/vpack.h"
 

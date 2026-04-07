@@ -16,6 +16,7 @@
 
 #include <fmt/format.h>
 
+#include "absl/strings/str_join.h"
 #include "agent/agent_common.h"
 #include "agent/finish_task.h"
 #include "agent/task_signatures_manager.h"
@@ -24,7 +25,6 @@
 #include "common/config_agent_fwd.h"
 #include "common/status.h"
 #include "common/system/backend_options.h"
-#include "absl/strings/str_join.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"

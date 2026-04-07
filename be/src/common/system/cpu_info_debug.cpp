@@ -14,9 +14,9 @@
 
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/pretty_printer.h"
 #include "common/system/cpu_info.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -29,13 +29,13 @@ std::string CpuInfo::debug_string() {
 
     std::string L1 =
             absl::Substitute("L1 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L1_CACHE], TUnit::BYTES),
-                                PrettyPrinter::print(cache_line_sizes[L1_CACHE], TUnit::BYTES));
+                             PrettyPrinter::print(cache_line_sizes[L1_CACHE], TUnit::BYTES));
     std::string L2 =
             absl::Substitute("L2 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L2_CACHE], TUnit::BYTES),
-                                PrettyPrinter::print(cache_line_sizes[L2_CACHE], TUnit::BYTES));
+                             PrettyPrinter::print(cache_line_sizes[L2_CACHE], TUnit::BYTES));
     std::string L3 =
             absl::Substitute("L3 Cache: $0 (Line: $1)", PrettyPrinter::print(cache_sizes[L3_CACHE], TUnit::BYTES),
-                                PrettyPrinter::print(cache_line_sizes[L3_CACHE], TUnit::BYTES));
+                             PrettyPrinter::print(cache_line_sizes[L3_CACHE], TUnit::BYTES));
     stream << "Cpu Info:" << std::endl
            << "  Model: " << model_name_ << std::endl
            << "  Cores: " << num_cores_ << std::endl

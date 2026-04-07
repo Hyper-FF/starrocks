@@ -38,8 +38,8 @@
 // Use the POSIX version of basename(3). See `man 3 basename`
 #include <libgen.h>
 
-#include "absl/strings/strip.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/strip.h"
 #include "gutil/strings/stringpiece.h"
 
 using std::string;

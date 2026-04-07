@@ -23,10 +23,10 @@
 
 #pragma once
 
+#include "base/macros.h"
 #include "gutil/atomicops.h"
 #include "gutil/dynamic_annotations.h"
 #include "gutil/integral_types.h"
-#include "base/macros.h"
 #include "gutil/port.h"
 #include "gutil/type_traits.h"
 

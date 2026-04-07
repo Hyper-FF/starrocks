@@ -14,10 +14,10 @@
 
 #include "exec/schema_scanner/schema_be_tablets_scanner.h"
 
+#include "absl/strings/substitute.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
 #include "gen_cpp/Types_types.h" // for TStorageMedium::type
-#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "storage/lake/tablet_manager.h"
 #include "storage/storage_engine.h"
@@ -137,7 +137,7 @@ Status SchemaBeTabletsScanner::start(RuntimeState* state) {
 #endif // __APPLE__
 
     LOG(INFO) << absl::Substitute("get_tablets_basic_infos table_id:$0 partition:$1 tablet:$2 #info:$3",
-                                     _param->table_id, _param->partition_id, _param->tablet_id, _infos.size());
+                                  _param->table_id, _param->partition_id, _param->tablet_id, _infos.size());
     _cur_idx = 0;
     return Status::OK();
 }

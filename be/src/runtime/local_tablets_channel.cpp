@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_join.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "base/failpoint/fail_point.h"
 #include "base/string/faststring.h"
@@ -33,7 +34,6 @@
 #include "exec/tablet_info.h"
 #include "gen_cpp/internal_service.pb.h"
 #include "gutil/ref_counted.h"
-#include "absl/strings/str_join.h"
 #include "runtime/closure_guard.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"

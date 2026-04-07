@@ -32,8 +32,8 @@
 #include <cstdlib> // For strtol* functions.
 #include <string>
 using std::string;
-#include "gutil/integral_types.h"
 #include "base/macros.h"
+#include "gutil/integral_types.h"
 #include "gutil/port.h"
 
 // Adapter functions for handling overflow and errno.

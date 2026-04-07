@@ -22,6 +22,8 @@
 #include <filesystem>
 #include <memory>
 
+#include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/failpoint/fail_point.h"
 #include "base/utility/defer_op.h"
@@ -38,8 +40,6 @@
 #include "gen_cpp/MasterService_types.h"
 #include "gen_cpp/olap_file.pb.h"
 #include "gutil/stl_util.h"
-#include "absl/strings/str_join.h"
-#include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "rocksdb/write_batch.h"
 #include "row_store_encoder.h"
@@ -135,7 +135,7 @@ Status TabletUpdates::_load_meta_and_log(const TabletUpdatesPB& tablet_updates_p
     if (edit_version_meta_pbs.empty()) {
         string msg =
                 absl::Substitute("tablet_updates_pb.edit_version_meta_pbs should have at least 1 version tablet:$0",
-                                    _tablet.tablet_id());
+                                 _tablet.tablet_id());
         return Status::InternalError(msg);
     }
     _edit_version_infos.clear();
@@ -220,8 +220,8 @@ Status TabletUpdates::_load_rowsets_and_check_consistency(std::set<uint32_t>& un
     }
     if (!missing_rowsets.empty()) {
         std::string msg = absl::Substitute("tablet init missing rowset, $0 all:$1 active:$2 missing:$3",
-                                              _debug_version_info(false), absl::StrJoin(all_rowsets, ","),
-                                              absl::StrJoin(active_rowsets, ","), absl::StrJoin(missing_rowsets, ","));
+                                           _debug_version_info(false), absl::StrJoin(all_rowsets, ","),
+                                           absl::StrJoin(active_rowsets, ","), absl::StrJoin(missing_rowsets, ","));
         DCHECK(false) << msg; // exit on curruption in debug mode, try to fix in release mode
         return Status::Corruption(msg);
     }
@@ -535,7 +535,7 @@ Status TabletUpdates::get_rowsets_total_stats(const std::vector<uint32_t>& rowse
     }
     if (!err_rowsets.empty()) {
         string msg = absl::Substitute("get_rowset_total_stats() some rowset stats not found tablet:$0 rowsets:$1",
-                                         _tablet.tablet_id(), err_rowsets);
+                                      _tablet.tablet_id(), err_rowsets);
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     }
@@ -554,7 +554,7 @@ void TabletUpdates::_sync_apply_version_idx(const EditVersion& edit_version) {
         }
     }
     std::string msg = absl::Substitute("illegal state, apply version not found in versions tablet:$0 $1",
-                                          _tablet.tablet_id(), edit_version.to_string());
+                                       _tablet.tablet_id(), edit_version.to_string());
     LOG(ERROR) << msg;
     _set_error(msg);
 }
@@ -619,8 +619,8 @@ Status TabletUpdates::get_apply_version_and_rowsets(int64_t* version, std::vecto
             rowsets->emplace_back(itr->second);
         } else {
             return Status::NotFound(
-                    absl::Substitute("get_apply_version_and_rowsets rowset not found: version:$0 rowset:$1 $2",
-                                        version, rsid, _debug_string(false, true)));
+                    absl::Substitute("get_apply_version_and_rowsets rowset not found: version:$0 rowset:$1 $2", version,
+                                     rsid, _debug_string(false, true)));
         }
     }
     rowset_ids->assign(edit_version_info->rowsets.begin(), edit_version_info->rowsets.end());
@@ -635,7 +635,7 @@ Status TabletUpdates::rowset_commit(int64_t version, const RowsetSharedPtr& rows
     if (_error) {
         return Status::InternalError(
                 absl::Substitute("rowset_commit failed, tablet updates is in error state: tablet:$0 $1",
-                                    _tablet.tablet_id(), _error_msg));
+                                 _tablet.tablet_id(), _error_msg));
     }
     Status st;
     {
@@ -695,8 +695,8 @@ Status TabletUpdates::rowset_commit(int64_t version, const RowsetSharedPtr& rows
         st = _rowset_commit_unlocked(version, rowset);
         if (st.ok()) {
             if (rowset->num_segments() > 0 || rowset->num_delete_files() > 0 || rowset->num_update_files() > 0) {
-                std::string msg = absl::Substitute("commit rowset tablet:$0 version:$1 txn_id:$2 ",
-                                                      _tablet.tablet_id(), version, rowset->txn_id());
+                std::string msg = absl::Substitute("commit rowset tablet:$0 version:$1 txn_id:$2 ", _tablet.tablet_id(),
+                                                   version, rowset->txn_id());
                 LOG(INFO) << msg;
                 VLOG(1) << msg << rowset->rowset_id().to_string()
                         << " rowset:" << rowset->rowset_meta()->get_rowset_seg_id()
@@ -817,8 +817,8 @@ void TabletUpdates::_check_creation_time_increasing() {
         auto last1 = _edit_version_infos[_edit_version_infos.size() - 1].get();
         if (last2->creation_time > last1->creation_time) {
             LOG(ERROR) << absl::Substitute("creation_time decreased tablet:$0 $1:$2 > $3:$4", _tablet.tablet_id(),
-                                              last2->version.to_string(), last2->creation_time,
-                                              last1->version.to_string(), last1->creation_time);
+                                           last2->version.to_string(), last2->creation_time, last1->version.to_string(),
+                                           last1->creation_time);
         }
     }
 }
@@ -957,8 +957,7 @@ void TabletUpdates::_check_for_apply() {
             std::make_shared<ApplyCommitTask>(std::static_pointer_cast<Tablet>(_tablet.shared_from_this())));
     auto st = StorageEngine::instance()->update_manager()->apply_thread_pool()->submit(std::move(task));
     if (!st.ok()) {
-        LOG(ERROR) << absl::Substitute("submit apply task failed: $0 $1", st.to_string(),
-                                          _debug_string(false, false));
+        LOG(ERROR) << absl::Substitute("submit apply task failed: $0 $1", st.to_string(), _debug_string(false, false));
         auto time_point = std::chrono::steady_clock::now() + std::chrono::seconds(config::retry_apply_interval_second);
         StorageEngine::instance()->add_schedule_apply_task(_tablet.tablet_id(), time_point);
         std::lock_guard<std::mutex> lg(_apply_running_lock);
@@ -1051,7 +1050,7 @@ void TabletUpdates::do_apply() {
             auto time_point = std::chrono::steady_clock::now() + std::chrono::seconds(interval_seconds);
             StorageEngine::instance()->add_schedule_apply_task(_tablet.tablet_id(), time_point);
             std::string msg = absl::Substitute("apply tablet: $0 failed and retry later, status: $1",
-                                                  _tablet.tablet_id(), apply_st.to_string());
+                                               _tablet.tablet_id(), apply_st.to_string());
             LOG(WARNING) << msg;
             _apply_schedule.store(true);
             break;
@@ -1065,7 +1064,7 @@ void TabletUpdates::do_apply() {
             _apply_failed_time = 0;
             if (!apply_st.ok()) {
                 std::string msg = absl::Substitute("apply tablet: $0 failed, status: $1", _tablet.tablet_id(),
-                                                      apply_st.to_string());
+                                                   apply_st.to_string());
                 LOG(ERROR) << msg;
                 _set_error(msg);
                 if (version_info_apply->compaction) {
@@ -1380,7 +1379,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
     if (!st.ok()) {
         manager->update_state_cache().remove(state_entry);
         std::string msg = absl::Substitute("_apply_rowset_commit error: load rowset update state failed: $0 $1",
-                                              st.to_string(), debug_string());
+                                           st.to_string(), debug_string());
         LOG(ERROR) << msg;
         return st;
     }
@@ -1410,7 +1409,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
         manager->index_cache().update_object_size(index_entry, index.memory_usage());
         if (!st.ok()) {
             std::string msg = absl::Substitute("_apply_rowset_commit error: load primary index failed: $0 $1",
-                                                  st.to_string(), debug_string());
+                                               st.to_string(), debug_string());
             failure_handler(msg, st.code(), true);
             return apply_st;
         }
@@ -1425,7 +1424,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
         FAIL_POINT_TRIGGER_EXECUTE(tablet_apply_rowset_not_found, { iter = _rowset_stats.end(); });
         if (iter == _rowset_stats.end()) {
             string msg = absl::Substitute("inconsistent rowset_stats, rowset not found tablet=$0 rowsetid=$1",
-                                             _tablet.tablet_id(), rowset_id);
+                                          _tablet.tablet_id(), rowset_id);
             failure_handler(msg, TStatusCode::NOT_FOUND, true);
             return apply_st;
         } else {
@@ -1439,7 +1438,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                                { st = Status::InternalError("inject tablet_apply_index_prepare_failed"); });
     if (!st.ok()) {
         std::string msg = absl::Substitute("_apply_rowset_commit error: primary index prepare failed: $0 $1",
-                                              st.to_string(), debug_string());
+                                           st.to_string(), debug_string());
         failure_handler(msg, st.code(), true);
         return apply_st;
     }
@@ -1474,7 +1473,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
             st = state.load_upserts(rowset.get(), i);
             if (!st.ok()) {
                 std::string msg = absl::Substitute("_apply_rowset_commit error: load upserts failed: $0 $1",
-                                                      st.to_string(), debug_string());
+                                                   st.to_string(), debug_string());
                 failure_handler(msg, st.code(), true);
                 return apply_st;
             }
@@ -1488,7 +1487,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                 if (!st.ok()) {
                     std::string msg =
                             absl::Substitute("_apply_rowset_commit error: apply rowset update state failed: $0 $1",
-                                                st.to_string(), debug_string());
+                                             st.to_string(), debug_string());
                     failure_handler(msg, st.code(), true);
                     return apply_st;
                 }
@@ -1497,7 +1496,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                 if (!st.ok()) {
                     std::string msg =
                             absl::Substitute("_apply_rowset_commit error: apply rowset update state failed: $0 $1",
-                                                st.to_string(), debug_string());
+                                             st.to_string(), debug_string());
                     failure_handler(msg, st.code(), true);
                     return apply_st;
                 }
@@ -1506,7 +1505,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                     st = index.erase(*delete_pks, &new_deletes);
                     if (!st.ok()) {
                         std::string msg = absl::Substitute("_apply_rowset_commit error: index erase failed: $0 $1",
-                                                              st.to_string(), debug_string());
+                                                           st.to_string(), debug_string());
                         failure_handler(msg, st.code(), true);
                         return apply_st;
                     }
@@ -1522,7 +1521,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
             st = state.load_deletes(rowset.get(), i);
             if (!st.ok()) {
                 std::string msg = absl::Substitute("_apply_rowset_commit error: load deletes failed: $0 $1",
-                                                      st.to_string(), debug_string());
+                                                   st.to_string(), debug_string());
                 failure_handler(msg, st.code(), true);
                 return apply_st;
             }
@@ -1531,7 +1530,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
             st = index.erase(*deletes[i], &new_deletes);
             if (!st.ok()) {
                 std::string msg = absl::Substitute("_apply_rowset_commit error: index erase failed: $0 $1",
-                                                      st.to_string(), debug_string());
+                                                   st.to_string(), debug_string());
                 failure_handler(msg, st.code(), true);
                 return apply_st;
             }
@@ -1556,7 +1555,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                                            { st = Status::InternalError("inject tablet_apply_load_upserts_failed"); });
                 if (!st.ok()) {
                     std::string msg = absl::Substitute("_apply_rowset_commit error: load upserts failed: $0 $1",
-                                                          st.to_string(), debug_string());
+                                                       st.to_string(), debug_string());
                     failure_handler(msg, st.code(), true);
                     return apply_st;
                 }
@@ -1571,9 +1570,9 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                         st = Status::InternalError("inject tablet_apply_rowset_update_state_apply_failed");
                     });
                     if (!st.ok()) {
-                        std::string msg = absl::Substitute(
-                                "_apply_rowset_commit error: apply rowset update state failed: $0 $1", st.to_string(),
-                                debug_string());
+                        std::string msg =
+                                absl::Substitute("_apply_rowset_commit error: apply rowset update state failed: $0 $1",
+                                                 st.to_string(), debug_string());
                         failure_handler(msg, st.code(), true);
                         return apply_st;
                     }
@@ -1583,9 +1582,9 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                         st = Status::InternalError("inject tablet_apply_index_upsert_failed");
                     });
                     if (!st.ok()) {
-                        std::string msg = absl::Substitute(
-                                "_apply_rowset_commit error: apply rowset update state failed: $0 $1", st.to_string(),
-                                debug_string());
+                        std::string msg =
+                                absl::Substitute("_apply_rowset_commit error: apply rowset update state failed: $0 $1",
+                                                 st.to_string(), debug_string());
                         failure_handler(msg, st.code(), true);
                         return apply_st;
                     }
@@ -1593,9 +1592,8 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                     if (delete_pks != nullptr) {
                         st = index.erase(*delete_pks, &new_deletes);
                         if (!st.ok()) {
-                            std::string msg =
-                                    absl::Substitute("_apply_rowset_commit error: index erase failed: $0 $1",
-                                                        st.to_string(), debug_string());
+                            std::string msg = absl::Substitute("_apply_rowset_commit error: index erase failed: $0 $1",
+                                                               st.to_string(), debug_string());
                             failure_handler(msg, st.code(), true);
                             return apply_st;
                         }
@@ -1612,7 +1610,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                                            { st = Status::InternalError("inject tablet_apply_load_deletes_failed"); });
                 if (!st.ok()) {
                     std::string msg = absl::Substitute("_apply_rowset_commit error: load deletes failed: $0 $1",
-                                                          st.to_string(), debug_string());
+                                                       st.to_string(), debug_string());
                     failure_handler(msg, st.code(), true);
                     return apply_st;
                 }
@@ -1623,7 +1621,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                                            { st = Status::InternalError("inject tablet_apply_index_delete_failed"); });
                 if (!st.ok()) {
                     std::string msg = absl::Substitute("_apply_rowset_commit error: index erase failed: $0 $1",
-                                                          st.to_string(), debug_string());
+                                                       st.to_string(), debug_string());
                     failure_handler(msg, st.code(), true);
                     return apply_st;
                 }
@@ -1651,7 +1649,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                                    { st = Status::InternalError("inject tablet_apply_get_pindex_meta_failed"); });
         if (!st.ok() && !st.is_not_found()) {
             std::string msg = absl::Substitute("get persistent index meta failed: $0 $1", st.to_string(),
-                                                  _debug_string(false, true));
+                                               _debug_string(false, true));
             failure_handler(msg, st.code(), true);
             return apply_st;
         }
@@ -1706,7 +1704,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                                        { st = Status::InternalError("inject tablet_apply_get_del_vec_failed"); });
             if (!st.ok()) {
                 std::string msg = absl::Substitute("_apply_rowset_commit error: get_latest_del_vec failed: $0 $1",
-                                                      st.to_string(), debug_string());
+                                                   st.to_string(), debug_string());
                 failure_handler(msg, st.code(), false);
                 return apply_st;
             }
@@ -1734,7 +1732,8 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
             }
             if (VLOG_IS_ON(1)) {
                 delvec_change_info.append(fmt::sprintf(" %u:%zu(%lld)+%zu=%zu", rssid, cur_old,
-                              static_cast<long long>(old_del_vec->version()), cur_add, cur_new));
+                                                       static_cast<long long>(old_del_vec->version()), cur_add,
+                                                       cur_new));
             }
             old_total_del += cur_old;
             new_del += cur_add;
@@ -1783,8 +1782,8 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
         }
 
         if (!st.ok()) {
-            std::string msg = absl::Substitute("_apply_rowset_commit error: write meta failed: $0 $1",
-                                                  st.to_string(), _debug_string(false));
+            std::string msg = absl::Substitute("_apply_rowset_commit error: write meta failed: $0 $1", st.to_string(),
+                                               _debug_string(false));
             failure_handler(msg, st.code(), false);
             return apply_st;
         }
@@ -1804,7 +1803,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
             });
             if (!st.ok()) {
                 std::string msg = absl::Substitute("_apply_rowset_commit error: set cached delvec failed: $0 $1",
-                                                      st.to_string(), _debug_string(false));
+                                                   st.to_string(), _debug_string(false));
                 failure_handler(msg, TStatusCode::CORRUPTION, false);
                 return apply_st;
             }
@@ -1829,11 +1828,11 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
                                        { rssid = iter->first + iter->second->num_segments + 1; });
             if (iter == _rowset_stats.end()) {
                 string msg = absl::Substitute("inconsistent rowset_stats, rowset not found tablet=$0 rssid=$1",
-                                                 _tablet.tablet_id(), rssid);
+                                              _tablet.tablet_id(), rssid);
                 LOG(ERROR) << msg;
             } else if (rssid >= iter->first + iter->second->num_segments) {
                 string msg = absl::Substitute("inconsistent rowset_stats, tablet=$0 rssid=$1 >= $2",
-                                                 _tablet.tablet_id(), rssid, iter->first + iter->second->num_segments);
+                                              _tablet.tablet_id(), rssid, iter->first + iter->second->num_segments);
                 LOG(ERROR) << msg;
             } else {
                 iter->second->num_dels += new_delete.second.size();
@@ -1845,7 +1844,7 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
         auto iter = _rowset_stats.find(rowset_id);
         if (iter == _rowset_stats.end()) {
             string msg = absl::Substitute("inconsistent rowset_stats, rowset not found tablet=$0 rowsetid=$1",
-                                             _tablet.tablet_id(), rowset_id);
+                                          _tablet.tablet_id(), rowset_id);
             LOG(ERROR) << msg;
         } else {
             iter->second->byte_size = full_rowset_size;
@@ -1868,14 +1867,14 @@ Status TabletUpdates::_apply_normal_rowset_commit(const EditVersionInfo& version
     int64_t t_write = MonotonicMillis();
 
     size_t del_percent = _cur_total_rows == 0 ? 0 : (_cur_total_dels * 100) / _cur_total_rows;
-    std::string msg_part1 = absl::Substitute("apply_rowset_commit finish. tablet:$0 version:$1 txn_id: $2 ",
-                                                tablet_id, version_info.version.to_string(), rowset->txn_id());
+    std::string msg_part1 = absl::Substitute("apply_rowset_commit finish. tablet:$0 version:$1 txn_id: $2 ", tablet_id,
+                                             version_info.version.to_string(), rowset->txn_id());
     std::string msg_part2 = absl::Substitute(" total del/row:$0/$1 $2% rowset:$3 #seg:$4 ", _cur_total_dels,
-                                                _cur_total_rows, del_percent, rowset_id, rowset->num_segments());
+                                             _cur_total_rows, del_percent, rowset_id, rowset->num_segments());
     std::string msg_part3 = absl::Substitute("#op(upsert:$0 del:$1) #del:$2+$3=$4 #dv:$5", rowset->num_rows(),
-                                                delete_op, old_total_del, new_del, total_del, ndelvec);
+                                             delete_op, old_total_del, new_del, total_del, ndelvec);
     std::string msg_part4 = absl::Substitute("duration:$0ms($1/$2/$3/$4)", t_write - t_start, t_apply - t_start,
-                                                t_index - t_apply, t_delvec - t_index, t_write - t_delvec);
+                                             t_index - t_apply, t_delvec - t_index, t_write - t_delvec);
 
     bool is_slow = t_write - t_start > config::apply_version_slow_log_sec * 1000;
     if (is_slow) {
@@ -1917,8 +1916,8 @@ Status TabletUpdates::_wait_for_version(const EditVersion& version, int64_t time
         if (_apply_stopped) {
             return Status::InternalError(
                     absl::Substitute("wait_for_version version:$0 failed: apply stopped, tablet "
-                                        "might have been dropped due to certain reasons and you can retry. $1",
-                                        version.to_string(), _debug_string(false, true)));
+                                     "might have been dropped due to certain reasons and you can retry. $1",
+                                     version.to_string(), _debug_string(false, true)));
         }
         _apply_version_changed.wait_for(ul, std::chrono::seconds(2));
         if (_error) {
@@ -1928,7 +1927,7 @@ Status TabletUpdates::_wait_for_version(const EditVersion& version, int64_t time
         if (!(_edit_version_infos[_apply_version_idx]->version < version)) {
             if (now - wait_start > 3000) {
                 std::string msg = absl::Substitute("wait_for_version slow($0ms) version:$1 $2", now - wait_start,
-                                                      version.to_string(), _debug_string(false, true));
+                                                   version.to_string(), _debug_string(false, true));
                 LOG_IF(WARNING, !is_compaction) << msg;
             }
             break;
@@ -1936,13 +1935,13 @@ Status TabletUpdates::_wait_for_version(const EditVersion& version, int64_t time
         if (_edit_version_infos.back()->version < version &&
             (_pending_commits.empty() || _pending_commits.rbegin()->first < version.major_number())) {
             string msg = absl::Substitute("wait_for_version failed version:$0 $1", version.to_string(),
-                                             _debug_string(false, true));
+                                          _debug_string(false, true));
             LOG(WARNING) << msg;
             return Status::InternalError(msg);
         }
         if (now - wait_start > timeout_ms) {
             string msg = absl::Substitute("wait_for_version timeout($0ms) version:$1 $2", now - wait_start,
-                                             version.to_string(), _debug_string(false, true));
+                                          version.to_string(), _debug_string(false, true));
             LOG_IF(WARNING, !is_compaction) << msg;
             return Status::TimedOut(msg);
         }
@@ -2047,7 +2046,7 @@ Status TabletUpdates::_do_compaction(std::unique_ptr<CompactionInfo>* pinfo, con
             if (itr == _rowsets.end()) {
                 // rowset should exists
                 string msg = absl::Substitute("_do_compaction rowset $0 should exists $1", info->inputs[i],
-                                                 _debug_string(false));
+                                              _debug_string(false));
                 LOG(ERROR) << msg;
                 return Status::InternalError(msg);
             } else {
@@ -2062,7 +2061,7 @@ Status TabletUpdates::_do_compaction(std::unique_ptr<CompactionInfo>* pinfo, con
             if (itr == _rowsets.end()) {
                 // rowset should exists
                 return Status::InternalError(absl::Substitute("_do_compaction rowset $0 should exists $1",
-                                                                 all_rowset_ids[i], _debug_string(false)));
+                                                              all_rowset_ids[i], _debug_string(false)));
             } else {
                 all_rowsets[i] = itr->second;
             }
@@ -2175,9 +2174,9 @@ Status TabletUpdates::_check_conflict_with_partial_update(CompactionInfo* info) 
         }
 
         if (need_cancel) {
-            std::string msg = absl::Substitute(
-                    "compaction conflict with partial update failed, tabletid:$0 ver:$1-$2", _tablet.tablet_id(),
-                    info->start_version.major_number(), (*i)->version.major_number());
+            std::string msg = absl::Substitute("compaction conflict with partial update failed, tabletid:$0 ver:$1-$2",
+                                               _tablet.tablet_id(), info->start_version.major_number(),
+                                               (*i)->version.major_number());
             LOG(WARNING) << msg;
             _compaction_state.reset();
             return Status::Cancelled(msg);
@@ -2204,7 +2203,7 @@ Status TabletUpdates::_commit_compaction(std::unique_ptr<CompactionInfo>* pinfo,
         if (!status.ok()) {
             _compaction_state.reset();
             std::string msg = absl::Substitute("_commit_compaction error: load compaction state failed: $0 $1",
-                                                  status.to_string(), debug_string());
+                                               status.to_string(), debug_string());
             LOG(WARNING) << msg;
             return status;
         }
@@ -2235,14 +2234,14 @@ Status TabletUpdates::_commit_compaction(std::unique_ptr<CompactionInfo>* pinfo,
             // This may happen after a full clone.
             _compaction_state.reset();
             auto msg = absl::Substitute("compaction input rowset($0) not found $1", rowset_id,
-                                           _debug_string(false, false));
+                                        _debug_string(false, false));
             LOG(WARNING) << msg;
             return Status::Cancelled(msg);
         }
     }
     RETURN_ERROR_IF_FALSE(inputs.size() <= ors.size(),
                           absl::Substitute("compaction input size($0) > rowset size($1) tablet:$2", inputs.size(),
-                                              ors.size(), _tablet.tablet_id()));
+                                           ors.size(), _tablet.tablet_id()));
     std::vector<uint32_t> nrs = modify(ors, &rowsetid, &rowsetid + 1, inputs.begin(), inputs.end());
     if (nrs.size() <= 16) {
         // full copy
@@ -2394,7 +2393,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
                                { st = Status::InternalError("inject tablet_apply_load_index_failed"); });
     if (!st.ok()) {
         std::string msg = absl::Substitute("_apply_compaction_commit error: load primary index failed: $0 $1",
-                                              st.to_string(), debug_string());
+                                           st.to_string(), debug_string());
         manager->index_cache().remove(index_entry);
         failure_handler(msg, st.code());
         return apply_st;
@@ -2418,7 +2417,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
                                    { st = Status::InternalError("inject tablet_apply_get_pindex_meta_failed"); });
         if (!st.ok() && !st.is_not_found()) {
             std::string msg = absl::Substitute("get persistent index meta failed: $0 $1", st.to_string(),
-                                                  _debug_string(false, true));
+                                               _debug_string(false, true));
             failure_handler(msg, st.code());
             return apply_st;
         }
@@ -2428,7 +2427,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
     manager->index_cache().update_object_size(index_entry, index.memory_usage());
     if (output_rowset == nullptr) {
         string msg = absl::Substitute("_apply_compaction_commit rowset not found tablet=$0 rowset=$1",
-                                         _tablet.tablet_id(), rowset_id);
+                                      _tablet.tablet_id(), rowset_id);
         failure_handler(msg, TStatusCode::NOT_FOUND);
         return apply_st;
     }
@@ -2438,7 +2437,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
                                    { st = Status::InternalError("inject tablet_apply_load_compaction_state_failed"); });
         if (!st.ok()) {
             std::string msg = absl::Substitute("_apply_compaction_commit error: load compaction state failed: $0 $1",
-                                                  st.to_string(), debug_string());
+                                               st.to_string(), debug_string());
             failure_handler(msg, st.code());
             return apply_st;
         }
@@ -2448,7 +2447,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
                                { st = Status::InternalError("inject tablet_apply_load_index_failed"); });
     if (!st.ok()) {
         std::string msg = absl::Substitute("_apply_compaction_commit error: index prepare failed: $0 $1",
-                                              st.to_string(), debug_string());
+                                           st.to_string(), debug_string());
         failure_handler(msg, st.code());
         return apply_st;
     }
@@ -2468,7 +2467,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
         Rowset* rowset = get_rowset(max_rowset_id).get();
         if (rowset == nullptr) {
             failure_handler(absl::Substitute("_apply_compaction_commit rowset not found tablet=$0 rowset=$1",
-                                                _tablet.tablet_id(), max_rowset_id),
+                                             _tablet.tablet_id(), max_rowset_id),
                             TStatusCode::NOT_FOUND);
             return apply_st;
         }
@@ -2480,10 +2479,9 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
             FAIL_POINT_TRIGGER_EXECUTE(tablet_apply_load_segments_failed,
                                        { st = Status::InternalError("inject tablet_apply_load_segments_failed"); });
             if (!st.ok()) {
-                failure_handler(
-                        absl::Substitute("_apply_compaction_commit error: load compaction state failed: $0 $1",
-                                            st.to_string(), debug_string()),
-                        st.code());
+                failure_handler(absl::Substitute("_apply_compaction_commit error: load compaction state failed: $0 $1",
+                                                 st.to_string(), debug_string()),
+                                st.code());
                 return apply_st;
             }
             auto& pk_col = _compaction_state->pk_cols[i];
@@ -2496,7 +2494,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
                                            { st = Status::InternalError("inject tablet_apply_index_upsert_failed"); });
                 if (!st.ok()) {
                     failure_handler(absl::Substitute("_apply_compaction_commit error: index insert failed: $0 $1",
-                                                        st.to_string(), debug_string()),
+                                                     st.to_string(), debug_string()),
                                     st.code());
                     return apply_st;
                 }
@@ -2506,10 +2504,9 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
                 FAIL_POINT_TRIGGER_EXECUTE(tablet_apply_index_replace_failed,
                                            { st = Status::InternalError("inject tablet_apply_index_replace_failed"); });
                 if (!st.ok()) {
-                    failure_handler(
-                            absl::Substitute("_apply_compaction_commit error: index try replace failed: $0 $1",
-                                                st.to_string(), debug_string()),
-                            st.code());
+                    failure_handler(absl::Substitute("_apply_compaction_commit error: index try replace failed: $0 $1",
+                                                     st.to_string(), debug_string()),
+                                    st.code());
                     return apply_st;
                 }
             }
@@ -2565,7 +2562,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
                                                     delvecs, *index_meta, enable_persistent_index, nullptr);
         if (!st.ok()) {
             std::string msg = absl::Substitute("_apply_compaction_commit error: write meta failed: $0 $1",
-                                                  st.to_string(), _debug_string(false));
+                                               st.to_string(), _debug_string(false));
             failure_handler(msg, st.code());
             return apply_st;
         }
@@ -2585,7 +2582,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
             });
             if (!st.ok()) {
                 std::string msg = absl::Substitute("_apply_compaction_commit error: set cached delvec failed: $0 $1",
-                                                      st.to_string(), _debug_string(false));
+                                                   st.to_string(), _debug_string(false));
                 failure_handler(msg, TStatusCode::CORRUPTION);
                 return apply_st;
             }
@@ -2608,7 +2605,7 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
         auto iter = _rowset_stats.find(rowset_id);
         if (iter == _rowset_stats.end()) {
             string msg = absl::Substitute("inconsistent rowset_stats, rowset not found tablet=$0 rowsetid=$1",
-                                             _tablet.tablet_id(), rowset_id);
+                                          _tablet.tablet_id(), rowset_id);
             DCHECK(false) << msg;
             LOG(ERROR) << msg;
         } else {
@@ -2627,14 +2624,14 @@ Status TabletUpdates::_apply_compaction_commit(const EditVersionInfo& version_in
     size_t del_percent = _cur_total_rows == 0 ? 0 : (_cur_total_dels * 100) / _cur_total_rows;
 
     std::string msg_part1 = absl::Substitute("apply_compaction_commit finish tablet:$0 version:$1 ", tablet_id,
-                                                version_info.version.to_string());
+                                             version_info.version.to_string());
 
     std::string msg_part2 =
             absl::Substitute("total del/row:$0/$1 $2% rowset:$3 #row:$4 #del:$5 #delvec:$6", _cur_total_dels,
-                                _cur_total_rows, del_percent, rowset_id, total_rows, total_deletes, delvecs.size());
+                             _cur_total_rows, del_percent, rowset_id, total_rows, total_deletes, delvecs.size());
 
     std::string msg_part3 = absl::Substitute(" duration:$0ms($1/$2/$3)", t_write - t_start, t_load - t_start,
-                                                t_index_delvec - t_load, t_write - t_index_delvec);
+                                             t_index_delvec - t_load, t_write - t_index_delvec);
     bool is_slow = t_write - t_start > config::apply_version_slow_log_sec * 1000;
     if (is_slow) {
         LOG(INFO) << msg_part1 << msg_part2 << msg_part3;
@@ -2836,7 +2833,7 @@ void TabletUpdates::remove_expired_versions(int64_t expire_time) {
             dcg_deleted = res.value();
         }
         std::string msg = absl::Substitute("remove_expired_versions $0 time:$1 min_readable_version:$2",
-                                              _debug_version_info(true), expire_time, min_readable_version);
+                                           _debug_version_info(true), expire_time, min_readable_version);
         LOG(INFO) << msg;
         VLOG(1) << absl::Substitute(
                 "remove_expired_versions $0 time:$1 min_readable_version:$2 deletes: #version:$3 #rowset:$4 "
@@ -2895,7 +2892,7 @@ int64_t TabletUpdates::get_compaction_score() {
             if (itr == _rowset_stats.end()) {
                 // should not happen
                 string msg = absl::Substitute("rowset not found in rowset stats tablet=$0 rowset=$1",
-                                                 _tablet.tablet_id(), rowsetid);
+                                              _tablet.tablet_id(), rowsetid);
                 DCHECK(false) << msg;
                 LOG(WARNING) << msg;
                 has_error = true;
@@ -3012,7 +3009,7 @@ Status TabletUpdates::compaction(MemTracker* mem_tracker) {
             if (itr == _rowset_stats.end()) {
                 // should not happen
                 string msg = absl::Substitute("rowset not found in rowset stats tablet=$0 rowset=$1",
-                                                 _tablet.tablet_id(), rowsetid);
+                                              _tablet.tablet_id(), rowsetid);
                 DCHECK(false) << msg;
                 LOG(WARNING) << msg;
             } else if (itr->second->compaction_score > 0) {
@@ -3130,7 +3127,7 @@ Status TabletUpdates::compaction_for_size_tiered(MemTracker* mem_tracker) {
             if (itr == _rowset_stats.end()) {
                 // should not happen
                 string msg = absl::Substitute("rowset not found in rowset stats tablet=$0 rowset=$1",
-                                                 _tablet.tablet_id(), rowsetid);
+                                              _tablet.tablet_id(), rowsetid);
                 DCHECK(false) << msg;
                 LOG(WARNING) << msg;
             } else if (itr->second->compaction_score > 0) {
@@ -3289,8 +3286,8 @@ Status TabletUpdates::get_rowsets_for_compaction(int64_t rowset_size_threshold, 
     {
         std::lock_guard rl(_lock);
         if (_edit_version_infos.empty()) {
-            string msg = absl::Substitute("tablet deleted when get_rowsets_for_compaction tablet:$0",
-                                             _tablet.tablet_id());
+            string msg =
+                    absl::Substitute("tablet deleted when get_rowsets_for_compaction tablet:$0", _tablet.tablet_id());
             LOG(WARNING) << msg;
             _compaction_running = false;
             return Status::InternalError(msg);
@@ -3305,7 +3302,7 @@ Status TabletUpdates::get_rowsets_for_compaction(int64_t rowset_size_threshold, 
             if (itr == _rowset_stats.end()) {
                 // should not happen
                 string msg = absl::Substitute("rowset not found in rowset stats tablet=$0 rowset=$1",
-                                                 _tablet.tablet_id(), rowsetid);
+                                              _tablet.tablet_id(), rowsetid);
                 DCHECK(false) << msg;
                 LOG(WARNING) << msg;
                 continue;
@@ -3369,7 +3366,7 @@ Status TabletUpdates::compaction(MemTracker* mem_tracker, const vector<uint32_t>
             if (itr == _rowset_stats.end()) {
                 // should not happen
                 string msg = absl::Substitute("rowset not found in rowset stats tablet=$0 rowset=$1",
-                                                 _tablet.tablet_id(), rowsetid);
+                                              _tablet.tablet_id(), rowsetid);
                 DCHECK(false) << msg;
                 LOG(WARNING) << msg;
                 continue;
@@ -3512,8 +3509,7 @@ void TabletUpdates::get_compaction_status(std::string* json_result) {
     root.AddMember("rowsets_count", rowsets_count, root.GetAllocator());
 
     rapidjson::Value last_version_value;
-    std::string last_version_str =
-            absl::Substitute("$0_$1", last_version.major_number(), last_version.minor_number());
+    std::string last_version_str = absl::Substitute("$0_$1", last_version.major_number(), last_version.minor_number());
     last_version_value.SetString(last_version_str.c_str(), last_version_str.size(), root.GetAllocator());
     root.AddMember("last_version", last_version_value, root.GetAllocator());
 
@@ -3755,10 +3751,9 @@ std::string TabletUpdates::_debug_string(bool lock, bool abbr) const {
     }
     if (lock) _lock.unlock();
 
-    std::string ret =
-            absl::Substitute("tablet:$0 #version:$1 [$2 $3@$4 $5] pending:$6 rowsets:$7", _tablet.tablet_id(),
-                                num_version, first_version.to_string(), apply_version.to_string(), apply_idx,
-                                last_version.to_string(), pending_info, rowsets.size());
+    std::string ret = absl::Substitute("tablet:$0 #version:$1 [$2 $3@$4 $5] pending:$6 rowsets:$7", _tablet.tablet_id(),
+                                       num_version, first_version.to_string(), apply_version.to_string(), apply_idx,
+                                       last_version.to_string(), pending_info, rowsets.size());
     _print_rowsets(rowsets, &ret, abbr);
     return ret;
 }
@@ -3785,8 +3780,8 @@ std::string TabletUpdates::_debug_version_info(bool lock) const {
     if (lock) _lock.unlock();
 
     std::string ret = absl::Substitute("tablet:$0 #version:$1 [$2 $3@$4 $5] #pending:$6", _tablet.tablet_id(),
-                                          num_version, first_version.to_string(), apply_version.to_string(), apply_idx,
-                                          last_version.to_string(), npending);
+                                       num_version, first_version.to_string(), apply_version.to_string(), apply_idx,
+                                       last_version.to_string(), npending);
     return ret;
 }
 
@@ -3810,7 +3805,7 @@ void TabletUpdates::_print_rowsets(std::vector<uint32_t>& rowsets, std::string* 
                     cprefix = "-";
                 }
                 dst->append(fmt::sprintf("[%d/%zu/%zu/%zu/%s/%s%s]", rowsetid, stats.num_segments, stats.num_rows,
-                              stats.num_dels, bytes.c_str(), cprefix, compaction.c_str()));
+                                         stats.num_dels, bytes.c_str(), cprefix, compaction.c_str()));
             } else {
                 dst->append(fmt::sprintf("[%d/NA]", rowsetid));
             }
@@ -3845,7 +3840,7 @@ void TabletUpdates::_set_error(const string& msg) {
 RowsetSharedPtr TabletUpdates::get_delta_rowset(int64_t version) const {
     if (_error) {
         LOG(WARNING) << absl::Substitute("get_delta_rowset failed, tablet updates is in error state: tablet:$0 $1",
-                                            _tablet.tablet_id(), _error_msg);
+                                         _tablet.tablet_id(), _error_msg);
         return nullptr;
     }
     std::lock_guard lg(_lock);
@@ -3883,7 +3878,7 @@ Status TabletUpdates::get_applied_rowsets_by_gtid(int64_t gtid, std::vector<Rows
     if (_error) {
         return Status::InternalError(
                 absl::Substitute("get_applied_rowsets failed, tablet updates is in error state: tablet:$0 $1",
-                                    _tablet.tablet_id(), _error_msg));
+                                 _tablet.tablet_id(), _error_msg));
     }
     std::unique_lock<std::mutex> ul(_lock);
     int64_t version = 0;
@@ -3912,7 +3907,7 @@ Status TabletUpdates::get_applied_rowsets(int64_t version, std::vector<RowsetSha
     if (_error) {
         return Status::InternalError(
                 absl::Substitute("get_applied_rowsets failed, tablet updates is in error state: tablet:$0 $1",
-                                    _tablet.tablet_id(), _error_msg));
+                                 _tablet.tablet_id(), _error_msg));
     }
     std::unique_lock<std::mutex> ul(_lock);
     return _get_applied_rowsets(version, rowsets, full_edit_version, ul, begin_ms);
@@ -3945,7 +3940,7 @@ Status TabletUpdates::_get_applied_rowsets(int64_t version, std::vector<RowsetSh
                     rowsets->emplace_back(itr->second);
                 } else {
                     string msg = absl::Substitute("get_rowsets rowset not found: version:$0 rowset:$1 $2", version,
-                                                     rsid, _debug_string(false, true));
+                                                  rsid, _debug_string(false, true));
                     LOG(WARNING) << msg;
                     return Status::NotFound(msg);
                 }
@@ -3957,8 +3952,7 @@ Status TabletUpdates::_get_applied_rowsets(int64_t version, std::vector<RowsetSh
             if (end_ms - begin_ms > 3 * 1000) {
                 // more than 3 seconds
                 LOG(INFO) << absl::Substitute("get_applied_rowsets(version $0) slow cost ($1/$2/$3)", version,
-                                                 get_lock_ms - begin_ms, wait_ver_ms - get_lock_ms,
-                                                 end_ms - wait_ver_ms);
+                                              get_lock_ms - begin_ms, wait_ver_ms - get_lock_ms, end_ms - wait_ver_ms);
             }
             VLOG(2) << "get_applied_rowsets: tablet_id: " << _tablet.tablet_id() << " version: " << version
                     << " rowsets: " << rowsets->size();
@@ -3967,8 +3961,8 @@ Status TabletUpdates::_get_applied_rowsets(int64_t version, std::vector<RowsetSh
     }
     int64_t end_ms = MonotonicMillis();
     string msg = absl::Substitute("get_applied_rowsets(version $0) failed $1 cost ($2/$3/$4)", version,
-                                     _debug_version_info(false), get_lock_ms - begin_ms, wait_ver_ms - get_lock_ms,
-                                     end_ms - wait_ver_ms);
+                                  _debug_version_info(false), get_lock_ms - begin_ms, wait_ver_ms - get_lock_ms,
+                                  end_ms - wait_ver_ms);
     LOG(WARNING) << msg;
     return Status::NotFound(msg);
 }
@@ -3995,9 +3989,9 @@ Status TabletUpdates::link_from(Tablet* base_tablet, int64_t request_version, Ch
 
     int64_t max_version = base_tablet->updates()->max_version();
     if (max_version < request_version) {
-        std::string msg = absl::Substitute(
-                "link_from: base_tablet's max_version:$0 < alter_version:$1 tablet:$2 base_tablet:$3", max_version,
-                request_version, _tablet.tablet_id(), base_tablet->tablet_id());
+        std::string msg =
+                absl::Substitute("link_from: base_tablet's max_version:$0 < alter_version:$1 tablet:$2 base_tablet:$3",
+                                 max_version, request_version, _tablet.tablet_id(), base_tablet->tablet_id());
         return Status::InternalError(msg);
     }
     if (this->max_version() >= request_version) {
@@ -4310,8 +4304,8 @@ Status TabletUpdates::convert_from(const std::shared_ptr<Tablet>& base_tablet, i
             FAIL_POINT_TRIGGER_EXECUTE(verify_rowset_failed,
                                        { status = Status::InternalError("verify rowset faield"); });
             if (!status.ok()) {
-                status = status.clone_and_append(absl::Substitute("$0 convert_from base_tablet: $1", err_msg_header,
-                                                                     base_tablet->tablet_id()));
+                status = status.clone_and_append(
+                        absl::Substitute("$0 convert_from base_tablet: $1", err_msg_header, base_tablet->tablet_id()));
                 return status;
             }
         }
@@ -4465,9 +4459,9 @@ Status TabletUpdates::reorder_from(const std::shared_ptr<Tablet>& base_tablet, i
         return Status::InternalError(msg);
     }
     if (this->max_version() >= request_version) {
-        std::string msg = absl::Substitute(
-                "reorder_from skipped, max_version:$0 >= alter_version:$1 tablet:$2 base_tablet:$3",
-                this->max_version(), request_version, _tablet.tablet_id(), base_tablet->tablet_id());
+        std::string msg =
+                absl::Substitute("reorder_from skipped, max_version:$0 >= alter_version:$1 tablet:$2 base_tablet:$3",
+                                 this->max_version(), request_version, _tablet.tablet_id(), base_tablet->tablet_id());
         LOG(INFO) << msg;
         std::unique_lock wrlock(_tablet.get_header_lock());
         RETURN_IF_ERROR(_tablet.set_tablet_state(TabletState::TABLET_RUNNING));
@@ -4575,7 +4569,7 @@ Status TabletUpdates::reorder_from(const std::shared_ptr<Tablet>& base_tablet, i
                         chunk_changer->change_chunk_v2(base_chunk, new_chunk, base_schema, new_schema, mem_pool.get());
                 RETURN_ERROR_IF_FALSE(change_chunk_ok,
                                       absl::Substitute("failed to convert chunk data. base tablet:$0, new tablet:$1",
-                                                          base_tablet->tablet_id(), _tablet.tablet_id()));
+                                                       base_tablet->tablet_id(), _tablet.tablet_id()));
                 total_bytes += static_cast<double>(new_chunk->memory_usage());
                 total_rows += static_cast<double>(new_chunk->num_rows());
 
@@ -4605,8 +4599,8 @@ Status TabletUpdates::reorder_from(const std::shared_ptr<Tablet>& base_tablet, i
             FAIL_POINT_TRIGGER_EXECUTE(verify_rowset_failed,
                                        { status = Status::InternalError("verify rowset faield"); });
             if (!status.ok()) {
-                status = status.clone_and_append(absl::Substitute("$0 reorder_from base_tablet: $1", err_msg_header,
-                                                                     base_tablet->tablet_id()));
+                status = status.clone_and_append(
+                        absl::Substitute("$0 reorder_from base_tablet: $1", err_msg_header, base_tablet->tablet_id()));
                 std::string msg = absl::Substitute("rowset verify failed, status:$0", status.to_string());
                 TRACE_TO(trace, "[$0]", msg);
                 return Status::InternalError(msg);
@@ -4769,8 +4763,7 @@ void TabletUpdates::_remove_unused_rowsets(bool drop_tablet) {
 Status TabletUpdates::check_and_remove_rowset() {
     _remove_unused_rowsets(true);
     if (!_unused_rowsets.empty()) {
-        std::string msg =
-                absl::Substitute("some rowsets of tablet: $0 are still been referenced", _tablet.tablet_id());
+        std::string msg = absl::Substitute("some rowsets of tablet: $0 are still been referenced", _tablet.tablet_id());
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     }
@@ -4898,21 +4891,21 @@ void TabletUpdates::_to_updates_pb_unlocked(TabletUpdatesPB* updates_pb) const {
 Status TabletUpdates::load_snapshot(const SnapshotMeta& snapshot_meta, bool restore_from_backup,
                                     bool save_source_schema, bool need_rebuild_pk_index,
                                     int32_t rebuild_pk_index_wait_seconds) {
-#define CHECK_FAIL(status)                                                                       \
-    do {                                                                                         \
-        Status st = (status);                                                                    \
-        if (!st.ok()) {                                                                          \
+#define CHECK_FAIL(status)                                                                    \
+    do {                                                                                      \
+        Status st = (status);                                                                 \
+        if (!st.ok()) {                                                                       \
             auto msg = absl::Substitute("$0 tablet:$1", st.to_string(), _tablet.tablet_id()); \
-            LOG(ERROR) << msg;                                                                   \
-            _set_error(msg);                                                                     \
-            return st;                                                                           \
-        }                                                                                        \
+            LOG(ERROR) << msg;                                                                \
+            _set_error(msg);                                                                  \
+            return st;                                                                        \
+        }                                                                                     \
     } while (0)
 
     if (_error.load()) {
         return Status::InternalError(
                 absl::Substitute("load snapshot failed, tablet updates is in error state: tablet:$0 $1",
-                                    _tablet.tablet_id(), _error_msg));
+                                 _tablet.tablet_id(), _error_msg));
     }
     // disable compaction temporarily when doing load_snapshot
     int64_t prev_last_compaction_time_ms = _last_compaction_time_ms;
@@ -5079,8 +5072,7 @@ Status TabletUpdates::load_snapshot(const SnapshotMeta& snapshot_meta, bool rest
                 for (const auto& dcg_file : dcg_files) {
                     auto st = FileSystem::Default()->path_exists(dcg_file);
                     if (!st.ok()) {
-                        auto msg =
-                                absl::Substitute("delta column file: $0 does not exist: $1", dcg_file, st.message());
+                        auto msg = absl::Substitute("delta column file: $0 does not exist: $1", dcg_file, st.message());
                         LOG(ERROR) << msg;
                         _set_error(msg);
                         return Status::InternalError(msg);
@@ -5375,8 +5367,8 @@ Status TabletUpdates::get_column_values(const std::vector<uint32_t>& column_ids,
         if (!(rowset->rowset_meta()->get_rowset_seg_id() <= rssid &&
               rssid < rowset->rowset_meta()->get_rowset_seg_id() + rowset->num_segments())) {
             std::string msg = absl::Substitute("illegal rssid: $0, should in [$1, $2)", rssid,
-                                                  rowset->rowset_meta()->get_rowset_seg_id(),
-                                                  rowset->rowset_meta()->get_rowset_seg_id() + rowset->num_segments());
+                                               rowset->rowset_meta()->get_rowset_seg_id(),
+                                               rowset->rowset_meta()->get_rowset_seg_id() + rowset->num_segments());
             LOG(ERROR) << msg;
             return Status::InternalError(msg);
         }
@@ -5524,8 +5516,8 @@ Status TabletUpdates::get_rss_rowids_by_pk_unlock(Tablet* tablet, const Column& 
     manager->index_cache().update_object_size(index_entry, index.memory_usage());
     if (!st.ok()) {
         manager->index_cache().remove(index_entry);
-        std::string msg = absl::Substitute("get_rss_rowids_by_pk error: load primary index failed: $0 $1",
-                                              st.message(), debug_string());
+        std::string msg = absl::Substitute("get_rss_rowids_by_pk error: load primary index failed: $0 $1", st.message(),
+                                           debug_string());
         LOG(ERROR) << msg;
         return Status(st.code(), msg);
     }
@@ -5572,7 +5564,7 @@ Status TabletUpdates::get_rowsets_for_incremental_snapshot(const std::vector<int
         std::lock_guard lg(_lock);
         if (_edit_version_infos.empty()) {
             string msg = absl::Substitute("tablet deleted when get_rowsets_for_incremental_snapshot tablet:$0",
-                                             _tablet.tablet_id());
+                                          _tablet.tablet_id());
             LOG(WARNING) << msg;
             return Status::InternalError(msg);
         }
@@ -5592,7 +5584,7 @@ Status TabletUpdates::get_rowsets_for_incremental_snapshot(const std::vector<int
         }
         if (versions.empty()) {
             string msg = absl::Substitute("get_rowsets_for_snapshot: no version to clone $0 request_version:$1,",
-                                             _debug_version_info(false), missing_version_ranges.back());
+                                          _debug_version_info(false), missing_version_ranges.back());
             VLOG(2) << msg;
             return Status::NotFound(msg);
         }
@@ -5627,7 +5619,7 @@ Status TabletUpdates::get_rowsets_for_incremental_snapshot(const std::vector<int
             } else if (edit_version > versions[versions_index]) {
                 // some version is missing, maybe already GCed, switch to full_snapshot
                 LOG(WARNING) << absl::Substitute("get_rowsets_for_incremental_snapshot: version $0 not found $1",
-                                                    versions[versions_index], _debug_version_info(false));
+                                                 versions[versions_index], _debug_version_info(false));
                 return Status::OK();
             } else {
                 edit_versions_index++;
@@ -5649,8 +5641,8 @@ Status TabletUpdates::get_rowsets_for_incremental_snapshot(const std::vector<int
         }
     }
     LOG(INFO) << absl::Substitute("get_rowsets_for_incremental_snapshot $0 missing_ranges:$1 return:$2",
-                                     _debug_version_info(true), absl::StrJoin(missing_version_ranges, ","),
-                                     absl::StrJoin(versions, ","));
+                                  _debug_version_info(true), absl::StrJoin(missing_version_ranges, ","),
+                                  absl::StrJoin(versions, ","));
     return Status::OK();
 }
 
@@ -5818,7 +5810,7 @@ Status TabletUpdates::compaction_random(MemTracker* mem_tracker) {
             if (itr == _rowset_stats.end()) {
                 // should not happen
                 string msg = absl::Substitute("rowset not found in rowset stats tablet=$0 rowset=$1",
-                                                 _tablet.tablet_id(), rowsetid);
+                                              _tablet.tablet_id(), rowsetid);
                 DCHECK(false) << msg;
                 LOG(WARNING) << msg;
             } else if (itr->second->compaction_score > 0) {

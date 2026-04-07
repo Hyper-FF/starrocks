@@ -40,10 +40,10 @@
 #include <map>
 #include <set>
 
+#include "absl/strings/str_join.h"
 #include "common/config_storage_fwd.h"
 #include "fs/fs.h"
 #include "gen_cpp/Types_constants.h"
-#include "absl/strings/str_join.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "storage/del_vector.h"

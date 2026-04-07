@@ -16,6 +16,7 @@
 
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/hash/unaligned_access.h"
 #include "base/utility/pred_guard.h"
 #include "column/chunk.h"
@@ -23,7 +24,6 @@
 #include "column/decimalv3_column.h"
 #include "column/nullable_column.h"
 #include "column/schema.h"
-#include "absl/strings/substitute.h"
 #include "runtime/mem_pool.h"
 #include "storage/chunk_helper.h"
 #include "storage/olap_type_infra.h"

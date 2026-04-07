@@ -21,11 +21,11 @@
 #include <set>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "common/config_primary_key_fwd.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "absl/strings/substitute.h"
 #include "storage/lake/persistent_index_sstable.h"
 #include "storage/lake/tablet_manager.h"
 

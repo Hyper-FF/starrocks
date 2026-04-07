@@ -40,10 +40,10 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
+#include "base/macros.h"
 #include "common/statusor.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "base/macros.h"
-#include "absl/strings/substitute.h"
 #include "runtime/mem_tracker.h"
 #include "storage/olap_common.h"
 #include "storage/olap_define.h"
@@ -344,7 +344,7 @@ public:
                     do_close();
                     WARN_IF_ERROR(_rowset_state_machine.on_release(),
                                   absl::Substitute("rowset state on_release error, $0",
-                                                      _rowset_state_machine.rowset_state()));
+                                                   _rowset_state_machine.rowset_state()));
                 }
             }
             if (_rowset_state_machine.rowset_state() == ROWSET_UNLOADED) {

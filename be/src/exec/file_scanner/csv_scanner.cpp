@@ -14,6 +14,7 @@
 
 #include "exec/file_scanner/csv_scanner.h"
 
+#include "absl/strings/substitute.h"
 #include "base/string/slice.h"
 #include "base/string/string_parser.hpp"
 #include "base/string/utf8_check.h"
@@ -21,7 +22,6 @@
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "fs/fs.h"
-#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
 

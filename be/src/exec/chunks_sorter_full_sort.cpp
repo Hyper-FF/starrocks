@@ -14,13 +14,13 @@
 
 #include "chunks_sorter_full_sort.h"
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "common/runtime_profile.h"
 #include "exec/sorting/merge.h"
 #include "exec/sorting/sort_permute.h"
 #include "exec/sorting/sorting.h"
 #include "exprs/expr.h"
-#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -165,8 +165,7 @@ void ChunksSorterFullSort::_assign_ordinals() {
     // 4 billion rows, it may happen in product environment extremely rarely, if it really happens,
     // 64 bit ordinal is adopted.
     auto use_64bit_ordinal = (_chunk_idx_bits + _offset_in_chunk_bits) > 32;
-    _runtime_profile->add_info_string("LateMaterializationUse64BitOrdinal",
-                                      absl::Substitute("$0", use_64bit_ordinal));
+    _runtime_profile->add_info_string("LateMaterializationUse64BitOrdinal", absl::Substitute("$0", use_64bit_ordinal));
 
     if (use_64bit_ordinal) {
         _assign_ordinals_tmpl<uint64_t>();

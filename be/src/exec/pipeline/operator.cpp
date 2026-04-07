@@ -18,6 +18,7 @@
 #include <memory>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "common/logging.h"
 #include "common/runtime_profile.h"
@@ -25,7 +26,6 @@
 #include "exec/pipeline/query_context.h"
 #include "exprs/chunk_predicate_evaluator.h"
 #include "exprs/expr_context.h"
-#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "runtime/mem_tracker.h"
 #include "runtime/runtime_filter_cache.h"
@@ -418,7 +418,7 @@ void OperatorFactory::acquire_runtime_filter(RuntimeState* state) {
         ExecEnv::GetInstance()->runtime_filter_cache()->add_rf_event(
                 {state->query_id(), filter_id, BackendOptions::get_localhost(),
                  absl::Substitute("INSTALL_GRF_TO_OPERATOR(op_id=$0, success=$1", this->_plan_node_id,
-                                     grf != nullptr)});
+                                  grf != nullptr)});
 
         if (grf == nullptr) {
             continue;

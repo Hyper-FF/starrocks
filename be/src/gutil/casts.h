@@ -13,8 +13,8 @@
 #include <climits> // for enumeration casts and tests
 #include <cstring> // for memcpy
 
-#include "gutil/logging.h"
 #include "base/macros.h"
+#include "gutil/logging.h"
 #include "gutil/template_util.h"
 #include "gutil/type_traits.h"
 

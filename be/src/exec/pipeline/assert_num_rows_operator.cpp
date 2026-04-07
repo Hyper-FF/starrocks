@@ -14,8 +14,8 @@
 
 #include "exec/pipeline/assert_num_rows_operator.h"
 
-#include "column/chunk.h"
 #include "absl/strings/substitute.h"
+#include "column/chunk.h"
 
 using namespace starrocks;
 
@@ -68,7 +68,7 @@ Status AssertNumRowsOperator::push_chunk(RuntimeState* state, const ChunkPtr& ch
         LOG(INFO) << "Expected " << message << " " << _desired_num_rows << " to be returned by expression "
                   << _subquery_string;
         return Status::Cancelled(absl::Substitute("Expected $0 $1 to be returned by expression $2", message,
-                                                     _desired_num_rows, _subquery_string));
+                                                  _desired_num_rows, _subquery_string));
     }
 
     _cur_chunk = chunk;

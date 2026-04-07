@@ -69,7 +69,7 @@ public:
                 if ((curr != prev) && (subscript > (curr - prev))) {
                     return Status::InvalidArgument(
                             absl::Substitute("Array subscript must be less than or equal to array length: $0 > $1",
-                                                subscript, curr - prev));
+                                             subscript, curr - prev));
                 }
                 prev = curr;
             }

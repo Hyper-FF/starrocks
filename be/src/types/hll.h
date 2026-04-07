@@ -41,12 +41,12 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
 #include "base/phmap/phmap.h"
 #include "base/status.h"
 #include "common/compiler_util.h"
 #include "common/logging.h"
 #include "common/mem_chunk.h"
-#include "base/macros.h"
 #include "types/constexpr.h"
 
 namespace starrocks {

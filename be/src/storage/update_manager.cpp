@@ -18,13 +18,12 @@
 #include <memory>
 #include <numeric>
 
-#include "fmt/printf.h"
-
 #include "base/failpoint/fail_point.h"
 #include "base/time/time.h"
 #include "base/utility/pretty_printer.h"
 #include "common/config_primary_key_fwd.h"
 #include "common/system/cpu_info.h"
+#include "fmt/printf.h"
 #include "fs/fs_factory.h"
 #include "gutil/endian.h"
 #include "runtime/current_thread.h"
@@ -505,7 +504,7 @@ string UpdateManager::detail_memory_stats() {
     }
     string ret;
     ret.append(fmt::sprintf("primary index stats: total:%zu memory:%zu\n  tabletid       memory\n",
-                  primary_index_stats.size(), total_memory));
+                            primary_index_stats.size(), total_memory));
     for (size_t i = 0; i < std::min(primary_index_stats.size(), (size_t)200); i++) {
         auto& e = primary_index_stats[i];
         ret.append(fmt::sprintf("%10lu %12zu\n", (unsigned long)e.first, e.second));

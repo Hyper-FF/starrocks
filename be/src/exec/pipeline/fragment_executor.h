@@ -14,13 +14,13 @@
 
 #pragma once
 
+#include "base/macros.h"
 #include "common/global_types.h"
 #include "common/status.h"
 #include "exec/pipeline/pipeline.h"
 #include "exec/pipeline/pipeline_fwd.h"
 #include "exec/workgroup/work_group_fwd.h"
 #include "gen_cpp/InternalService_types.h"
-#include "base/macros.h"
 #include "runtime/exec_env_fwd.h"
 
 namespace starrocks {

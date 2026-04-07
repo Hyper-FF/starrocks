@@ -20,6 +20,7 @@
 #include <exception>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "base/testutil/sync_point.h"
 #include "common/config_hdfs_fwd.h"
@@ -28,7 +29,6 @@
 #include "fs/fs_util.h"
 #include "fs/hdfs/hdfs_fs_cache.h"
 #include "gen_cpp/AgentService_types.h"
-#include "absl/strings/substitute.h"
 #include "runtime/file_result_writer.h"
 #include "udf/java/utils.h"
 #include "util/hdfs_util.h"

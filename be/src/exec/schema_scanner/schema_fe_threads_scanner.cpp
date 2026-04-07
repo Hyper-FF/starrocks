@@ -14,8 +14,8 @@
 
 #include "exec/schema_scanner/schema_fe_threads_scanner.h"
 
-#include "exec/schema_scanner/schema_helper.h"
 #include "absl/strings/substitute.h"
+#include "exec/schema_scanner/schema_helper.h"
 #include "runtime/runtime_state.h"
 #include "types/logical_type.h"
 

@@ -38,10 +38,10 @@
 
 #include <memory> // for unique_ptr
 
+#include "absl/strings/substitute.h"
 #include "column/vectorized_fwd.h"
 #include "common/status.h"      // for Status
 #include "gen_cpp/segment.pb.h" // for EncodingTypePB
-#include "absl/strings/substitute.h"
 #include "runtime/global_dict/types.h"
 #include "runtime/global_dict/types_fwd_decl.h"
 #ifndef __APPLE__

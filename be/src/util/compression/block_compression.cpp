@@ -41,10 +41,10 @@
 #endif
 #include <zlib.h>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/string/faststring.h"
 #include "gutil/endian.h"
-#include "absl/strings/substitute.h"
 #include "util/compression/compression_context_pool_singletons.h"
 #include "util/compression/compression_headers.h"
 namespace orc {
@@ -97,8 +97,7 @@ public:
     Status decompress(const Slice& input, Slice* output) const override {
         auto decompressed_len = LZ4_decompress_safe(input.data, output->data, input.size, output->size);
         if (decompressed_len < 0) {
-            return Status::InvalidArgument(
-                    absl::Substitute("fail to do LZ4 decompress, error=$0", decompressed_len));
+            return Status::InvalidArgument(absl::Substitute("fail to do LZ4 decompress, error=$0", decompressed_len));
         }
         output->size = decompressed_len;
         return Status::OK();
@@ -314,8 +313,8 @@ private:
             if (remaining_output_size < decompressed_block_len) {
                 return Status::InvalidArgument(
                         absl::Substitute("fail to do hadoop-lz4 decompress, "
-                                            "remaining_output_size=$0, decompressed_block_len=$1",
-                                            remaining_output_size, decompressed_block_len));
+                                         "remaining_output_size=$0, decompressed_block_len=$1",
+                                         remaining_output_size, decompressed_block_len));
             }
             if (input_len <= 0) {
                 break;
@@ -326,8 +325,8 @@ private:
                 if (input_len < sizeof(uint32_t)) {
                     return Status::InvalidArgument(
                             absl::Substitute("fail to do hadoop-lz4 decompress, "
-                                                "decompressed_total_len=$0, input_len=$1",
-                                                decompressed_total_len, input_len));
+                                             "decompressed_total_len=$0, input_len=$1",
+                                             decompressed_total_len, input_len));
                 }
                 // Read the length of the next lz4 compressed block.
                 size_t compressed_len = BigEndian::Load32(input_ptr);
@@ -341,9 +340,9 @@ private:
                 if (compressed_len > input_len) {
                     return Status::InvalidArgument(
                             absl::Substitute("fail to do hadoop-lz4 decompress, "
-                                                "decompressed_total_len=$0, "
-                                                "compressed_len=$1, input_len=$2",
-                                                decompressed_total_len, compressed_len, input_len));
+                                             "decompressed_total_len=$0, "
+                                             "compressed_len=$1, input_len=$2",
+                                             decompressed_total_len, compressed_len, input_len));
                 }
 
                 // Decompress this block.
@@ -496,15 +495,15 @@ private:
             context->decompression_fail = true;
             return Status::InvalidArgument(
                     absl::Substitute("Fail to do LZ4FRAME decompress: trailing "
-                                        "data left in compressed data, "
-                                        "read=$0 vs given=$1",
-                                        input_size, input.size));
+                                     "data left in compressed data, "
+                                     "read=$0 vs given=$1",
+                                     input_size, input.size));
         } else if (lres != 0) {
             context->decompression_fail = true;
             return Status::InvalidArgument(
                     absl::Substitute("Fail to do LZ4FRAME decompress: expect "
-                                        "more compressed data, expect=$0",
-                                        lres));
+                                     "more compressed data, expect=$0",
+                                     lres));
         }
         return Status::OK();
     }

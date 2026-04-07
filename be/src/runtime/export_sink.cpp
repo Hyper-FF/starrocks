@@ -37,6 +37,7 @@
 #include <memory>
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "base/time/time.h"
 #include "column/column.h"
 #include "common/runtime_profile.h"
@@ -46,7 +47,6 @@
 #include "exprs/expr_factory.h"
 #include "fs/fs_broker.h"
 #include "fs/fs_factory.h"
-#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
 

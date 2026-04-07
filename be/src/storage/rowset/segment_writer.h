@@ -41,9 +41,9 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "base/macros.h"
 #include "io/core/input_stream.h"
 #include "runtime/global_dict/types.h"
 #include "runtime/global_dict/types_fwd_decl.h"

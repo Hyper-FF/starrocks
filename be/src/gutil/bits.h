@@ -2,10 +2,10 @@
 //
 // A collection of useful (static) bit-twiddling functions.
 
+#include "base/macros.h"
 #include "gutil/basictypes.h"
 #include "gutil/integral_types.h"
 #include "gutil/logging.h"
-#include "base/macros.h"
 
 #pragma once
 

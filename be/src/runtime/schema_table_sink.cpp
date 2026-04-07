@@ -17,6 +17,7 @@
 #include <memory>
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "base/brpc/ref_count_closure.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
@@ -27,7 +28,6 @@
 #include "exprs/expr.h"
 #include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
-#include "absl/strings/substitute.h"
 #include "http/action/update_config_action.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
@@ -58,8 +58,7 @@ Status SchemaTableSink::init(const TDataSink& t_sink, RuntimeState* state) {
 Status SchemaTableSink::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(DataSink::prepare(state));
     RETURN_IF_ERROR(ExprExecutor::prepare(_output_expr_ctxs, state));
-    _profile =
-            state->obj_pool()->add(new RuntimeProfile(absl::Substitute("SchemaTableSink (table=$0)", _table_name)));
+    _profile = state->obj_pool()->add(new RuntimeProfile(absl::Substitute("SchemaTableSink (table=$0)", _table_name)));
     return Status::OK();
 }
 
@@ -75,8 +74,8 @@ static Status set_config_remote(const StarRocksNodesInfo& nodes_info, int64_t be
     }
     auto stub = ExecEnv::GetInstance()->brpc_stub_cache()->get_stub(node_info->host, node_info->brpc_port);
     if (stub == nullptr) {
-        return Status::InternalError(absl::Substitute("set_config fail to get brpc stub for $0:$1", node_info->host,
-                                                         node_info->brpc_port));
+        return Status::InternalError(
+                absl::Substitute("set_config fail to get brpc stub for $0:$1", node_info->host, node_info->brpc_port));
     }
     ExecuteCommandRequestPB request;
     request.set_command("set_config");
@@ -99,7 +98,7 @@ static Status set_config_remote(const StarRocksNodesInfo& nodes_info, int64_t be
     Status st = result.status();
     if (!st.ok()) {
         LOG(WARNING) << absl::Substitute("set_config_remote failed be:$0 name:$1 value:$2 ret:$3 st:$4", be_id, name,
-                                            value, result.result(), st.to_string());
+                                         value, result.result(), st.to_string());
         return st;
     }
     return Status::OK();

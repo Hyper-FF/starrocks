@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/simd/simd.h"
 #include "base/time/timezone_utils.h"
 #include "cctz/civil_time.h"
@@ -33,7 +34,6 @@
 #include "formats/orc/orc_memory_pool.h"
 #include "formats/orc/utils.h"
 #include "gutil/casts.h"
-#include "absl/strings/substitute.h"
 #include "orc_schema_builder.h"
 #include "runtime/runtime_filter.h"
 #include "runtime/runtime_state_helper.h"
@@ -75,8 +75,7 @@ Status OrcChunkReader::init(std::unique_ptr<orc::InputStream> input_stream, cons
         auto reader = orc::createReader(std::move(input_stream), _reader_options);
         RETURN_IF_ERROR(init(std::move(reader), orc_predicates));
     } catch (std::exception& e) {
-        auto s = absl::Substitute("OrcChunkReader::init failed. reason = $0, file = $1", e.what(),
-                                     _current_file_name);
+        auto s = absl::Substitute("OrcChunkReader::init failed. reason = $0, file = $1", e.what(), _current_file_name);
         LOG(WARNING) << s;
         return Status::InternalError(s);
     }
@@ -180,8 +179,7 @@ Status OrcChunkReader::init(std::unique_ptr<orc::Reader> reader, const OrcPredic
     try {
         _row_reader = _reader->createRowReader(_row_reader_options);
     } catch (std::exception& e) {
-        auto s = absl::Substitute("OrcChunkReader::init failed. reason = $0, file = $1", e.what(),
-                                     _current_file_name);
+        auto s = absl::Substitute("OrcChunkReader::init failed. reason = $0, file = $1", e.what(), _current_file_name);
         LOG(WARNING) << s;
         return Status::InternalError(s);
     }
@@ -409,8 +407,8 @@ Status OrcChunkReader::_init_cast_exprs() {
         Expr* cast = VectorizedCastExprFactory::from_type(orc_type, starrocks_type, slot, &_pool);
         if (cast == nullptr) {
             return Status::InternalError(absl::Substitute("Not support cast $0 to $1. file = $2",
-                                                             orc_type.debug_string(), starrocks_type.debug_string(),
-                                                             _current_file_name));
+                                                          orc_type.debug_string(), starrocks_type.debug_string(),
+                                                          _current_file_name));
         }
         _cast_exprs[column_pos] = cast;
     }
@@ -622,7 +620,7 @@ Status OrcChunkReader::lazy_read_next(size_t numValues) {
         _row_reader->lazyLoadNext(*_batch, numValues);
     } catch (std::exception& e) {
         auto s = absl::Substitute("OrcChunkReader::lazy_read_next failed. reason = $0, file = $1", e.what(),
-                                     _current_file_name);
+                                  _current_file_name);
         LOG(WARNING) << s;
         return Status::InternalError(s);
     }
@@ -635,7 +633,7 @@ Status OrcChunkReader::lazy_seek_to(uint64_t rowInStripe) {
         _row_reader->lazyLoadSeekTo(rowInStripe);
     } catch (std::exception& e) {
         auto s = absl::Substitute("OrcChunkReader::lazy_seek_to failed. reason = $0, file = $1", e.what(),
-                                     _current_file_name);
+                                  _current_file_name);
         LOG(WARNING) << s;
         return Status::InternalError(s);
     }

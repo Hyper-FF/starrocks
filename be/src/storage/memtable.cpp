@@ -16,6 +16,7 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/time/time.h"
 #include "column/binary_column.h"
 #include "column/json_column.h"
@@ -23,7 +24,6 @@
 #include "common/config_primary_key_fwd.h"
 #include "common/logging.h"
 #include "exec/sorting/sorting.h"
-#include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
@@ -545,8 +545,8 @@ Status MemTable::_sort_column_inc(bool by_sort_key) {
             key_idxes.resize(_vectorized_schema->num_key_fields());
             std::iota(key_idxes.begin(), key_idxes.end(), 0);
             if (!std::equal(tmp.begin(), tmp.end(), key_idxes.begin(), key_idxes.end())) {
-                std::string msg = absl::Substitute("tablet type: $0 sort key columns is different with key columns",
-                                                      _keys_type);
+                std::string msg =
+                        absl::Substitute("tablet type: $0 sort key columns is different with key columns", _keys_type);
                 LOG(ERROR) << msg;
                 return Status::InternalError(msg);
             }

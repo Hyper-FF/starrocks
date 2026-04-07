@@ -39,6 +39,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/hash/crc32c.h"
 #include "base/string/faststring.h"
@@ -52,7 +53,6 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_starlet.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/raw_container_checked.h"
 #include "storage/olap_common.h"
@@ -183,7 +183,7 @@ static Status parse_page_from_cache(PageHandle* handle, Slice* body, PageFooterP
     std::string_view footer_buf(reinterpret_cast<const char*>(page->data() + footer_offset), footer_size);
     if (!footer->ParseFromArray(footer_buf.data(), footer_buf.size())) {
         return Status::Corruption(absl::Substitute("Bad page: invalid footer (cache), file=$0, footer_size=$1",
-                                                      opts.read_file->filename(), footer_size));
+                                                   opts.read_file->filename(), footer_size));
     }
     *body = Slice(page->data(), footer_offset);
     return Status::OK();
@@ -224,9 +224,8 @@ static StatusOr<uint32_t> verify_and_parse_footer(Slice& page_slice, const PageR
         const uint32_t expect = decode_fixed32_le((uint8_t*)page_slice.data + page_slice.size - 4);
         const uint32_t actual = crc32c::Value(page_slice.data, page_slice.size - 4);
         if (expect != actual) {
-            return Status::Corruption(
-                    absl::Substitute("Bad page: checksum mismatch (actual=$0 vs expect=$1), file=$2", actual, expect,
-                                        opts.read_file->filename()));
+            return Status::Corruption(absl::Substitute("Bad page: checksum mismatch (actual=$0 vs expect=$1), file=$2",
+                                                       actual, expect, opts.read_file->filename()));
         }
     }
 
@@ -237,7 +236,7 @@ static StatusOr<uint32_t> verify_and_parse_footer(Slice& page_slice, const PageR
     const uint32_t footer_size = decode_fixed32_le((uint8_t*)page_slice.data + page_slice.size - 4);
     if (!footer->ParseFromArray(page_slice.data + page_slice.size - 4 - footer_size, footer_size)) {
         return Status::Corruption(absl::Substitute("Bad page: invalid footer, file=$0, footer_size=$1",
-                                                      opts.read_file->filename(), footer_size));
+                                                   opts.read_file->filename(), footer_size));
     }
 
     return footer_size;
@@ -274,8 +273,8 @@ static Status decompress_if_needed(const PageReadOptions& opts, const PageFooter
 
     if (decompressed_body.size != decompressed_size) {
         return Status::Corruption(absl::Substitute("Bad page: uncompressed size mismatch ($0 vs $1), file=$2",
-                                                      decompressed_size, decompressed_body.size,
-                                                      opts.read_file->filename()));
+                                                   decompressed_size, decompressed_body.size,
+                                                   opts.read_file->filename()));
     }
 
     memcpy(decompressed_body.data + decompressed_body.size, page_slice->data + body_size, footer_size + 4);

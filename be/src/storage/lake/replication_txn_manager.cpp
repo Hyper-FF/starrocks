@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <set>
 
+#include "absl/strings/substitute.h"
 #include "agent/agent_server.h"
 #include "agent/task_signatures_manager.h"
 #include "base/string/string_parser.hpp"
@@ -34,7 +35,6 @@
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/Types_constants.h"
 #include "gutil/strings/stringpiece.h"
-#include "absl/strings/substitute.h"
 #include "http/http_client.h"
 #include "runtime/client_cache.h"
 #include "runtime/current_thread.h"

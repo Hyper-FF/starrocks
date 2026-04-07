@@ -41,14 +41,14 @@
 #include <thread>
 #include <tuple>
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "base/hash/hash.h"
 #include "base/phmap/phmap.h"
 #include "base/testutil/sync_point.h"
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
 #include "common/config_diagnostic_fwd.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 
 namespace google {
@@ -175,8 +175,8 @@ std::string get_stack_trace_for_thread(int tid, int timeout_ms) {
     static bool sighandler_installed = false;
     if (!sighandler_installed) {
         if (!install_stack_trace_sighandler()) {
-            auto msg = absl::Substitute("install stack trace signal handler failed, error: $0 tid: $1",
-                                           strerror(errno), tid);
+            auto msg = absl::Substitute("install stack trace signal handler failed, error: $0 tid: $1", strerror(errno),
+                                        tid);
             LOG(WARNING) << msg;
             return msg;
         }
@@ -193,8 +193,8 @@ std::string get_stack_trace_for_thread(int tid, int timeout_ms) {
     payload.sival_int = stack_trace_id;
     auto err = signal_thread(pid, tid, uid, SIGRTMIN, payload);
     if (0 != err) {
-        auto msg = absl::Substitute("collect stack trace failed, signal thread error: $0 tid: $1", strerror(errno),
-                                       tid);
+        auto msg =
+                absl::Substitute("collect stack trace failed, signal thread error: $0 tid: $1", strerror(errno), tid);
         LOG(WARNING) << msg;
         return msg;
     }
@@ -240,8 +240,8 @@ std::string get_stack_trace_for_threads_with_pattern(const std::vector<int>& tid
         payload.sival_int = stack_trace_id;
         auto err = signal_thread(pid, tids[i], uid, SIGRTMIN, payload);
         if (0 != err) {
-            auto msg = absl::Substitute("collect stack trace failed, signal thread error: $0 tid: $1",
-                                           strerror(errno), tids[i]);
+            auto msg = absl::Substitute("collect stack trace failed, signal thread error: $0 tid: $1", strerror(errno),
+                                        tids[i]);
             LOG(WARNING) << msg;
         }
     }

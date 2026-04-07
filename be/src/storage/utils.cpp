@@ -49,6 +49,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/string/string_parser.hpp"
 #include "base/system/errno.h"
 #include "common/logging.h"
@@ -57,7 +58,6 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "absl/strings/substitute.h"
 #include "runtime/mem_tracker.h"
 #include "storage/olap_define.h"
 

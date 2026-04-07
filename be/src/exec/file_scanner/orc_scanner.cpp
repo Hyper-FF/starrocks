@@ -16,13 +16,13 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "column/array_column.h"
 #include "common/config_scan_io_fwd.h"
 #include "formats/orc/orc_chunk_reader.h"
 #include "formats/orc/orc_input_stream.h"
 #include "fs/fs.h"
 #include "gen_cpp/orc_proto.pb.h"
-#include "absl/strings/substitute.h"
 #include "runtime/broker_mgr.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"

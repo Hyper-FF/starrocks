@@ -20,6 +20,7 @@
 #include <sstream>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "column/adaptive_nullable_column.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
@@ -34,7 +35,6 @@
 #include "formats/json/nullable_column.h"
 #include "fs/fs.h"
 #include "gutil/casts.h"
-#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
 #include "types/type_descriptor.h"
@@ -154,13 +154,13 @@ Status JsonScanner::_construct_cast_exprs() {
         }
 
         VLOG(3) << absl::Substitute("The field name($0) cast STARROCKS($1) to STARROCKS($2).", slot_desc->col_name(),
-                                       from_type.debug_string(), to_type.debug_string());
+                                    from_type.debug_string(), to_type.debug_string());
 
         Expr* cast = VectorizedCastExprFactory::from_type(from_type, to_type, slot, &_pool);
 
         if (cast == nullptr) {
-            return Status::InternalError(absl::Substitute("Not support cast $0 to $1.", from_type.debug_string(),
-                                                             to_type.debug_string()));
+            return Status::InternalError(
+                    absl::Substitute("Not support cast $0 to $1.", from_type.debug_string(), to_type.debug_string()));
         }
 
         _cast_exprs[column_pos] = cast;
@@ -561,8 +561,8 @@ Status JsonReader::_construct_row_without_jsonpath(simdjson::ondemand::object* r
             key_index++;
         }
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = absl::Substitute("construct row in object order failed, error: $0",
-                                           simdjson::error_message(e.error()));
+        auto err_msg =
+                absl::Substitute("construct row in object order failed, error: $0", simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 

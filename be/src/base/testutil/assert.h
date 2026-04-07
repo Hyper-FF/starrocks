@@ -16,8 +16,8 @@
 
 #include <utility>
 
-#include "base/status.h"
 #include "base/macros.h"
+#include "base/status.h"
 
 #define CHECK_OK(stmt)            \
     do {                          \

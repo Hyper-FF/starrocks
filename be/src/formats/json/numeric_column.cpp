@@ -14,11 +14,11 @@
 
 #include "numeric_column.h"
 
+#include "absl/strings/substitute.h"
 #include "base/string/string_parser.hpp"
 #include "base/types/numeric_types.h"
 #include "column/fixed_length_column.h"
 #include "common/simdjson_util.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -161,7 +161,7 @@ static Status add_column_with_string_value(FixedLengthColumn<T>* column, const T
         }
 
         std::string err_msg = absl::Substitute("Unable to cast string value to BIGINT. value=$0, column=$1",
-                                                  std::string(sv.data(), sv.size()), name);
+                                               std::string(sv.data(), sv.size()), name);
         return Status::InvalidArgument(err_msg);
     }
 }
@@ -189,7 +189,7 @@ Status add_numeric_column(Column* column, const TypeDescriptor& type_desc, const
         }
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as number, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }

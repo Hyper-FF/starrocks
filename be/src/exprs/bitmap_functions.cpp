@@ -14,6 +14,7 @@
 
 #include "exprs/bitmap_functions.h"
 
+#include "absl/strings/substitute.h"
 #include "base/phmap/phmap.h"
 #include "base/string/string_parser.hpp"
 #include "column/array_column.h"
@@ -28,7 +29,6 @@
 #include "exprs/unary_function.h"
 #include "gutil/casts.h"
 #include "gutil/strings/split.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -50,9 +50,9 @@ StatusOr<ColumnPtr> BitmapFunctions::to_bitmap(FunctionContext* context, const s
             // To be compatible with varchar type, set it null if raw value is less than 0 and less than uint64::max.
             if (UNLIKELY(raw_value < 0 || raw_value > std::numeric_limits<uint64_t>::max())) {
                 context->set_error(absl::Substitute("The input: {0} is not valid, to_bitmap only "
-                                                       "support bigint value from 0 to "
-                                                       "18446744073709551615 currently",
-                                                       raw_value)
+                                                    "support bigint value from 0 to "
+                                                    "18446744073709551615 currently",
+                                                    raw_value)
                                            .c_str());
 
                 builder.append_null();
@@ -65,9 +65,9 @@ StatusOr<ColumnPtr> BitmapFunctions::to_bitmap(FunctionContext* context, const s
             value = StringParser::string_to_unsigned_int<uint64_t>(slice.data, slice.size, &parse_result);
             if (parse_result != StringParser::PARSE_SUCCESS) {
                 context->set_error(absl::Substitute("The input: {0} is not valid, to_bitmap only "
-                                                       "support bigint value from 0 to "
-                                                       "18446744073709551615 currently",
-                                                       slice.to_string())
+                                                    "support bigint value from 0 to "
+                                                    "18446744073709551615 currently",
+                                                    slice.to_string())
                                            .c_str());
 
                 builder.append_null();

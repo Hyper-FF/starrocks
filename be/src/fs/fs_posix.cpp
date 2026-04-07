@@ -26,7 +26,9 @@
 #include <filesystem>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/stopwatch.hpp"
+#include "base/macros.h"
 #include "base/string/slice.h"
 #include "base/system/errno.h"
 #include "base/testutil/sync_point.h"
@@ -36,9 +38,7 @@
 #include "fs/fd_cache.h"
 #include "fs/fs.h"
 #include "gutil/gscoped_ptr.h"
-#include "base/macros.h"
 #include "gutil/port.h"
-#include "absl/strings/substitute.h"
 #include "gutil/strings/util.h"
 #include "io/fd_input_stream.h"
 #include "io/io_profiler.h"

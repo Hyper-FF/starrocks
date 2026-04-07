@@ -14,11 +14,11 @@
 
 #include "binary_column.h"
 
+#include "absl/strings/substitute.h"
 #include "column/binary_column.h"
 #include "column/json_column.h"
 #include "common/simdjson_util.h"
 #include "common/status.h"
-#include "absl/strings/substitute.h"
 #include "types/json_value.h"
 
 namespace starrocks {
@@ -76,7 +76,7 @@ static Status add_column_with_array_object_value(BinaryColumn* column, const Typ
     auto err = simdjson::minify(sv.data(), sv.size(), buf.get(), new_length);
     if (err) {
         auto err_msg = absl::Substitute("Failed to minify array/object as string. column=$0, error=$1", name,
-                                           simdjson::error_message(err));
+                                        simdjson::error_message(err));
         return Status::DataQualityError(err_msg);
     }
 
@@ -121,7 +121,7 @@ Status add_binary_column(Column* column, const TypeDescriptor& type_desc, const 
         }
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as string, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -152,7 +152,7 @@ Status add_binary_column_from_json_object(Column* column, const TypeDescriptor& 
     std::string_view json_str = simdjson::to_json_string(*obj);
     if (json_str.length() > type_desc.len) {
         auto err_msg = absl::Substitute("Value length $0 exceed the column length $1($2)", json_str.length(), name,
-                                           type_desc.len);
+                                        type_desc.len);
         return Status::InvalidArgument(err_msg);
     }
 

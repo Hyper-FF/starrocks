@@ -14,9 +14,9 @@
 
 #include "exec/schema_scanner/schema_be_cloud_native_compactions_scanner.h"
 
+#include "absl/strings/substitute.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
-#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
 #include "storage/compaction_manager.h"

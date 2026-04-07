@@ -38,6 +38,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "absl/strings/substitute.h"
 #include "base/container/raw_container.h"
 #include "base/crypto/sm3.h"
 #include "base/string/utf8.h"
@@ -56,7 +57,6 @@
 #include "exprs/regexp_split.h"
 #include "exprs/unary_function.h"
 #include "gutil/strings/fastmem.h"
-#include "absl/strings/substitute.h"
 #include "runtime/exception.h"
 #include "runtime/runtime_state.h"
 #include "storage/olap_define.h"
@@ -2696,12 +2696,10 @@ static Status url_decode_slice(const char* value, size_t len, std::string* to) {
             char l = value[i + 1];
             char r = value[i + 2];
             if ((l < 'A' || l > 'F') && (l < '0' || l > '9')) {
-                return Status::RuntimeError(
-                        absl::Substitute("decode string contains illegal hex chars: $0$1", l, r));
+                return Status::RuntimeError(absl::Substitute("decode string contains illegal hex chars: $0$1", l, r));
             }
             if ((r < 'A' || r > 'F') && (r < '0' || r > '9')) {
-                return Status::RuntimeError(
-                        absl::Substitute("decode string contains illegal hex chars: $0$1", l, r));
+                return Status::RuntimeError(absl::Substitute("decode string contains illegal hex chars: $0$1", l, r));
             }
             // if l in 'A'..'F', then l-'A' > 0; otherwise l-'A' < 0; we arithmetic shift right 8 bit
             // yields mask, so all bits of mask are 0 if l in 'A'..'F', all bits are 1 if l in '0'..'9'

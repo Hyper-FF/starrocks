@@ -18,9 +18,9 @@
 #include <ostream>
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "base/decimal_types.h"
 #include "base/string/slice.h"
-#include "absl/strings/substitute.h"
 #include "types/datetime_value.h"
 #include "types/logical_type.h"
 #include "types/type_info.h"

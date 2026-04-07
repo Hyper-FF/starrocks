@@ -41,6 +41,7 @@
 #include <mutex>
 #include <string>
 
+#include "absl/strings/substitute.h"
 #include "agent/agent_common.h"
 #include "agent/agent_server.h"
 #include "cache/datacache.h"
@@ -53,7 +54,6 @@
 #include "common/system/cpu_info.h"
 #include "common/util/bthreads/executor.h"
 #include "exec/workgroup/scan_executor.h"
-#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
 #include "http/http_request.h"

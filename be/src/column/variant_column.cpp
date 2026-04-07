@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "column/binary_column.h"
 #include "column/column_builder.h"
@@ -31,7 +32,6 @@
 #include "column/variant_merger.h"
 #include "column/variant_path_parser.h"
 #include "gutil/casts.h"
-#include "absl/strings/substitute.h"
 #include "types/variant_value.h"
 
 namespace starrocks {

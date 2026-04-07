@@ -16,9 +16,9 @@
 
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "base/string/string_parser.hpp"
 #include "common/simdjson_util.h"
-#include "absl/strings/substitute.h"
 #include "simdjson.h"
 #include "velocypack/ValueType.h"
 #include "velocypack/vpack.h"
@@ -63,7 +63,7 @@ public:
         } catch (simdjson::simdjson_error& e) {
             std::string_view view(value.raw_json());
             auto err_msg = absl::Substitute("Failed to convert simdjson value, json=$0, error=$1", view.data(),
-                                               simdjson::error_message(e.error()));
+                                            simdjson::error_message(e.error()));
             return Status::DataQualityError(err_msg);
         }
     }
@@ -174,7 +174,7 @@ private:
             auto val = StringParser::string_to_float<double>(s.data(), s.size(), &r);
             if (r != StringParser::PARSE_SUCCESS) {
                 auto err_msg = absl::Substitute("Fail to convert big integer to double. field_name=$0, value=$1",
-                                                   field_name, s);
+                                                field_name, s);
                 return Status::InvalidArgument(err_msg);
             }
             if (is_object) {

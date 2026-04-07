@@ -17,11 +17,11 @@
 #include <algorithm>
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "base/simd/simd.h"
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
 #include "exprs/expr_factory.h"
-#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {

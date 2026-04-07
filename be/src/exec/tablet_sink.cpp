@@ -39,6 +39,7 @@
 #include <sstream>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "agent/utils.h"
 #include "base/simd/simd.h"
 #include "base/uid_util.h"
@@ -61,7 +62,6 @@
 #include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
 #include "gutil/strings/fastmem.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
@@ -919,7 +919,7 @@ void OlapTableSink::_print_varchar_error_msg(RuntimeState* state, const Slice& s
         error_str = str.to_string();
     }
     std::string error_msg = absl::Substitute("String '$0'(length=$1) is too long. The max length of '$2' is $3",
-                                                error_str, str.get_size(), desc->col_name(), desc->type().len);
+                                             error_str, str.get_size(), desc->col_name(), desc->type().len);
     RuntimeStateHelper::append_error_msg_to_file(state, chunk->debug_row(row_index), error_msg);
 }
 
@@ -929,7 +929,7 @@ void OlapTableSink::_print_decimal_error_msg(RuntimeState* state, const DecimalV
         return;
     }
     std::string error_msg = absl::Substitute("Decimal '$0' is out of range. The type of '$1' is $2'",
-                                                decimal.to_string(), desc->col_name(), desc->type().debug_string());
+                                             decimal.to_string(), desc->col_name(), desc->type().debug_string());
     RuntimeStateHelper::append_error_msg_to_file(state, chunk->debug_row(row_index), error_msg);
 }
 
@@ -941,7 +941,7 @@ void _print_decimalv3_error_msg(RuntimeState* state, const CppType& decimal, con
     }
     auto decimal_str = DecimalV3Cast::to_string<CppType>(decimal, desc->type().precision, desc->type().scale);
     std::string error_msg = absl::Substitute("Decimal '$0' is out of range. The type of '$1' is $2'", decimal_str,
-                                                desc->col_name(), desc->type().debug_string());
+                                             desc->col_name(), desc->type().debug_string());
     RuntimeStateHelper::append_error_msg_to_file(state, chunk->debug_row(row_index), error_msg);
 }
 
@@ -969,7 +969,7 @@ void OlapTableSink::_validate_decimal(RuntimeState* state, Chunk* chunk, Column*
                             DecimalV3Cast::to_string<CppType>(datum, desc->type().precision, desc->type().scale);
                     std::string error_msg =
                             absl::Substitute("Decimal '$0' is out of range. The type of '$1' is $2'", decimal_str,
-                                                desc->col_name(), desc->type().debug_string());
+                                             desc->col_name(), desc->type().debug_string());
                     RuntimeStateHelper::append_rejected_record_to_file(state, chunk->rebuild_csv_row(i, ","), error_msg,
                                                                        "");
                 }
@@ -1091,7 +1091,7 @@ void OlapTableSink::_validate_data(RuntimeState* state, Chunk* chunk) {
                         if (state->enable_log_rejected_record()) {
                             std::string error_msg =
                                     absl::Substitute("String (length=$0) is too long. The max length of '$1' is $2",
-                                                        binary->get_slice(j).size, desc->col_name(), desc->type().len);
+                                                     binary->get_slice(j).size, desc->col_name(), desc->type().len);
                             RuntimeStateHelper::append_rejected_record_to_file(state, chunk->rebuild_csv_row(j, ","),
                                                                                error_msg, "");
                         }

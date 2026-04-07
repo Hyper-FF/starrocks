@@ -14,10 +14,10 @@
 
 #include "formats/json/struct_column.h"
 
+#include "absl/strings/substitute.h"
 #include "column/struct_column.h"
 #include "common/statusor.h"
 #include "formats/json/nullable_column.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -47,7 +47,7 @@ Status add_struct_column(Column* column, const TypeDescriptor& type_desc, const 
                 // if returns error, the struct field columns may be inconsistent.
                 // so fill null if error.
                 auto err_msg = absl::Substitute("Failed to parse value, field=$0.$1, error=$2", name, field_name,
-                                                   simdjson::error_message(err));
+                                                simdjson::error_message(err));
                 LOG(WARNING) << err_msg;
             }
             RETURN_IF_ERROR(add_nullable_column(field_column, field_type_desc, name, field_value_ptr, true));
@@ -55,7 +55,7 @@ Status add_struct_column(Column* column, const TypeDescriptor& type_desc, const 
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as object, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }

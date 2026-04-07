@@ -43,9 +43,9 @@
 #include <type_traits>
 #include <utility>
 
+#include "base/macros.h"
 #include "base/status.h"
 #include "base/statusor_internal.h"
-#include "base/macros.h"
 
 namespace starrocks {
 

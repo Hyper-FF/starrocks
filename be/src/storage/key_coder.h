@@ -37,9 +37,9 @@
 #include <string>
 #include <type_traits>
 
+#include "absl/strings/substitute.h"
 #include "base/bit/bit_util.h"
 #include "common/status.h"
-#include "absl/strings/substitute.h"
 #include "runtime/mem_pool.h"
 #include "storage/types.h"
 #include "types/datum.h"

@@ -19,8 +19,8 @@
 #include <unistd.h>
 
 #include "base/concurrency/stopwatch.hpp"
-#include "common/logging.h"
 #include "base/macros.h"
+#include "common/logging.h"
 #include "io/core/io_error.h"
 #include "io_profiler.h"
 

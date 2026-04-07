@@ -45,12 +45,12 @@
 
 #include "agent/status.h"
 #include "base/concurrency/spinlock.h"
+#include "base/macros.h"
 #include "base/statusor.h"
 #include "common/status.h"
 #include "gen_cpp/AgentService_types.h"
 #include "gen_cpp/BackendService_types.h"
 #include "gen_cpp/MasterService_types.h"
-#include "base/macros.h"
 #include "storage/kv_store.h"
 #include "storage/olap_common.h"
 #include "storage/olap_define.h"

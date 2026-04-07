@@ -14,8 +14,8 @@
 
 #include "exec/schema_scanner/schema_routine_load_jobs_scanner.h"
 
-#include "exec/schema_scanner/schema_helper.h"
 #include "absl/strings/substitute.h"
+#include "exec/schema_scanner/schema_helper.h"
 #include "http/http_client.h"
 #include "runtime/runtime_state.h"
 

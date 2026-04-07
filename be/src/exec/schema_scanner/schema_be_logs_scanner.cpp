@@ -14,10 +14,10 @@
 
 #include "exec/schema_scanner/schema_be_logs_scanner.h"
 
+#include "absl/strings/substitute.h"
 #include "base/time/time.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
-#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -64,7 +64,7 @@ Status SchemaBeLogsScanner::start(RuntimeState* state) {
     int64_t ts1 = MonotonicMillis();
     string msg =
             absl::Substitute("grep_log pattern:$0 level:$1 start_ts:$2 end_ts:$3 limit:$4 #result:$5 duration:$6ms",
-                                pattern, level, start_ts, end_ts, limit, _infos.size(), (ts1 - ts0));
+                             pattern, level, start_ts, end_ts, limit, _infos.size(), (ts1 - ts0));
     if (st.ok()) {
         VLOG(3) << msg;
     } else {
@@ -72,7 +72,7 @@ Status SchemaBeLogsScanner::start(RuntimeState* state) {
         // send err info to client as log
         auto& err_log = _infos.emplace_back();
         err_log.log = absl::Substitute("grep_log failed pattern:$0 level:$1 limit:$2 error:$3", pattern, level,
-                                          _param->limit, st.message());
+                                       _param->limit, st.message());
     }
     _cur_idx = 0;
     return Status::OK();

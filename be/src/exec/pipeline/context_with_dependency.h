@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "common/status.h"
 #include "base/macros.h"
+#include "common/status.h"
 #include "runtime/runtime_fwd.h"
 
 namespace starrocks::pipeline {

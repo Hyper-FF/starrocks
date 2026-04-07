@@ -16,11 +16,11 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/string/volnitsky.h"
 #include "base/utility/defer_op.h"
 #include "exprs/binary_function.h"
 #include "glog/logging.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

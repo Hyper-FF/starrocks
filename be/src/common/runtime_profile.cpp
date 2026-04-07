@@ -41,10 +41,10 @@
 #include <queue>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/pretty_printer.h"
 #include "common/object_pool.h"
 #include "gutil/map_util.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

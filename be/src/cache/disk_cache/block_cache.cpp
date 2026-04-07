@@ -16,9 +16,9 @@
 
 #include <fmt/format.h>
 
+#include "absl/strings/substitute.h"
 #include "cache/datacache.h"
 #include "common/statusor.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

@@ -18,6 +18,7 @@
 #include <cmath>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "column/chunk.h"
 #include "common/runtime_profile.h"
 #include "exec/pipeline/analysis/analytic_sink_operator.h"
@@ -31,7 +32,6 @@
 #include "exprs/agg/count.h"
 #include "exprs/expr.h"
 #include "exprs/expr_factory.h"
-#include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {

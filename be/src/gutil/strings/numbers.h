@@ -20,9 +20,9 @@ using std::string;
 using std::vector;
 
 #include "absl/strings/numbers.h"
+#include "base/macros.h"
 #include "gutil/int128.h"
 #include "gutil/integral_types.h"
-#include "base/macros.h"
 #include "gutil/port.h"
 
 // START DOXYGEN NumbersFunctions grouping

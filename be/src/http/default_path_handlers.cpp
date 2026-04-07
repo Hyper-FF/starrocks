@@ -107,8 +107,8 @@ void print_mem_str(std::stringstream* output, const MemTracker::SimpleItem& item
         parent_label = item.parent->label;
     }
     (*output) << absl::Substitute("<tr><td>$0</td><td>$1</td><td>$2</td><td>$3</td><td>$4</td><td>$5</td></tr>\n",
-                                     item.level, item.label, parent_label, limit_str, current_consumption_str,
-                                     peak_consumption_str);
+                                  item.level, item.label, parent_label, limit_str, current_consumption_str,
+                                  peak_consumption_str);
     for (const auto* child : item.childs) {
         print_mem_str(output, *child);
     }

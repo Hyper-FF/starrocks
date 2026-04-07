@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/strings/str_split.h"
-
 #include <algorithm>
 
+#include "absl/strings/str_split.h"
 #include "base/string/utf8.h"
 #include "column/array_column.h"
 #include "column/binary_column.h"

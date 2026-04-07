@@ -21,10 +21,10 @@
 #include <variant>
 
 #include "base/bthreads/single_flight.h"
+#include "base/macros.h"
 #include "common/statusor.h"
 #include "compaction_task_context.h"
 #include "gen_cpp/Types_types.h" // for PUniqueId
-#include "base/macros.h"
 #include "storage/lake/metadata_iterator.h"
 #include "storage/lake/tablet_metadata.h"
 #include "storage/lake/txn_log.h"

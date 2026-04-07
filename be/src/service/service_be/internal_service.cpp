@@ -34,12 +34,12 @@
 
 #include "internal_service.h"
 
+#include "absl/strings/substitute.h"
 #include "base/brpc/brpc.h"
 #include "base/uid_util.h"
 #include "common/utils.h"
 #include "exec/pipeline/fragment_context.h"
 #include "gen_cpp/BackendService.h"
-#include "absl/strings/substitute.h"
 #include "runtime/buffer_control_block.h"
 #include "runtime/closure_guard.h"
 #include "runtime/data_stream_mgr.h"

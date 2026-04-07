@@ -54,11 +54,11 @@
 #include <limits>
 #include <system_error>
 
+#include "absl/strings/str_split.h"
 #include "base/path/file_util.h"
 #include "base/string/string_parser.hpp"
 #include "base/system/errno.h"
 #include "base/utility/pretty_printer.h"
-#include "absl/strings/str_split.h"
 
 namespace starrocks {
 

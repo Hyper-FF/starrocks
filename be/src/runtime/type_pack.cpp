@@ -14,10 +14,10 @@
 
 #include "runtime/type_pack.h"
 
+#include "absl/strings/substitute.h"
 #include "base/string/faststring.h"
 #include "base/utility/meta_macro.h"
 #include "column/runtime_type_traits.h"
-#include "absl/strings/substitute.h"
 #include "types/datum.h"
 #include "types/logical_type.h"
 

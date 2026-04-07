@@ -45,6 +45,9 @@
 #include <set>
 #include <string>
 
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/hash/crc32c.h"
 #include "base/path/path_util.h"
@@ -64,9 +67,6 @@
 #include "gen_cpp/olap_file.pb.h"
 #include "gen_cpp/segment.pb.h"
 #include "gen_cpp/types.pb.h"
-#include "absl/strings/numbers.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 #include "json2pb/pb_to_json.h"
 #include "runtime/memory/mem_chunk_allocator.h"
 #include "storage/chunk_helper.h"
@@ -762,8 +762,8 @@ Status get_segment_footer(RandomAccessFile* input_file, SegmentFooterPB* footer)
     // read footer PB
     uint32_t footer_length = starrocks::decode_fixed32_le(fixed_buf);
     if (file_size < 12 + footer_length) {
-        return Status::Corruption(absl::Substitute("Bad segment file $0: file size $1 < $2", file_name, file_size,
-                                                      12 + footer_length));
+        return Status::Corruption(
+                absl::Substitute("Bad segment file $0: file size $1 < $2", file_name, file_size, 12 + footer_length));
     }
     std::string footer_buf;
     footer_buf.resize(footer_length);
@@ -775,13 +775,12 @@ Status get_segment_footer(RandomAccessFile* input_file, SegmentFooterPB* footer)
     if (actual_checksum != expect_checksum) {
         return Status::Corruption(
                 absl::Substitute("Bad segment file $0: footer checksum not match, actual=$1 vs expect=$2", file_name,
-                                    actual_checksum, expect_checksum));
+                                 actual_checksum, expect_checksum));
     }
 
     // deserialize footer PB
     if (!footer->ParseFromString(footer_buf)) {
-        return Status::Corruption(
-                absl::Substitute("Bad segment file $0: failed to parse SegmentFooterPB", file_name));
+        return Status::Corruption(absl::Substitute("Bad segment file $0: failed to parse SegmentFooterPB", file_name));
     }
     return Status::OK();
 }

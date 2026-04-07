@@ -17,10 +17,10 @@
 #include <memory>
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "column/column.h"
 #include "column/vectorized_fwd.h"
 #include "common/object_pool.h"
-#include "absl/strings/substitute.h"
 #include "types/bitmap_value.h"
 #include "types/datum.h"
 #include "types/hll.h"
@@ -198,7 +198,7 @@ public:
     Status capacity_limit_reached() const override {
         if (_pool.size() > Column::MAX_CAPACITY_LIMIT) {
             return Status::CapacityLimitExceed(absl::Substitute("row count of object column exceed the limit: $0",
-                                                                   std::to_string(Column::MAX_CAPACITY_LIMIT)));
+                                                                std::to_string(Column::MAX_CAPACITY_LIMIT)));
         }
         return Status::OK();
     }

@@ -38,6 +38,8 @@
 #include <sstream>
 #include <string>
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
 #include "common/config_compaction_fwd.h"
@@ -45,8 +47,6 @@
 #include "common/status.h"
 #include "common/tracer.h"
 #include "fmt/core.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 #include "http/http_channel.h"
 #include "http/http_headers.h"
 #include "http/http_request.h"

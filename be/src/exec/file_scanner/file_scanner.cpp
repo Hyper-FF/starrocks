@@ -16,6 +16,7 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
@@ -30,7 +31,6 @@
 #include "fs/fs.h"
 #include "fs/fs_broker.h"
 #include "fs/fs_factory.h"
-#include "absl/strings/substitute.h"
 #include "io/compressed_input_stream.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
@@ -107,8 +107,8 @@ Status FileScanner::init_expr_ctx() {
 
         auto it = _params.expr_of_dest_slot.find(slot_desc->id());
         if (it == std::end(_params.expr_of_dest_slot)) {
-            return Status::InternalError(absl::Substitute("No expr for dest slot, id=$0, name=$1", slot_desc->id(),
-                                                             slot_desc->col_name()));
+            return Status::InternalError(
+                    absl::Substitute("No expr for dest slot, id=$0, name=$1", slot_desc->id(), slot_desc->col_name()));
         }
 
         ExprContext* ctx = nullptr;

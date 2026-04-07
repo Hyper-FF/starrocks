@@ -38,6 +38,9 @@
 #include <memory>
 #include <thread>
 
+#include "absl/strings/ascii.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "agent/agent_server.h"
 #include "base/string/parse_util.h"
 #include "base/time/time.h"
@@ -66,10 +69,7 @@
 #include "fs/fs_s3.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/TFileBrokerService.h"
-#include "absl/strings/ascii.h"
-#include "absl/strings/str_join.h"
 #include "gutil/strings/split.h"
-#include "absl/strings/substitute.h"
 #include "runtime/base_load_path_mgr.h"
 #include "runtime/batch_write/batch_write_mgr.h"
 #include "runtime/broker_mgr.h"
