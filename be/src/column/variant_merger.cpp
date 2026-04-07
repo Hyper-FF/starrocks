@@ -23,7 +23,6 @@
 #include "column/variant_column.h"
 #include "column/variant_converter.h"
 #include "column/variant_encoder.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "types/datum.h"
 #include "types/logical_type.h"
@@ -38,7 +37,7 @@ static StatusOr<const VariantColumn*> get_variant_data_column(const Column* colu
     if (data == nullptr || !data->is_variant()) {
         return Status::InvalidArgument("all inputs must be variant columns");
     }
-    return down_cast<const VariantColumn*>(data);
+    return static_cast<const VariantColumn*>(data);
 }
 
 static int get_integer_rank(LogicalType type) {
@@ -184,7 +183,7 @@ static StatusOr<MutableColumnPtr> cast_numeric_column(const Column& src_col, Log
 
 template <LogicalType ResultType>
 static StatusOr<MutableColumnPtr> cast_variant_column_to_scalar(const Column& src_col, const cctz::time_zone& zone) {
-    const auto* variant_col = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(&src_col));
+    const auto* variant_col = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(&src_col));
     if (variant_col == nullptr) {
         return Status::InvalidArgument("input variant column is invalid");
     }
@@ -546,7 +545,7 @@ static Status append_with_schema_arbitration(VariantColumn* dst, const VariantCo
     }
 
     auto src_mutable = VariantColumn::deep_copy_shredded(src);
-    auto* src_variant = down_cast<VariantColumn*>(src_mutable.get());
+    auto* src_variant = static_cast<VariantColumn*>(src_mutable.get());
     RETURN_IF_ERROR(VariantColumnMerger::arbitrate_type_conflicts(dst, src_variant));
     dst->append(*src_variant, 0, src_variant->size());
     return Status::OK();
@@ -569,7 +568,7 @@ StatusOr<MutableColumnPtr> VariantColumnMerger::merge(const Columns& inputs) {
     }
 
     auto merged = VariantColumn::create();
-    auto* merged_variant = down_cast<VariantColumn*>(merged.get());
+    auto* merged_variant = static_cast<VariantColumn*>(merged.get());
     ASSIGN_OR_RETURN(const auto* first_variant, get_variant_data_column(inputs[0].get()));
     if (!merged_variant->align_schema_from(*first_variant)) {
         return Status::InvalidArgument("failed to initialize merged variant schema");

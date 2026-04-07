@@ -147,7 +147,7 @@ TEST_F(StringFunctionSubstrTest, substrConstASCIITest) {
         state->pos = offset;
         state->len = len;
         ColumnPtr result = StringFunctions::substring(ctx.get(), columns).value();
-        auto* binary = down_cast<const BinaryColumn*>(result.get());
+        auto* binary = static_cast<const BinaryColumn*>(result.get());
         ASSERT_EQ(binary->size(), 2);
         ASSERT_EQ(binary->get_slice(0).to_string(), expect);
         ASSERT_EQ(binary->get_slice(1).to_string(), "");
@@ -195,7 +195,7 @@ TEST_F(StringFunctionSubstrTest, substrConstZhTest) {
         state->pos = offset;
         state->len = len;
         ColumnPtr result = StringFunctions::substring(ctx.get(), columns).value();
-        auto* binary = down_cast<const BinaryColumn*>(result.get());
+        auto* binary = static_cast<const BinaryColumn*>(result.get());
         ASSERT_EQ(binary->get_slice(0).to_string(), expect);
         ASSERT_EQ(binary->get_slice(1).to_string(), "");
     }
@@ -278,7 +278,7 @@ TEST_F(StringFunctionSubstrTest, substrConstUtf8Test) {
         state->pos = offset;
         state->len = len;
         ColumnPtr result = StringFunctions::substring(ctx.get(), columns).value();
-        auto* binary = down_cast<const BinaryColumn*>(result.get());
+        auto* binary = static_cast<const BinaryColumn*>(result.get());
         ASSERT_EQ(binary->get_slice(0).to_string(), expect);
         ASSERT_EQ(binary->get_slice(1).to_string(), "");
     }
@@ -452,8 +452,8 @@ static void test_left_and_right_not_const(
     columns.emplace_back(len_col);
     ColumnPtr left_result = StringFunctions::left(context.get(), columns).value();
     ColumnPtr right_result = StringFunctions::right(context.get(), columns).value();
-    auto* binary_left_result = down_cast<const BinaryColumn*>(left_result.get());
-    auto* binary_right_result = down_cast<const BinaryColumn*>(right_result.get());
+    auto* binary_left_result = static_cast<const BinaryColumn*>(left_result.get());
+    auto* binary_right_result = static_cast<const BinaryColumn*>(right_result.get());
     ASSERT_TRUE(binary_left_result != nullptr);
     ASSERT_TRUE(binary_right_result != nullptr);
     const auto size = cases.size();
@@ -489,8 +489,8 @@ static void test_left_and_right_not_const(
         left_result = StringFunctions::left(context.get(), columns).value();
         substr_state->pos = -len;
         right_result = StringFunctions::right(context.get(), columns).value();
-        binary_left_result = down_cast<const BinaryColumn*>(left_result.get());
-        binary_right_result = down_cast<const BinaryColumn*>(right_result.get());
+        binary_left_result = static_cast<const BinaryColumn*>(left_result.get());
+        binary_right_result = static_cast<const BinaryColumn*>(right_result.get());
         ASSERT_TRUE(binary_left_result != nullptr);
         ASSERT_TRUE(binary_right_result != nullptr);
         ASSERT_EQ(binary_left_result->size(), 1);
@@ -579,8 +579,8 @@ static void test_left_and_right_const(
         substr_state->len = len;
         auto left_result = StringFunctions::left(context.get(), columns).value();
         auto right_result = StringFunctions::right(context.get(), columns).value();
-        auto binary_left_result = down_cast<const BinaryColumn*>(left_result.get());
-        auto binary_right_result = down_cast<const BinaryColumn*>(right_result.get());
+        auto binary_left_result = static_cast<const BinaryColumn*>(left_result.get());
+        auto binary_right_result = static_cast<const BinaryColumn*>(right_result.get());
         ASSERT_TRUE(binary_left_result != nullptr);
         ASSERT_TRUE(binary_right_result != nullptr);
         const auto size = str_col->size();
@@ -663,7 +663,7 @@ static void test_substr_not_const(std::vector<std::tuple<std::string, int, int, 
     }
     Columns columns{std::move(str_col), std::move(off_col), std::move(len_col)};
     auto result = StringFunctions::substring(context.get(), columns).value();
-    auto* binary_result = down_cast<const BinaryColumn*>(result.get());
+    auto* binary_result = static_cast<const BinaryColumn*>(result.get());
     const auto size = cases.size();
     ASSERT_TRUE(binary_result != nullptr);
     ASSERT_EQ(binary_result->size(), size);

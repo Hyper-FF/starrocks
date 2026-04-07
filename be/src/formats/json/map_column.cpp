@@ -23,7 +23,7 @@ namespace starrocks {
 
 Status add_map_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                       simdjson::ondemand::value* value) {
-    auto map_column = down_cast<MapColumn*>(column);
+    auto map_column = static_cast<MapColumn*>(column);
 
     try {
         if (value->type() != simdjson::ondemand::json_type::object) {

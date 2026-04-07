@@ -70,18 +70,18 @@ Status MapColumnIterator::next_batch(size_t* n, Column* dst) {
     MapColumn* map_column = nullptr;
     NullColumn* null_column = nullptr;
     if (dst->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
 
-        map_column = down_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
-        null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+        map_column = static_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
+        null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     } else {
-        map_column = down_cast<MapColumn*>(dst);
+        map_column = static_cast<MapColumn*>(dst);
     }
 
     // 1. Read null column
     if (_nulls != nullptr) {
         RETURN_IF_ERROR(_nulls->next_batch(n, null_column));
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     // 2. Read offset column
@@ -133,12 +133,12 @@ Status MapColumnIterator::next_batch(const SparseRange<>& range, Column* dst) {
     MapColumn* map_column = nullptr;
     NullColumn* null_column = nullptr;
     if (dst->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
 
-        map_column = down_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
-        null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+        map_column = static_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
+        null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     } else {
-        map_column = down_cast<MapColumn*>(dst);
+        map_column = static_cast<MapColumn*>(dst);
     }
 
     CHECK((_nulls == nullptr && null_column == nullptr) || (_nulls != nullptr && null_column != nullptr));
@@ -146,7 +146,7 @@ Status MapColumnIterator::next_batch(const SparseRange<>& range, Column* dst) {
     // 1. Read null column
     if (_nulls != nullptr) {
         RETURN_IF_ERROR(_nulls->next_batch(range, null_column));
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     SparseRange element_read_range;
@@ -185,13 +185,13 @@ Status MapColumnIterator::fetch_values_by_rowid(const rowid_t* rowids, size_t si
     NullColumn* null_column = nullptr;
     // 1. Read null column
     if (_nulls != nullptr) {
-        auto* nullable_column = down_cast<NullableColumn*>(values);
-        map_column = down_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
-        null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(values);
+        map_column = static_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
+        null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
         RETURN_IF_ERROR(_nulls->fetch_values_by_rowid(rowids, size, null_column));
         nullable_column->update_has_null();
     } else {
-        map_column = down_cast<MapColumn*>(values);
+        map_column = static_cast<MapColumn*>(values);
     }
 
     // 2. Read offset column
@@ -321,10 +321,10 @@ StatusOr<std::vector<std::pair<int64_t, int64_t>>> MapColumnIterator::get_io_ran
                                                                                        Column* dst) {
     MapColumn* map_column = nullptr;
     if (dst->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
-        map_column = down_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
+        map_column = static_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
     } else {
-        map_column = down_cast<MapColumn*>(dst);
+        map_column = static_cast<MapColumn*>(dst);
     }
 
     std::vector<std::pair<int64_t, int64_t>> res;

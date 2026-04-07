@@ -147,7 +147,7 @@ FileWriter::CommitResult ORCFileWriter::close() {
 
 StatusOr<std::unique_ptr<orc::ColumnVectorBatch>> ORCFileWriter::_convert(Chunk* chunk) {
     auto cvb = _writer->createRowBatch(chunk->num_rows());
-    auto root = down_cast<orc::StructVectorBatch*>(cvb.get());
+    auto root = static_cast<orc::StructVectorBatch*>(cvb.get());
 
     for (size_t i = 0; i < _column_evaluators.size(); ++i) {
         ASSIGN_OR_RETURN(auto column, _column_evaluators[i]->evaluate(chunk));
@@ -219,7 +219,7 @@ inline const uint8_t* get_raw_null_column(const ColumnPtr& col) {
     if (!col->has_null()) {
         return nullptr;
     }
-    auto null_column = down_cast<const NullableColumn*>(col.get())->null_column();
+    auto null_column = static_cast<const NullableColumn*>(col.get())->null_column();
     auto* raw_column = null_column->immutable_data().data();
     return raw_column;
 }
@@ -227,7 +227,7 @@ inline const uint8_t* get_raw_null_column(const ColumnPtr& col) {
 template <LogicalType lt>
 inline const RunTimeCppType<lt>* get_raw_data_column(const ColumnPtr& col) {
     auto* data_column = ColumnHelper::get_data_column(col.get());
-    auto* raw_column = down_cast<const RunTimeColumnType<lt>*>(data_column)->immutable_data().data();
+    auto* raw_column = static_cast<const RunTimeColumnType<lt>*>(data_column)->immutable_data().data();
     return raw_column;
 }
 
@@ -257,7 +257,7 @@ Status ORCFileWriter::_write_string(orc::ColumnVectorBatch& orc_column, const Co
     orc_column.numElements = column_size;
 
     auto* null_col = get_raw_null_column(column);
-    auto* data_col = down_cast<const RunTimeColumnType<TYPE_VARCHAR>*>(ColumnHelper::get_data_column(column.get()));
+    auto* data_col = static_cast<const RunTimeColumnType<TYPE_VARCHAR>*>(ColumnHelper::get_data_column(column.get()));
 
     _populate_orc_notnull(orc_column, null_col, column_size);
 
@@ -351,7 +351,7 @@ Status ORCFileWriter::_write_map(const TypeDescriptor& type, orc::ColumnVectorBa
 
     auto* null_col = get_raw_null_column(column);
     auto* data_col =
-            down_cast<RunTimeColumnType<TYPE_MAP>*>(ColumnHelper::get_data_column(column->as_mutable_raw_ptr()));
+            static_cast<RunTimeColumnType<TYPE_MAP>*>(ColumnHelper::get_data_column(column->as_mutable_raw_ptr()));
 
     _populate_orc_notnull(orc_column, null_col, column_size);
 

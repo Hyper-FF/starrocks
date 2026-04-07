@@ -66,9 +66,9 @@ public:
         auto [map_column, map_nulls] = ColumnHelper::unpack_nullable_column(map_col);
         auto [key_column, key_nulls] = ColumnHelper::unpack_nullable_column(key_col);
 
-        const auto& map_keys = down_cast<const MapColumn*>(map_column)->keys_column();
-        const auto& map_values = down_cast<const MapColumn*>(map_column)->values_column();
-        const auto offsets = down_cast<const MapColumn*>(map_column)->offsets().immutable_data();
+        const auto& map_keys = static_cast<const MapColumn*>(map_column)->keys_column();
+        const auto& map_values = static_cast<const MapColumn*>(map_column)->values_column();
+        const auto offsets = static_cast<const MapColumn*>(map_column)->offsets().immutable_data();
         std::span<const uint8_t> map_nulls_view =
                 map_nulls != nullptr ? map_nulls->immutable_data() : std::span<uint8_t>{};
         std::span<const uint8_t> key_nulls_view =
@@ -123,7 +123,7 @@ public:
         if (map_is_const && key_is_const) {
             if (!res->is_null(0)) {
                 // map_value is nullable, remove it.
-                auto col = down_cast<NullableColumn*>(res.get())->data_column();
+                auto col = static_cast<NullableColumn*>(res.get())->data_column();
                 return ConstColumn::create(std::move(col), num_rows);
             }
             return ConstColumn::create(std::move(res), num_rows);

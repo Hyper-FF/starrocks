@@ -35,7 +35,7 @@
 #include "common/config_starlet_fwd.h"
 #include "fs/encrypt_file.h"
 #include "fs/output_stream_adapter.h"
-#include "gutil/strings/util.h"
+#include "base/gutil/strings/util.h"
 #include "io/core/input_stream.h"
 #include "io/core/output_stream.h"
 #include "io/core/seekable_input_stream.h"

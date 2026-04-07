@@ -26,7 +26,6 @@
 #include "exprs/agg/aggregate.h"
 #include "exprs/function_context.h"
 #include "exprs/function_helper.h"
-#include "gutil/casts.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -162,7 +161,7 @@ public:
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_binary());
 
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
 
         const std::string& value = this->data(state).intermediate_string;
@@ -199,11 +198,11 @@ public:
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         if (src.size() > 1) {
-            auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+            auto* dst_column = static_cast<BinaryColumn*>(dst.get());
             Bytes& bytes = dst_column->get_bytes();
-            const auto* column_value = down_cast<const BinaryColumn*>(src[0].get());
+            const auto* column_value = static_cast<const BinaryColumn*>(src[0].get());
             if (!src[1]->is_constant()) {
-                const auto* column_sep = down_cast<const BinaryColumn*>(src[1].get());
+                const auto* column_sep = static_cast<const BinaryColumn*>(src[1].get());
                 if (chunk_size > 0) {
                     size_t old_size = bytes.size();
                     CHECK_EQ(old_size, 0);
@@ -247,9 +246,9 @@ public:
                 }
             }
         } else { //", "
-            auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+            auto* dst_column = static_cast<BinaryColumn*>(dst.get());
             Bytes& bytes = dst_column->get_bytes();
-            const auto* column_value = down_cast<const BinaryColumn*>(src[0].get());
+            const auto* column_value = static_cast<const BinaryColumn*>(src[0].get());
 
             if (chunk_size > 0) {
                 const char* sep = ", ";
@@ -287,7 +286,7 @@ public:
 
         data = data + offset;
         size = size - offset;
-        down_cast<ResultColumnType*>(to)->append(Slice(data, size));
+        static_cast<ResultColumnType*>(to)->append(Slice(data, size));
     }
 
     std::string get_name() const override { return "group concat"; }
@@ -393,7 +392,7 @@ public:
             auto tmp_row_num = row_num;
             if (columns[i]->is_constant()) {
                 // just copy the first const value.
-                data_col = down_cast<const ConstColumn*>(columns[i])->data_column().get();
+                data_col = static_cast<const ConstColumn*>(columns[i])->data_column().get();
                 tmp_row_num = 0;
             }
             this->data(state).update(ctx, *data_col, i, tmp_row_num, 1);
@@ -443,7 +442,7 @@ public:
         if (column->is_nullable() && column->is_null(row_num)) {
             return;
         }
-        const auto& input_columns = down_cast<const StructColumn*>(ColumnHelper::get_data_column(column))->fields();
+        const auto& input_columns = static_cast<const StructColumn*>(ColumnHelper::get_data_column(column))->fields();
         auto& state_impl = this->data(state);
         if (state_impl.data_columns == nullptr) {
             create_impl(ctx, state_impl);
@@ -455,7 +454,7 @@ public:
             }
         }
         for (auto i = 0; i < input_columns.size(); ++i) {
-            auto array_column = down_cast<const ArrayColumn*>(ColumnHelper::get_data_column(input_columns[i].get()));
+            auto array_column = static_cast<const ArrayColumn*>(ColumnHelper::get_data_column(input_columns[i].get()));
             auto offsets = array_column->offsets().immutable_data();
             state_impl.update(ctx, array_column->elements(), i, offsets[row_num],
                               offsets[row_num + 1] - offsets[row_num]);
@@ -475,16 +474,16 @@ public:
             to->append_default();
             return;
         }
-        auto* struct_column = down_cast<StructColumn*>(ColumnHelper::get_data_column(to));
+        auto* struct_column = static_cast<StructColumn*>(ColumnHelper::get_data_column(to));
         if (to->is_nullable()) {
-            down_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
+            static_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
         }
         for (auto i = 0; i < struct_column->fields_size(); ++i) {
             auto elem_size = (*state_impl.data_columns)[i]->size();
             auto* field_column = struct_column->field_column_raw_ptr(i);
-            auto array_col = down_cast<ArrayColumn*>(ColumnHelper::get_data_column(field_column));
+            auto array_col = static_cast<ArrayColumn*>(ColumnHelper::get_data_column(field_column));
             if (field_column->is_nullable()) {
-                down_cast<NullableColumn*>(field_column)->null_column_data().emplace_back(0);
+                static_cast<NullableColumn*>(field_column)->null_column_data().emplace_back(0);
             }
             auto* elements_col = array_col->elements_column_raw_ptr();
             elements_col->append(
@@ -503,7 +502,7 @@ public:
     // output columns wouldn't be null.
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* struct_column = down_cast<StructColumn*>(ColumnHelper::get_data_column(dst.get()));
+        auto* struct_column = static_cast<StructColumn*>(ColumnHelper::get_data_column(dst.get()));
         size_t columns_size = struct_column->fields_size();
         if (UNLIKELY(src.size() != columns_size)) {
             ctx->set_error(std::string(get_name() + " to-serialized column num " + std::to_string(src.size()) +
@@ -527,14 +526,14 @@ public:
                 continue;
             }
             if (src[j]->is_nullable()) {
-                auto null_col = down_cast<const NullableColumn*>(src[j].get())->null_column_data();
+                auto null_col = static_cast<const NullableColumn*>(src[j].get())->null_column_data();
                 for (int i = 0; i < chunk_size; ++i) {
                     null_data[i] |= null_col[i];
                 }
             }
         }
         if (dst->is_nullable()) {
-            auto nullable_col = down_cast<NullableColumn*>(dst.get());
+            auto nullable_col = static_cast<NullableColumn*>(dst.get());
             for (size_t i = 0; i < chunk_size; i++) {
                 nullable_col->null_column_data().emplace_back(null_data[i]);
             }
@@ -549,8 +548,8 @@ public:
         auto old_size = struct_column->field_column_raw_ptr(0)->size();
         for (auto j = 0; j < columns_size; ++j) {
             auto* field_column = struct_column->field_column_raw_ptr(j);
-            nullable_arrays[j] = down_cast<NullableColumn*>(field_column);
-            arrays[j] = down_cast<ArrayColumn*>(nullable_arrays[j]->data_column_raw_ptr());
+            nullable_arrays[j] = static_cast<NullableColumn*>(field_column);
+            arrays[j] = static_cast<ArrayColumn*>(nullable_arrays[j]->data_column_raw_ptr());
             arrays[j]->reserve(old_size + chunk_size);
             array_nulls[j] = &(nullable_arrays[j]->null_column_data());
             array_nulls[j]->resize(old_size + chunk_size);
@@ -652,9 +651,9 @@ public:
             }
         }
         // copy col_0, col_1 ... col_n row by row
-        auto* string = down_cast<BinaryColumn*>(ColumnHelper::get_data_column(to));
+        auto* string = static_cast<BinaryColumn*>(ColumnHelper::get_data_column(to));
         if (to->is_nullable()) {
-            down_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
+            static_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
         }
         Bytes& bytes = string->get_bytes();
         size_t offset = bytes.size();
@@ -662,7 +661,7 @@ public:
         std::vector<BinaryColumn*> binary_cols(output_col_num);
         for (auto i = 0; i < output_col_num; ++i) {
             auto tmp = ColumnHelper::get_data_column(outputs[i]->as_mutable_raw_ptr());
-            binary_cols[i] = down_cast<BinaryColumn*>(tmp);
+            binary_cols[i] = static_cast<BinaryColumn*>(tmp);
             length += binary_cols[i]->get_bytes().size();
         }
 

@@ -76,7 +76,7 @@ public:
     OlapTableSinkOperatorFactory(int32_t id, DataSink* sink, FragmentContext* const fragment_ctx,
                                  int32_t start_sender_id, std::vector<std::unique_ptr<AsyncDataSink>>& tablet_sinks)
             : OperatorFactory(id, "olap_table_sink", Operator::s_pseudo_plan_node_id_for_final_sink),
-              _sink0(down_cast<AsyncDataSink*>(sink)),
+              _sink0(static_cast<AsyncDataSink*>(sink)),
               _fragment_ctx(fragment_ctx),
               _cur_sender_id(start_sender_id),
               _sinks(std::move(tablet_sinks)) {}

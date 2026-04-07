@@ -361,7 +361,7 @@ Status JDBCScanner::_fill_chunk(jobject jchunk, size_t num_rows, ChunkPtr* chunk
             auto* result_column = _result_chunk->get_column_raw_ptr_by_index(i);
             auto st = helper.get_result_from_boxed_array(_result_column_types[i], result_column, jcolumn, num_rows);
             RETURN_IF_ERROR(st);
-            down_cast<NullableColumn*>(result_column)->update_has_null();
+            static_cast<NullableColumn*>(result_column)->update_has_null();
         }
     }
 
@@ -372,7 +372,7 @@ Status JDBCScanner::_fill_chunk(jobject jchunk, size_t num_rows, ChunkPtr* chunk
         // use reference, then we check the column's nullable and set the final result to the referred column.
         ColumnPtr& column = (*chunk)->get_column_by_slot_id(slot_desc->id());
         ASSIGN_OR_RETURN(auto result, _cast_exprs[col_idx]->evaluate(_result_chunk.get()));
-        // unfold const_nullable_column to avoid error down_cast.
+        // unfold const_nullable_column to avoid error static_cast.
         // unpack_and_duplicate_const_column is not suitable, we need set correct type.
         result = ColumnHelper::unfold_const_column(slot_desc->type(), num_rows, result);
         if (column->is_nullable() == result->is_nullable()) {
@@ -384,7 +384,7 @@ Status JDBCScanner::_fill_chunk(jobject jchunk, size_t num_rows, ChunkPtr* chunk
                 return Status::DataQualityError(
                         fmt::format("Unexpected NULL value occurs on NOT NULL column[{}]", slot_desc->col_name()));
             }
-            column = down_cast<const NullableColumn*>(result.get())->data_column();
+            column = static_cast<const NullableColumn*>(result.get())->data_column();
         }
     }
     return Status::OK();

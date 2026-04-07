@@ -99,7 +99,7 @@ PARALLEL_TEST(ColumnArraySerdeTest, variant_column) {
 
     auto primitive_header = [](VariantType type) { return (static_cast<uint8_t>(type) << 2); };
 
-    // Prepare 5 int8 variant values
+    // Prepare 5 int8_t variant values
     const uint8_t int8_values[][2] = {
             {primitive_header(VariantType::INT8), 0x01}, // 1
             {primitive_header(VariantType::INT8), 0x02}, // 2

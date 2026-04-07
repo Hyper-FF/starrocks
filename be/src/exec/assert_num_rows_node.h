@@ -28,7 +28,6 @@
 #include "exec/pipeline_node.h"
 #include "exprs/expr_context.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {

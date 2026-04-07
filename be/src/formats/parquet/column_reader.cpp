@@ -158,7 +158,7 @@ bool ColumnReader::check_type_can_apply_bloom_filter(const TypeDescriptor& col_t
         if (parquet_type == tparquet::Type::type::INT32) {
             appliable = true;
         }
-        //TODO: if parquet type is int64, convert the val;
+        //TODO: if parquet type is int64_t, convert the val;
     } else if (type == LogicalType::TYPE_BIGINT) {
         if (parquet_type == tparquet::Type::type::INT64) {
             appliable = true;

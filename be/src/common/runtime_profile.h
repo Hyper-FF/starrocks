@@ -50,8 +50,8 @@
 #include "common/compiler_util.h"
 #include "common/logging.h"
 #include "common/object_pool.h"
+#include "absl/base/casts.h"
 #include "gen_cpp/RuntimeProfile_types.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -141,7 +141,7 @@ public:
             } while (UNLIKELY(!_value.compare_exchange_strong(old, old | delta, std::memory_order_relaxed)));
         }
 
-        virtual double double_value() const { return bit_cast<double>(_value.load(std::memory_order_relaxed)); }
+        virtual double double_value() const { return absl::bit_cast<double>(_value.load(std::memory_order_relaxed)); }
 
         virtual void set_min(int64_t min) { _min_value.emplace(min); }
         virtual void clear_min() { _min_value.reset(); }
@@ -179,7 +179,7 @@ public:
     protected:
         virtual void set(int64_t value) { _value.store(value, std::memory_order_relaxed); }
 
-        virtual void set(double value) { _value.store(bit_cast<int64_t>(value), std::memory_order_relaxed); }
+        virtual void set(double value) { _value.store(absl::bit_cast<int64_t>(value), std::memory_order_relaxed); }
 
         virtual void update(int64_t delta) { _value.fetch_add(delta, std::memory_order_relaxed); }
 

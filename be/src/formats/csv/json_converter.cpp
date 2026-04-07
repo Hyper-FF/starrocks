@@ -16,14 +16,13 @@
 
 #include "column/json_column.h"
 #include "common/logging.h"
-#include "gutil/casts.h"
 #include "types/date_value.h"
 
 namespace starrocks::csv {
 
 Status JsonConverter::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                    const Options& options) const {
-    auto data_column = down_cast<const JsonColumn*>(&column);
+    auto data_column = static_cast<const JsonColumn*>(&column);
     auto json_value = data_column->get_object(row_num);
     auto json_str = json_value->to_string_uncheck();
     return os->write(json_str);
@@ -39,7 +38,7 @@ Status JsonConverter::write_quoted_string(io::FormattedOutputStream* os, const C
 bool JsonConverter::read_string(Column* column, const Slice& s, const Options& options) const {
     auto json = JsonValue::parse(s);
     if (json.ok()) {
-        auto json_column = down_cast<JsonColumn*>(column);
+        auto json_column = static_cast<JsonColumn*>(column);
         json_column->append(&json.value());
         return true;
     }

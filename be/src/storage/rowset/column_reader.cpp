@@ -335,7 +335,7 @@ Status ColumnReader::_init(ColumnMetaPB* meta, const TabletColumn* column) {
             auto sub_column = (column != nullptr) ? column->subcolumn_ptr(i) : nullptr;
             if (sub_column != nullptr) {
                 // the type of unique_id in meta is uint32_t and the default value is -1(4294967295), but the type of
-                // unique id in tablet column is int32_t. so cast to int32 to compare
+                // unique id in tablet column is int32_t. so cast to int32_t to compare
                 int32_t uid_in_meta = static_cast<int32_t>(meta->mutable_children_columns(i)->unique_id());
                 int32_t uid_in_col = sub_column->unique_id();
                 if (uid_in_meta != uid_in_col) {

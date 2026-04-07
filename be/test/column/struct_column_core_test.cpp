@@ -34,14 +34,14 @@ TEST(StructColumnCoreTest, SerializeAndSelectiveAppend) {
     col->serialize(0, encoded.data());
 
     auto restored_holder = col->clone_empty();
-    auto* restored = down_cast<StructColumn*>(restored_holder.get());
+    auto* restored = static_cast<StructColumn*>(restored_holder.get());
     restored->deserialize_and_append(encoded.data());
 
     ASSERT_EQ(1, restored->size());
     EXPECT_EQ("{id:1,name:'a'}", restored->debug_item(0));
 
     auto dst_holder = col->clone_empty();
-    auto* dst = down_cast<StructColumn*>(dst_holder.get());
+    auto* dst = static_cast<StructColumn*>(dst_holder.get());
     const uint32_t indexes[] = {1, 0};
     dst->append_selective(*col, indexes, 0, 2);
 

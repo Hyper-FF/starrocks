@@ -27,7 +27,7 @@
 #include "common/status.h"
 #include "common/system/backend_options.h"
 #include "gen_cpp/tablet_schema.pb.h"
-#include "gutil/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "primary_key_encoder.h"
 #include "storage/aggregate_iterator.h"
 #include "storage/chunk_helper.h"

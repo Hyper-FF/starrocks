@@ -141,7 +141,7 @@ public:
         // Scalar function compute will return non-nullable column
         // for nullable column when the real whole chunk data all not-null.
         if (column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(column);
             auto imm_null_data = nullable_column->immutable_null_column_data();
             if (!imm_null_data[row_num]) {
                 this->data(state).is_null = false;
@@ -168,7 +168,7 @@ public:
         }
 
         DCHECK(to->is_nullable());
-        auto* nullable_column = down_cast<NullableColumn*>(to);
+        auto* nullable_column = static_cast<NullableColumn*>(to);
         if (LIKELY(!this->data(state).is_null)) {
             nested_function->serialize_to_column(ctx, this->data(state).nested_state(),
                                                  nullable_column->data_column_raw_ptr());
@@ -181,7 +181,7 @@ public:
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         if (LIKELY(!this->data(state).is_null && !null_pred(this->data(state).nested_state_with_type()))) {
             if (to->is_nullable()) {
-                auto* nullable_column = down_cast<NullableColumn*>(to);
+                auto* nullable_column = static_cast<NullableColumn*>(to);
                 nested_function->finalize_to_column(ctx, this->data(state).nested_state(),
                                                     nullable_column->data_column_raw_ptr());
                 nullable_column->null_column_data().push_back(0);
@@ -220,10 +220,10 @@ public:
         }
 
         DCHECK(dst->is_nullable());
-        auto* dst_nullable_column = down_cast<NullableColumn*>(dst.get());
+        auto* dst_nullable_column = static_cast<NullableColumn*>(dst.get());
         auto dst_data_column = dst_nullable_column->data_column()->as_mutable_ptr();
         if (src[0]->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(src[0].get());
+            const auto* nullable_column = static_cast<const NullableColumn*>(src[0].get());
             if constexpr (IsNeverNullFunctionState<State>) {
                 dst_nullable_column->null_column_data().resize(chunk_size);
                 nested_function->convert_to_serialize_format(ctx, src, chunk_size, dst_data_column);
@@ -262,7 +262,7 @@ public:
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK(dst->is_nullable());
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
         // binary column couldn't call resize method like Numeric Column
         // for non-slice type, null column data has been reset to zero in AnalyticNode
         // for slice type, we need to emplace back null data
@@ -343,7 +343,7 @@ public:
                 // Always ingore nulls.
                 return;
             }
-            const auto* column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* column = static_cast<const NullableColumn*>(columns[0]);
             data_columns[0] = &column->data_column_ref();
         } else {
             data_columns[0] = columns[0];
@@ -358,7 +358,7 @@ public:
         // Scalar function compute will return non-nullable column
         // for nullable column when the real whole chunk data all not-null.
         if (columns[0]->is_nullable()) {
-            const auto* column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* column = static_cast<const NullableColumn*>(columns[0]);
             const Column* data_column = &column->data_column_ref();
             const uint8_t* f_data = column->immutable_null_column_data().data();
             int offset = 0;
@@ -485,7 +485,7 @@ public:
         // Scalar function compute will return non-nullable column
         // for nullable column when the real whole chunk data all not-null.
         if (columns[0]->is_nullable()) {
-            const auto* column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* column = static_cast<const NullableColumn*>(columns[0]);
             const Column* data_column = &column->data_column_ref();
             const uint8_t* f_data = column->immutable_null_column_data().data();
             int offset = 0;
@@ -634,7 +634,7 @@ public:
         // Scalar function compute will return non-nullable column
         // for nullable column when the real whole chunk data all not-null.
         if (columns[0]->is_nullable()) {
-            const auto* column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* column = static_cast<const NullableColumn*>(columns[0]);
             const Column* data_column = &column->data_column_ref();
 
             // The fast pass
@@ -753,7 +753,7 @@ public:
         }
 
         if (columns[0]->is_nullable()) {
-            const auto* column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* column = static_cast<const NullableColumn*>(columns[0]);
             const Column* data_column = &column->data_column_ref();
 
             // The fast pass
@@ -807,7 +807,7 @@ public:
                 return;
             }
             if (columns[0]->is_nullable()) {
-                const auto* column = down_cast<const NullableColumn*>(columns[0]);
+                const auto* column = static_cast<const NullableColumn*>(columns[0]);
                 const Column* data_column = &column->data_column_ref();
 
                 // The fast pass
@@ -981,7 +981,7 @@ public:
                     // we don't process this row.
                     return;
                 }
-                const auto* column = down_cast<const NullableColumn*>(columns[i]);
+                const auto* column = static_cast<const NullableColumn*>(columns[i]);
                 data_columns[i] = &column->data_column_ref();
             } else {
                 data_columns[i] = columns[i];
@@ -1018,7 +1018,7 @@ public:
         for (size_t i = 0; i < column_size; i++) {
             if (columns[i]->is_nullable()) {
                 has_nullable_column = true;
-                const auto* column = down_cast<const NullableColumn*>(columns[i]);
+                const auto* column = static_cast<const NullableColumn*>(columns[i]);
                 data_columns[i] = &column->data_column_ref();
 
                 // compute null_datas for column that has null.
@@ -1081,7 +1081,7 @@ public:
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* dst_nullable_column = down_cast<NullableColumn*>(dst.get());
+        auto* dst_nullable_column = static_cast<NullableColumn*>(dst.get());
 
         // dst's null_column, initial with false.
         dst_nullable_column->null_column_data().resize(chunk_size);
@@ -1096,7 +1096,7 @@ public:
         for (const auto& i : src) {
             if (i->is_nullable()) {
                 has_nullable_column = true;
-                const auto* nullable_column = down_cast<const NullableColumn*>(
+                const auto* nullable_column = static_cast<const NullableColumn*>(
                         ColumnHelper::unpack_and_duplicate_const_column(i->size(), i).get());
                 data_columns.emplace_back(nullable_column->data_column());
                 if (i->has_null()) {
@@ -1145,7 +1145,7 @@ public:
                     // Always ingore nulls.
                     return;
                 }
-                const auto* column = down_cast<const NullableColumn*>(columns[i]);
+                const auto* column = static_cast<const NullableColumn*>(columns[i]);
                 data_columns[i] = &column->data_column_ref();
             } else {
                 data_columns[i] = columns[i];

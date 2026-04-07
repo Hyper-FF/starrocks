@@ -27,7 +27,6 @@
 #include "column/nullable_column.h"
 #include "column/struct_column.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 #include "types/date_value.h"
 #include "types/decimalv2_value.h"
 #include "types/decimalv3.h"
@@ -103,7 +102,7 @@ public:
 
 // Test fixed-length numeric types
 TEST_P(ColumnHashTest, test_fixed_length_numeric_types) {
-    // Test int8
+    // Test int8_t
     {
         auto col = Int8Column::create();
         col->append(1);
@@ -112,7 +111,7 @@ TEST_P(ColumnHashTest, test_fixed_length_numeric_types) {
         this->test_hash_function(col, 0, 3);
     }
 
-    // Test int16
+    // Test int16_t
     {
         auto col = Int16Column::create();
         col->append(100);
@@ -120,7 +119,7 @@ TEST_P(ColumnHashTest, test_fixed_length_numeric_types) {
         this->test_hash_function(col, 0, 2);
     }
 
-    // Test int32
+    // Test int32_t
     {
         auto col = Int32Column::create();
         col->append(1000);
@@ -128,7 +127,7 @@ TEST_P(ColumnHashTest, test_fixed_length_numeric_types) {
         this->test_hash_function(col, 0, 2);
     }
 
-    // Test int64
+    // Test int64_t
     {
         auto col = Int64Column::create();
         col->append(10000LL);
@@ -188,7 +187,7 @@ TEST_P(ColumnHashTest, test_decimal_types) {
     // Test Decimal32
     {
         auto col = Decimal32Column::create(9, 2, 2);
-        auto& data = down_cast<Decimal32Column*>(col.get())->get_data();
+        auto& data = static_cast<Decimal32Column*>(col.get())->get_data();
         DecimalV3Cast::from_string<int32_t>(&data[0], 9, 2, "12345.67", 8);
         DecimalV3Cast::from_string<int32_t>(&data[1], 9, 2, "67890.12", 8);
         this->test_hash_function(col, 0, 2);

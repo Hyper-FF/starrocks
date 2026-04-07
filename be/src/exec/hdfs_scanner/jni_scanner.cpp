@@ -158,7 +158,7 @@ Status JniScanner::_append_primitive_data(const FillColumnArgs& args) {
     char* column_ptr = static_cast<char*>(next_chunk_meta_as_ptr());
     using ColumnType = typename starrocks::RunTimeColumnType<type>;
     using CppType = typename starrocks::RunTimeCppType<type>;
-    auto* runtime_column = down_cast<ColumnType*>(args.column);
+    auto* runtime_column = static_cast<ColumnType*>(args.column);
     runtime_column->resize_uninitialized(args.num_rows);
     memcpy(runtime_column->get_data().data(), column_ptr, args.num_rows * sizeof(CppType));
     return Status::OK();
@@ -171,7 +171,7 @@ Status JniScanner::_append_string_data(const FillColumnArgs& args) {
 
     auto* data_column = args.column;
     using ColumnType = typename starrocks::RunTimeColumnType<type>;
-    auto* runtime_column = down_cast<ColumnType*>(data_column);
+    auto* runtime_column = static_cast<ColumnType*>(data_column);
     Bytes& bytes = runtime_column->get_bytes();
     Offsets& offsets = runtime_column->get_offset();
 
@@ -187,7 +187,7 @@ Status JniScanner::_append_string_data(const FillColumnArgs& args) {
 Status JniScanner::_append_array_data(const FillColumnArgs& args) {
     DCHECK(args.slot_type.is_array_type());
 
-    auto* array_column = down_cast<ArrayColumn*>(args.column);
+    auto* array_column = static_cast<ArrayColumn*>(args.column);
     int* offset_ptr = static_cast<int*>(next_chunk_meta_as_ptr());
 
     auto* offsets = array_column->offsets_column_raw_ptr();
@@ -210,7 +210,7 @@ Status JniScanner::_append_array_data(const FillColumnArgs& args) {
 Status JniScanner::_append_map_data(const FillColumnArgs& args) {
     DCHECK(args.slot_type.is_map_type());
 
-    auto* map_column = down_cast<MapColumn*>(args.column);
+    auto* map_column = static_cast<MapColumn*>(args.column);
     int* offset_ptr = static_cast<int*>(next_chunk_meta_as_ptr());
 
     auto* offsets = map_column->offsets_column_raw_ptr();
@@ -255,7 +255,7 @@ Status JniScanner::_append_map_data(const FillColumnArgs& args) {
 Status JniScanner::_append_struct_data(const FillColumnArgs& args) {
     DCHECK(args.slot_type.is_struct_type());
 
-    auto* struct_column = down_cast<StructColumn*>(args.column);
+    auto* struct_column = static_cast<StructColumn*>(args.column);
     const TypeDescriptor& type = args.slot_type;
     for (int i = 0; i < type.children.size(); i++) {
         Column* column = struct_column->field_column_raw_ptr(i);
@@ -288,7 +288,7 @@ Status JniScanner::_fill_column(FillColumnArgs* pargs) {
         // if column is nullable, we parse `null_column`,
         // and update `args.nulls` and set `data_column` to `args.column`
         bool* null_column_ptr = static_cast<bool*>(ptr);
-        auto* nullable_column = down_cast<NullableColumn*>(args.column);
+        auto* nullable_column = static_cast<NullableColumn*>(args.column);
 
         NullData& null_data = nullable_column->null_column_data();
         null_data.resize(args.num_rows);
@@ -511,7 +511,7 @@ std::unique_ptr<JniScanner> create_hive_jni_scanner(const JniScanner::CreateOpti
     std::string time_zone;
 
     if (dynamic_cast<const FileTableDescriptor*>(hive_table)) {
-        const auto* file_table = down_cast<const FileTableDescriptor*>(hive_table);
+        const auto* file_table = static_cast<const FileTableDescriptor*>(hive_table);
 
         data_file_path = scan_range.full_path;
 
@@ -521,7 +521,7 @@ std::unique_ptr<JniScanner> create_hive_jni_scanner(const JniScanner::CreateOpti
         input_format = file_table->get_input_format();
         time_zone = file_table->get_time_zone();
     } else if (dynamic_cast<const HdfsTableDescriptor*>(hive_table)) {
-        const auto* hdfs_table = down_cast<const HdfsTableDescriptor*>(hive_table);
+        const auto* hdfs_table = static_cast<const HdfsTableDescriptor*>(hive_table);
         auto* partition_desc = hdfs_table->get_partition(scan_range.partition_id);
         std::string partition_full_path = partition_desc->location();
         data_file_path = fmt::format("{}/{}", partition_full_path, scan_range.relative_path);

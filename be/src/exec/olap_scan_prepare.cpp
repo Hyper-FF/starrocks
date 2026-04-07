@@ -27,7 +27,7 @@
 #include "exprs/expr_context.h"
 #include "exprs/in_const_predicate.hpp"
 #include "exprs/is_null_predicate.h"
-#include "gutil/map_util.h"
+#include "base/gutil/map_util.h"
 #include "runtime/descriptors.h"
 #include "runtime/global_dict/fragment_dict_state.h"
 #include "runtime/runtime_filter.h"
@@ -135,9 +135,9 @@ static bool get_predicate_value(ObjectPool* obj_pool, const SlotDescriptor& slot
     // check column type, as not all exprs return a const column.
     ColumnPtr data = column_ptr;
     if (column_ptr->is_nullable()) {
-        data = down_cast<const NullableColumn*>(column_ptr.get())->data_column();
+        data = static_cast<const NullableColumn*>(column_ptr.get())->data_column();
     } else if (column_ptr->is_constant()) {
-        data = down_cast<const ConstColumn*>(column_ptr.get())->data_column();
+        data = static_cast<const ConstColumn*>(column_ptr.get())->data_column();
     } else { // defensive check.
         DCHECK(false) << "unreachable path: unknown column type of expr evaluate result";
         return false;
@@ -151,9 +151,9 @@ static bool get_predicate_value(ObjectPool* obj_pool, const SlotDescriptor& slot
 
     if constexpr (std::is_same_v<ValueType, DateValue>) {
         if (data->is_timestamp()) {
-            TimestampValue ts = down_cast<const TimestampColumn*>(data.get())->get(0).get_timestamp();
-            *value = implicit_cast<DateValue>(ts);
-            if (implicit_cast<TimestampValue>(*value) != ts) {
+            TimestampValue ts = static_cast<const TimestampColumn*>(data.get())->get(0).get_timestamp();
+            *value = static_cast<DateValue>(ts);
+            if (static_cast<TimestampValue>(*value) != ts) {
                 // |ts| has nonzero time, rewrite predicate.
                 switch (*op) {
                 case FILTER_LARGER_OR_EQUAL:
@@ -179,7 +179,7 @@ static bool get_predicate_value(ObjectPool* obj_pool, const SlotDescriptor& slot
             }
         } else {
             DCHECK(data->is_date());
-            *value = down_cast<const DateColumn*>(data.get())->get(0).get_date();
+            *value = static_cast<const DateColumn*>(data.get())->get(0).get_date();
         }
     } else if constexpr (std::is_same_v<ValueType, Slice>) {
         // |column_ptr| will be released after this method return, have to ensure that
@@ -432,7 +432,7 @@ Status ChunkPredicateBuilder<E, Type>::_build_bitset_in_predicates(PredicateComp
         const auto error_status = Status::NotSupported("runtime bitset filter do not support the logical type: " +
                                                        std::string(logical_type_to_string(slot_desc->type().type)));
         RETURN_IF_ERROR(type_dispatch_bitset_filter(slot_desc->type().type, error_status, [&]<LogicalType LT>() {
-            const auto* bitset_rf = down_cast<const RuntimeBitsetFilter<LT>*>(rf->get_membership_filter());
+            const auto* bitset_rf = static_cast<const RuntimeBitsetFilter<LT>*>(rf->get_membership_filter());
             auto bitset_in_pred = std::unique_ptr<ColumnPredicate>(
                     new_bitset_in_predicate(get_type_info(slot_desc->type().type), column_id, bitset_rf->bitset()));
             bitset_in_pred->set_index_filter_only(true);
@@ -511,7 +511,7 @@ requires(!lt_is_date<SlotType>) Status ChunkPredicateBuilder<E, Type>::normalize
             return Status::OK();
         }
 
-        const auto* pred = down_cast<const VectorizedInConstPredicate<MappingType>*>(root_expr);
+        const auto* pred = static_cast<const VectorizedInConstPredicate<MappingType>*>(root_expr);
         // join in runtime filter  will handle by `_normalize_join_runtime_filter`
         if (pred->is_join_runtime_filter()) {
             return Status::OK();
@@ -629,7 +629,7 @@ requires lt_is_date<SlotType> Status ChunkPredicateBuilder<E, Type>::normalize_i
 
                 if (pred_type == starrocks::TYPE_DATETIME) {
                     const auto* pred =
-                            down_cast<const VectorizedInConstPredicate<starrocks::TYPE_DATETIME>*>(root_expr);
+                            static_cast<const VectorizedInConstPredicate<starrocks::TYPE_DATETIME>*>(root_expr);
                     // join in runtime filter  will handle by `_normalize_join_runtime_filter`
                     if (pred->is_join_runtime_filter()) {
                         continue;
@@ -651,13 +651,13 @@ requires lt_is_date<SlotType> Status ChunkPredicateBuilder<E, Type>::normalize_i
 
                     values.reserve(pred->hash_set().size());
                     for (const TimestampValue& ts : pred->hash_set()) {
-                        auto date = implicit_cast<DateValue>(ts);
-                        if (implicit_cast<TimestampValue>(date) == ts) {
+                        auto date = static_cast<DateValue>(ts);
+                        if (static_cast<TimestampValue>(date) == ts) {
                             values.insert(date);
                         }
                     }
                 } else if (pred_type == starrocks::TYPE_DATE) {
-                    const auto* pred = down_cast<const VectorizedInConstPredicate<starrocks::TYPE_DATE>*>(root_expr);
+                    const auto* pred = static_cast<const VectorizedInConstPredicate<starrocks::TYPE_DATE>*>(root_expr);
 
                     if (is_not_in<Negative>(pred) ||
                         pred->hash_set().size() > config::max_pushdown_conditions_per_column) {
@@ -746,7 +746,7 @@ void ChunkPredicateBuilder<E, Type>::normalized_rf_with_null(const RuntimeFilter
     using RFColumnPredicateBuilder = detail::RuntimeColumnPredicateBuilder;
     ObjectPool* pool = _opts.obj_pool;
 
-    const auto* filter = down_cast<const MinMaxRuntimeFilter<MappingType>*>(rf->get_min_max_filter());
+    const auto* filter = static_cast<const MinMaxRuntimeFilter<MappingType>*>(rf->get_min_max_filter());
     if (filter == nullptr) return;
     using DecoderType = Decoder<typename RunTimeTypeTraits<MappingType>::CppType>;
     DecoderType decoder(std::forward<Args>(args)...);
@@ -810,7 +810,7 @@ Status ChunkPredicateBuilder<E, Type>::normalize_join_runtime_filter(const SlotD
                     continue;
                 }
 
-                const auto* pred = down_cast<const VectorizedInConstPredicate<MappingType>*>(root_expr);
+                const auto* pred = static_cast<const VectorizedInConstPredicate<MappingType>*>(root_expr);
                 if (!pred->is_join_runtime_filter()) {
                     continue;
                 }
@@ -825,7 +825,7 @@ Status ChunkPredicateBuilder<E, Type>::normalize_join_runtime_filter(const SlotD
                 if (pred->null_in_set()) {
                     std::vector<BoxedExpr> containers;
                     auto* new_in_pred =
-                            down_cast<VectorizedInConstPredicate<MappingType>*>(root_expr->clone(_opts.obj_pool));
+                            static_cast<VectorizedInConstPredicate<MappingType>*>(root_expr->clone(_opts.obj_pool));
                     const auto& childs = root_expr->children();
                     for (const auto& child : childs) {
                         new_in_pred->add_child(child);
@@ -941,7 +941,7 @@ Status ChunkPredicateBuilder<E, Type>::normalize_not_in_or_not_equal_predicate(
         if (1 != l->get_slot_ids(&slot_ids) || slot_ids[0] != slot.id()) {
             return Status::OK();
         }
-        const auto* pred = down_cast<const VectorizedInConstPredicate<MappingType>*>(root_expr);
+        const auto* pred = static_cast<const VectorizedInConstPredicate<MappingType>*>(root_expr);
 
         if (pred->is_join_runtime_filter()) {
             return Status::OK();

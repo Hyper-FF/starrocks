@@ -31,7 +31,6 @@
 #include "exprs/literal.h"
 #include "formats/parquet/predicate_filter_evaluator.h"
 #include "formats/parquet/schema.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "storage/column_expr_predicate.h"
 #include "types/variant_value.h"
@@ -94,13 +93,13 @@ Status ListColumnReader::read_range(const Range<uint64_t>& range, const Filter* 
     NullableColumn* nullable_column = nullptr;
     ArrayColumn* array_column = nullptr;
     if (dst->is_nullable()) {
-        nullable_column = down_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
+        nullable_column = static_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
         DCHECK(nullable_column->data_column_raw_ptr()->is_array());
-        array_column = down_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
+        array_column = static_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
     } else {
         DCHECK(dst->is_array());
         DCHECK(!get_column_parquet_field()->is_nullable);
-        array_column = down_cast<ArrayColumn*>(dst->as_mutable_raw_ptr());
+        array_column = static_cast<ArrayColumn*>(dst->as_mutable_raw_ptr());
     }
     ColumnPtr& child_column = array_column->elements_column();
     RETURN_IF_ERROR(_element_reader->read_range(range, filter, child_column));
@@ -136,19 +135,19 @@ Status ListColumnReader::fill_dst_column(ColumnPtr& dst, ColumnPtr& src_in) {
     ArrayColumn* array_column_src = nullptr;
     ArrayColumn* array_column_dst = nullptr;
     if (src->is_nullable()) {
-        NullableColumn* nullable_column_src = down_cast<NullableColumn*>(src);
+        NullableColumn* nullable_column_src = static_cast<NullableColumn*>(src);
         DCHECK(nullable_column_src->data_column_raw_ptr()->is_array());
-        array_column_src = down_cast<ArrayColumn*>(nullable_column_src->data_column_raw_ptr());
-        NullableColumn* nullable_column_dst = down_cast<NullableColumn*>(dst_mut);
+        array_column_src = static_cast<ArrayColumn*>(nullable_column_src->data_column_raw_ptr());
+        NullableColumn* nullable_column_dst = static_cast<NullableColumn*>(dst_mut);
         DCHECK(nullable_column_dst->data_column_raw_ptr()->is_array());
-        array_column_dst = down_cast<ArrayColumn*>(nullable_column_dst->data_column_raw_ptr());
+        array_column_dst = static_cast<ArrayColumn*>(nullable_column_dst->data_column_raw_ptr());
         nullable_column_dst->swap_null_column(*nullable_column_src);
     } else {
         DCHECK(src->is_array());
         DCHECK(dst->is_array());
         DCHECK(!get_column_parquet_field()->is_nullable);
-        array_column_src = down_cast<ArrayColumn*>(src);
-        array_column_dst = down_cast<ArrayColumn*>(dst_mut);
+        array_column_src = static_cast<ArrayColumn*>(src);
+        array_column_dst = static_cast<ArrayColumn*>(dst_mut);
     }
     auto* dst_offsets = array_column_dst->offsets_column_raw_ptr();
     auto* src_offsets = array_column_src->offsets_column_raw_ptr();
@@ -164,13 +163,13 @@ Status MapColumnReader::read_range(const Range<uint64_t>& range, const Filter* f
     NullableColumn* nullable_column = nullptr;
     MapColumn* map_column = nullptr;
     if (dst->is_nullable()) {
-        nullable_column = down_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
+        nullable_column = static_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
         DCHECK(nullable_column->data_column_raw_ptr()->is_map());
-        map_column = down_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
+        map_column = static_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
     } else {
         DCHECK(dst->is_map());
         DCHECK(!get_column_parquet_field()->is_nullable);
-        map_column = down_cast<MapColumn*>(dst->as_mutable_raw_ptr());
+        map_column = static_cast<MapColumn*>(dst->as_mutable_raw_ptr());
     }
     auto& key_column = map_column->keys_column();
     auto& value_column = map_column->values_column();
@@ -231,13 +230,13 @@ Status StructColumnReader::read_range(const Range<uint64_t>& range, const Filter
     NullableColumn* nullable_column = nullptr;
     StructColumn* struct_column = nullptr;
     if (dst->is_nullable()) {
-        nullable_column = down_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
+        nullable_column = static_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
         DCHECK(nullable_column->data_column_raw_ptr()->is_struct());
-        struct_column = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+        struct_column = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
     } else {
         DCHECK(dst->is_struct());
         DCHECK(!get_column_parquet_field()->is_nullable);
-        struct_column = down_cast<StructColumn*>(dst->as_mutable_raw_ptr());
+        struct_column = static_cast<StructColumn*>(dst->as_mutable_raw_ptr());
     }
 
     const auto& field_names = struct_column->field_names();
@@ -311,13 +310,13 @@ Status StructColumnReader::filter_dict_column(ColumnPtr& column, Filter* filter,
     auto* column_mut = column->as_mutable_raw_ptr();
     StructColumn* struct_column = nullptr;
     if (column->is_nullable()) {
-        NullableColumn* nullable_column = down_cast<NullableColumn*>(column_mut);
+        NullableColumn* nullable_column = static_cast<NullableColumn*>(column_mut);
         DCHECK(nullable_column->data_column_raw_ptr()->is_struct());
-        struct_column = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+        struct_column = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
     } else {
         DCHECK(column->is_struct());
         DCHECK(!get_column_parquet_field()->is_nullable);
-        struct_column = down_cast<StructColumn*>(column_mut);
+        struct_column = static_cast<StructColumn*>(column_mut);
     }
     ASSIGN_OR_RETURN(auto& field_col, struct_column->field_column(sub_field));
     auto ans = _child_readers[sub_field]->filter_dict_column(field_col, filter, sub_field_path, layer + 1);
@@ -330,19 +329,19 @@ Status StructColumnReader::fill_dst_column(ColumnPtr& dst, ColumnPtr& src) {
     StructColumn* struct_column_src = nullptr;
     StructColumn* struct_column_dst = nullptr;
     if (src->is_nullable()) {
-        NullableColumn* nullable_column_src = down_cast<NullableColumn*>(src_mut);
+        NullableColumn* nullable_column_src = static_cast<NullableColumn*>(src_mut);
         DCHECK(nullable_column_src->data_column_raw_ptr()->is_struct());
-        struct_column_src = down_cast<StructColumn*>(nullable_column_src->data_column_raw_ptr());
-        NullableColumn* nullable_column_dst = down_cast<NullableColumn*>(dst_mut);
+        struct_column_src = static_cast<StructColumn*>(nullable_column_src->data_column_raw_ptr());
+        NullableColumn* nullable_column_dst = static_cast<NullableColumn*>(dst_mut);
         DCHECK(nullable_column_dst->data_column_raw_ptr()->is_struct());
-        struct_column_dst = down_cast<StructColumn*>(nullable_column_dst->data_column_raw_ptr());
+        struct_column_dst = static_cast<StructColumn*>(nullable_column_dst->data_column_raw_ptr());
         nullable_column_dst->swap_null_column(*nullable_column_src);
     } else {
         DCHECK(src->is_struct());
         DCHECK(dst->is_struct());
         DCHECK(!get_column_parquet_field()->is_nullable);
-        struct_column_src = down_cast<StructColumn*>(src_mut);
-        struct_column_dst = down_cast<StructColumn*>(dst_mut);
+        struct_column_src = static_cast<StructColumn*>(src_mut);
+        struct_column_dst = static_cast<StructColumn*>(dst_mut);
     }
     const auto& field_names = struct_column_dst->field_names();
     for (size_t i = 0; i < field_names.size(); i++) {
@@ -483,18 +482,18 @@ StatusOr<bool> StructColumnReader::row_group_bloom_filter(const std::vector<cons
         ColumnPredicate* rewritten_subfield_predicate = res.value();
         pool.add(rewritten_subfield_predicate);
         const auto root =
-                down_cast<ColumnExprPredicate*>(rewritten_subfield_predicate)->get_expr_ctxs().front()->root();
+                static_cast<ColumnExprPredicate*>(rewritten_subfield_predicate)->get_expr_ctxs().front()->root();
         if (root->op() != TExprOpcode::EQ) {
             return false;
         }
         if (!root->get_child(1)->is_literal()) {
             return false;
         }
-        auto val = down_cast<const VectorizedLiteral*>(root->get_child(1))->value();
+        auto val = static_cast<const VectorizedLiteral*>(root->get_child(1))->value();
         if (!val || !val->is_constant()) {
             return false;
         }
-        auto val_str = down_cast<const ConstColumn*>(val.get())->data_column()->debug_item(0);
+        auto val_str = static_cast<const ConstColumn*>(val.get())->data_column()->debug_item(0);
         auto t = get_type_info(root->get_child(1)->type().type);
         ColumnPredicate* pred = nullptr;
         pred = new_column_eq_predicate(t, rewritten_subfield_predicate->column_id(), val_str);
@@ -532,7 +531,7 @@ ColumnReader* StructColumnReader::get_child_column_reader(const std::vector<std:
         if (column_reader == nullptr) {
             column_reader = get_child_column_reader(subfield);
         } else {
-            const auto* struct_column_reader = down_cast<StructColumnReader*>(column_reader);
+            const auto* struct_column_reader = static_cast<StructColumnReader*>(column_reader);
             column_reader = struct_column_reader->get_child_column_reader(subfield);
         }
 
@@ -550,7 +549,7 @@ StatusOr<ColumnPredicate*> StructColumnReader::_try_to_rewrite_subfield_expr(
         return Status::InternalError("Predicate is not an expression predicate");
     }
 
-    const ColumnExprPredicate* expr_predicate = down_cast<const ColumnExprPredicate*>(predicate);
+    const ColumnExprPredicate* expr_predicate = static_cast<const ColumnExprPredicate*>(predicate);
     const std::vector<ExprContext*>& expr_contexts = expr_predicate->get_expr_ctxs();
     if (expr_contexts.size() != 1) {
         // just defense code, make sure each ColumnExprPredicate has only one ExprContext
@@ -625,7 +624,7 @@ Status StructColumnReader::_rewrite_column_expr_predicate(ObjectPool* pool,
             continue;
         }
 
-        const ColumnExprPredicate* expr_predicate = down_cast<const ColumnExprPredicate*>(src_pred);
+        const ColumnExprPredicate* expr_predicate = static_cast<const ColumnExprPredicate*>(src_pred);
         std::vector<const ColumnExprPredicate*> output;
         RETURN_IF_ERROR(expr_predicate->try_to_rewrite_for_zone_map_filter(pool, &output));
         if (output.empty()) {
@@ -825,7 +824,7 @@ static StatusOr<std::optional<VariantRowValue>> _rebuild_array_overlay(size_t ro
         }
         return std::nullopt;
     }
-    const auto* typed_array = down_cast<const ArrayColumn*>(typed_col);
+    const auto* typed_array = static_cast<const ArrayColumn*>(typed_col);
     const auto& typed_offsets = typed_array->offsets().get_data();
     const uint32_t typed_begin = typed_offsets[typed_row];
     const uint32_t typed_end = typed_offsets[typed_row + 1];
@@ -931,7 +930,7 @@ static StatusOr<std::optional<VariantRowValue>> _rebuild_array_overlay(size_t ro
             if (ParquetUtils::get_non_null_data_column_and_row(array_node.array_element_value_column.get(), row,
                                                                &element_value_col, &element_value_row) &&
                 element_value_col->is_array()) {
-                const auto* element_value_array = down_cast<const ArrayColumn*>(element_value_col);
+                const auto* element_value_array = static_cast<const ArrayColumn*>(element_value_col);
                 const auto& element_value_offsets = element_value_array->offsets().get_data();
                 array_element_begin = element_value_offsets[element_value_row];
                 array_element_count = element_value_offsets[element_value_row + 1] - array_element_begin;
@@ -1282,8 +1281,8 @@ Status VariantColumnReader::append_variant_binding_row(size_t row, const TopBind
                                                        std::string_view raw_metadata, const VariantRowRef& full_row,
                                                        Column* dst) {
     if (dst == nullptr) return Status::OK();
-    auto* nullable = down_cast<NullableColumn*>(dst);
-    auto* inner_variant = down_cast<VariantColumn*>(nullable->data_column()->as_mutable_raw_ptr());
+    auto* nullable = static_cast<NullableColumn*>(dst);
+    auto* inner_variant = static_cast<VariantColumn*>(nullable->data_column()->as_mutable_raw_ptr());
 
     auto append_value = [&](const VariantRowValue& rv) {
         inner_variant->append(rv);
@@ -1359,10 +1358,10 @@ static void build_has_typed_value_bitmap(const std::vector<ShreddedFieldNode>& s
         bool is_const = false;
         if (col->is_constant()) {
             is_const = true;
-            data_col = down_cast<const ConstColumn*>(col)->data_column().get();
+            data_col = static_cast<const ConstColumn*>(col)->data_column().get();
         }
         if (data_col->is_nullable()) {
-            const auto* nullable = down_cast<const NullableColumn*>(data_col);
+            const auto* nullable = static_cast<const NullableColumn*>(data_col);
             if (is_const) {
                 // Constant column: single null flag applies to all rows.
                 if (!nullable->is_null(0)) {
@@ -1685,13 +1684,13 @@ Status VariantColumnReader::read_range(const Range<uint64_t>& range, const Filte
     VariantColumn* variant_column = nullptr;
     NullableColumn* nullable_column = nullptr;
     if (dst->is_nullable()) {
-        nullable_column = down_cast<NullableColumn*>(dst_mut);
+        nullable_column = static_cast<NullableColumn*>(dst_mut);
         DCHECK(nullable_column->data_column_raw_ptr()->is_variant());
-        variant_column = down_cast<VariantColumn*>(nullable_column->data_column_raw_ptr());
+        variant_column = static_cast<VariantColumn*>(nullable_column->data_column_raw_ptr());
     } else {
         DCHECK(dst->is_variant());
         DCHECK(!get_column_parquet_field()->is_nullable);
-        variant_column = down_cast<VariantColumn*>(dst_mut);
+        variant_column = static_cast<VariantColumn*>(dst_mut);
     }
 
     ColumnPtr metadata_col = NullableColumn::create(BinaryColumn::create(), NullColumn::create());
@@ -1710,10 +1709,10 @@ Status VariantColumnReader::read_range(const Range<uint64_t>& range, const Filte
         RETURN_IF_ERROR(_read_shredded_field_node(range, filter, &node));
     }
 
-    auto* metadata_nullable = down_cast<NullableColumn*>(metadata_col->as_mutable_raw_ptr());
-    auto* value_nullable = down_cast<NullableColumn*>(value_col->as_mutable_raw_ptr());
-    const auto* metadata_column = down_cast<const BinaryColumn*>(metadata_nullable->data_column().get());
-    const auto* value_column = down_cast<const BinaryColumn*>(value_nullable->data_column().get());
+    auto* metadata_nullable = static_cast<NullableColumn*>(metadata_col->as_mutable_raw_ptr());
+    auto* value_nullable = static_cast<NullableColumn*>(value_col->as_mutable_raw_ptr());
+    const auto* metadata_column = static_cast<const BinaryColumn*>(metadata_nullable->data_column().get());
+    const auto* value_column = static_cast<const BinaryColumn*>(value_nullable->data_column().get());
     const auto& metadata_nulls = metadata_nullable->null_column()->get_data();
     const auto& value_nulls = value_nullable->null_column()->get_data();
     // Verify metadata and value columns are aligned

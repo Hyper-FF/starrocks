@@ -23,7 +23,7 @@ namespace starrocks::csv {
 Status NullableConverter::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                        const Options& options) const {
     if (column.is_nullable()) {
-        auto nullable_column = down_cast<const NullableColumn*>(&column);
+        auto nullable_column = static_cast<const NullableColumn*>(&column);
         auto data_column = nullable_column->data_column().get();
         auto nulls = nullable_column->immutable_null_column_data();
         if (nulls[row_num] != 0) {
@@ -39,7 +39,7 @@ Status NullableConverter::write_string(io::FormattedOutputStream* os, const Colu
 Status NullableConverter::write_quoted_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                               const Options& options) const {
     if (column.is_nullable()) {
-        auto nullable_column = down_cast<const NullableColumn*>(&column);
+        auto nullable_column = static_cast<const NullableColumn*>(&column);
         auto data_column = nullable_column->data_column().get();
         auto nulls = nullable_column->immutable_null_column_data();
         if (nulls[row_num] != 0) {
@@ -53,7 +53,7 @@ Status NullableConverter::write_quoted_string(io::FormattedOutputStream* os, con
 }
 
 bool NullableConverter::read_string_for_adaptive_null_column(Column* column, Slice s, const Options& options) const {
-    auto* nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+    auto* nullable_column = static_cast<AdaptiveNullableColumn*>(column);
 
     if (s == "\\N") {
         return nullable_column->append_nulls(1);
@@ -70,7 +70,7 @@ bool NullableConverter::read_string_for_adaptive_null_column(Column* column, Sli
 }
 
 bool NullableConverter::read_string(Column* column, const Slice& s, const Options& options) const {
-    auto* nullable = down_cast<NullableColumn*>(column);
+    auto* nullable = static_cast<NullableColumn*>(column);
     auto* data = nullable->data_column_raw_ptr();
 
     if (s == "\\N") {
@@ -86,7 +86,7 @@ bool NullableConverter::read_string(Column* column, const Slice& s, const Option
 }
 
 bool NullableConverter::read_quoted_string(Column* column, const Slice& s, const Options& options) const {
-    auto* nullable = down_cast<NullableColumn*>(column);
+    auto* nullable = static_cast<NullableColumn*>(column);
     auto* data = nullable->data_column_raw_ptr();
 
     if (s == "null") {

@@ -20,7 +20,7 @@
 
 #include "base/phmap/phmap.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/hash/string_hash.h"
+#include "base/gutil/hash/string_hash.h"
 #include "runtime/mem_pool.h"
 #include "storage/olap_common.h"
 #include "storage/range.h"
@@ -51,10 +51,10 @@ namespace starrocks {
 // of space in advance to store the encoding type, indicating whether this page stores the index of
 // the dictionary page or the data
 
-// The maximum value of int32 is 2147483647, representing that a dictionary page can store
+// The maximum value of int32_t is 2147483647, representing that a dictionary page can store
 // a maximum of 2147483648 elements. If a dictionary page stores 2147483648 elements, assuming
 // one element only occupies one byte, the size of the dictionary page will be 2GB, which is
-// impossible. Therefore, int32 is sufficient to store the index of the dictionary page,
+// impossible. Therefore, int32_t is sufficient to store the index of the dictionary page,
 // and overflow will not occur.
 template <LogicalType field_type>
 struct DataTypeTraits {

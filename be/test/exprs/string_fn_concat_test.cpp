@@ -261,9 +261,9 @@ TEST_F(StringFunctionConcatTest, concatConstOversizeTest) {
     auto result = StringFunctions::concat(context.get(), columns).value();
 
     ASSERT_TRUE(result->is_nullable());
-    auto result_nullable = down_cast<const NullableColumn*>(result.get());
+    auto result_nullable = static_cast<const NullableColumn*>(result.get());
     ASSERT_TRUE(result_nullable != nullptr);
-    auto result_binary = down_cast<const BinaryColumn*>(result_nullable->data_column().get());
+    auto result_binary = static_cast<const BinaryColumn*>(result_nullable->data_column().get());
     ASSERT_TRUE(result_binary != nullptr);
     ASSERT_EQ(result_binary->size(), col0->size());
     ASSERT_EQ(result_binary->size(), row_num);
@@ -295,9 +295,9 @@ static inline void concat_not_const_test(const NullColumnPtr& null_col, Columns 
     auto result = StringFunctions::concat(context.get(), columns).value();
 
     ASSERT_TRUE(result->is_nullable());
-    auto result_nullable = down_cast<const NullableColumn*>(result.get());
+    auto result_nullable = static_cast<const NullableColumn*>(result.get());
     ASSERT_TRUE(result_nullable != nullptr);
-    auto result_binary = down_cast<const BinaryColumn*>(result_nullable->data_column().get());
+    auto result_binary = static_cast<const BinaryColumn*>(result_nullable->data_column().get());
     ASSERT_TRUE(result_binary != nullptr);
     const auto row_num = columns[0]->size();
     ASSERT_EQ(result_binary->size(), columns[0]->size());
@@ -427,9 +427,9 @@ static inline void concat_ws_test(const NullColumnPtr& sep_null_col, const NullC
     auto union_null_col = FunctionHelper::union_null_column(sep_null_col, null_col);
 
     ASSERT_TRUE(result->is_nullable());
-    auto result_nullable = down_cast<const NullableColumn*>(result.get());
+    auto result_nullable = static_cast<const NullableColumn*>(result.get());
     ASSERT_TRUE(result_nullable != nullptr);
-    auto result_binary = down_cast<const BinaryColumn*>(result_nullable->data_column().get());
+    auto result_binary = static_cast<const BinaryColumn*>(result_nullable->data_column().get());
     ASSERT_TRUE(result_binary != nullptr);
     const auto row_num = columns[0]->size();
     ASSERT_EQ(result_binary->size(), columns[0]->size());

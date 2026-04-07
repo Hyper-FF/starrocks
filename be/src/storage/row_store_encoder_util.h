@@ -17,8 +17,8 @@
 #include "column/field.h"
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
-#include "gutil/endian.h"
-#include "gutil/stringprintf.h"
+#include "base/gutil/endian.h"
+#include "base/gutil/stringprintf.h"
 #include "storage/primary_key_encoder.h"
 #include "types/bitmap_value.h"
 

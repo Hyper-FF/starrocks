@@ -220,7 +220,7 @@ TEST_F(BufferControlBlockTest, is_full_arrow_batch_queue) {
     std::shared_ptr<arrow::Array> array;
     ASSERT_TRUE(builder.Finish(&array).ok());
 
-    auto schema = arrow::schema({arrow::field("int_col", arrow::int32())});
+    auto schema = arrow::schema({arrow::field("int_col", arrow::int32_t())});
     auto record_batch = arrow::RecordBatch::Make(schema, 4097, {array});
     ASSERT_TRUE(control_block.add_arrow_batch(record_batch).ok());
 
@@ -238,7 +238,7 @@ TEST_F(BufferControlBlockTest, get_arrow_batch_simple) {
     std::shared_ptr<arrow::Array> array;
     ASSERT_TRUE(builder.Finish(&array).ok());
 
-    auto schema = arrow::schema({arrow::field("int_col", arrow::int32())});
+    auto schema = arrow::schema({arrow::field("int_col", arrow::int32_t())});
     auto record_batch = arrow::RecordBatch::Make(schema, 2, {array});
 
     ASSERT_TRUE(control_block.add_arrow_batch(record_batch).ok());

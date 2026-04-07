@@ -116,7 +116,7 @@ public:
     void get_values_helper(ConstAggDataPtr __restrict state, Column* dst, size_t start, size_t end) const {
         DCHECK_GT(end, start);
         DCHECK(dst->is_nullable());
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
         if constexpr (ValueWindowStrategy<LT>::use_append) {
             if (AggregateFunctionStateHelper<State>::data(state).is_null) {
                 nullable_column->append_nulls(end - start);
@@ -140,7 +140,7 @@ public:
                 return;
             }
             Column* data_column = nullable_column->data_column_raw_ptr();
-            auto* column = down_cast<InputColumnType*>(data_column);
+            auto* column = static_cast<InputColumnType*>(data_column);
             auto value = AggregateFunctionStateHelper<State>::data(state).value;
             for (size_t i = start; i < end; ++i) {
                 AggDataTypeTraits<LT>::assign_value(column, i, value);
@@ -167,7 +167,7 @@ class RowNumberWindowFunction final : public WindowFunction<RowNumberState> {
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<Int64Column*>(dst);
+        auto* column = static_cast<Int64Column*>(dst);
         column->get_data()[start] = this->data(state).cur_positon;
     }
 
@@ -205,7 +205,7 @@ class RankWindowFunction final : public WindowFunction<RankState> {
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<Int64Column*>(dst);
+        auto* column = static_cast<Int64Column*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = this->data(state).rank;
         }
@@ -241,7 +241,7 @@ class DenseRankWindowFunction final : public WindowFunction<DenseRankState> {
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<Int64Column*>(dst);
+        auto* column = static_cast<Int64Column*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = this->data(state).rank;
         }
@@ -283,7 +283,7 @@ class CumeDistWindowFunction final : public WindowFunction<CumeDistState> {
                     size_t end) const override {
         DCHECK_GT(end, start);
         auto& s = this->data(state);
-        auto* column = down_cast<DoubleColumn*>(dst);
+        auto* column = static_cast<DoubleColumn*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = (double)s.rank / s.count;
         }
@@ -325,7 +325,7 @@ class PercentRankWindowFunction final : public WindowFunction<PercentRankState> 
                     size_t end) const override {
         DCHECK_GT(end, start);
         auto& s = this->data(state);
-        auto* column = down_cast<DoubleColumn*>(dst);
+        auto* column = static_cast<DoubleColumn*>(dst);
         for (size_t i = start; i < end; ++i) {
             if (s.count > 1) {
                 column->get_data()[i] = (double)(s.rank - 1) / (s.count - 1);
@@ -389,7 +389,7 @@ class NtileWindowFunction final : public WindowFunction<NtileState> {
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_EQ(end, start + 1);
-        auto* column = down_cast<Int64Column*>(dst);
+        auto* column = static_cast<Int64Column*>(dst);
         const auto& s = this->data(state);
 
         if (s.cur_position < s.num_large_bucket_rows) {
@@ -726,7 +726,7 @@ class LeadLagWindowFunction final : public ValueWindowFunction<LT, LeadLagState<
         // get offset
         const Column* arg1 = args[1].get();
         DCHECK(arg1->is_constant());
-        const auto* offset_column = down_cast<const ConstColumn*>(arg1);
+        const auto* offset_column = static_cast<const ConstColumn*>(arg1);
         if (offset_column->is_nullable()) {
             this->data(state).offset = 0;
         } else {
@@ -739,7 +739,7 @@ class LeadLagWindowFunction final : public ValueWindowFunction<LT, LeadLagState<
 
         if (arg2->is_constant()) {
             this->data(state).default_value_is_constant = true;
-            const auto* default_column = down_cast<const ConstColumn*>(arg2);
+            const auto* default_column = static_cast<const ConstColumn*>(arg2);
             if (default_column->is_nullable()) {
                 this->data(state).default_is_null = true;
             } else {
@@ -829,8 +829,8 @@ public:
                     size_t end) const override {
         auto& s = this->data(state);
         if (dst->is_nullable()) {
-            auto* nullable_dst = down_cast<NullableColumn*>(dst);
-            auto* data_column = down_cast<Int64Column*>(nullable_dst->data_column_raw_ptr());
+            auto* nullable_dst = static_cast<NullableColumn*>(dst);
+            auto* data_column = static_cast<Int64Column*>(nullable_dst->data_column_raw_ptr());
             for (size_t i = start; i < end; ++i) {
                 data_column->get_data()[i] = s.session_id;
             }
@@ -840,7 +840,7 @@ public:
                 }
             }
         } else {
-            auto* data_column = down_cast<Int64Column*>(dst);
+            auto* data_column = static_cast<Int64Column*>(dst);
             for (size_t i = start; i < end; ++i) {
                 data_column->get_data()[i] = s.session_id;
             }

@@ -25,7 +25,7 @@
 #include "column/nullable_column.h"
 #include "column/runtime_type_traits.h"
 #include "common/object_pool.h"
-#include "gutil/port.h"
+#include "base/gutil/port.h"
 #include "runtime/mem_pool.h"
 #include "runtime/runtime_filter.h"
 
@@ -101,7 +101,7 @@ public:
         DCHECK(!column->is_constant());
         const size_t num_rows = column->size();
         if (column->is_nullable()) {
-            auto* nullable = down_cast<NullableColumn*>(column);
+            auto* nullable = static_cast<NullableColumn*>(column);
             const auto& null_data = nullable->null_column_data();
             const auto& data = GetContainer<Type>::get_data(nullable->data_column());
             for (size_t i = 0; i < num_rows; ++i) {
@@ -155,7 +155,7 @@ public:
             CHECK(false) << "unreachable path";
         }
         HashSet& set = const_cast<HashSet&>(*ptr);
-        const auto* other = down_cast<const InRuntimeFilter*>(rf);
+        const auto* other = static_cast<const InRuntimeFilter*>(rf);
         ScopedPtr other_ptr;
         if (other->_values.Read(&other_ptr) != 0) {
             CHECK(false) << "unreachable path";

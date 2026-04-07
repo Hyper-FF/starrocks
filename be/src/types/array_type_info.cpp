@@ -15,7 +15,6 @@
 #include "base/hash/unaligned_access.h"
 #include "base/utility/mem_util.hpp"
 #include "common/logging.h"
-#include "gutil/casts.h"
 #include "types/collection.h"
 #include "types/type_info.h"
 
@@ -115,7 +114,7 @@ TypeInfoPtr get_array_type_info(const TypeInfoPtr& item_type) {
 }
 
 const TypeInfoPtr& get_item_type_info(const TypeInfo* type_info) {
-    auto array_type_info = down_cast<const ArrayTypeInfo*>(type_info);
+    auto array_type_info = static_cast<const ArrayTypeInfo*>(type_info);
     return array_type_info->item_type_info();
 }
 

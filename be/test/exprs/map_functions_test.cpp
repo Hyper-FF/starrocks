@@ -611,7 +611,7 @@ PARALLEL_TEST(MapFunctionsTest, test_map_concat) {
 
     ColumnPtr only_null_column = ColumnHelper::create_const_null_column(5);
 
-    auto mapn = down_cast<NullableColumn*>(map_column_nullable->clone().get())->data_column();
+    auto mapn = static_cast<NullableColumn*>(map_column_nullable->clone().get())->data_column();
 
     auto const_column = ConstColumn::create(std::move(mapn), 5);
 

@@ -69,7 +69,7 @@ namespace {
 
 ColumnRef* find_first_column_ref(Expr* expr) {
     if (expr->is_slotref()) {
-        return down_cast<ColumnRef*>(expr);
+        return static_cast<ColumnRef*>(expr);
     }
     for (Expr* child : expr->children()) {
         if (ColumnRef* ref = find_first_column_ref(child); ref != nullptr) {
@@ -794,7 +794,7 @@ TEST_F(SpillTest, file_group_test) {
         auto res = stream->read(context);
         ASSERT_OK(res.status());
         auto chunk = std::move(res.value());
-        auto icol = down_cast<Int32Column*>(chunk->columns()[0].get());
+        auto icol = static_cast<Int32Column*>(chunk->columns()[0].get());
         auto data = icol->get_data();
         DCHECK(std::is_sorted(data.begin(), data.end()));
         DCHECK_GE(data[0], last_value);

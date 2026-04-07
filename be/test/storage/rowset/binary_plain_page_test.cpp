@@ -43,7 +43,6 @@
 #include "column/binary_column.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 #include "storage/chunk_helper.h"
 #include "storage/column_predicate.h"
@@ -243,8 +242,8 @@ TEST_F(BinaryPlainPageTest, TestNextBatchWithFilter) {
         ASSERT_EQ(1, selection[4]);
 
         ASSERT_EQ(3, column->size());
-        auto nullable_col = down_cast<NullableColumn*>(column.get());
-        auto binary_col = down_cast<BinaryColumn*>(nullable_col->data_column_raw_ptr());
+        auto nullable_col = static_cast<NullableColumn*>(column.get());
+        auto binary_col = static_cast<BinaryColumn*>(nullable_col->data_column_raw_ptr());
 
         ASSERT_EQ("['c_300', 'd_400', 'e_500']", binary_col->debug_string());
 
@@ -295,8 +294,8 @@ TEST_F(BinaryPlainPageTest, TestNextBatchWithFilter) {
 
         ASSERT_EQ(1, column->size());
         // For NullableColumn, we need to check the data values.
-        auto nullable_col = down_cast<NullableColumn*>(column.get());
-        auto binary_col = down_cast<BinaryColumn*>(nullable_col->data_column_raw_ptr());
+        auto nullable_col = static_cast<NullableColumn*>(column.get());
+        auto binary_col = static_cast<BinaryColumn*>(nullable_col->data_column_raw_ptr());
 
         ASSERT_EQ("d_400", binary_col->immutable_data()[0]);
     }

@@ -18,7 +18,6 @@
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
 #include "exprs/agg/aggregate.h"
-#include "gutil/casts.h"
 #include "types/bitmap_value.h"
 
 namespace starrocks {
@@ -33,7 +32,7 @@ public:
     bool is_exception_safe() const override { return false; }
 
     void update(FunctionContext* ctx, const Column** columns, AggDataPtr state, size_t row_num) const override {
-        const auto* col = down_cast<const InputColumnType*>(columns[0]);
+        const auto* col = static_cast<const InputColumnType*>(columns[0]);
         auto value = col->immutable_data()[row_num];
         if (value >= 0 && value <= std::numeric_limits<uint64_t>::max()) {
             this->data(state).add(value);
@@ -52,7 +51,7 @@ public:
 
     void update_batch_single_state(FunctionContext* ctx, size_t chunk_size, const Column** columns,
                                    AggDataPtr __restrict state) const override {
-        const auto& col = down_cast<const InputColumnType&>(*columns[0]);
+        const auto& col = static_cast<const InputColumnType&>(*columns[0]);
         const auto values = col.immutable_data();
         if constexpr (LT == TYPE_INT) {
             if (check_valid(values, chunk_size)) {
@@ -70,20 +69,20 @@ public:
     }
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
-        const auto& col = down_cast<const BitmapColumn&>(*column);
+        const auto& col = static_cast<const BitmapColumn&>(*column);
         this->data(state) |= *(col.get_object(row_num));
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        auto* col = down_cast<BitmapColumn*>(to);
+        auto* col = static_cast<BitmapColumn*>(to);
         auto& bitmap = const_cast<BitmapValue&>(this->data(state));
         col->append(std::move(bitmap));
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto& src_column = down_cast<const InputColumnType&>(*src[0].get());
-        auto* dest_column = down_cast<BitmapColumn*>(dst.get());
+        auto& src_column = static_cast<const InputColumnType&>(*src[0].get());
+        auto* dest_column = static_cast<BitmapColumn*>(dst.get());
         for (size_t i = 0; i < chunk_size; i++) {
             BitmapValue bitmap;
             auto v = src_column.immutable_data()[i];
@@ -95,7 +94,7 @@ public:
     }
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        auto* col = down_cast<BitmapColumn*>(to);
+        auto* col = static_cast<BitmapColumn*>(to);
         auto& bitmap = const_cast<BitmapValue&>(this->data(state));
         col->append(std::move(bitmap));
     }

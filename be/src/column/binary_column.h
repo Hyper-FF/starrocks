@@ -26,7 +26,7 @@
 #include "column/german_string.h"
 #include "column/vectorized_fwd.h"
 #include "common/statusor.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "types/datum.h"
 
 namespace starrocks {
@@ -359,7 +359,7 @@ public:
     size_t reference_memory_usage(size_t from, size_t size) const override { return 0; }
 
     void swap_column(Column& rhs) override {
-        auto& r = down_cast<BinaryColumnBase<T>&>(rhs);
+        auto& r = static_cast<BinaryColumnBase<T>&>(rhs);
         using std::swap;
         swap(this->_delete_state, r._delete_state);
         swap(_bytes, r._bytes);
@@ -434,9 +434,9 @@ using LargeOffsets = BinaryColumnBase<uint64_t>::Offsets;
 inline Slice BinaryImmContainer::operator[](size_t index) const {
     DCHECK(_column != nullptr);
     if (_is_large) {
-        return down_cast<const LargeBinaryColumn*>(_column)->get_slice(index);
+        return static_cast<const LargeBinaryColumn*>(_column)->get_slice(index);
     }
-    return down_cast<const BinaryColumn*>(_column)->get_slice(index);
+    return static_cast<const BinaryColumn*>(_column)->get_slice(index);
 }
 
 inline size_t BinaryImmContainer::size() const {
@@ -448,9 +448,9 @@ inline size_t BinaryImmContainer::immutable_bytes_size() const {
         return 0;
     }
     if (_is_large) {
-        return down_cast<const LargeBinaryColumn*>(_column)->get_immutable_bytes().size();
+        return static_cast<const LargeBinaryColumn*>(_column)->get_immutable_bytes().size();
     }
-    return down_cast<const BinaryColumn*>(_column)->get_immutable_bytes().size();
+    return static_cast<const BinaryColumn*>(_column)->get_immutable_bytes().size();
 }
 
 template <typename T>

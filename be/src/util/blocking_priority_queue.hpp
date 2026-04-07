@@ -41,7 +41,7 @@
 #include <vector>
 
 #include "common/compiler_util.h"
-#include "gutil/port.h"
+#include "base/gutil/port.h"
 
 namespace starrocks::config {
 // Keep this declaration in sync with common/config.h.

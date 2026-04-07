@@ -46,8 +46,8 @@ Status MapApplyExpr::prepare(starrocks::RuntimeState* state, starrocks::ExprCont
     if (_children.size() < 2) {
         return Status::InternalError("map expression's children size should not less than 2");
     }
-    auto lambda_func = down_cast<LambdaFunction*>(_children[0]);
-    auto map_expr = down_cast<MapExpr*>(lambda_func->get_lambda_expr());
+    auto lambda_func = static_cast<LambdaFunction*>(_children[0]);
+    auto map_expr = static_cast<MapExpr*>(lambda_func->get_lambda_expr());
     _maybe_duplicated_keys = map_expr->maybe_duplicated_keys();
     lambda_func->get_lambda_arguments_ids(&_arguments_ids);
     return Status::OK();
@@ -69,14 +69,14 @@ StatusOr<ColumnPtr> MapApplyExpr::evaluate_checked(ExprContext* context, Chunk* 
         child_col = ColumnHelper::unpack_and_duplicate_const_column(child_col->size(), child_col);
         auto data_column = child_col;
         if (child_col->is_nullable()) {
-            auto nullable = down_cast<const NullableColumn*>(child_col.get());
+            auto nullable = static_cast<const NullableColumn*>(child_col.get());
             DCHECK(nullable != nullptr);
             data_column = nullable->data_column();
             // empty null map with non-empty elements
             auto data_mut = data_column->clone();
             data_mut->empty_null_in_complex_column(
                     nullable->null_column()->immutable_data(),
-                    down_cast<MapColumn*>(data_mut.get())->offsets_column()->immutable_data());
+                    static_cast<MapColumn*>(data_mut.get())->offsets_column()->immutable_data());
             data_column = std::move(data_mut);
             if (input_null_map) {
                 input_null_map = FunctionHelper::union_null_column(nullable->null_column(),
@@ -86,7 +86,7 @@ StatusOr<ColumnPtr> MapApplyExpr::evaluate_checked(ExprContext* context, Chunk* 
             }
         }
         DCHECK(data_column->is_map());
-        auto* cur_map = down_cast<MapColumn*>(data_column->as_mutable_raw_ptr());
+        auto* cur_map = static_cast<MapColumn*>(data_column->as_mutable_raw_ptr());
 
         if (input_map_ptr_ref == nullptr) {
             input_map_ptr_ref = data_column;
@@ -148,7 +148,7 @@ StatusOr<ColumnPtr> MapApplyExpr::evaluate_checked(ExprContext* context, Chunk* 
         }
     }
     // attach offsets
-    auto map_col = down_cast<MapColumn*>(column.get());
+    auto map_col = static_cast<MapColumn*>(column.get());
     if (UNLIKELY(input_map->offsets_column()->immutable_data().back() < map_col->keys_column()->size())) {
         return Status::InternalError(fmt::format("The max index of offsets {} < map->key column's size {}",
                                                  input_map->offsets_column()->immutable_data().back(),
@@ -160,7 +160,7 @@ StatusOr<ColumnPtr> MapApplyExpr::evaluate_checked(ExprContext* context, Chunk* 
                                      ColumnHelper::as_column<UInt32Column>(input_map->offsets_column()->clone()));
 
     if (_maybe_duplicated_keys && res_map->size() > 0) {
-        down_cast<MapColumn*>(res_map->as_mutable_raw_ptr())->remove_duplicated_keys();
+        static_cast<MapColumn*>(res_map->as_mutable_raw_ptr())->remove_duplicated_keys();
     }
     // attach null info
     if (input_null_map != nullptr) {

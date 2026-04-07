@@ -164,7 +164,7 @@ public:
                                                    0, 0,          0,      0, 0,    0, 0, 0x03};
                 constexpr uint8_t each_loop_handle_sz = 32 / sizeof(RunTimeCppType<TYPE>);
 
-                // Process 'data_size' groups, each handling 'each_loop_handle_sz' int16
+                // Process 'data_size' groups, each handling 'each_loop_handle_sz' int16_t
                 // for example, if sizeof == 2,data_size is 2 and each_loop_handle_sz is 16
                 for (int index = 0; index < data_size; index++) {
                     // load select data

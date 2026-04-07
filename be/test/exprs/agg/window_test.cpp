@@ -864,7 +864,7 @@ TEST_F(LagWindowTest, test_array_non_const_default_out_of_range_sets_null_ignore
 
 TEST_F(LagWindowTest, test_lag_large_binary_non_const_default) {
     // LargeBinaryColumn as value, regular BinaryColumn as non-const default.
-    // This tests the fix for wrong down_cast on columns[2] when columns[0] is LargeBinaryColumn.
+    // This tests the fix for wrong static_cast on columns[2] when columns[0] is LargeBinaryColumn.
     auto data_col = LargeBinaryColumn::create();
     auto null_col = NullColumn::create();
 

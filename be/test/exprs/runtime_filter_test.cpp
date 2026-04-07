@@ -427,7 +427,7 @@ TEST_P(RuntimeFilterTestFixture, TestJoinRuntimeFilterSerialize) {
     RuntimeFilter* rf1 = nullptr;
     ObjectPool pool;
     RuntimeFilterSerde::deserialize(&pool, &rf1, buffer.data(), actual_size);
-    EXPECT_TRUE(check_equals(&bf0, down_cast<ComposedRuntimeBloomFilter<TYPE_INT>*>(rf1)));
+    EXPECT_TRUE(check_equals(&bf0, static_cast<ComposedRuntimeBloomFilter<TYPE_INT>*>(rf1)));
 }
 
 TEST_P(RuntimeMembershipFilterTestFixture, TestJoinRuntimeFilterSerialize2) {
@@ -471,10 +471,10 @@ TEST_P(RuntimeMembershipFilterTestFixture, TestJoinRuntimeFilterSerialize2) {
     RuntimeFilter* rf3 = nullptr;
     RuntimeFilterSerde::deserialize(&pool, &rf3, buffer0.data(), actual_size);
 
-    EXPECT_TRUE(check_equals(down_cast<ComposedRuntimeBloomFilter<TYPE_VARCHAR>*>(rf3),
-                             down_cast<ComposedRuntimeBloomFilter<TYPE_VARCHAR>*>(rf1)));
-    EXPECT_TRUE(check_equals(down_cast<ComposedRuntimeBloomFilter<TYPE_INT>*>(rf2),
-                             down_cast<ComposedRuntimeBloomFilter<TYPE_INT>*>(rf0)));
+    EXPECT_TRUE(check_equals(static_cast<ComposedRuntimeBloomFilter<TYPE_VARCHAR>*>(rf3),
+                             static_cast<ComposedRuntimeBloomFilter<TYPE_VARCHAR>*>(rf1)));
+    EXPECT_TRUE(check_equals(static_cast<ComposedRuntimeBloomFilter<TYPE_INT>*>(rf2),
+                             static_cast<ComposedRuntimeBloomFilter<TYPE_INT>*>(rf0)));
 }
 
 TEST_F(RuntimeMembershipFilterTest, TestJoinRuntimeFilterMerge) {
@@ -799,7 +799,7 @@ void test_pipeline_level_grf_helper_template(TRuntimeFilterBuildJoinMode::type j
         }
         auto slice = column->get_slice(i);
         bfs[p].insert(slice);
-        (down_cast<BinaryColumn*>(columns[p].get()))->append(slice);
+        (static_cast<BinaryColumn*>(columns[p].get()))->append(slice);
     }
 
     int rf_version = RF_VERSION_V2;
@@ -1330,7 +1330,7 @@ TEST_F(RuntimeFilterTest, TestSerializeEmptyFilter) {
     RuntimeFilter* rf1 = nullptr;
     ObjectPool pool;
     RuntimeFilterSerde::deserialize(&pool, &rf1, buffer.data(), actual_size);
-    EXPECT_TRUE(check_equals(&rf0, down_cast<ComposedRuntimeEmptyFilter<TYPE_INT>*>(rf1)));
+    EXPECT_TRUE(check_equals(&rf0, static_cast<ComposedRuntimeEmptyFilter<TYPE_INT>*>(rf1)));
 }
 
 TEST_F(RuntimeMembershipFilterTest, TestEvaluateEmptyFilter) {
@@ -1400,7 +1400,7 @@ TEST_F(RuntimeFilterTest, TestSerializeBitsetFilter) {
     RuntimeFilter* rf1 = nullptr;
     ObjectPool pool;
     RuntimeFilterSerde::deserialize(&pool, &rf1, buffer.data(), actual_size);
-    EXPECT_TRUE(check_equals(&rf0, down_cast<ComposedRuntimeBitsetFilter<TYPE_INT>*>(rf1)));
+    EXPECT_TRUE(check_equals(&rf0, static_cast<ComposedRuntimeBitsetFilter<TYPE_INT>*>(rf1)));
 }
 
 TEST_F(RuntimeMembershipFilterTest, TestEvaluateBitsetFilter) {

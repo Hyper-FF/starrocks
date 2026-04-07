@@ -45,7 +45,7 @@
 #include "base/types/int256.h"
 #include "base/utility/mysql_global.h"
 #include "common/logging.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 

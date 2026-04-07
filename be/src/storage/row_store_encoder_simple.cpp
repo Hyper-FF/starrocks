@@ -20,7 +20,7 @@
 #include "column/object_column.h"
 #include "column/schema.h"
 #include "common/status.h"
-#include "gutil/endian.h"
+#include "base/gutil/endian.h"
 #include "storage/chunk_helper.h"
 #include "storage/olap_common.h"
 #include "storage/primary_key_encoder.h"
@@ -157,19 +157,19 @@ Status RowStoreEncoderSimple::decode_columns_from_full_row_column(const Schema& 
                 Slice slice(char_start, strnlen(char_start, col_length));
                 dest_column->append_datum(slice);
             } else if (t == TYPE_HLL) {
-                ObjectColumn<HyperLogLog>* object_column = down_cast<ObjectColumn<HyperLogLog>*>(dest_column);
+                ObjectColumn<HyperLogLog>* object_column = static_cast<ObjectColumn<HyperLogLog>*>(dest_column);
                 Slice slice(s.data, col_length);
                 if (!object_column->deserialize_and_append(slice)) {
                     return Status::InternalError("deserialize_and_append failed");
                 }
             } else if (t == TYPE_PERCENTILE) {
-                ObjectColumn<PercentileValue>* object_column = down_cast<ObjectColumn<PercentileValue>*>(dest_column);
+                ObjectColumn<PercentileValue>* object_column = static_cast<ObjectColumn<PercentileValue>*>(dest_column);
                 Slice slice(s.data, col_length);
                 if (!object_column->deserialize_and_append(slice)) {
                     return Status::InternalError("deserialize_and_append failed");
                 }
             } else if (t == TYPE_OBJECT) {
-                ObjectColumn<BitmapValue>* object_column = down_cast<ObjectColumn<BitmapValue>*>(dest_column);
+                ObjectColumn<BitmapValue>* object_column = static_cast<ObjectColumn<BitmapValue>*>(dest_column);
                 Slice slice(s.data, col_length);
                 if (!object_column->deserialize_and_append(slice)) {
                     return Status::InternalError("deserialize_and_append failed");

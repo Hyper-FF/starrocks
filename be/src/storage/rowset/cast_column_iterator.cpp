@@ -48,7 +48,7 @@ void CastColumnIterator::do_cast(Column* target) {
         target->swap_column(*(cast_result->as_mutable_raw_ptr()));
     } else if (!target->is_nullable() && cast_result->is_nullable()) {
         auto sz = cast_result->size();
-        target->append(*(down_cast<const NullableColumn*>(cast_result.get())->data_column()), 0, sz);
+        target->append(*(static_cast<const NullableColumn*>(cast_result.get())->data_column()), 0, sz);
     } else {
         target->append(*cast_result, 0, cast_result->size());
     }

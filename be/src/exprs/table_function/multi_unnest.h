@@ -41,7 +41,7 @@ public:
         for (auto& col_idx : state->get_columns()) {
             Column* column = ColumnHelper::get_data_column(col_idx->as_mutable_raw_ptr());
 
-            auto* col_array = down_cast<ArrayColumn*>(ColumnHelper::get_data_column(column));
+            auto* col_array = static_cast<ArrayColumn*>(ColumnHelper::get_data_column(column));
             MutableColumnPtr unnested_array_elements = col_array->elements_column()->clone_empty();
             unnested_array_list.emplace_back(std::move(unnested_array_elements));
         }
@@ -57,7 +57,7 @@ public:
                     // current row is null, ignore the offset.
                     continue;
                 }
-                auto* col_array = down_cast<ArrayColumn*>(ColumnHelper::get_data_column(column));
+                auto* col_array = static_cast<ArrayColumn*>(ColumnHelper::get_data_column(column));
                 auto offset_column = col_array->offsets_column();
 
                 long array_element_length =
@@ -76,7 +76,7 @@ public:
 
             for (int col_idx = 0; col_idx < state->get_columns().size(); ++col_idx) {
                 Column* column = state->get_columns()[col_idx]->as_mutable_raw_ptr();
-                auto* col_array = down_cast<ArrayColumn*>(ColumnHelper::get_data_column(column));
+                auto* col_array = static_cast<ArrayColumn*>(ColumnHelper::get_data_column(column));
                 auto offset_column = col_array->offsets_column();
 
                 if (max_length_array_size == 0 && state->get_is_left_join()) {

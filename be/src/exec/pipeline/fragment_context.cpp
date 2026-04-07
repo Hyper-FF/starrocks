@@ -582,7 +582,7 @@ void FragmentContext::init_event_scheduler() {
 void FragmentContext::add_timer_observer(PipelineObserver* observer, uint64_t timeout) {
     RFScanWaitTimeout* task;
     if (auto iter = _rf_timeout_tasks.find(timeout); iter != _rf_timeout_tasks.end()) {
-        task = down_cast<RFScanWaitTimeout*>(iter->second);
+        task = static_cast<RFScanWaitTimeout*>(iter->second);
     } else {
         task = new RFScanWaitTimeout();
         _rf_timeout_tasks.emplace(timeout, task);

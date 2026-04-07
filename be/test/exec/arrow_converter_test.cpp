@@ -93,7 +93,7 @@ void add_arrow_to_column(Column* column, size_t num_elements, ArrowCppType value
     ASSERT_STATUS_OK(
             conv_func(array.get(), 0, array->length(), column, column->size(), nullptr, &filter, nullptr, nullptr));
     ASSERT_EQ(column->size(), counter);
-    auto* data = &(down_cast<ColumnType*>(column)->get_data().front());
+    auto* data = &(static_cast<ColumnType*>(column)->get_data().front());
     for (auto i = 0; i < num_elements; ++i) {
         ASSERT_EQ(data[counter - num_elements + i], CppType(value));
     }
@@ -109,8 +109,8 @@ void add_arrow_to_nullable_column(Column* column, size_t num_elements, ArrowCppT
     auto array = create_constant_array<ArrowType, true>(num_elements, value, counter);
     auto conv_func = get_arrow_converter(AT, LT, true, false);
     ASSERT_TRUE(conv_func != nullptr);
-    auto* nullable_column = down_cast<NullableColumn*>(column);
-    auto* data_column = down_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
+    auto* nullable_column = static_cast<NullableColumn*>(column);
+    auto* data_column = static_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
     auto* null_column = nullable_column->null_column_raw_ptr();
     fill_null_column(array.get(), 0, array->length(), null_column, null_column->size());
     auto* null_data = &null_column->get_data().front() + counter - num_elements;
@@ -119,7 +119,7 @@ void add_arrow_to_nullable_column(Column* column, size_t num_elements, ArrowCppT
     ASSERT_STATUS_OK(conv_func(array.get(), 0, array->length(), data_column, data_column->size(), null_data, &filter,
                                nullptr, nullptr));
     ASSERT_EQ(data_column->size(), counter);
-    auto* data = &(down_cast<ColumnType*>(data_column)->get_data().front());
+    auto* data = &(static_cast<ColumnType*>(data_column)->get_data().front());
     for (auto i = 0; i < num_elements; ++i) {
         auto idx = counter - num_elements + i;
         if (i % 2 == 0) {
@@ -151,7 +151,7 @@ PARALLEL_TEST(ArrowConverterTest, test_copyable_converter_uint64) {
     add_arrow_to_column<ArrowTypeId::UINT64, TYPE_BIGINT, arrow::UInt64Type>(col.get(), 1, uint64_t(-1L), counter);
     add_arrow_to_column<ArrowTypeId::UINT64, TYPE_BIGINT, arrow::UInt64Type>(col.get(), 1, uint64_t(0L), counter);
     add_arrow_to_column<ArrowTypeId::UINT64, TYPE_BIGINT, arrow::UInt64Type>(
-            col.get(), 13, std::numeric_limits<uint64>::max(), counter);
+            col.get(), 13, std::numeric_limits<uint64_t>::max(), counter);
     add_arrow_to_column<ArrowTypeId::UINT64, TYPE_BIGINT, arrow::UInt64Type>(col.get(), 3, 0xdeadbeef'deadbeef,
                                                                              counter);
     add_arrow_to_column<ArrowTypeId::UINT64, TYPE_BIGINT, arrow::UInt64Type>(col.get(), 5, 0x8080'8080'8080'8080,
@@ -260,7 +260,7 @@ void add_arrow_to_binary_column(Column* column, size_t num_elements, ArrowCppTyp
     auto status =
             conv_func(array.get(), 0, array->length(), column, column->size(), nullptr, &filter, nullptr, nullptr);
     ASSERT_TRUE(status.ok());
-    auto* binary_column = down_cast<ColumnType*>(column);
+    auto* binary_column = static_cast<ColumnType*>(column);
     for (auto i = 0; i < num_elements; ++i) {
         auto idx = counter - num_elements + i;
         auto s = binary_column->get_slice(idx);
@@ -302,9 +302,9 @@ void add_arrow_to_nullable_binary_column(Column* column, size_t num_elements, Ar
     auto conv_func = get_arrow_converter(AT, LT, true, strict_mode);
     ASSERT_TRUE(conv_func != nullptr);
 
-    auto* nullable_column = down_cast<NullableColumn*>(column);
-    auto* binary_column = down_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
-    auto* null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+    auto* nullable_column = static_cast<NullableColumn*>(column);
+    auto* binary_column = static_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
+    auto* null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     fill_null_column(array.get(), 0, array->length(), null_column, null_column->size());
     auto* null_data = &null_column->get_data().front() + counter - num_elements;
     Filter filter;
@@ -520,7 +520,7 @@ void add_fixed_size_binary_array_to_binary_column(Column* column, size_t num_ele
             conv_func(array.get(), 0, array->length(), column, column->size(), nullptr, &filter, nullptr, nullptr);
     ASSERT_TRUE(status.ok());
     ASSERT_EQ(column->size(), counter);
-    auto* binary_column = down_cast<ColumnType*>(column);
+    auto* binary_column = static_cast<ColumnType*>(column);
     auto slice_size = std::min((std::string::size_type)bytes_width, value.size());
     for (auto i = 0; i < num_elements; ++i) {
         auto idx = counter - num_elements + i;
@@ -545,9 +545,9 @@ void add_fixed_size_binary_array_to_nullable_binary_column(Column* column, size_
     auto conv_func = get_arrow_converter(AT, LT, true, false);
     ASSERT_TRUE(conv_func != nullptr);
 
-    auto* nullable_column = down_cast<NullableColumn*>(column);
-    auto* binary_column = down_cast<BinaryColumn*>(nullable_column->data_column_raw_ptr());
-    auto* null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+    auto* nullable_column = static_cast<NullableColumn*>(column);
+    auto* binary_column = static_cast<BinaryColumn*>(nullable_column->data_column_raw_ptr());
+    auto* null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     fill_null_column(array.get(), 0, array->length(), null_column, null_column->size());
     auto* null_data = &null_column->get_data().front() + counter - num_elements;
     Filter filter;
@@ -774,7 +774,7 @@ void add_arrow_to_datetime_column(std::shared_ptr<ArrowType> type, Column* colum
         return;
     }
     ASSERT_EQ(column->size(), counter);
-    auto* datetime_column = down_cast<ColumnType*>(column);
+    auto* datetime_column = static_cast<ColumnType*>(column);
     auto* datetime_data = &datetime_column->get_data().front();
     for (auto i = 0; i < num_elements; ++i) {
         auto idx = counter - num_elements + i;
@@ -793,9 +793,9 @@ void add_arrow_to_nullable_datetime_column(std::shared_ptr<ArrowType> type, Colu
     ASSERT_TRUE(conv_func != nullptr);
 
     ASSERT_TRUE(column->is_nullable());
-    auto* nullable_column = down_cast<NullableColumn*>(column);
-    auto* datetime_column = down_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
-    auto* null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+    auto* nullable_column = static_cast<NullableColumn*>(column);
+    auto* datetime_column = static_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
+    auto* null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     fill_null_column(array.get(), 0, num_elements, null_column, null_column->size());
     auto* null_data = &null_column->get_data().front() + counter - num_elements;
     Filter filter;
@@ -991,7 +991,7 @@ void add_arrow_to_decimal_column(const std::shared_ptr<arrow::Decimal128Type>& t
             conv_func(array.get(), 0, array->length(), column, column->size(), nullptr, &filter, nullptr, nullptr);
     ASSERT_TRUE(status.ok());
     ASSERT_EQ(column->size(), counter);
-    auto* decimal_column = down_cast<ColumnType*>(column);
+    auto* decimal_column = static_cast<ColumnType*>(column);
     auto* decimal_data = &decimal_column->get_data().front();
     for (auto i = 0; i < num_elements; ++i) {
         auto idx = counter - num_elements + i;
@@ -1012,9 +1012,9 @@ void add_arrow_to_nullable_decimal_column(const std::shared_ptr<arrow::Decimal12
     auto array = create_const_decimal_array<true>(num_elements, std::move(type), value, counter);
     auto conv_func = get_arrow_converter(ArrowTypeId::DECIMAL, LT, true, false);
     ASSERT_TRUE(conv_func != nullptr);
-    auto* nullable_column = down_cast<NullableColumn*>(column);
-    auto* decimal_column = down_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
-    auto* null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+    auto* nullable_column = static_cast<NullableColumn*>(column);
+    auto* decimal_column = static_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
+    auto* null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     fill_null_column(array.get(), 0, array->length(), null_column, null_column->size());
     auto* null_data = &null_column->get_data().front() + counter - num_elements;
     Filter filter;
@@ -1482,7 +1482,7 @@ PARALLEL_TEST(ArrowConverterTest, test_convert_nullable_list_array) {
     ASSERT_STATUS_OK(ParquetScanner::convert_array_to_column(&cf, array->length(), array.get(), column.get(), 0,
                                                              column->size(), &filter, nullptr));
     ASSERT_EQ(column->size(), 20);
-    ASSERT_EQ(down_cast<NullableColumn*>(column.get())->null_count(), 10);
+    ASSERT_EQ(static_cast<NullableColumn*>(column.get())->null_count(), 10);
 }
 
 void convert_arrow_map_to_map_column(Column* column, size_t num_elements, const std::map<std::string, int>& value,
@@ -1541,7 +1541,7 @@ PARALLEL_TEST(ArrowConverterTest, test_convert_nullable_map) {
     ASSERT_STATUS_OK(ParquetScanner::convert_array_to_column(&cf, array->length(), array.get(), map_column.get(), 0,
                                                              map_column->size(), &filter, nullptr));
     ASSERT_EQ(map_column->size(), counter);
-    ASSERT_EQ(down_cast<NullableColumn*>(map_column.get())->null_count(), num_elements);
+    ASSERT_EQ(static_cast<NullableColumn*>(map_column.get())->null_count(), num_elements);
     ASSERT_EQ(map_column->debug_item(0), "{'haha':2,'haha':2,'hehe':1,'hehe':1}");
 }
 
@@ -1569,7 +1569,7 @@ PARALLEL_TEST(ArrowConverterTest, test_convert_struct) {
     ASSERT_STATUS_OK(ParquetScanner::convert_array_to_column(&cf, array->length(), array.get(), st_col.get(), 0,
                                                              st_col->size(), &filter, nullptr));
     ASSERT_EQ(st_col->size(), 10);
-    ASSERT_EQ(down_cast<NullableColumn*>(st_col.get())->null_count(), 0);
+    ASSERT_EQ(static_cast<NullableColumn*>(st_col.get())->null_count(), 0);
 
     ASSERT_EQ(st_col->debug_item(0), "{col1:0,col2:'char-0',col3:0}");
     ASSERT_EQ(st_col->debug_item(8), "{col1:8,col2:'char-8',col3:80}");
@@ -1598,7 +1598,7 @@ PARALLEL_TEST(ArrowConverterTest, test_convert_struct_null) {
     ASSERT_STATUS_OK(ParquetScanner::convert_array_to_column(&cf, array->length(), array.get(), st_col.get(), 0,
                                                              st_col->size(), &filter, nullptr));
     ASSERT_EQ(st_col->size(), 10);
-    ASSERT_EQ(down_cast<NullableColumn*>(st_col.get())->null_count(), 5);
+    ASSERT_EQ(static_cast<NullableColumn*>(st_col.get())->null_count(), 5);
     ASSERT_EQ(st_col->debug_item(0), "NULL");
     ASSERT_EQ(st_col->debug_item(1), "{col1:1,col2:'char-1',col3:10}");
     ASSERT_EQ(st_col->debug_item(2), "NULL");
@@ -1639,7 +1639,7 @@ PARALLEL_TEST(ArrowConverterTest, test_convert_struct_less_column) {
     ASSERT_STATUS_OK(ParquetScanner::convert_array_to_column(&cf, array->length(), array.get(), st_col, 0,
                                                              st_col->size(), &filter, nullptr));
     ASSERT_EQ(st_col->size(), 10);
-    ASSERT_EQ(down_cast<NullableColumn*>(st_col.get())->null_count(), 5);
+    ASSERT_EQ(static_cast<NullableColumn*>(st_col.get())->null_count(), 5);
     ASSERT_EQ(st_col->debug_item(3), "{col1:3,col2:'char-3',col3:30,col4:NULL}");
     ASSERT_EQ(st_col->debug_item(9), "{col1:9,col2:'char-9',col3:90,col4:NULL}");
 }
@@ -1665,7 +1665,7 @@ PARALLEL_TEST(ArrowConverterTest, test_convert_struct_more_column) {
     ASSERT_STATUS_OK(ParquetScanner::convert_array_to_column(&cf, array->length(), array.get(), st_col, 0,
                                                              st_col->size(), &filter, nullptr));
     ASSERT_EQ(st_col->size(), 10);
-    ASSERT_EQ(down_cast<NullableColumn*>(st_col.get())->null_count(), 0);
+    ASSERT_EQ(static_cast<NullableColumn*>(st_col.get())->null_count(), 0);
     ASSERT_EQ(st_col->debug_item(0), "{col1:0,col2:'char-0'}");
     ASSERT_EQ(st_col->debug_item(8), "{col1:8,col2:'char-8'}");
 }

@@ -18,7 +18,7 @@
 
 namespace starrocks {
 
-// TODO: we need to change the dict type to int16 later
+// TODO: we need to change the dict type to int16_t later
 using DictId = int32_t;
 
 constexpr auto LowCardDictType = TYPE_INT;

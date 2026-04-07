@@ -440,7 +440,7 @@ Status LakeDataSource::init_tablet_reader(RuntimeState* runtime_state) {
     RETURN_IF_ERROR(init_scanner_columns(scanner_columns, reader_columns));
 
     if (_split_context != nullptr) {
-        auto split_context = down_cast<const pipeline::LakeSplitContext*>(_split_context);
+        auto split_context = static_cast<const pipeline::LakeSplitContext*>(_split_context);
         if (_provider->could_split_physically()) {
             // physical
             _params.rowid_range_option = split_context->rowid_range;

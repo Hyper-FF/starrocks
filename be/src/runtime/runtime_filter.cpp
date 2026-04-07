@@ -436,7 +436,7 @@ template <bool null_is_true>
 void RuntimeBitsetFilter<LT>::_evaluate_vectorized(const Column* __restrict input_column, uint8_t* __restrict selection,
                                                    size_t from, size_t to) const {
     if (input_column->is_constant()) {
-        const auto* const_column = down_cast<const ConstColumn*>(input_column);
+        const auto* const_column = static_cast<const ConstColumn*>(input_column);
         if (const_column->only_null()) {
             memset(selection + from, _has_null, to - from);
         } else {
@@ -445,7 +445,7 @@ void RuntimeBitsetFilter<LT>::_evaluate_vectorized(const Column* __restrict inpu
             memset(selection + from, selected, to - from);
         }
     } else if (input_column->is_nullable()) {
-        const auto* nullable_column = down_cast<const NullableColumn*>(input_column);
+        const auto* nullable_column = static_cast<const NullableColumn*>(input_column);
         const auto* values = GetContainer<LT>::get_data(nullable_column->data_column()).data();
         if (nullable_column->has_null()) {
             const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
@@ -467,7 +467,7 @@ uint16_t RuntimeBitsetFilter<LT>::_evaluate_branchless(const Column* __restrict 
                                                        uint16_t* dst_sel) const {
     uint16_t num_dst_rows = 0;
     if (input_column->is_nullable()) {
-        const auto* nullable_column = down_cast<const NullableColumn*>(input_column);
+        const auto* nullable_column = static_cast<const NullableColumn*>(input_column);
         const auto& values = GetContainer<LT>::get_data(nullable_column->data_column());
         if (nullable_column->has_null()) {
             const uint8_t* null_data = nullable_column->immutable_null_column_data().data();

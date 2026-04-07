@@ -66,7 +66,7 @@ TEST_F(AsyncFlushOutputStreamTest, test_close_empty) {
 TEST_F(AsyncFlushOutputStreamTest, test_append_one_shot) {
     Stream stream = Stream(std::move(_file), _io_executor, _runtime_state);
     const int N = 1000'000;
-    std::vector<uint8> data(N, 'a');
+    std::vector<uint8_t> data(N, 'a');
     EXPECT_OK(stream.write(data.data(), data.size()));
     EXPECT_OK(stream.close());
     EXPECT_GE(stream.releasable_memory(), 0);
@@ -79,7 +79,7 @@ TEST_F(AsyncFlushOutputStreamTest, test_append_repeated) {
     Stream stream = Stream(std::move(_file), _io_executor, _runtime_state);
     const int N = 1000'000;
     const int M = 100;
-    std::vector<uint8> data(N, 'a');
+    std::vector<uint8_t> data(N, 'a');
     for (int i = 0; i < M; i++) {
         EXPECT_OK(stream.write(data.data(), data.size()));
     }
@@ -105,7 +105,7 @@ TEST_F(AsyncFlushOutputStreamTest, test_poller) {
     {
         const int N = 1000'000;
         const int M = 100;
-        std::vector<uint8> data(N, 'a');
+        std::vector<uint8_t> data(N, 'a');
         for (int i = 0; i < M; i++) {
             EXPECT_OK(ptr->write(data.data(), data.size()));
         }

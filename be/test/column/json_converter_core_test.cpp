@@ -18,7 +18,6 @@
 #include "column/json_column.h"
 #include "column/json_converter.h"
 #include "column/nullable_column.h"
-#include "gutil/casts.h"
 #include "types/json_value.h"
 
 namespace starrocks {
@@ -57,7 +56,7 @@ TEST(JsonConverterCoreTest, CastNumericBooleanStringAndJson) {
     Status json_status = cast_vpjson_to<TYPE_JSON, true>(object_json->to_vslice(), json_builder);
     ASSERT_TRUE(json_status.ok()) << json_status;
     auto json_column = json_builder.build(false);
-    auto* json_data = down_cast<JsonColumn*>(json_column.get());
+    auto* json_data = static_cast<JsonColumn*>(json_column.get());
     ASSERT_EQ(1, json_data->size());
     EXPECT_EQ(0, json_data->get_object(0)->compare(object_json.value()));
 }
@@ -74,7 +73,7 @@ TEST(JsonConverterCoreTest, ThrowAndNullOnInvalidBooleanString) {
     ASSERT_TRUE(null_status.ok()) << null_status;
     auto null_column = null_builder.build(false);
     ASSERT_TRUE(null_column->is_nullable());
-    auto* nullable = down_cast<NullableColumn*>(null_column.get());
+    auto* nullable = static_cast<NullableColumn*>(null_column.get());
     EXPECT_TRUE(nullable->is_null(0));
 }
 
@@ -89,7 +88,7 @@ TEST(JsonConverterCoreTest, DateAndDatetimeUnsupportedBehavior) {
     ASSERT_TRUE(date_null_status.ok()) << date_null_status;
     auto date_null_column = date_null_builder.build(false);
     ASSERT_TRUE(date_null_column->is_nullable());
-    auto* nullable_date = down_cast<NullableColumn*>(date_null_column.get());
+    auto* nullable_date = static_cast<NullableColumn*>(date_null_column.get());
     EXPECT_TRUE(nullable_date->is_null(0));
 
     JsonValue datetime_json = JsonValue::from_string(Slice("2025-02-02 01:02:03"));
@@ -104,7 +103,7 @@ TEST(JsonConverterCoreTest, DateAndDatetimeUnsupportedBehavior) {
     ASSERT_TRUE(datetime_null_status.ok()) << datetime_null_status;
     auto datetime_null_column = datetime_null_builder.build(false);
     ASSERT_TRUE(datetime_null_column->is_nullable());
-    auto* nullable_datetime = down_cast<NullableColumn*>(datetime_null_column.get());
+    auto* nullable_datetime = static_cast<NullableColumn*>(datetime_null_column.get());
     EXPECT_TRUE(nullable_datetime->is_null(0));
 }
 

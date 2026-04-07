@@ -705,17 +705,17 @@ public:
     void insert_null() { _has_null = true; }
 
     // this->max = std::max(other->max, this->max)
-    void merge(const RuntimeFilter* rf) override { _merge_min_max(down_cast<const MinMaxRuntimeFilter*>(rf)); }
+    void merge(const RuntimeFilter* rf) override { _merge_min_max(static_cast<const MinMaxRuntimeFilter*>(rf)); }
 
     // this->min = std::max(other->min, this->min)
     // this->max = std::min(other->max, this->max)
     void intersect(const RuntimeFilter* rf) override {
-        auto other = down_cast<const MinMaxRuntimeFilter*>(rf);
+        auto other = static_cast<const MinMaxRuntimeFilter*>(rf);
         update_min_max<true>(other->_min);
         update_min_max<false>(other->_max);
     }
 
-    void concat(RuntimeFilter* rf) override { _merge_min_max(down_cast<const MinMaxRuntimeFilter*>(rf)); }
+    void concat(RuntimeFilter* rf) override { _merge_min_max(static_cast<const MinMaxRuntimeFilter*>(rf)); }
 
     template <bool is_min>
     void update_min_max(CppType val) {
@@ -777,7 +777,7 @@ public:
         selection_filter.resize(size);
         uint8_t* selection = selection_filter.data();
         if (input_column->is_constant()) {
-            const auto* const_column = down_cast<const ConstColumn*>(input_column);
+            const auto* const_column = static_cast<const ConstColumn*>(input_column);
             if (const_column->only_null()) {
                 if constexpr (evaluate_null) {
                     selection[0] = _has_null;
@@ -789,7 +789,7 @@ public:
             uint8_t sel = selection[0];
             memset(selection, sel, size);
         } else if (input_column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(input_column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(input_column);
             const auto input_data = GetContainer<Type>::get_data(nullable_column->data_column().get());
             evaluate_min_max(input_data, selection, size);
             if (nullable_column->has_null() && evaluate_null) {
@@ -812,7 +812,7 @@ public:
         CHECK(!column->is_constant()) << "not support constant column";
         uint16_t new_size = 0;
         if (column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(column);
             const auto data = GetContainer<Type>::get_data(nullable_column->data_column());
             if (nullable_column->has_null()) {
                 const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
@@ -840,7 +840,7 @@ public:
         CHECK(!column->is_constant()) << "not support constant column";
 
         if (column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(column);
             const auto data = GetContainer<Type>::get_data(nullable_column->data_column());
             evaluate_min_max(data, selection, from, to);
             if (nullable_column->has_null()) {
@@ -1180,7 +1180,7 @@ public:
     void concat(RuntimeFilter* rf) override {
         RuntimeFilter::concat(rf);
 
-        const auto* other = down_cast<RuntimeMembershipFilter*>(rf);
+        const auto* other = static_cast<RuntimeMembershipFilter*>(rf);
         _join_mode = other->_join_mode;
         _size += other->_size;
     }
@@ -1239,14 +1239,14 @@ public:
     void merge(const RuntimeFilter* rf) override {
         RuntimeMembershipFilter::merge(rf);
 
-        auto* other = down_cast<const TRuntimeBloomFilter*>(rf);
+        auto* other = static_cast<const TRuntimeBloomFilter*>(rf);
         _bf.merge(other->_bf);
     }
 
     void concat(RuntimeFilter* rf) override {
         RuntimeMembershipFilter::concat(rf);
 
-        auto* other = down_cast<TRuntimeBloomFilter*>(rf);
+        auto* other = static_cast<TRuntimeBloomFilter*>(rf);
         if (other->_hash_partition_bf.empty()) {
             _hash_partition_bf.emplace_back(std::move(other->_bf));
         } else {
@@ -1474,7 +1474,7 @@ private:
             DCHECK_LE(size, hash_values.size());
         }
         if (input_column->is_constant()) {
-            const auto* const_column = down_cast<const ConstColumn*>(input_column);
+            const auto* const_column = static_cast<const ConstColumn*>(input_column);
             if (const_column->only_null()) {
                 selection[0] = _has_null;
             } else {
@@ -1486,7 +1486,7 @@ private:
             uint8_t sel = selection[0];
             memset(selection, sel, size);
         } else if (input_column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(input_column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(input_column);
             const auto input_data = GetContainer<Type>::get_data(nullable_column->data_column());
             if (nullable_column->has_null()) {
                 const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
@@ -1527,7 +1527,7 @@ private:
         CHECK(!column->is_constant()) << "not support constant column";
         uint16_t new_size = 0;
         if (column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(column);
             const auto data = GetContainer<Type>::get_data(nullable_column->data_column());
             if (nullable_column->has_null()) {
                 const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
@@ -1586,7 +1586,7 @@ private:
         }
         CHECK(!column->is_constant()) << "not support constant column";
         if (column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(column);
             const auto data = GetContainer<Type>::get_data(nullable_column->data_column());
             if (nullable_column->has_null()) {
                 const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
@@ -1887,7 +1887,7 @@ public:
 
     void merge(const RuntimeFilter* rf) override {
         RuntimeFilter::merge(rf);
-        auto* other = down_cast<const ComposedRuntimeFilter*>(rf);
+        auto* other = static_cast<const ComposedRuntimeFilter*>(rf);
         membership_filter().merge(&other->membership_filter());
         min_max_filter().merge(&other->min_max_filter());
     }
@@ -1896,7 +1896,7 @@ public:
 
     void concat(RuntimeFilter* rf) override {
         RuntimeFilter::concat(rf);
-        auto* other = down_cast<ComposedRuntimeFilter*>(rf);
+        auto* other = static_cast<ComposedRuntimeFilter*>(rf);
         membership_filter().concat(&other->membership_filter());
         min_max_filter().merge(&other->min_max_filter());
     }

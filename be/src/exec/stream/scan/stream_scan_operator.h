@@ -119,7 +119,7 @@ protected:
     bool _reach_eof() const override;
 
     connector::StreamDataSource* _get_stream_data_source() const {
-        return down_cast<connector::StreamDataSource*>(_data_source.get());
+        return static_cast<connector::StreamDataSource*>(_data_source.get());
     }
 
     int64_t _epoch_rows_limit = -1; // -1: not limit;

@@ -55,7 +55,7 @@
 #include "common/util/debug_util.h"
 #include "fmt/format.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "gutil/strings/numbers.h"
+#include "base/gutil/strings/numbers.h"
 #include "absl/strings/substitute.h"
 #include "storage/del_vector.h"
 #include "storage/delta_column_group.h"

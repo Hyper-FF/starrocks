@@ -17,7 +17,7 @@
 #include <memory>
 #include <vector>
 
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "runtime/global_dict/types_fwd_decl.h"
 #include "storage/lake/general_tablet_writer.h"
 

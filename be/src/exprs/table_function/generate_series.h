@@ -53,7 +53,7 @@ public:
                                                   TableFunctionState* base_state) const override {
         using NumericType = RunTimeCppType<Type>;
         auto max_chunk_size = runtime_state->chunk_size();
-        auto state = down_cast<MyState*>(base_state);
+        auto state = static_cast<MyState*>(base_state);
         auto res = RunTimeColumnType<Type>::create();
         auto offsets = UInt32Column::create();
         auto arg_start = ColumnViewer<Type>(state->get_columns()[0]);

@@ -25,7 +25,6 @@
 #include "column/variant_column.h"
 #include "column/variant_converter.h"
 #include "column/variant_encoder.h"
-#include "gutil/casts.h"
 #include "types/decimalv2_value.h"
 #include "types/timestamp_value.h"
 
@@ -255,7 +254,7 @@ PARALLEL_TEST(VariantColumnMergerTest, cast_variant_typed_column_to_bigint_prese
             VariantColumnMerger::cast_typed_column(*src, TypeDescriptor(TYPE_VARIANT), TypeDescriptor(TYPE_BIGINT));
     ASSERT_TRUE(casted.ok()) << casted.status().to_string();
 
-    const auto* nullable = down_cast<const NullableColumn*>(casted.value().get());
+    const auto* nullable = static_cast<const NullableColumn*>(casted.value().get());
     ASSERT_EQ(4, nullable->size());
     EXPECT_EQ(1, nullable->get(0).get_int64());
     EXPECT_TRUE(nullable->get(1).is_null());
@@ -283,7 +282,7 @@ PARALLEL_TEST(VariantColumnMergerTest, cast_variant_typed_column_to_varchar_form
             VariantColumnMerger::cast_typed_column(*src, TypeDescriptor(TYPE_VARIANT), TypeDescriptor(TYPE_VARCHAR));
     ASSERT_TRUE(casted.ok()) << casted.status().to_string();
 
-    const auto* nullable = down_cast<const NullableColumn*>(casted.value().get());
+    const auto* nullable = static_cast<const NullableColumn*>(casted.value().get());
     ASSERT_EQ(3, nullable->size());
     EXPECT_EQ("dept_0", nullable->get(0).get_slice().to_string());
     EXPECT_EQ("100", nullable->get(1).get_slice().to_string());
@@ -303,7 +302,7 @@ PARALLEL_TEST(VariantColumnMergerTest, cast_variant_typed_column_to_datetime_wit
     expected.from_unix_second(1711497600L, 0);
 
     auto src = build_nullable_variant_column_from_timestamp_ntz_micros({1711497600L * USECS_PER_SEC}, {0});
-    const auto* variant = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(src.get()));
+    const auto* variant = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(src.get()));
     ASSERT_NE(nullptr, variant);
     VariantRowValue row_buffer;
     const VariantRowValue* row = variant->get_row_value(0, &row_buffer);
@@ -358,13 +357,13 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_shredded_schema_union) {
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ(2, merged->size());
     ASSERT_EQ((std::vector<std::string>{"b", "c", "a"}), merged->shredded_paths());
 
-    const auto* typed_b = down_cast<const NullableColumn*>(merged->typed_column_by_index(0));
-    const auto* typed_c = down_cast<const NullableColumn*>(merged->typed_column_by_index(1));
-    const auto* typed_a = down_cast<const NullableColumn*>(merged->typed_column_by_index(2));
+    const auto* typed_b = static_cast<const NullableColumn*>(merged->typed_column_by_index(0));
+    const auto* typed_c = static_cast<const NullableColumn*>(merged->typed_column_by_index(1));
+    const auto* typed_a = static_cast<const NullableColumn*>(merged->typed_column_by_index(2));
     ASSERT_EQ(20, typed_b->get(0).get_int64());
     ASSERT_EQ(200, typed_b->get(1).get_int64());
     ASSERT_TRUE(typed_c->get(0).is_null());
@@ -396,7 +395,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_shredded_type_conflict_hoist_varian
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor(TYPE_VARIANT)}), merged->shredded_types());
     assert_variant_row_json(merged, 0, R"({"a":10})");
@@ -430,11 +429,11 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_shredded_numeric_widen) {
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor(TYPE_DOUBLE)}), merged->shredded_types());
 
-    const auto* typed_a = down_cast<const NullableColumn*>(merged->typed_column_by_index(0));
+    const auto* typed_a = static_cast<const NullableColumn*>(merged->typed_column_by_index(0));
     ASSERT_DOUBLE_EQ(10.0, typed_a->get(0).get_double());
     ASSERT_DOUBLE_EQ(30.5, typed_a->get(1).get_double());
 }
@@ -466,7 +465,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_shredded_array_conflict_hoist_varia
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor(TYPE_VARIANT)}), merged->shredded_types());
     assert_variant_row_json(merged, 0, R"({"a":[10,20]})");
@@ -498,7 +497,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_shredded_array_nonarray_conflict_ho
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor(TYPE_VARIANT)}), merged->shredded_types());
     assert_variant_row_json(merged, 0, R"({"a":[10,20]})");
@@ -521,7 +520,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_into_row_dst_with_existing_rows_and
 
     auto src = build_single_path_bigint_shredded_variant("a", 10);
 
-    auto st = VariantColumnMerger::merge_into(dst.get(), *down_cast<const VariantColumn*>(src.get()));
+    auto st = VariantColumnMerger::merge_into(dst.get(), *static_cast<const VariantColumn*>(src.get()));
     ASSERT_TRUE(st.ok()) << st.to_string();
     ASSERT_EQ(2, dst->size());
     ASSERT_EQ((std::vector<std::string>{"a"}), dst->shredded_paths());
@@ -542,12 +541,12 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_into_empty_row_dst_with_shredded_sr
     src->set_shredded_columns({"a"}, {TypeDescriptor(TYPE_BIGINT)}, std::move(src_typed), std::move(src_metadata),
                               std::move(src_remain));
 
-    auto st = VariantColumnMerger::merge_into(dst.get(), *down_cast<const VariantColumn*>(src.get()));
+    auto st = VariantColumnMerger::merge_into(dst.get(), *static_cast<const VariantColumn*>(src.get()));
     ASSERT_TRUE(st.ok()) << st.to_string();
     ASSERT_EQ(1, dst->size());
     ASSERT_EQ((std::vector<std::string>{"a"}), dst->shredded_paths());
 
-    const auto* typed_a = down_cast<const NullableColumn*>(dst->typed_column_by_index(0));
+    const auto* typed_a = static_cast<const NullableColumn*>(dst->typed_column_by_index(0));
     ASSERT_EQ(10, typed_a->get(0).get_int64());
 }
 
@@ -574,7 +573,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_shredded_decimal_conflict_hoist_var
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor(TYPE_VARIANT)}), merged->shredded_types());
 }
@@ -602,12 +601,12 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_shredded_decimalv3_widen_same_scale
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor::create_decimalv3_type(TYPE_DECIMAL64, 18, 2)}),
               merged->shredded_types());
 
-    const auto* typed_a = down_cast<const NullableColumn*>(merged->typed_column_by_index(0));
+    const auto* typed_a = static_cast<const NullableColumn*>(merged->typed_column_by_index(0));
     ASSERT_EQ(typed_a->get(0).get_int64(), 12345);
     ASSERT_EQ(typed_a->get(1).get_int64(), 67890);
 }
@@ -635,7 +634,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_shredded_decimalv3_scale_mismatch_h
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor(TYPE_VARIANT)}), merged->shredded_types());
 }
 
@@ -659,7 +658,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_root_typed_only_with_base_shredded_
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ(2, merged->size());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_TRUE(merged->has_metadata_column());
@@ -694,7 +693,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_root_typed_only_with_root_typed_onl
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ(2, merged->size());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_TRUE(merged->has_metadata_column());
@@ -731,7 +730,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_prefers_shredded_even_when_row_inpu
     auto merged_status = VariantColumnMerger::merge(inputs);
     ASSERT_TRUE(merged_status.ok()) << merged_status.status().to_string();
 
-    auto* merged = down_cast<VariantColumn*>(merged_status.value().get());
+    auto* merged = static_cast<VariantColumn*>(merged_status.value().get());
     ASSERT_EQ(2, merged->size());
     ASSERT_EQ((std::vector<std::string>{"a"}), merged->shredded_paths());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor(TYPE_BIGINT)}), merged->shredded_types());
@@ -789,7 +788,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_into_rejects_duplicate_paths_in_src
     auto& src_paths = const_cast<std::vector<std::string>&>(src->shredded_paths());
     src_paths[1] = "a";
 
-    auto st = VariantColumnMerger::merge_into(dst.get(), *down_cast<const VariantColumn*>(src.get()));
+    auto st = VariantColumnMerger::merge_into(dst.get(), *static_cast<const VariantColumn*>(src.get()));
     ASSERT_FALSE(st.ok());
     ASSERT_TRUE(st.is_not_supported() || st.is_invalid_argument());
 }
@@ -816,7 +815,7 @@ PARALLEL_TEST(VariantColumnMergerTest, merge_into_rejects_duplicate_paths_in_dst
     src->set_shredded_columns({"a"}, {TypeDescriptor(TYPE_BIGINT)}, std::move(src_typed), std::move(src_metadata),
                               std::move(src_remain));
 
-    auto st = VariantColumnMerger::merge_into(dst.get(), *down_cast<const VariantColumn*>(src.get()));
+    auto st = VariantColumnMerger::merge_into(dst.get(), *static_cast<const VariantColumn*>(src.get()));
     ASSERT_FALSE(st.ok());
     ASSERT_TRUE(st.is_invalid_argument());
 }

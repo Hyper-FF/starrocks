@@ -34,7 +34,6 @@
 #include "exprs/json_functions.h"
 #include "formats/avro/nullable_column.h"
 #include "fs/fs.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
@@ -175,7 +174,7 @@ void AvroScanner::_materialize_src_chunk_adaptive_nullable_column(ChunkPtr& chun
     chunk->materialized_nullable();
     for (int i = 0; i < chunk->num_columns(); i++) {
         AdaptiveNullableColumn* adaptive_column =
-                down_cast<AdaptiveNullableColumn*>(chunk->get_column_raw_ptr_by_index(i));
+                static_cast<AdaptiveNullableColumn*>(chunk->get_column_raw_ptr_by_index(i));
         chunk->update_column_by_index(NullableColumn::create(adaptive_column->materialized_raw_data_column(),
                                                              adaptive_column->materialized_raw_null_column()),
                                       i);
@@ -209,7 +208,7 @@ Status AvroScanner::_construct_row(const avro_value_t& avro_value, Chunk* chunk)
         if (_src_slot_descriptors[i] == nullptr) {
             continue;
         }
-        auto column = down_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_slot_id(_src_slot_descriptors[i]->id()));
+        auto column = static_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_slot_id(_src_slot_descriptors[i]->id()));
         if (UNLIKELY(i >= jsonpath_size)) {
             column->append_nulls(1);
             continue;
@@ -268,7 +267,7 @@ Status AvroScanner::_parse_avro(Chunk* chunk, const std::shared_ptr<SequentialFi
 #else
         const uint8_t* data{};
         size_t length = 0;
-        auto* stream_file = down_cast<StreamLoadPipeInputStream*>(file->stream().get());
+        auto* stream_file = static_cast<StreamLoadPipeInputStream*>(file->stream().get());
         {
             ++_counter->file_read_count;
             SCOPED_RAW_TIMER(&_counter->file_read_ns);

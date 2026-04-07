@@ -273,7 +273,7 @@ public:
         std::vector<ImmutableNullData> null_datas;
         Columns data_columns;
         for (auto& col : _vertical_columns) {
-            auto real = down_cast<const NullableColumn*>(col.get());
+            auto real = static_cast<const NullableColumn*>(col.get());
             null_datas.push_back(real->immutable_null_column_data());
             data_columns.push_back(real->data_column());
         }
@@ -315,7 +315,7 @@ public:
 
             std::vector<ImmContainer> containers;
             for (const auto& col : _vertical_columns) {
-                const auto real = down_cast<const ColumnType*>(col.get());
+                const auto real = static_cast<const ColumnType*>(col.get());
                 containers.push_back(real->immutable_data());
             }
 
@@ -325,8 +325,8 @@ public:
             _restore_inlined_permutation(inlined);
         } else {
             auto cmp = [&](const PermutationItem& lhs, const PermutationItem& rhs) {
-                auto left_column = down_cast<const ColumnType*>(_vertical_columns[lhs.chunk_index].get());
-                auto right_column = down_cast<const ColumnType*>(_vertical_columns[rhs.chunk_index].get());
+                auto left_column = static_cast<const ColumnType*>(_vertical_columns[lhs.chunk_index].get());
+                auto right_column = static_cast<const ColumnType*>(_vertical_columns[rhs.chunk_index].get());
                 auto left_value = left_column->get_slice(lhs.index_in_chunk);
                 auto right_value = right_column->get_slice(rhs.index_in_chunk);
                 return SorterComparator<Slice>::compare(left_value, right_value);
@@ -351,7 +351,7 @@ public:
             };
             std::vector<Container> containers;
             for (const auto& col : _vertical_columns) {
-                const auto real = down_cast<const ColumnType*>(col.get());
+                const auto real = static_cast<const ColumnType*>(col.get());
                 containers.emplace_back(real->immutable_data());
             }
             auto inlined = _create_inlined_permutation<T>(containers);
@@ -361,8 +361,8 @@ public:
         } else {
             using ItemType = PermutationItem;
             auto cmp = [&](const ItemType& lhs, const ItemType& rhs) {
-                auto left_column = down_cast<const ColumnType*>(_vertical_columns[lhs.chunk_index].get());
-                auto right_column = down_cast<const ColumnType*>(_vertical_columns[rhs.chunk_index].get());
+                auto left_column = static_cast<const ColumnType*>(_vertical_columns[lhs.chunk_index].get());
+                auto right_column = static_cast<const ColumnType*>(_vertical_columns[rhs.chunk_index].get());
                 auto left_value = left_column->immutable_data()[lhs.index_in_chunk];
                 auto right_value = right_column->immutable_data()[rhs.index_in_chunk];
                 return SorterComparator<T>::compare(left_value, right_value);

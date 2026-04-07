@@ -84,8 +84,8 @@ Status PartialRuntimeFilterMerger::merge_local_in_filters() {
         for (int j = 1; j < _partial_in_filters.size(); ++j) {
             auto& in_filter = _partial_in_filters[j][i];
             DCHECK(in_filter != nullptr);
-            auto* total_in_filter_pred = down_cast<Predicate*>(total_in_filter->root());
-            auto* in_filter_pred = down_cast<Predicate*>(in_filter->root());
+            auto* total_in_filter_pred = static_cast<Predicate*>(total_in_filter->root());
+            auto* in_filter_pred = static_cast<Predicate*>(in_filter->root());
             RETURN_IF_ERROR(total_in_filter_pred->merge(in_filter_pred));
         }
     }

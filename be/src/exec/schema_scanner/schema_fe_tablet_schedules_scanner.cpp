@@ -154,7 +154,7 @@ Status SchemaFeTabletSchedulesScanner::fill_chunk(ChunkPtr* chunk) {
                     v.from_unixtime(info.last_priority_adjust_time, _runtime_state->timezone_obj());
                     fill_column_with_slot<TYPE_DATETIME>(column, (void*)&v);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -194,7 +194,7 @@ Status SchemaFeTabletSchedulesScanner::fill_chunk(ChunkPtr* chunk) {
                     v.from_unixtime(static_cast<int64_t>(info.create_time), _runtime_state->timezone_obj());
                     fill_column_with_slot<TYPE_DATETIME>(column, (void*)&v);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -204,7 +204,7 @@ Status SchemaFeTabletSchedulesScanner::fill_chunk(ChunkPtr* chunk) {
                     v.from_unixtime(static_cast<int64_t>(info.schedule_time), _runtime_state->timezone_obj());
                     fill_column_with_slot<TYPE_DATETIME>(column, (void*)&v);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -214,7 +214,7 @@ Status SchemaFeTabletSchedulesScanner::fill_chunk(ChunkPtr* chunk) {
                     v.from_unixtime(static_cast<int64_t>(info.finish_time), _runtime_state->timezone_obj());
                     fill_column_with_slot<TYPE_DATETIME>(column, (void*)&v);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }

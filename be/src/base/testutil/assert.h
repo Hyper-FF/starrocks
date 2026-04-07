@@ -17,7 +17,7 @@
 #include <utility>
 
 #include "base/status.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 #define CHECK_OK(stmt)            \
     do {                          \

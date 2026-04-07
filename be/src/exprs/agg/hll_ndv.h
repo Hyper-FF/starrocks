@@ -21,7 +21,6 @@
 #include "common/compiler_util.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 #include "types/hll.h"
 
 namespace starrocks {
@@ -73,7 +72,7 @@ public:
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_binary());
 
-        const auto* hll_column = down_cast<const BinaryColumn*>(column);
+        const auto* hll_column = static_cast<const BinaryColumn*>(column);
         HyperLogLog hll(hll_column->get(row_num).get_slice());
         int64_t prev_memory = this->data(state).mem_usage();
         this->data(state).merge(hll);
@@ -83,7 +82,7 @@ public:
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<Int64Column*>(dst);
+        auto* column = static_cast<Int64Column*>(dst);
         int64_t result = this->data(state).estimate_cardinality();
 
         for (size_t i = start; i < end; ++i) {
@@ -95,7 +94,7 @@ public:
                              Column* to) const override {
         DCHECK(to->is_binary());
 
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         size_t size = this->data(state).max_serialized_size();
         uint8_t result[size];
 
@@ -106,7 +105,7 @@ public:
     void convert_to_serialize_format([[maybe_unused]] FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         const auto& datas = GetContainer<LT>::get_data(src[0]);
-        auto* result = down_cast<BinaryColumn*>(dst.get());
+        auto* result = static_cast<BinaryColumn*>(dst.get());
 
         Bytes& bytes = result->get_bytes();
         bytes.reserve(chunk_size * 10);
@@ -133,13 +132,13 @@ public:
                             Column* to) const override {
         if constexpr (IsOutputHLL) {
             DCHECK(to->is_object());
-            auto* column = down_cast<HyperLogLogColumn*>(to);
+            auto* column = static_cast<HyperLogLogColumn*>(to);
             auto& hll_value = const_cast<HyperLogLog&>(this->data(state));
             column->append(std::move(hll_value));
         } else {
             DCHECK(to->is_numeric());
 
-            auto* column = down_cast<Int64Column*>(to);
+            auto* column = static_cast<Int64Column*>(to);
             column->append(this->data(state).estimate_cardinality());
         }
     }

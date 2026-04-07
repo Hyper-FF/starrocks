@@ -19,7 +19,7 @@
 
 #include <utility>
 
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 // Run the given function body (which is typically a block of code surrounded by
 // curly-braces) when the current scope exits.

@@ -123,7 +123,7 @@ TEST_F(ParquetVariantTest, BooleanValue) {
 }
 
 TEST_F(ParquetVariantTest, IntValue) {
-    // int8
+    // int8_t
     {
         auto [int8_metadata, int8_value] = load_variant_data("primitive_int8.metadata", "primitive_int8.value");
         VariantValue variant{std::string_view(int8_value)};
@@ -132,7 +132,7 @@ TEST_F(ParquetVariantTest, IntValue) {
         // get incorrect type
         EXPECT_ERROR(variant.get_int16());
     }
-    // int16
+    // int16_t
     {
         auto [int16_metadata, int16_value] = load_variant_data("primitive_int16.metadata", "primitive_int16.value");
         VariantValue variant{std::string_view(int16_value)};
@@ -141,14 +141,14 @@ TEST_F(ParquetVariantTest, IntValue) {
         // get incorrect type
         EXPECT_ERROR(variant.get_float());
     }
-    // int32
+    // int32_t
     {
         auto [int32_metadata, int32_value] = load_variant_data("primitive_int32.metadata", "primitive_int32.value");
         VariantValue variant{std::string_view(int32_value)};
         EXPECT_EQ(VariantType::INT32, variant.type());
         EXPECT_EQ(123456, *variant.get_int32());
     }
-    // int64
+    // int64_t
     {
         auto [int64_metadata, int64_value] = load_variant_data("primitive_int64.metadata", "primitive_int64.value");
         VariantValue variant{std::string_view(int64_value)};

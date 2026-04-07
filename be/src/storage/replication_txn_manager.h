@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "storage/storage_engine.h"
 
 namespace starrocks {

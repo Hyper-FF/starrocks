@@ -208,7 +208,7 @@ Status SchemaMaterializedViewsScanner::fill_chunk(ChunkPtr* chunk) {
         case 10: {
             // LAST_REFRESH_START_TIME
             if (info.__isset.last_refresh_start_time) {
-                auto* nullable_column = down_cast<NullableColumn*>(column);
+                auto* nullable_column = static_cast<NullableColumn*>(column);
                 DateTimeValue t;
                 if (!t.from_date_str(info.last_refresh_start_time.data(), info.last_refresh_start_time.size())) {
                     nullable_column->append_nulls(1);
@@ -223,7 +223,7 @@ Status SchemaMaterializedViewsScanner::fill_chunk(ChunkPtr* chunk) {
         case 11: {
             // LAST_REFRESH_FINISHED_TIME
             if (info.__isset.last_refresh_finished_time) {
-                auto* nullable_column = down_cast<NullableColumn*>(column);
+                auto* nullable_column = static_cast<NullableColumn*>(column);
                 DateTimeValue t;
                 if (!t.from_date_str(info.last_refresh_finished_time.data(), info.last_refresh_finished_time.size())) {
                     nullable_column->append_nulls(1);
@@ -402,7 +402,7 @@ Status SchemaMaterializedViewsScanner::fill_chunk(ChunkPtr* chunk) {
         case 26: {
             // LAST_REFRESH_PROCESS_TIME
             if (info.__isset.last_refresh_process_time) {
-                auto* nullable_column = down_cast<NullableColumn*>(column);
+                auto* nullable_column = static_cast<NullableColumn*>(column);
                 DateTimeValue t;
                 if (!t.from_date_str(info.last_refresh_process_time.data(), info.last_refresh_process_time.size())) {
                     nullable_column->append_nulls(1);

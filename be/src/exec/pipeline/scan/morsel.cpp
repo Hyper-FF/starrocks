@@ -164,7 +164,7 @@ Status IndividualMorselQueueFactory::append_morsels(int driver_seq, Morsels&& mo
     // only append splitted morsel
     if (_enable_random_append_split_morsel) {
         for (const auto& morsel : morsels) {
-            auto* scan_morsel = down_cast<ScanMorsel*>(morsel.get());
+            auto* scan_morsel = static_cast<ScanMorsel*>(morsel.get());
             DCHECK(scan_morsel != nullptr);
             DCHECK(scan_morsel->get_split_context() != nullptr);
         }
@@ -261,7 +261,7 @@ static std::vector<TInternalScanRange*> convert_morsels_to_olap_scan_ranges(cons
     std::vector<TInternalScanRange*> scan_ranges;
     scan_ranges.reserve(morsels.size());
     for (const auto& morsel : morsels) {
-        auto* scan_morsel = down_cast<ScanMorsel*>(morsel.get());
+        auto* scan_morsel = static_cast<ScanMorsel*>(morsel.get());
         auto* scan_range = scan_morsel->get_olap_scan_range();
         scan_ranges.emplace_back(scan_range);
     }
@@ -320,7 +320,7 @@ StatusOr<MorselPtr> BucketSequenceMorselQueue::try_get() {
         return nullptr;
     }
     ASSIGN_OR_RETURN(auto morsel, _morsel_queue->try_get());
-    auto* m = down_cast<ScanMorsel*>(morsel.get());
+    auto* m = static_cast<ScanMorsel*>(morsel.get());
     if (m == nullptr) {
         return nullptr;
     }
@@ -358,7 +358,7 @@ StatusOr<int64_t> BucketSequenceMorselQueue::_peek_sequence_id() const {
     int64_t next_owner_id = -1;
     if (!_morsel_queue->empty()) {
         ASSIGN_OR_RETURN(auto next_morsel, _morsel_queue->try_get());
-        if (auto* next_scan_morsel = down_cast<ScanMorsel*>(next_morsel.get())) {
+        if (auto* next_scan_morsel = static_cast<ScanMorsel*>(next_morsel.get())) {
             next_owner_id = next_scan_morsel->owner_id();
             _morsel_queue->unget(std::move(next_morsel));
         }
@@ -800,7 +800,7 @@ StatusOr<MorselPtr> LogicalSplitMorselQueue::try_get() {
     DCHECK(_cur_range_lower == nullptr);
     DCHECK(_cur_range_upper == nullptr);
 
-    auto* scan_morsel = down_cast<ScanMorsel*>(_morsels[_tablet_idx].get());
+    auto* scan_morsel = static_cast<ScanMorsel*>(_morsels[_tablet_idx].get());
     auto morsel = std::make_unique<LogicalSplitScanMorsel>(
             scan_morsel->get_plan_node_id(), *(scan_morsel->get_scan_range()),
             std::make_shared<ShortKeyRangesOption>(std::move(short_key_ranges), _is_first_split_of_tablet));

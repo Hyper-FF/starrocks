@@ -90,7 +90,7 @@ bool AggInRuntimeFilterMerger::merge(size_t seq, RuntimeFilterBuildDescriptor* d
         size_t total_size = 0;
         scalar_type_dispatch(desc->build_expr_type(), [this, &total_size]<LogicalType Type>() {
             for (size_t i = 0; i < _target_filters.size(); ++i) {
-                total_size += down_cast<InRuntimeFilter<Type>*>(_target_filters[i])->size();
+                total_size += static_cast<InRuntimeFilter<Type>*>(_target_filters[i])->size();
             }
         });
         if (total_size > config::max_pushdown_conditions_per_column) {
@@ -168,9 +168,9 @@ struct AggTopRuntimeFilterBuilderImpl {
     template <LogicalType ltype, class Comp, bool isAsc>
     void update_runtime_filter(HeapBuilder* heap, RuntimeFilter* rf, ObjectPool* pool, const Column* column,
                                size_t limit) {
-        auto heap_builder = down_cast<THeapBuilder<ltype, Comp>*>(heap);
+        auto heap_builder = static_cast<THeapBuilder<ltype, Comp>*>(heap);
         if (column->is_nullable()) {
-            auto nullable = down_cast<const NullableColumn*>(column);
+            auto nullable = static_cast<const NullableColumn*>(column);
             const auto& null_data = nullable->null_column_data();
             const auto& column_data = GetContainer<ltype>::get_data(nullable->data_column());
             size_t num_rows = column->size();
@@ -198,7 +198,7 @@ struct AggTopRuntimeFilterBuilderImpl {
             }
         }
         if (heap_builder->size() > 0) {
-            down_cast<MinMaxRuntimeFilter<ltype>*>(rf)->template update_min_max<!isAsc>(heap_builder->top());
+            static_cast<MinMaxRuntimeFilter<ltype>*>(rf)->template update_min_max<!isAsc>(heap_builder->top());
         }
     }
 };
@@ -222,9 +222,9 @@ struct AggTopNRuntimeFilterUpdaterImpl {
     template <LogicalType ltype, class Comp, bool isAsc>
     void update_runtime_filter_with_selection(HeapBuilder* heap, RuntimeFilter* rf, const Column* column, size_t limit,
                                               const Filter& selection) {
-        auto heap_builder = down_cast<THeapBuilder<ltype, Comp>*>(heap);
+        auto heap_builder = static_cast<THeapBuilder<ltype, Comp>*>(heap);
         if (column->is_nullable()) {
-            auto* nullable = down_cast<const NullableColumn*>(column);
+            auto* nullable = static_cast<const NullableColumn*>(column);
             const auto& null_data = nullable->null_column_data();
             const auto& column_data = GetContainer<ltype>::get_data(nullable->data_column());
             size_t num_rows = column->size();
@@ -255,7 +255,7 @@ struct AggTopNRuntimeFilterUpdaterImpl {
             }
         }
         if (heap_builder->size() > 0) {
-            down_cast<MinMaxRuntimeFilter<ltype>*>(rf)->template update_min_max<!isAsc>(heap_builder->top());
+            static_cast<MinMaxRuntimeFilter<ltype>*>(rf)->template update_min_max<!isAsc>(heap_builder->top());
         }
     }
 };

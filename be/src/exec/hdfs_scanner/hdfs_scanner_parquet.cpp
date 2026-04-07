@@ -29,7 +29,7 @@ static const std::string kParquetProfileSectionPrefix = "Parquet";
 
 Status HdfsParquetScanner::do_init(RuntimeState* runtime_state, const HdfsScannerParams& scanner_params) {
     if (scanner_params.split_context != nullptr) {
-        auto split_ctx = down_cast<const parquet::SplitContext*>(scanner_params.split_context);
+        auto split_ctx = static_cast<const parquet::SplitContext*>(scanner_params.split_context);
         _skip_rows_ctx = split_ctx->skip_rows_ctx;
         return Status::OK();
     }

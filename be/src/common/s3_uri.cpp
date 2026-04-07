@@ -17,7 +17,7 @@
 #include <aws/core/utils/StringUtils.h>
 #include <aws/crt/io/Uri.h>
 #include <fmt/format.h>
-#include <gutil/strings/util.h>
+#include "base/gutil/strings/util.h>
 
 #include <algorithm>
 

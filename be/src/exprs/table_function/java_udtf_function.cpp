@@ -25,7 +25,6 @@
 #include "common/compiler_util.h"
 #include "exprs/function_context.h"
 #include "exprs/table_function/table_function.h"
-#include "gutil/casts.h"
 #include "jni.h"
 #include "runtime/user_function_cache.h"
 #include "types/type_descriptor.h"
@@ -120,7 +119,7 @@ Status JavaUDTFFunction::prepare(TableFunctionState* state) const {
 
 Status JavaUDTFFunction::open(RuntimeState* runtime_state, TableFunctionState* state) const {
     auto open_status = [state]() {
-        RETURN_IF_ERROR(down_cast<JavaUDTFState*>(state)->open());
+        RETURN_IF_ERROR(static_cast<JavaUDTFState*>(state)->open());
         return Status::OK();
     };
     auto promise = call_function_in_pthread(runtime_state, open_status);
@@ -141,7 +140,7 @@ std::pair<Columns, UInt32Column::Ptr> JavaUDTFFunction::process(RuntimeState* ru
                                                                 TableFunctionState* state) const {
     Columns res;
     const Columns& cols = state->get_columns();
-    auto* stateUDTF = down_cast<JavaUDTFState*>(state);
+    auto* stateUDTF = static_cast<JavaUDTFState*>(state);
 
     auto& helper = JVMFunctionHelper::getInstance();
     JNIEnv* env = helper.getEnv();

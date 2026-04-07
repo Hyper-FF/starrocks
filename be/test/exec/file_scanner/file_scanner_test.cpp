@@ -55,7 +55,7 @@ private:
 TEST_F(FileScannerTest, sample_schema) {
     {
         // sample 1 file.
-        // file1: col1,int64
+        // file1: col1,int64_t
         // result: col1,BIGINT
         const std::vector<std::pair<std::string, TypeDescriptor>> expected_schema = {
                 {"col1", TypeDescriptor::from_logical_type(TYPE_BIGINT)}};
@@ -82,8 +82,8 @@ TEST_F(FileScannerTest, sample_schema) {
 
     {
         // sample 2 file.
-        // file1: col1,int64
-        // file3: col2,int32; col3,int32; col4,float
+        // file1: col1,int64_t
+        // file3: col2,int32_t; col3,int32_t; col4,float
         // result: col1,BIGINT; col2,INT; col3,INT; col4,FLOAT
         const std::vector<std::pair<std::string, TypeDescriptor>> expected_schema = {
                 {"col1", TypeDescriptor::from_logical_type(TYPE_BIGINT)},
@@ -113,9 +113,9 @@ TEST_F(FileScannerTest, sample_schema) {
 
     {
         // sample 3 file.
-        // file1: col1,int64
-        // file2: col2,byte_array; col3,int64; col4,double
-        // file3: col2,int32; col3,int32; col4,float
+        // file1: col1,int64_t
+        // file2: col2,byte_array; col3,int64_t; col4,double
+        // file3: col2,int32_t; col3,int32_t; col4,float
         // result: col1,BIGINT; col2,VARCHAR; col3,BIGINT; col4,DOUBLE
         const std::vector<std::pair<std::string, TypeDescriptor>> expected_schema = {
                 {"col1", TypeDescriptor::from_logical_type(TYPE_BIGINT)},
@@ -145,7 +145,7 @@ TEST_F(FileScannerTest, sample_schema) {
 
     {
         // sample 1 file.
-        // file4: col1,int64; COL1,int64
+        // file4: col1,int64_t; COL1,int64_t
         // result: duplicated column name
         RuntimeState state(TUniqueId(), TQueryOptions(), TQueryGlobals(), nullptr);
         auto scan_range = create_scan_range({test_exec_dir + "/test_data/parquet_data/schema4.parquet"});
@@ -160,8 +160,8 @@ TEST_F(FileScannerTest, sample_schema) {
 
     {
         // sample 2 file.
-        // file1: col1,int64
-        // file4: col1,int64; COL1,int64
+        // file1: col1,int64_t
+        // file4: col1,int64_t; COL1,int64_t
         // result: duplicated column name
         RuntimeState state(TUniqueId(), TQueryOptions(), TQueryGlobals(), nullptr);
         auto scan_range = create_scan_range({test_exec_dir + "/test_data/parquet_data/schema1.parquet",

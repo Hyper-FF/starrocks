@@ -39,7 +39,7 @@ StatusOr<ExprContext*> RuntimeFilterHelper::rewrite_runtime_filter_in_cross_join
         if (res->is_null(0)) {
             col = ColumnHelper::create_const_null_column(1);
         } else {
-            auto data_col = down_cast<NullableColumn*>(res->as_mutable_raw_ptr())->data_column();
+            auto data_col = static_cast<NullableColumn*>(res->as_mutable_raw_ptr())->data_column();
             col = ConstColumn::create(std::move(data_col), 1);
         }
     } else {

@@ -19,7 +19,7 @@
 
 #include <cstring>
 
-#include "gutil/dynamic_annotations.h"
+#include "base/gutil/dynamic_annotations.h"
 
 namespace starrocks {
 

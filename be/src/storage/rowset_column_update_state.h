@@ -74,7 +74,7 @@ struct ColumnPartialUpdateState {
     // rssid -> source rowid -> update file's rowid
     std::map<uint32_t, std::vector<RowidPairs>> rss_rowid_to_update_rowid;
     // Maintains the rowids in update segment, which are need to be inserted
-    std::vector<uint32> insert_rowids;
+    std::vector<uint32_t> insert_rowids;
 
     // build `rss_rowid_to_update_rowid` from `src_rss_rowids`
     void build_rss_rowid_to_update_rowid() {

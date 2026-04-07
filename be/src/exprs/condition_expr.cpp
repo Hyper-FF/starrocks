@@ -25,7 +25,6 @@
 #include "column/vectorized_fwd.h"
 #include "common/object_pool.h"
 #include "exprs/dispatch.h"
-#include "gutil/casts.h"
 #include "types/logical_type.h"
 #include "types/percentile_value.h"
 #include "types/type_descriptor.h"
@@ -40,7 +39,7 @@ struct SelectIfOP {
         [[maybe_unused]] auto* input_data1 = ColumnHelper::get_data_column(value1.get());
 
         MutableColumnPtr res = ColumnHelper::create_column(type_desc, false);
-        auto* res_col = down_cast<RunTimeColumnType<Type>*>(res.get());
+        auto* res_col = static_cast<RunTimeColumnType<Type>*>(res.get());
         auto& res_data = res_col->get_data();
         res_data.resize(select_vec.size());
         if constexpr (isConstC0 && isConst1) {
@@ -51,18 +50,18 @@ struct SelectIfOP {
             auto v0 = ColumnHelper::get_const_value<Type>(value0);
             // Use const_cast for read-only access to avoid data copy
             auto* raw_col1 =
-                    const_cast<RunTimeColumnType<Type>*>(down_cast<const RunTimeColumnType<Type>*>(input_data1));
+                    const_cast<RunTimeColumnType<Type>*>(static_cast<const RunTimeColumnType<Type>*>(input_data1));
             SIMD_selector<Type>::select_if(select_vec.data(), res_data, v0, raw_col1->get_data());
         } else if constexpr (!isConstC0 && isConst1) {
             auto* raw_col0 =
-                    const_cast<RunTimeColumnType<Type>*>(down_cast<const RunTimeColumnType<Type>*>(input_data0));
+                    const_cast<RunTimeColumnType<Type>*>(static_cast<const RunTimeColumnType<Type>*>(input_data0));
             auto v1 = ColumnHelper::get_const_value<Type>(value1);
             SIMD_selector<Type>::select_if(select_vec.data(), res_data, raw_col0->get_data(), v1);
         } else if constexpr (!isConstC0 && !isConst1) {
             auto* raw_col0 =
-                    const_cast<RunTimeColumnType<Type>*>(down_cast<const RunTimeColumnType<Type>*>(input_data0));
+                    const_cast<RunTimeColumnType<Type>*>(static_cast<const RunTimeColumnType<Type>*>(input_data0));
             auto* raw_col1 =
-                    const_cast<RunTimeColumnType<Type>*>(down_cast<const RunTimeColumnType<Type>*>(input_data1));
+                    const_cast<RunTimeColumnType<Type>*>(static_cast<const RunTimeColumnType<Type>*>(input_data1));
             SIMD_selector<Type>::select_if(select_vec.data(), res_data, raw_col0->get_data(), raw_col1->get_data());
         }
         return res;
@@ -132,7 +131,7 @@ private:
         NullColumnPtr null = nullptr;
 
         if (columns[0]->is_nullable()) {
-            null = down_cast<const NullableColumn*>(columns[0].get())->null_column();
+            null = static_cast<const NullableColumn*>(columns[0].get())->null_column();
         }
 
         for (int row = 0; row < num_rows; ++row) {
@@ -206,7 +205,7 @@ private:
         ColumnPtr right_data = columns[1];
         NullColumnPtr right_nulls = nullptr;
         if (columns[1]->is_nullable()) {
-            const auto* nullable_col = down_cast<const NullableColumn*>(columns[1].get());
+            const auto* nullable_col = static_cast<const NullableColumn*>(columns[1].get());
             right_data = nullable_col->data_column();
             right_nulls = nullable_col->null_column();
         }
@@ -293,7 +292,7 @@ private:
         if (input_col->only_null()) {
             return ColumnHelper::create_const_column<TYPE_BOOLEAN>(1, num_rows);
         } else if (input_col->is_nullable()) {
-            return down_cast<const NullableColumn*>(input_col.get())->null_column();
+            return static_cast<const NullableColumn*>(input_col.get())->null_column();
         } else {
             return ColumnHelper::create_const_column<TYPE_BOOLEAN>(0, num_rows);
         }
@@ -304,7 +303,7 @@ private:
             res->resize(1);
             return ConstColumn::create(std::move(res), num_rows);
         } else if (input_col->is_nullable()) {
-            return down_cast<const NullableColumn*>(input_col.get())->data_column();
+            return static_cast<const NullableColumn*>(input_col.get())->data_column();
         } else {
             return input_col;
         }
@@ -465,7 +464,7 @@ private:
         nullColumns.resize(col_size);
         for (auto i = 0; i < col_size; ++i) {
             if (columns[i]->is_nullable()) {
-                nullColumns[i] = down_cast<const NullableColumn*>(columns[i].get())->null_column();
+                nullColumns[i] = static_cast<const NullableColumn*>(columns[i].get())->null_column();
             } else {
                 nullColumns[i] = nullptr;
             }

@@ -43,7 +43,7 @@ RuntimeFilter* RuntimeFilterFactory::to_empty_filter(ObjectPool* pool, RuntimeFi
     RuntimeFilter* filter = type_dispatch_filter(
             membership_filter->logical_type(), static_cast<RuntimeFilter*>(nullptr),
             [&]<LogicalType LT>() -> RuntimeFilter* {
-                return new ComposedRuntimeEmptyFilter<LT>(*down_cast<const MinMaxRuntimeFilter<LT>*>(min_max_filter),
+                return new ComposedRuntimeEmptyFilter<LT>(*static_cast<const MinMaxRuntimeFilter<LT>*>(min_max_filter),
                                                           *membership_filter);
             });
 

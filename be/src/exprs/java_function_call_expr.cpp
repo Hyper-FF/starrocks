@@ -30,7 +30,6 @@
 #include "common/statusor.h"
 #include "exprs/expr_context.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 #include "jni.h"
 #include "runtime/user_function_cache.h"
 #include "types/type_descriptor.h"
@@ -81,7 +80,7 @@ struct UDFFunctionCallHelper {
         auto res = ColumnHelper::create_column(ctx->get_return_type(), true);
         RETURN_IF_ERROR(helper.get_result_from_boxed_array(ctx->get_return_type().type, res.get(), result, num_rows));
         RETURN_IF_ERROR(ColumnHelper::update_nested_has_null(res.get()));
-        down_cast<NullableColumn*>(res.get())->update_has_null();
+        static_cast<NullableColumn*>(res.get())->update_has_null();
         return res;
     }
 };

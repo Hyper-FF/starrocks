@@ -226,7 +226,7 @@ TEST_F(MapApplyExprTest, test_map_int_int) {
         EXPECT_TRUE(result->debug_string() == column->debug_string());
         EXPECT_TRUE(result2->is_nullable());
         EXPECT_TRUE(result2->debug_string() == column->debug_string());
-        auto* nullable_col = down_cast<NullableColumn*>(column.get());
+        auto* nullable_col = static_cast<NullableColumn*>(column.get());
         EXPECT_EQ(nullable_col->data_column()->size(), nullable_col->null_column()->size());
 
         ExprExecutor::close(expr_ctxs, &_runtime_state);

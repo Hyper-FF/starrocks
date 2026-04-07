@@ -22,7 +22,6 @@
 #include "exec/spill/common.h"
 #include "fmt/format.h"
 #include "gen_cpp/Types_types.h"
-#include "gutil/casts.h"
 
 namespace starrocks::spill {
 class FileBlockContainer {
@@ -229,7 +228,7 @@ StatusOr<BlockPtr> FileBlockManager::acquire_block(const AcquireBlockOptions& op
 }
 
 Status FileBlockManager::release_block(BlockPtr block) {
-    auto file_block = down_cast<FileBlock*>(block.get());
+    auto file_block = static_cast<FileBlock*>(block.get());
     auto container = file_block->container();
     TRACE_SPILL_LOG << "release block: " << block->debug_string();
     RETURN_IF_ERROR(container->close());

@@ -128,7 +128,7 @@ Status StreamPipelineTest::execute() {
 OpFactories StreamPipelineTest::maybe_interpolate_local_passthrough_exchange(
         OpFactories& pred_operators, pipeline::ExecutionGroupRawPtr exec_group) {
     DCHECK(!pred_operators.empty() && pred_operators[0]->is_source());
-    auto* source_operator = down_cast<SourceOperatorFactory*>(pred_operators[0].get());
+    auto* source_operator = static_cast<SourceOperatorFactory*>(pred_operators[0].get());
     if (source_operator->degree_of_parallelism() > 1) {
         auto pseudo_plan_node_id = -200;
         auto mem_mgr = std::make_shared<pipeline::ChunkBufferMemoryManager>(

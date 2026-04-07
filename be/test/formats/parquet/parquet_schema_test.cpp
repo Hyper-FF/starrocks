@@ -1132,7 +1132,7 @@ TEST_F(ParquetSchemaTest, ParquetLists) {
     //   repeated group list {
     //     required group element (LIST) {
     //       repeated group list {
-    //         required int32 element;
+    //         required int32_t element;
     //       }
     //     }
     //   }
@@ -1143,13 +1143,13 @@ TEST_F(ParquetSchemaTest, ParquetLists) {
         t_schemas.emplace_back(GroupNode::make("list", FieldRepetitionType::REPEATED, 1));
         t_schemas.emplace_back(GroupNode::make("element", FieldRepetitionType::REQUIRED, ConvertedType::type::LIST, 1));
         t_schemas.emplace_back(GroupNode::make("list", FieldRepetitionType::REPEATED, 1));
-        t_schemas.emplace_back(PrimitiveNode::make("int32", FieldRepetitionType::type::REQUIRED, Type::type::INT32,
+        t_schemas.emplace_back(PrimitiveNode::make("int32_t", FieldRepetitionType::type::REQUIRED, Type::type::INT32,
                                                    ConvertedType::type::INT_32));
 
         expected_fields.emplace_back(GroupNode::make_field(
                 "array_of_arrays", true, ColumnType::ARRAY,
                 {GroupNode::make_field("element", false, ColumnType::ARRAY,
-                                       {PrimitiveNode::make_field("int32", false, Type::type::INT32)})}));
+                                       {PrimitiveNode::make_field("int32_t", false, Type::type::INT32)})}));
     }
 
     // // List<String> (list nullable, elements non-null)
@@ -1172,7 +1172,7 @@ TEST_F(ParquetSchemaTest, ParquetLists) {
 
     // // List<Integer> (nullable list, non-null elements)
     // optional group my_list (LIST) {
-    //   repeated int32 element;
+    //   repeated int32_t element;
     // }
     {
         t_schemas.emplace_back(
@@ -1189,7 +1189,7 @@ TEST_F(ParquetSchemaTest, ParquetLists) {
     // optional group my_list (LIST) {
     //   repeated group element {
     //     required binary str (UTF8);
-    //     required int32 num;
+    //     required int32_t num;
     //   };
     // }
     {
@@ -1269,9 +1269,9 @@ TEST_F(ParquetSchemaTest, ParquetNestedSchema) {
 
     // required group group1 {
     //   required bool leaf1;
-    //   required int32 leaf2;
+    //   required int32_t leaf2;
     // }
-    // required int64 leaf3;
+    // required int64_t leaf3;
     {
         t_schemas.emplace_back(GroupNode::make("group1", FieldRepetitionType::REQUIRED, 2));
         t_schemas.emplace_back(PrimitiveNode::make("leaf1", FieldRepetitionType::type::REQUIRED, Type::type::BOOLEAN));
@@ -1299,14 +1299,14 @@ TEST_F(ParquetSchemaTest, ParquetNestedSchema2) {
 
     // Full Parquet Schema:
     // required group group1 {
-    //   required int64 leaf1;
-    //   required int64 leaf2;
+    //   required int64_t leaf1;
+    //   required int64_t leaf2;
     // }
     // required group group2 {
-    //   required int64 leaf3;
-    //   required int64 leaf4;
+    //   required int64_t leaf3;
+    //   required int64_t leaf4;
     // }
-    // required int64 leaf5;
+    // required int64_t leaf5;
     {
         t_schemas.emplace_back(GroupNode::make("group1", FieldRepetitionType::REQUIRED, 2));
         t_schemas.emplace_back(PrimitiveNode::make("leaf1", FieldRepetitionType::type::REQUIRED, Type::type::INT64));
@@ -1340,11 +1340,11 @@ TEST_F(ParquetSchemaTest, ParquetRepeatedNestedSchema) {
     t_schemas.emplace_back(GroupNode::make_root(2));
     std::vector<ParquetField> expected_fields;
 
-    //   optional int32 leaf1;
+    //   optional int32_t leaf1;
     //   repeated group outerGroup {
-    //     optional int32 leaf2;
+    //     optional int32_t leaf2;
     //     repeated group innerGroup {
-    //       optional int32 leaf3;
+    //       optional int32_t leaf3;
     //     }
     //   }
     {

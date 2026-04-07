@@ -2592,7 +2592,7 @@ static VariantRowValue make_variant_row_from_json(const std::string& json_text) 
 
 static StatusOr<std::string> variant_json_at(const ColumnPtr& result, size_t row_num) {
     auto* data_col = ColumnHelper::get_data_column(result.get());
-    auto* variant_col = down_cast<const VariantColumn*>(data_col);
+    auto* variant_col = static_cast<const VariantColumn*>(data_col);
     VariantRowValue cell;
     const VariantRowValue* row = variant_col->get_row_value(row_num, &cell);
     if (row == nullptr) {

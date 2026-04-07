@@ -341,7 +341,7 @@ protected:
             "./be/test/formats/parquet/test_data/filter_page_index_with_rf_has_null.parquet";
 
     // c1        c2      c3
-    // (int32)  (int64) (int32, no group stats)
+    // (int32_t)  (int64_t) (int32_t, no group stats)
     // ======================
     // null      null     null
     // null      null     null
@@ -1984,7 +1984,7 @@ TEST_F(FileReaderTest, TestReadArrayMap) {
     //     repeated group array (MAP) {
     //         repeated group map (MAP_KEY_VALUE) {
     //             required binary key (UTF8);
-    //             optional int32 value;
+    //             optional int32_t value;
     //         }
     //     }
     // }
@@ -2023,13 +2023,13 @@ TEST_F(FileReaderTest, TestReadArrayMap) {
 
 TEST_F(FileReaderTest, TestStructArrayNull) {
     // message table {
-    //  optional int32 id = 1;
+    //  optional int32_t id = 1;
     //  optional group col = 2 {
-    //    optional int32 a = 3;
+    //    optional int32_t a = 3;
     //    optional group b (LIST) = 4 {
     //      repeated group list {
     //        optional group element = 5 {
-    //          optional int32 c = 6;
+    //          optional int32_t c = 6;
     //          optional binary d (STRING) = 7;
     //        }
     //      }
@@ -2149,13 +2149,13 @@ TEST_F(FileReaderTest, TestStructArrayNull) {
 
 TEST_F(FileReaderTest, TestComplexTypeNotNull) {
     // message table {
-    //  optional int32 id = 1;
+    //  optional int32_t id = 1;
     //  optional group col = 2 {
-    //    optional int32 a = 3;
+    //    optional int32_t a = 3;
     //    optional group b (LIST) = 4 {
     //      repeated group list {
     //        optional group element = 5 {
-    //          optional int32 c = 6;
+    //          optional int32_t c = 6;
     //          optional binary d (STRING) = 7;
     //        }
     //      }
@@ -2254,15 +2254,15 @@ TEST_F(FileReaderTest, TestHudiMORTwoNestedLevelArray) {
 TEST_F(FileReaderTest, TestLateMaterializationAboutRequiredComplexType) {
     // Schema:
     //  message schema {
-    //    required int64 a (INTEGER(64,true));
+    //    required int64_t a (INTEGER(64,true));
     //    required group b {
-    //      required int64 b1 (INTEGER(64,true));
-    //      required int64 b2 (INTEGER(64,true));
+    //      required int64_t b1 (INTEGER(64,true));
+    //      required int64_t b2 (INTEGER(64,true));
     //  }
     //    required group c (MAP) {
     //      repeated group key_value {
-    //        required int64 key (INTEGER(64,true));
-    //        required int64 value (INTEGER(64,true));
+    //        required int64_t key (INTEGER(64,true));
+    //        required int64_t value (INTEGER(64,true));
     //      }
     //    }
     //  }
@@ -2319,15 +2319,15 @@ TEST_F(FileReaderTest, TestLateMaterializationAboutRequiredComplexType) {
 TEST_F(FileReaderTest, TestLateMaterializationAboutOptionalComplexType) {
     // Schema:
     // message schema {
-    //  optional int64 a (INTEGER(64,true));
+    //  optional int64_t a (INTEGER(64,true));
     //  optional group b {
-    //    optional int64 b1 (INTEGER(64,true));
-    //    optional int64 b2 (INTEGER(64,true));
+    //    optional int64_t b1 (INTEGER(64,true));
+    //    optional int64_t b2 (INTEGER(64,true));
     //  }
     //  optional group c (MAP) {
     //    repeated group key_value {
-    //      required int64 key (INTEGER(64,true));
-    //      optional int64 value (INTEGER(64,true));
+    //      required int64_t key (INTEGER(64,true));
+    //      optional int64_t value (INTEGER(64,true));
     //    }
     //  }
     // }
@@ -2502,7 +2502,7 @@ TEST_F(FileReaderTest, TestMinMaxForIcebergTable) {
     //    optional binary x (STRING) = 4;
     //    optional binary y (STRING) = 5;
     //  }
-    //  required int32 int = 3;
+    //  required int32_t int = 3;
     // }
     const std::string filepath =
             "./be/test/formats/parquet/test_data/iceberg_schema_evolution/iceberg_string_map_string.parquet";
@@ -2900,7 +2900,7 @@ TEST_F(FileReaderTest, bloom_filter_reader) {
             buffer.data(), 256);
     uint32_t header_len = 256;
     tparquet::BloomFilterHeader header;
-    deserialize_thrift_msg(reinterpret_cast<const uint8*>(buffer.data()), &header_len, TProtocolType::COMPACT, &header);
+    deserialize_thrift_msg(reinterpret_cast<const uint8_t*>(buffer.data()), &header_len, TProtocolType::COMPACT, &header);
     //uint64_t value = 1ULL * buffer[0] + (buffer[1] >> 8) + (buffer[2] >> 16) + (buffer[3] >> 24);
     std::cout << "bloom filter header info, header length:" << header_len;
     EXPECT_EQ(header_len, 18);
@@ -2992,7 +2992,7 @@ TEST_F(FileReaderTest, read_parquet_bloom_filter_by_parquet_hadoop) {
             buffer.data(), 256);
     uint32_t header_len = 256;
     tparquet::BloomFilterHeader header;
-    deserialize_thrift_msg(reinterpret_cast<const uint8*>(buffer.data()), &header_len, TProtocolType::COMPACT, &header);
+    deserialize_thrift_msg(reinterpret_cast<const uint8_t*>(buffer.data()), &header_len, TProtocolType::COMPACT, &header);
     //uint64_t value = 1ULL * buffer[0] + (buffer[1] >> 8) + (buffer[2] >> 16) + (buffer[3] >> 24);
     std::cout << "bloom filter header info, header length:" << header_len;
     EXPECT_EQ(header_len, 18);
@@ -3052,7 +3052,7 @@ TEST_F(FileReaderTest, read_parquet_bloom_filter_by_parquet_hadoop2) {
             buffer.data(), 256);
     uint32_t header_len = 256;
     tparquet::BloomFilterHeader header;
-    deserialize_thrift_msg(reinterpret_cast<const uint8*>(buffer.data()), &header_len, TProtocolType::COMPACT, &header);
+    deserialize_thrift_msg(reinterpret_cast<const uint8_t*>(buffer.data()), &header_len, TProtocolType::COMPACT, &header);
     //uint64_t value = 1ULL * buffer[0] + (buffer[1] >> 8) + (buffer[2] >> 16) + (buffer[3] >> 24);
     std::cout << "bloom filter header info, header length:" << header_len;
     EXPECT_EQ(header_len, 18);
@@ -3135,7 +3135,7 @@ TEST_F(FileReaderTest, read_parquet_bloom_filter_by_parquet_hadoop3) {
             buffer.data(), 256);
     uint32_t header_len = 256;
     tparquet::BloomFilterHeader header;
-    deserialize_thrift_msg(reinterpret_cast<const uint8*>(buffer.data()), &header_len, TProtocolType::COMPACT, &header);
+    deserialize_thrift_msg(reinterpret_cast<const uint8_t*>(buffer.data()), &header_len, TProtocolType::COMPACT, &header);
     //uint64_t value = 1ULL * buffer[0] + (buffer[1] >> 8) + (buffer[2] >> 16) + (buffer[3] >> 24);
     std::cout << "bloom filter header info, header length:" << header_len;
     EXPECT_EQ(header_len, 18);
@@ -4436,8 +4436,8 @@ TEST_F(FileReaderTest, test_read_variant_shredding) {
 
     const ColumnPtr& variant_col_nullable = chunk->get_column_by_index(0);
     ASSERT_TRUE(variant_col_nullable->is_nullable());
-    const auto* nullable = down_cast<const NullableColumn*>(variant_col_nullable.get());
-    const auto* variant_col = down_cast<const VariantColumn*>(nullable->data_column().get());
+    const auto* nullable = static_cast<const NullableColumn*>(variant_col_nullable.get());
+    const auto* variant_col = static_cast<const VariantColumn*>(nullable->data_column().get());
     ASSERT_NE(variant_col, nullptr);
     ASSERT_TRUE(variant_col->is_shredded_variant());
     ASSERT_FALSE(variant_col->shredded_paths().empty());
@@ -4507,9 +4507,9 @@ TEST_F(FileReaderTest, test_read_variant_shredding_with_access_paths) {
     ASSERT_TRUE(status.ok()) << status.message();
     ASSERT_EQ(5, chunk->num_rows());
 
-    const auto* nullable = down_cast<const NullableColumn*>(chunk->get_column_by_index(0).get());
+    const auto* nullable = static_cast<const NullableColumn*>(chunk->get_column_by_index(0).get());
     ASSERT_NE(nullable, nullptr);
-    const auto* variant_col = down_cast<const VariantColumn*>(nullable->data_column().get());
+    const auto* variant_col = static_cast<const VariantColumn*>(nullable->data_column().get());
     ASSERT_NE(variant_col, nullptr);
     ASSERT_TRUE(variant_col->is_shredded_variant());
     ASSERT_EQ(2u, variant_col->shredded_paths().size());
@@ -4557,9 +4557,9 @@ TEST_F(FileReaderTest, test_read_variant_shredding_with_prefix_access_path) {
     ASSERT_TRUE(status.ok()) << status.message();
     ASSERT_EQ(5, chunk->num_rows());
 
-    const auto* nullable = down_cast<const NullableColumn*>(chunk->get_column_by_index(0).get());
+    const auto* nullable = static_cast<const NullableColumn*>(chunk->get_column_by_index(0).get());
     ASSERT_NE(nullable, nullptr);
-    const auto* variant_col = down_cast<const VariantColumn*>(nullable->data_column().get());
+    const auto* variant_col = static_cast<const VariantColumn*>(nullable->data_column().get());
     ASSERT_NE(variant_col, nullptr);
     ASSERT_TRUE(variant_col->is_shredded_variant());
     ASSERT_EQ(1u, variant_col->shredded_paths().size());
@@ -4600,9 +4600,9 @@ TEST_F(FileReaderTest, test_read_variant_shredding_with_whole_column_access_path
     ASSERT_TRUE(status.ok()) << status.message();
     ASSERT_EQ(5, chunk->num_rows());
 
-    const auto* nullable = down_cast<const NullableColumn*>(chunk->get_column_by_index(0).get());
+    const auto* nullable = static_cast<const NullableColumn*>(chunk->get_column_by_index(0).get());
     ASSERT_NE(nullable, nullptr);
-    const auto* variant_col = down_cast<const VariantColumn*>(nullable->data_column().get());
+    const auto* variant_col = static_cast<const VariantColumn*>(nullable->data_column().get());
     ASSERT_NE(variant_col, nullptr);
     ASSERT_TRUE(variant_col->is_shredded_variant());
     ASSERT_GT(variant_col->shredded_paths().size(), 2u);

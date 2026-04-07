@@ -26,7 +26,6 @@
 #include "exprs/binary_function.h"
 #include "exprs/function_context.h"
 #include "exprs/unary_function.h"
-#include "gutil/casts.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 
@@ -47,7 +46,7 @@ StatusOr<ColumnPtr> BitmapFunctions::to_bitmap(FunctionContext* context, const s
         uint64_t value;
         if constexpr (lt_is_integer<LT> || lt_is_boolean<LT>) {
             auto raw_value = viewer.value(row);
-            // To be compatible with varchar type, set it null if raw value is less than 0 and less than uint64::max.
+            // To be compatible with varchar type, set it null if raw value is less than 0 and less than uint64_t::max.
             if (UNLIKELY(raw_value < 0 || raw_value > std::numeric_limits<uint64_t>::max())) {
                 context->set_error(absl::Substitute("The input: {0} is not valid, to_bitmap only "
                                                        "support bigint value from 0 to "
@@ -236,7 +235,7 @@ StatusOr<ColumnPtr> BitmapFunctions::bitmap_from_string(FunctionContext* context
         if (parse_ok) {
             for (auto piece : absl::StrSplit(std::string_view(slice.data, slice.size),
                                               absl::ByAnyChar(","), absl::SkipEmpty())) {
-                uint64 val;
+                uint64_t val;
                 if (safe_strtou64(std::string(piece), &val)) {
                     bits.push_back(val);
                 } else {
@@ -435,23 +434,23 @@ StatusOr<ColumnPtr> BitmapFunctions::array_to_bitmap(FunctionContext* context, c
 
     const Column* data_column = ColumnHelper::get_data_column(columns[0].get());
     const auto null_data = columns[0]->is_nullable()
-                                   ? down_cast<const NullableColumn*>(columns[0].get())->null_column_data().data()
+                                   ? static_cast<const NullableColumn*>(columns[0].get())->null_column_data().data()
                                    : nullptr;
-    const auto* array_column = down_cast<const ArrayColumn*>(data_column);
+    const auto* array_column = static_cast<const ArrayColumn*>(data_column);
 
     auto element_container = array_column->elements_column()->is_nullable()
-                                     ? down_cast<const RunTimeColumnType<TYPE>*>(
-                                               down_cast<const NullableColumn*>(array_column->elements_column().get())
+                                     ? static_cast<const RunTimeColumnType<TYPE>*>(
+                                               static_cast<const NullableColumn*>(array_column->elements_column().get())
                                                        ->data_column()
                                                        .get())
                                                ->immutable_data()
-                                     : down_cast<const RunTimeColumnType<TYPE>*>(array_column->elements_column().get())
+                                     : static_cast<const RunTimeColumnType<TYPE>*>(array_column->elements_column().get())
                                                ->immutable_data();
     const auto offsets = array_column->offsets_column()->immutable_data();
 
     auto element_null_data =
             array_column->elements_column()->is_nullable()
-                    ? down_cast<const NullableColumn*>(array_column->elements_column().get())->null_column_data().data()
+                    ? static_cast<const NullableColumn*>(array_column->elements_column().get())->null_column_data().data()
                     : nullptr;
 
     for (int row = 0; row < size; ++row) {

@@ -51,7 +51,7 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
     case AVRO_INT64: {
         int64_t in;
         if (avro_value_get_long(&value, &in) != 0) {
-            auto err_msg = absl::Substitute("Get int64 value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get int64_t value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         std::string sv = std::to_string(in);
@@ -228,7 +228,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_INT32: {
         int32_t in;
         if (avro_value_get_int(&value, &in) != 0) {
-            return Status::InvalidArgument(absl::Substitute("Get int32 value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get int32_t value error $0", avro_strerror()));
         }
         out.SetInt(in);
         return Status::OK();
@@ -236,7 +236,7 @@ static Status avro_value_to_rapidjson(const avro_value_t& value, rapidjson::Docu
     case AVRO_INT64: {
         int64_t in;
         if (avro_value_get_long(&value, &in) != 0) {
-            return Status::InvalidArgument(absl::Substitute("Get int64 value error $0", avro_strerror()));
+            return Status::InvalidArgument(absl::Substitute("Get int64_t value error $0", avro_strerror()));
         }
         out.SetInt64(in);
         return Status::OK();
@@ -442,7 +442,7 @@ static Status add_column_with_array_object_value(BinaryColumn* column, const Typ
 
 Status add_binary_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                          const avro_value_t& value) {
-    auto binary_column = down_cast<BinaryColumn*>(column);
+    auto binary_column = static_cast<BinaryColumn*>(column);
 
     switch (avro_value_get_type(&value)) {
     case AVRO_INT32:
@@ -508,7 +508,7 @@ Status add_native_json_column(Column* column, const TypeDescriptor& type_desc, c
         return Status::InternalError(absl::Substitute("parse json failed. column=$0, err=$1", name, st.message()));
     }
 
-    auto json_column = down_cast<JsonColumn*>(column);
+    auto json_column = static_cast<JsonColumn*>(column);
     json_column->append(std::move(json_value));
     return Status::OK();
 }

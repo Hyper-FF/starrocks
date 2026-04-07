@@ -152,7 +152,7 @@ PARALLEL_TEST(VecStringFunctionsTest, substrConstASCIITest) {
         state->pos = offset;
         state->len = len;
         ColumnPtr result = StringFunctions::substring(ctx.get(), columns).value();
-        auto* binary = down_cast<const BinaryColumn*>(result.get());
+        auto* binary = static_cast<const BinaryColumn*>(result.get());
         ASSERT_EQ(binary->size(), 2);
         ASSERT_EQ(binary->get_slice(0).to_string(), expect);
         ASSERT_EQ(binary->get_slice(1).to_string(), "");
@@ -200,7 +200,7 @@ PARALLEL_TEST(VecStringFunctionsTest, substrConstZhTest) {
         state->pos = offset;
         state->len = len;
         ColumnPtr result = StringFunctions::substring(ctx.get(), columns).value();
-        auto* binary = down_cast<const BinaryColumn*>(result.get());
+        auto* binary = static_cast<const BinaryColumn*>(result.get());
         ASSERT_EQ(binary->get_slice(0).to_string(), expect);
         ASSERT_EQ(binary->get_slice(1).to_string(), "");
     }
@@ -283,7 +283,7 @@ PARALLEL_TEST(VecStringFunctionsTest, substrConstUtf8Test) {
         state->pos = offset;
         state->len = len;
         ColumnPtr result = StringFunctions::substring(ctx.get(), columns).value();
-        auto* binary = down_cast<const BinaryColumn*>(result.get());
+        auto* binary = static_cast<const BinaryColumn*>(result.get());
         ASSERT_EQ(binary->get_slice(0).to_string(), expect);
         ASSERT_EQ(binary->get_slice(1).to_string(), "");
     }
@@ -560,7 +560,7 @@ PARALLEL_TEST(VecStringFunctionsTest, split) {
     columns.emplace_back(str);
     columns.emplace_back(delim);
     ColumnPtr result = StringFunctions::split(ctx.get(), columns).value();
-    auto* col_array = down_cast<const ArrayColumn*>(ColumnHelper::get_data_column(result.get()));
+    auto* col_array = static_cast<const ArrayColumn*>(ColumnHelper::get_data_column(result.get()));
     ASSERT_EQ("[['1','2','3'], ['aa','bb','cc'], ['a','b','c'], ['','']]", col_array->debug_string());
 
     columns.clear();
@@ -659,7 +659,7 @@ PARALLEL_TEST(VecStringFunctionsTest, splitChinese) {
         columns.emplace_back(str);
         columns.emplace_back(delim);
         ColumnPtr result = StringFunctions::split(ctx.get(), columns).value();
-        auto* col_array = down_cast<const ArrayColumn*>(ColumnHelper::get_data_column(result.get()));
+        auto* col_array = static_cast<const ArrayColumn*>(ColumnHelper::get_data_column(result.get()));
         ASSERT_EQ(
                 "[['1上海','北','京'], ['北','京','.','南','京','.','东','京'], ['北 ','南','*东……',''], "
                 "['','市','区','街道']]",
@@ -1483,8 +1483,8 @@ PARALLEL_TEST(VecStringFunctionsTest, caseToggleTest) {
     ASSERT_TRUE(StringFunctions::lower_prepare(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
     auto lower_dst = StringFunctions::lower(ctx.get(), columns).value();
     ASSERT_TRUE(StringFunctions::lower_close(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
-    auto binary_upper_dst = down_cast<const BinaryColumn*>(upper_dst.get());
-    auto binary_lower_dst = down_cast<const BinaryColumn*>(lower_dst.get());
+    auto binary_upper_dst = static_cast<const BinaryColumn*>(upper_dst.get());
+    auto binary_lower_dst = static_cast<const BinaryColumn*>(lower_dst.get());
     ASSERT_TRUE(binary_upper_dst != nullptr);
     ASSERT_TRUE(binary_lower_dst != nullptr);
     auto size = src->size();
@@ -2967,8 +2967,8 @@ static void test_left_and_right_not_const(
     columns.emplace_back(len_col);
     ColumnPtr left_result = StringFunctions::left(context.get(), columns).value();
     ColumnPtr right_result = StringFunctions::right(context.get(), columns).value();
-    auto* binary_left_result = down_cast<const BinaryColumn*>(left_result.get());
-    auto* binary_right_result = down_cast<const BinaryColumn*>(right_result.get());
+    auto* binary_left_result = static_cast<const BinaryColumn*>(left_result.get());
+    auto* binary_right_result = static_cast<const BinaryColumn*>(right_result.get());
     ASSERT_TRUE(binary_left_result != nullptr);
     ASSERT_TRUE(binary_right_result != nullptr);
     const auto size = cases.size();
@@ -3004,8 +3004,8 @@ static void test_left_and_right_not_const(
         left_result = StringFunctions::left(context.get(), columns).value();
         substr_state->pos = -len;
         right_result = StringFunctions::right(context.get(), columns).value();
-        binary_left_result = down_cast<const BinaryColumn*>(left_result.get());
-        binary_right_result = down_cast<const BinaryColumn*>(right_result.get());
+        binary_left_result = static_cast<const BinaryColumn*>(left_result.get());
+        binary_right_result = static_cast<const BinaryColumn*>(right_result.get());
         ASSERT_TRUE(binary_left_result != nullptr);
         ASSERT_TRUE(binary_right_result != nullptr);
         ASSERT_EQ(binary_left_result->size(), 1);
@@ -3094,8 +3094,8 @@ static void test_left_and_right_const(
         substr_state->len = len;
         auto left_result = StringFunctions::left(context.get(), columns).value();
         auto right_result = StringFunctions::right(context.get(), columns).value();
-        auto binary_left_result = down_cast<const BinaryColumn*>(left_result.get());
-        auto binary_right_result = down_cast<const BinaryColumn*>(right_result.get());
+        auto binary_left_result = static_cast<const BinaryColumn*>(left_result.get());
+        auto binary_right_result = static_cast<const BinaryColumn*>(right_result.get());
         ASSERT_TRUE(binary_left_result != nullptr);
         ASSERT_TRUE(binary_right_result != nullptr);
         const auto size = str_col->size();
@@ -3178,7 +3178,7 @@ static void test_substr_not_const(std::vector<std::tuple<std::string, int, int, 
     }
     Columns columns{str_col, off_col, len_col};
     auto result = StringFunctions::substring(context.get(), columns).value();
-    auto* binary_result = down_cast<const BinaryColumn*>(result.get());
+    auto* binary_result = static_cast<const BinaryColumn*>(result.get());
     const auto size = cases.size();
     ASSERT_TRUE(binary_result != nullptr);
     ASSERT_EQ(binary_result->size(), size);
@@ -3509,7 +3509,7 @@ PARALLEL_TEST(VecStringFunctionsTest, strposInstanceTest) {
         ASSERT_EQ(2, result->size());
         ASSERT_TRUE(result->is_nullable());
 
-        auto nullable_result = down_cast<const NullableColumn*>(result.get());
+        auto nullable_result = static_cast<const NullableColumn*>(result.get());
         ASSERT_FALSE(nullable_result->is_null(0));
         ASSERT_TRUE(nullable_result->is_null(1));
 

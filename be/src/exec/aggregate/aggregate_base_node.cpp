@@ -108,7 +108,7 @@ void AggregateBaseNode::push_down_join_runtime_filter(RuntimeState* state, Runti
         bool match = false;
         for (ExprContext* group_expr_ctx : _group_by_expr_ctxs) {
             if (group_expr_ctx->root()->is_slotref()) {
-                auto* slot = down_cast<ColumnRef*>(group_expr_ctx->root());
+                auto* slot = static_cast<ColumnRef*>(group_expr_ctx->root());
                 if (slot->slot_id() == slot_id) {
                     match = true;
                     break;

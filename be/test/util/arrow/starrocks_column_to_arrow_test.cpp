@@ -91,7 +91,7 @@ struct NotNullableColumnTester {
         auto chunk = std::make_shared<Chunk>();
         std::vector<LogicalType> primitive_types(1, LT);
         auto column = ColumnType::create();
-        auto data_column = down_cast<ColumnType*>(column.get());
+        auto data_column = static_cast<ColumnType*>(column.get());
         data_column->reserve(num_rows);
         auto k = 0;
         const auto data_size = data.size();
@@ -124,7 +124,7 @@ struct NotNullableColumnTester {
         auto array = result->columns()[0];
         ASSERT_TRUE(array);
         ASSERT_EQ(array->type()->ToString(), arrow_type->ToString());
-        auto* data_array = down_cast<ArrowArrayType*>(array.get());
+        auto* data_array = static_cast<ArrowArrayType*>(array.get());
         ASSERT_EQ(data_array->length(), num_rows);
         k = 0;
         for (auto i = 0; i < num_rows; ++i) {
@@ -145,7 +145,7 @@ struct NullableColumnTester {
         auto chunk = std::make_shared<Chunk>();
         std::vector<LogicalType> primitive_types(1, LT);
         auto column = ColumnType::create();
-        auto data_column = down_cast<ColumnType*>(column.get());
+        auto data_column = static_cast<ColumnType*>(column.get());
         data_column->reserve(num_rows);
         auto null_column = NullColumn::create();
         null_column->reserve(num_rows);
@@ -186,7 +186,7 @@ struct NullableColumnTester {
         auto array = result->columns()[0];
         ASSERT_TRUE(array);
         ASSERT_EQ(array->type()->ToString(), arrow_type->ToString());
-        auto* data_array = down_cast<ArrowArrayType*>(array.get());
+        auto* data_array = static_cast<ArrowArrayType*>(array.get());
         ASSERT_EQ(data_array->length(), num_rows);
         k = 0;
         for (auto i = 0; i < num_rows; ++i) {
@@ -233,7 +233,7 @@ struct ConstNullColumnTester {
         auto array = result->columns()[0];
         ASSERT_TRUE(array);
         ASSERT_EQ(array->type()->ToString(), arrow_type->ToString());
-        auto* data_array = down_cast<ArrowArrayType*>(array.get());
+        auto* data_array = static_cast<ArrowArrayType*>(array.get());
         ASSERT_EQ(data_array->length(), num_rows);
 
         for (auto i = 0; i < num_rows; ++i) {
@@ -278,7 +278,7 @@ struct ConstColumnTester {
         auto array = result->columns()[0];
         ASSERT_TRUE(array);
         ASSERT_EQ(array->type()->ToString(), arrow_type->ToString());
-        auto* data_array = down_cast<ArrowArrayType*>(array.get());
+        auto* data_array = static_cast<ArrowArrayType*>(array.get());
         ASSERT_EQ(data_array->length(), num_rows);
 
         for (auto i = 0; i < num_rows; ++i) {
@@ -567,7 +567,7 @@ TEST_F(StarRocksColumnToArrowTest, testArrayColumn) {
     column->append_datum(DatumArray{Datum(), Datum()});
 
     auto memory_pool = arrow::MemoryPool::CreateDefault();
-    std::shared_ptr<arrow::DataType> arrow_type = arrow::list(arrow::int32());
+    std::shared_ptr<arrow::DataType> arrow_type = arrow::list(arrow::int32_t());
     std::shared_ptr<arrow::RecordBatch> result;
     convert_to_arrow(array_type_desc, std::move(column), arrow_type, memory_pool.get(), &result);
     std::shared_ptr<arrow::Array> array = result->column(0);
@@ -593,7 +593,7 @@ TEST_F(StarRocksColumnToArrowTest, testNullableArrayColumn) {
     column->append_datum(DatumArray{Datum(), Datum()});
 
     auto memory_pool = arrow::MemoryPool::CreateDefault();
-    std::shared_ptr<arrow::DataType> arrow_type = arrow::list(arrow::int32());
+    std::shared_ptr<arrow::DataType> arrow_type = arrow::list(arrow::int32_t());
     std::shared_ptr<arrow::RecordBatch> result;
     convert_to_arrow(array_type_desc, std::move(column), arrow_type, memory_pool.get(), &result);
     std::shared_ptr<arrow::Array> array = result->column(0);
@@ -622,7 +622,7 @@ TEST_F(StarRocksColumnToArrowTest, testStructColumn) {
 
     auto memory_pool = arrow::MemoryPool::CreateDefault();
     std::shared_ptr<arrow::DataType> arrow_type =
-            arrow::struct_({arrow::field("id", arrow::int32()), arrow::field("name", arrow::utf8())});
+            arrow::struct_({arrow::field("id", arrow::int32_t()), arrow::field("name", arrow::utf8())});
     std::shared_ptr<arrow::RecordBatch> result;
     convert_to_arrow(struct_type_desc, std::move(column), arrow_type, memory_pool.get(), &result);
     std::shared_ptr<arrow::Array> array = result->column(0);
@@ -657,7 +657,7 @@ TEST_F(StarRocksColumnToArrowTest, testNullableStructColumn) {
 
     auto memory_pool = arrow::MemoryPool::CreateDefault();
     std::shared_ptr<arrow::DataType> arrow_type =
-            arrow::struct_({arrow::field("id", arrow::int32()), arrow::field("name", arrow::utf8())});
+            arrow::struct_({arrow::field("id", arrow::int32_t()), arrow::field("name", arrow::utf8())});
     std::shared_ptr<arrow::RecordBatch> result;
     convert_to_arrow(struct_type_desc, std::move(column), arrow_type, memory_pool.get(), &result);
     std::shared_ptr<arrow::Array> array = result->column(0);
@@ -689,16 +689,16 @@ TEST_F(StarRocksColumnToArrowTest, testMapColumn) {
     column->append_datum(DatumMap{});
 
     auto memory_pool = arrow::MemoryPool::CreateDefault();
-    std::shared_ptr<arrow::DataType> arrow_type = arrow::map(arrow::int32(), arrow::utf8());
+    std::shared_ptr<arrow::DataType> arrow_type = arrow::map(arrow::int32_t(), arrow::utf8());
     std::shared_ptr<arrow::RecordBatch> result;
     convert_to_arrow(map_type_desc, std::move(column), arrow_type, memory_pool.get(), &result);
     std::shared_ptr<arrow::Array> array = result->column(0);
 
     std::unique_ptr<arrow::ArrayBuilder> builder;
     ASSERT_OK(arrow::MakeBuilder(memory_pool.get(), arrow_type, &builder));
-    arrow::MapBuilder* map_builder = down_cast<arrow::MapBuilder*>(builder.get());
-    arrow::Int32Builder* key_builder = down_cast<arrow::Int32Builder*>(map_builder->key_builder());
-    arrow::StringBuilder* item_builder = down_cast<arrow::StringBuilder*>(map_builder->item_builder());
+    arrow::MapBuilder* map_builder = static_cast<arrow::MapBuilder*>(builder.get());
+    arrow::Int32Builder* key_builder = static_cast<arrow::Int32Builder*>(map_builder->key_builder());
+    arrow::StringBuilder* item_builder = static_cast<arrow::StringBuilder*>(map_builder->item_builder());
     // {1:"test1"},{2,"test2"}
     ASSERT_OK(map_builder->Append());
     ASSERT_OK(key_builder->AppendValues({1, 2}));
@@ -734,16 +734,16 @@ TEST_F(StarRocksColumnToArrowTest, testNullableMapColumn) {
     column->append_nulls(1);
 
     auto memory_pool = arrow::MemoryPool::CreateDefault();
-    std::shared_ptr<arrow::DataType> arrow_type = arrow::map(arrow::int32(), arrow::utf8());
+    std::shared_ptr<arrow::DataType> arrow_type = arrow::map(arrow::int32_t(), arrow::utf8());
     std::shared_ptr<arrow::RecordBatch> result;
     convert_to_arrow(map_type_desc, std::move(column), arrow_type, memory_pool.get(), &result);
     std::shared_ptr<arrow::Array> array = result->column(0);
 
     std::unique_ptr<arrow::ArrayBuilder> builder;
     ASSERT_OK(arrow::MakeBuilder(memory_pool.get(), arrow_type, &builder));
-    arrow::MapBuilder* map_builder = down_cast<arrow::MapBuilder*>(builder.get());
-    arrow::Int32Builder* key_builder = down_cast<arrow::Int32Builder*>(map_builder->key_builder());
-    arrow::StringBuilder* item_builder = down_cast<arrow::StringBuilder*>(map_builder->item_builder());
+    arrow::MapBuilder* map_builder = static_cast<arrow::MapBuilder*>(builder.get());
+    arrow::Int32Builder* key_builder = static_cast<arrow::Int32Builder*>(map_builder->key_builder());
+    arrow::StringBuilder* item_builder = static_cast<arrow::StringBuilder*>(map_builder->item_builder());
     // {1:"test1"},{2,"test2"}
     ASSERT_OK(map_builder->Append());
     ASSERT_OK(key_builder->AppendValues({1, 2}));
@@ -786,9 +786,9 @@ TEST_F(StarRocksColumnToArrowTest, testNestedArrayStructMap) {
     column->append_nulls(1);
 
     auto memory_pool = arrow::MemoryPool::CreateDefault();
-    std::shared_ptr<arrow::DataType> arrow_map_type = arrow::map(arrow::int32(), arrow::utf8());
+    std::shared_ptr<arrow::DataType> arrow_map_type = arrow::map(arrow::int32_t(), arrow::utf8());
     std::shared_ptr<arrow::DataType> arrow_struct_type =
-            arrow::struct_({arrow::field("id", arrow::int32()), arrow::field("map", arrow_map_type)});
+            arrow::struct_({arrow::field("id", arrow::int32_t()), arrow::field("map", arrow_map_type)});
     std::shared_ptr<arrow::DataType> arrow_type = arrow::list(arrow_struct_type);
     std::shared_ptr<arrow::RecordBatch> result;
     convert_to_arrow(array_type_desc, std::move(column), arrow_type, memory_pool.get(), &result);
@@ -797,12 +797,12 @@ TEST_F(StarRocksColumnToArrowTest, testNestedArrayStructMap) {
 
     std::unique_ptr<arrow::ArrayBuilder> builder;
     ASSERT_OK(arrow::MakeBuilder(memory_pool.get(), arrow_type, &builder));
-    arrow::ListBuilder* list_builder = down_cast<arrow::ListBuilder*>(builder.get());
-    arrow::StructBuilder* struct_builder = down_cast<arrow::StructBuilder*>(list_builder->value_builder());
-    arrow::Int32Builder* id_builder = down_cast<arrow::Int32Builder*>(struct_builder->field_builder(0));
-    arrow::MapBuilder* map_builder = down_cast<arrow::MapBuilder*>(struct_builder->field_builder(1));
-    arrow::Int32Builder* key_builder = down_cast<arrow::Int32Builder*>(map_builder->key_builder());
-    arrow::StringBuilder* item_builder = down_cast<arrow::StringBuilder*>(map_builder->item_builder());
+    arrow::ListBuilder* list_builder = static_cast<arrow::ListBuilder*>(builder.get());
+    arrow::StructBuilder* struct_builder = static_cast<arrow::StructBuilder*>(list_builder->value_builder());
+    arrow::Int32Builder* id_builder = static_cast<arrow::Int32Builder*>(struct_builder->field_builder(0));
+    arrow::MapBuilder* map_builder = static_cast<arrow::MapBuilder*>(struct_builder->field_builder(1));
+    arrow::Int32Builder* key_builder = static_cast<arrow::Int32Builder*>(map_builder->key_builder());
+    arrow::StringBuilder* item_builder = static_cast<arrow::StringBuilder*>(map_builder->item_builder());
     // [{"id": 1, "map": {11:"test11"},{111:"test111"}}, null]
     ASSERT_OK(list_builder->Append());
     ASSERT_OK(struct_builder->Append());

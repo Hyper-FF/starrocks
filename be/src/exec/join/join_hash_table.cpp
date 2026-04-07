@@ -132,9 +132,9 @@ size_t JoinHashMapSelector::_get_binary_column_max_size(RuntimeState* state, con
     if (column->is_nullable()) {
         auto* null_column = ColumnHelper::as_raw_column<NullableColumn>(column);
         const auto data_column = null_column->data_column();
-        binary_column = down_cast<const BinaryColumn*>(data_column.get());
+        binary_column = static_cast<const BinaryColumn*>(data_column.get());
     } else {
-        binary_column = down_cast<const BinaryColumn*>(column.get());
+        binary_column = static_cast<const BinaryColumn*>(column.get());
     }
 
     const auto& offsets = binary_column->get_offset();

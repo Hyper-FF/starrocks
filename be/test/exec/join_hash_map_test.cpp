@@ -1258,13 +1258,13 @@ TEST_F(JoinHashMapTest, DirectMappingJoinBuildProbeFunc) {
     // build chunk
     auto build_chunk = std::make_shared<Chunk>();
     auto build_column = Int8Column::create();
-    down_cast<Int8Column*>(build_column.get())->append({-5, -3, -1, 0, 1, 3, 5});
+    static_cast<Int8Column*>(build_column.get())->append({-5, -3, -1, 0, 1, 3, 5});
     build_chunk->append_column(std::move(build_column), 1);
 
     // probe chunk
     auto probe_chunk = std::make_shared<Chunk>();
     auto probe_column = Int8Column::create();
-    down_cast<Int8Column*>(probe_column.get())->append({-8, -5, 0, 1, 2, 3, 4, 5});
+    static_cast<Int8Column*>(probe_column.get())->append({-8, -5, 0, 1, 2, 3, 4, 5});
     probe_chunk->append_column(probe_column->clone(), 0);
     Columns probe_key_columns = {probe_column->clone()};
 
@@ -1282,7 +1282,7 @@ TEST_F(JoinHashMapTest, DirectMappingJoinBuildProbeFunc) {
     // check
     ASSERT_EQ(result_chunk->columns().size(), 2);
     auto* result_column = result_chunk->get_column_raw_ptr_by_slot_id(1);
-    auto result_data = down_cast<Int8Column*>(result_column)->get_data();
+    auto result_data = static_cast<Int8Column*>(result_column)->get_data();
     std::sort(result_data.begin(), result_data.end());
     Buffer<int8_t> check_data = {-5, 0, 1, 3, 5};
     ASSERT_TRUE(result_data == check_data);
@@ -1337,9 +1337,9 @@ TEST_F(JoinHashMapTest, DirectMappingJoinBuildProbeFuncNullable) {
     // check
     ASSERT_EQ(result_chunk->columns().size(), 2);
     auto* result_column = result_chunk->get_column_raw_ptr_by_slot_id(1);
-    auto* result_data_column = down_cast<Int8Column*>(down_cast<NullableColumn*>(result_column)->data_column_raw_ptr());
+    auto* result_data_column = static_cast<Int8Column*>(static_cast<NullableColumn*>(result_column)->data_column_raw_ptr());
     auto* result_null_column =
-            down_cast<UInt8Column*>(down_cast<NullableColumn*>(result_column)->null_column_raw_ptr());
+            static_cast<UInt8Column*>(static_cast<NullableColumn*>(result_column)->null_column_raw_ptr());
     auto result_data = result_data_column->get_data();
     auto result_null = result_null_column->get_data();
     std::sort(result_data.begin(), result_data.end());

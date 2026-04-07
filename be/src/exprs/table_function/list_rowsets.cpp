@@ -19,7 +19,6 @@
 #include "column/binary_column.h"
 #include "column/column_viewer.h"
 #include "column/fixed_length_column.h"
-#include "gutil/casts.h"
 #include "json2pb/pb_to_json.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
@@ -83,7 +82,7 @@ static void fill_rowset_row(MutableColumns& columns, const RowsetMetadataPB& row
 std::pair<Columns, UInt32Column::Ptr> ListRowsets::process(RuntimeState* runtime_state,
                                                            TableFunctionState* base_state) const {
 #ifndef __APPLE__
-    auto state = down_cast<MyState*>(base_state);
+    auto state = static_cast<MyState*>(base_state);
 
     if (UNLIKELY(state->get_columns().size() != 2)) {
         // This should never happen in practice, but still check this for safety.

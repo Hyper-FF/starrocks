@@ -140,10 +140,10 @@ TEST(HashMapTest, Insert) {
             res_columns.emplace_back(ColumnHelper::create_column(TypeDescriptor(type.first), type.second));
         }
         key.insert_keys_to_columns(resv, res_columns, resv.size());
-        auto& l = down_cast<Int32Column*>(down_cast<NullableColumn*>(res_columns[0].get())->data_column_raw_ptr())
+        auto& l = static_cast<Int32Column*>(static_cast<NullableColumn*>(res_columns[0].get())->data_column_raw_ptr())
                           ->get_data();
-        auto& r = down_cast<Int32Column*>(
-                          down_cast<NullableColumn*>(key_columns[0]->as_mutable_raw_ptr())->data_column_raw_ptr())
+        auto& r = static_cast<Int32Column*>(
+                          static_cast<NullableColumn*>(key_columns[0]->as_mutable_raw_ptr())->data_column_raw_ptr())
                           ->get_data();
         std::set<int32_t> keys_sets;
         for (int& i : r) {

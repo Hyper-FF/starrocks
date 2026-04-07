@@ -148,8 +148,8 @@ TEST(FixedLengthColumnTest, test_nullable) {
 
         column->filter(filter);
         auto result = std::move(column);
-        auto* nullable_col = down_cast<NullableColumn*>(result.get());
-        auto* data_result = down_cast<Int32Column*>(nullable_col->data_column_raw_ptr());
+        auto* nullable_col = static_cast<NullableColumn*>(result.get());
+        auto* data_result = static_cast<Int32Column*>(nullable_col->data_column_raw_ptr());
 
         ASSERT_EQ(50, result->size());
         for (int j = 0; j < 50; ++j) {
@@ -234,7 +234,7 @@ TEST(FixedLengthColumnTest, test_append_defaults) {
 
 // NOLINTNEXTLINE
 TEST(FixedLengthColumnTest, test_compare_at) {
-    // int32 basic
+    // int32_t basic
     {
         std::vector<int32_t> numbers{1, 2, 3, 4, 5, 6, 7};
         auto c1 = Int32Column::create();
@@ -252,7 +252,7 @@ TEST(FixedLengthColumnTest, test_compare_at) {
             }
         }
     }
-    // int32 boundary test
+    // int32_t boundary test
     {
         std::vector<int32_t> numbers{-2147483648, 1514736000, 1577808000, 2147483647};
         auto c1 = Int32Column::create();
@@ -293,7 +293,7 @@ TEST(FixedLengthColumnTest, test_compare_at) {
         ASSERT_EQ(-1, c2->compare_at(7, 7, *c1, -1));
         ASSERT_EQ(0, c1->compare_at(7, 7, *c1, -1));
     }
-    // nullable int32
+    // nullable int32_t
     {
         std::vector<int32_t> numbers{1, 2, 3, 4, 5, 6, 7};
         auto c1 = NullableColumn::create(Int32Column::create(), NullColumn::create());
@@ -428,7 +428,7 @@ TEST(FixedLengthColumnTest, test_append_nullable_numeric) {
 
 // NOLINTNEXTLINE
 TEST(FixedLengthColumnTest, test_assign) {
-    // int32
+    // int32_t
     {
         std::vector<int32_t> numbers{1, 2, 3, 4, 5, 6, 7};
         auto c1 = Int32Column::create();
@@ -446,7 +446,7 @@ TEST(FixedLengthColumnTest, test_assign) {
             ASSERT_EQ(ColumnHelper::as_raw_column<FixedLengthColumn<int32_t>>(c2.get())->get_data()[i], 4);
         }
     }
-    // nullable int32
+    // nullable int32_t
     {
         std::vector<int32_t> numbers{1, 2, 3, 4, 5, 6, 7};
         auto c1 = NullableColumn::create(Int32Column::create(), NullColumn::create());

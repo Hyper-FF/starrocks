@@ -28,7 +28,7 @@
 #include "base/utility/defer_op.h"
 #include "fmt/format.h"
 #include "fs/encrypt_file.h"
-#include "gutil/endian.h"
+#include "base/gutil/endian.h"
 #include "io/core/input_stream.h"
 
 namespace starrocks {
@@ -100,8 +100,8 @@ const uint8_t kEncryptionBlockSize = 16;
 Status DoEncryptV(const FileEncryptionInfo& eh, uint64_t offset, const Slice* cleartext, Slice* ciphertext, size_t n) {
     // Set the initialization vector based on the offset.
     uint8_t iv[16];
-    *reinterpret_cast<uint64*>(&iv[0]) = BigEndian::FromHost64(0);
-    *reinterpret_cast<uint64*>(&iv[8]) = BigEndian::FromHost64(offset / kEncryptionBlockSize);
+    *reinterpret_cast<uint64_t*>(&iv[0]) = BigEndian::FromHost64(0);
+    *reinterpret_cast<uint64_t*>(&iv[8]) = BigEndian::FromHost64(offset / kEncryptionBlockSize);
 
     const auto* cipher = get_evp_cipher(eh);
     if (PREDICT_FALSE(!cipher)) {
@@ -140,8 +140,8 @@ Status DoEncryptV(const FileEncryptionInfo& eh, uint64_t offset, const Slice* cl
 Status DoDecryptV(const FileEncryptionInfo& eh, uint64_t offset, Slice* data, size_t n) {
     // Set the initialization vector based on the offset.
     uint8_t iv[16];
-    *reinterpret_cast<uint64*>(&iv[0]) = BigEndian::FromHost64(0);
-    *reinterpret_cast<uint64*>(&iv[8]) = BigEndian::FromHost64(offset / kEncryptionBlockSize);
+    *reinterpret_cast<uint64_t*>(&iv[0]) = BigEndian::FromHost64(0);
+    *reinterpret_cast<uint64_t*>(&iv[8]) = BigEndian::FromHost64(offset / kEncryptionBlockSize);
 
     const auto* cipher = get_evp_cipher(eh);
     if (PREDICT_FALSE(!cipher)) {

@@ -107,7 +107,7 @@ std::string HiveDataSource::name() const {
 Status HiveDataSource::open(RuntimeState* state) {
     const auto& hdfs_scan_node = _provider->_hdfs_scan_node;
     if (_split_context != nullptr) {
-        auto split_context = down_cast<HdfsSplitContext*>(_split_context);
+        auto split_context = static_cast<HdfsSplitContext*>(_split_context);
         _scan_range.offset = split_context->split_start;
         _scan_range.length = split_context->split_end - split_context->split_start;
     }
@@ -793,7 +793,7 @@ Status HiveDataSource::_init_scanner(RuntimeState* state) {
     scanner_params.case_sensitive = _case_sensitive;
     scanner_params.profile = &_profile;
     scanner_params.lazy_column_coalesce_counter = get_lazy_column_coalesce_counter();
-    scanner_params.split_context = down_cast<HdfsSplitContext*>(_split_context);
+    scanner_params.split_context = static_cast<HdfsSplitContext*>(_split_context);
     scanner_params.enable_split_tasks = _enable_split_tasks;
     if (state->query_options().__isset.connector_max_split_size) {
         scanner_params.connector_max_split_size = state->query_options().connector_max_split_size;

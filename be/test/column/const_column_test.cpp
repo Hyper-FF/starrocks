@@ -268,7 +268,7 @@ PARALLEL_TEST(ConstColumnTest, test_clone) {
     ASSERT_EQ(100, c1->size());
 
     auto cloned_col = c1->clone();
-    auto c2 = down_cast<ConstColumn*>(cloned_col.get());
+    auto c2 = static_cast<ConstColumn*>(cloned_col.get());
     ASSERT_EQ(100, c2->size());
     ASSERT_TRUE(c2->data_column()->use_count() == 1);
     for (int i = 0; i < 100; i++) {
@@ -297,7 +297,7 @@ PARALLEL_TEST(ConstColumnTest, test_clone_shared) {
 
     auto cloned_col = c1->clone();
     ASSERT_TRUE(cloned_col->use_count() == 1);
-    auto c2 = down_cast<ConstColumn*>(cloned_col.get());
+    auto c2 = static_cast<ConstColumn*>(cloned_col.get());
     ASSERT_EQ(100, c2->size());
     ASSERT_TRUE(c2->data_column()->use_count() == 1);
     for (int i = 0; i < 100; i++) {
@@ -325,7 +325,7 @@ PARALLEL_TEST(ConstColumnTest, test_clone_empty) {
     ASSERT_EQ(100, c1->size());
 
     auto cloned_col = c1->clone_empty();
-    auto c2 = down_cast<ConstColumn*>(cloned_col.get());
+    auto c2 = static_cast<ConstColumn*>(cloned_col.get());
     ASSERT_EQ(0, c2->size());
     ASSERT_TRUE(c2->data_column()->use_count() == 1);
 }

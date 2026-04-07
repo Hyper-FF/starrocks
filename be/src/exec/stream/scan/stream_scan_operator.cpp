@@ -58,7 +58,7 @@ StreamScanOperator::~StreamScanOperator() {
 
 Status StreamScanOperator::_reset_chunk_source(RuntimeState* state, int chunk_source_index) {
     //auto tablet_id = _chunk_sources[chunk_source_index]->get_lane_owner();
-    StreamChunkSource* chunk_source = down_cast<StreamChunkSource*>(_chunk_sources[chunk_source_index].get());
+    StreamChunkSource* chunk_source = static_cast<StreamChunkSource*>(_chunk_sources[chunk_source_index].get());
     auto tablet_id = chunk_source->get_lane_owner();
     auto binlog_offset = _stream_epoch_manager->get_binlog_offset(state->fragment_instance_id(), _id, tablet_id);
 
@@ -116,8 +116,8 @@ Status StreamScanOperator::_pickup_morsel(RuntimeState* state, int chunk_source_
 }
 
 ChunkSourcePtr StreamScanOperator::create_chunk_source(MorselPtr morsel, int32_t chunk_source_index) {
-    auto* scan_node = down_cast<ConnectorScanNode*>(_scan_node);
-    auto* factory = down_cast<StreamScanOperatorFactory*>(_factory);
+    auto* scan_node = static_cast<ConnectorScanNode*>(_scan_node);
+    auto* factory = static_cast<StreamScanOperatorFactory*>(_factory);
     return std::make_shared<StreamChunkSource>(this, _chunk_source_profiles[chunk_source_index].get(),
                                                std::move(morsel), scan_node, factory->get_chunk_buffer(),
                                                enable_adaptive_io_tasks());
@@ -210,7 +210,7 @@ Status StreamScanOperator::reset_epoch(RuntimeState* state) {
     for (int i = 0; i < chunk_source_size; i++) {
         ChunkSourcePtr chunk_source_ptr = _closed_chunk_sources.front();
         _closed_chunk_sources.pop();
-        StreamChunkSource* chunk_source = down_cast<StreamChunkSource*>(chunk_source_ptr.get());
+        StreamChunkSource* chunk_source = static_cast<StreamChunkSource*>(chunk_source_ptr.get());
 
         RETURN_IF_ERROR(chunk_source->reset_status());
         _old_chunk_sources.push(chunk_source_ptr);

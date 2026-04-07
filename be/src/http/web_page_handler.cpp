@@ -42,7 +42,7 @@
 #include "common/system/mem_info.h"
 #include "common/util/debug_util.h"
 #include "fs/fs.h"
-#include "gutil/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "absl/strings/substitute.h"
 #include "http/ev_http_server.h"
 #include "http/http_channel.h"

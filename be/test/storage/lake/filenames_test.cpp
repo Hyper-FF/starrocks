@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "base/string/string_parser.hpp"
-#include "gutil/strings/util.h"
+#include "base/gutil/strings/util.h"
 
 namespace starrocks::lake {
 

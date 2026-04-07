@@ -53,7 +53,6 @@
 #include "exprs/expr.h"
 #include "exprs/expr_context.h"
 #include "exprs/in_const_predicate.hpp"
-#include "gutil/casts.h"
 #include "runtime/runtime_state.h"
 #include "types/logical_type.h"
 
@@ -104,7 +103,7 @@ VExtLiteral::VExtLiteral(LogicalType type, ColumnPtr column, const std::string& 
     } else if (type == TYPE_DECIMAL32 || type == TYPE_DECIMAL64 || type == TYPE_DECIMAL128) {
         DCHECK(!column->is_null(0));
         if (column->is_constant()) {
-            _value = down_cast<const ConstColumn*>(column.get())->data_column()->debug_item(0);
+            _value = static_cast<const ConstColumn*>(column.get())->data_column()->debug_item(0);
         } else {
             _value = column->debug_item(0);
         }
@@ -223,14 +222,14 @@ Status EsPredicate::_build_binary_predicate(const Expr* conjunct, bool* handled)
             // process cast expr, such as:
             // k (float) > 2.0, k(int) > 3.2
             column_ref = const_cast<ColumnRef*>(
-                    down_cast<const ColumnRef*>(Expr::expr_without_cast(conjunct->get_child(0))));
+                    static_cast<const ColumnRef*>(Expr::expr_without_cast(conjunct->get_child(0))));
             op = conjunct->op();
         } else if (TExprNodeType::SLOT_REF == conjunct->get_child(1)->node_type() ||
                    TExprNodeType::CAST_EXPR == conjunct->get_child(1)->node_type()) {
             expr = conjunct->get_child(0);
             RETURN_ERROR_IF_EXPR_IS_NOT_SLOTREF(conjunct->get_child(1));
             column_ref = const_cast<ColumnRef*>(
-                    down_cast<const ColumnRef*>(Expr::expr_without_cast(conjunct->get_child(1))));
+                    static_cast<const ColumnRef*>(Expr::expr_without_cast(conjunct->get_child(1))));
             op = conjunct->op();
         } else {
             return Status::InternalError("build disjuncts failed: no SLOT_REF child");
@@ -301,7 +300,7 @@ Status EsPredicate::_build_functioncall_predicate(const Expr* conjunct, bool* ha
             RETURN_ERROR_IF_EXPR_IS_NOT_SLOTREF(conjunct->get_child(0));
 
             auto* column_ref = const_cast<ColumnRef*>(
-                    down_cast<const ColumnRef*>(Expr::expr_without_cast(conjunct->get_child(0))));
+                    static_cast<const ColumnRef*>(Expr::expr_without_cast(conjunct->get_child(0))));
 
             const SlotDescriptor* slot_desc = get_slot_desc(column_ref->slot_id());
 
@@ -324,10 +323,10 @@ Status EsPredicate::_build_functioncall_predicate(const Expr* conjunct, bool* ha
             Expr* expr = nullptr;
             if (TExprNodeType::SLOT_REF == conjunct->get_child(0)->node_type()) {
                 expr = conjunct->get_child(1);
-                column_ref = const_cast<ColumnRef*>(down_cast<const ColumnRef*>(conjunct->get_child(0)));
+                column_ref = const_cast<ColumnRef*>(static_cast<const ColumnRef*>(conjunct->get_child(0)));
             } else if (TExprNodeType::SLOT_REF == conjunct->get_child(1)->node_type()) {
                 expr = conjunct->get_child(0);
-                column_ref = const_cast<ColumnRef*>(down_cast<const ColumnRef*>(conjunct->get_child(1)));
+                column_ref = const_cast<ColumnRef*>(static_cast<const ColumnRef*>(conjunct->get_child(1)));
             } else {
                 return Status::InternalError("build disjuncts failed: no SLOT_REF child");
             }
@@ -363,7 +362,7 @@ Status EsPredicate::_build_functioncall_predicate(const Expr* conjunct, bool* ha
 
 template <LogicalType type, typename Func>
 Status build_inpred_values(const Predicate* pred, bool& is_not_in, Func&& func) {
-    const auto* vpred = down_cast<const VectorizedInConstPredicate<type>*>(pred);
+    const auto* vpred = static_cast<const VectorizedInConstPredicate<type>*>(pred);
     const auto& hash_set = vpred->hash_set();
     bool has_null = vpred->null_in_set();
     is_not_in = vpred->is_not_in();

@@ -282,7 +282,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} $ENV{STARROCKS_CXX_LINKER_
 #   -fno-strict-aliasing: disable optimizations that assume strict aliasing. This
 #       is unsafe to do if the code uses casts (which we obviously do).
 #  -Wno-unknown-pragmas: suppress warnings for unknown (compiler specific) pragmas
-#  -Wno-deprecated: gutil contains deprecated headers
+#  -Wno-deprecated: base/gutil contains deprecated headers
 #  -Wno-vla: we use C99-style variable-length arrays
 #  -pthread: enable multithreaded malloc
 #  -DBOOST_DATE_TIME_POSIX_TIME_STD_CONFIG: enable nanosecond precision for boost
@@ -958,7 +958,7 @@ add_subdirectory(${SRC_DIR}/exec)
 add_subdirectory(${SRC_DIR}/exprs)
 add_subdirectory(${SRC_DIR}/gen_cpp)
 add_subdirectory(${SRC_DIR}/geo)
-add_subdirectory(${SRC_DIR}/gutil)
+add_subdirectory(${SRC_DIR}/base/gutil)
 add_subdirectory(${SRC_DIR}/http)
 add_subdirectory(${SRC_DIR}/io)
 add_subdirectory(${SRC_DIR}/storage)

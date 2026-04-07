@@ -24,9 +24,8 @@
 #include "column/mysql_row_buffer.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/bits.h"
-#include "gutil/casts.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/bits.h"
+#include "base/gutil/strings/fastmem.h"
 #include "types/datum.h"
 
 namespace starrocks {
@@ -115,7 +114,7 @@ void MapColumn::assign(size_t n, size_t idx) {
     const uint32_t map_size = offsets_data[idx + 1] - offset;
     const auto sorted_indices = _build_sorted_key_indices(_keys.get(), offset, map_size);
 
-    auto* desc_map = down_cast<MapColumn*>(desc.get());
+    auto* desc_map = static_cast<MapColumn*>(desc.get());
     auto* desc_keys = desc_map->_keys.get();
     auto* desc_values = desc_map->_values.get();
     auto* desc_offsets = desc_map->_offsets.get();
@@ -143,7 +142,7 @@ void MapColumn::append_datum(const Datum& datum) {
 }
 
 void MapColumn::append(const Column& src, size_t offset, size_t count) {
-    const auto& map_column = down_cast<const MapColumn&>(src);
+    const auto& map_column = static_cast<const MapColumn&>(src);
 
     const UInt32Column& src_offsets = map_column.offsets();
     const auto src_offsets_data = src_offsets.immutable_data();
@@ -215,7 +214,7 @@ void MapColumn::fill_default(const Filter& filter) {
 }
 
 void MapColumn::update_rows(const Column& src, const uint32_t* indexes) {
-    const auto& map_column = down_cast<const MapColumn&>(src);
+    const auto& map_column = static_cast<const MapColumn&>(src);
 
     const UInt32Column& src_offsets = map_column.offsets();
     const auto src_offsets_data = src_offsets.immutable_data();
@@ -452,7 +451,7 @@ int MapColumn::equals(size_t left, const Column& rhs, size_t right, bool safe_eq
     size_t lhs_offset = offsets_data[left];
     size_t lhs_end = offsets_data[left + 1];
 
-    const auto& rhs_map = down_cast<const MapColumn&>(rhs);
+    const auto& rhs_map = static_cast<const MapColumn&>(rhs);
     const auto rhs_offsets_data = rhs_map.offsets().immutable_data();
 
     size_t rhs_offset = rhs_offsets_data[right];
@@ -611,7 +610,7 @@ size_t MapColumn::reference_memory_usage(size_t from, size_t size) const {
 }
 
 void MapColumn::swap_column(Column& rhs) {
-    auto& map_column = down_cast<MapColumn&>(rhs);
+    auto& map_column = static_cast<MapColumn&>(rhs);
     _offsets->swap_column(*map_column._offsets);
     _keys->swap_column(*map_column._keys);
     _values->swap_column(*map_column._values);
@@ -707,7 +706,7 @@ Status MapColumn::unfold_const_children(const starrocks::TypeDescriptor& type) {
 void MapColumn::remove_duplicated_keys(bool need_recursive) {
     // recursively distinct keys
     if (need_recursive && _values->is_map()) {
-        down_cast<MapColumn*>(ColumnHelper::get_data_column(_values.get()))->remove_duplicated_keys(true);
+        static_cast<MapColumn*>(ColumnHelper::get_data_column(_values.get()))->remove_duplicated_keys(true);
     }
     Filter filter(_keys->size(), 1);
     // compute hash for all keys

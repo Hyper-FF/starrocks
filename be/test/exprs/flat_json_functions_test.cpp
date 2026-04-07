@@ -34,8 +34,7 @@
 #include "exprs/json_functions.h"
 #include "exprs/mock_vectorized_expr.h"
 #include "gtest/gtest-param-test.h"
-#include "gutil/casts.h"
-#include "gutil/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "types/json_value.h"
 #include "types/logical_type.h"
 #include "util/json_flattener.h"
@@ -234,7 +233,7 @@ TEST_P(FlatJsonExistsTestFixture2, flat_json_exists_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     JsonFlattener jf(param_flat_path, param_flat_type, false);
     jf.flatten(json_col.get());
@@ -317,7 +316,7 @@ TEST_P(FlatJsonLengthTestFixture2, flat_json_length_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     JsonFlattener jf(param_flat_path, param_flat_type, false);
     jf.flatten(json_col.get());
@@ -459,7 +458,7 @@ public:
         }
 
         auto flat_json = JsonColumn::create();
-        auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+        auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
         JsonFlattener jf(flat_path, flat_type, false);
         jf.flatten(ints.get());

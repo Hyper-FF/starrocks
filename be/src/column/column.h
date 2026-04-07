@@ -28,8 +28,7 @@
 #include "common/delete_condition.h" // for DelCondSatisfied
 #include "common/memory/column_allocator.h"
 #include "common/statusor.h"
-#include "gutil/casts.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace starrocks {
 
@@ -524,8 +523,8 @@ struct IsMutableColumns<> {
 template <typename Base, typename Derived>
 class ColumnFactory : public Base {
 private:
-    Derived* derived() { return down_cast<Derived*>(this); }
-    const Derived* derived() const { return down_cast<const Derived*>(this); }
+    Derived* derived() { return static_cast<Derived*>(this); }
+    const Derived* derived() const { return static_cast<const Derived*>(this); }
 
 public:
     template <typename... Args>

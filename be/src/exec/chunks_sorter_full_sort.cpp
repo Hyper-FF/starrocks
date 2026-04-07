@@ -69,11 +69,11 @@ Status ChunksSorterFullSort::_merge_unsorted(RuntimeState* state, const ChunkPtr
 
 template <typename BinaryColumnType>
 static void reserve_memory(Column* dst_col, const std::vector<ChunkPtr>& src_chunks, size_t col_idx) {
-    auto* binary_dst_col = down_cast<BinaryColumnType*>(dst_col);
+    auto* binary_dst_col = static_cast<BinaryColumnType*>(dst_col);
     size_t total_num_bytes = 0;
     for (const auto& src_chk : src_chunks) {
         const auto* src_data_col = ColumnHelper::get_data_column(src_chk->get_column_by_index(col_idx).get());
-        const auto* src_binary_col = down_cast<const BinaryColumnType*>(src_data_col);
+        const auto* src_binary_col = static_cast<const BinaryColumnType*>(src_data_col);
         total_num_bytes += src_binary_col->get_immutable_bytes().size();
     }
     binary_dst_col->get_bytes().reserve(total_num_bytes);
@@ -190,7 +190,7 @@ void ChunksSorterFullSort::_assign_ordinals_tmpl() {
         }
         size_t num_rows = partial_sort_chunk->num_rows();
         auto ordinal_column = OrdinalColumn<T>::create();
-        auto& ordinal_data = down_cast<OrdinalColumn<T>*>(ordinal_column.get())->get_data();
+        auto& ordinal_data = static_cast<OrdinalColumn<T>*>(ordinal_column.get())->get_data();
         raw::make_room(&ordinal_data, num_rows);
         for (T offset = 0; offset < num_rows; ++offset) {
             ordinal_data[offset] = static_cast<T>((chunk_idx << _offset_in_chunk_bits) | offset);
@@ -241,7 +241,7 @@ starrocks::ChunkPtr ChunksSorterFullSort::_late_materialize_tmpl(const starrocks
     const auto num_rows = sorted_eager_chunk->num_rows();
     auto sorted_lazy_chunk = _late_materialized_chunks[0]->clone_empty(num_rows);
     auto* ordinal_column = sorted_eager_chunk->get_column_raw_ptr_by_slot_id(Chunk::SORT_ORDINAL_COLUMN_SLOT_ID);
-    auto& ordinal_data = down_cast<const OrdinalColumn<T>*>(ordinal_column)->get_data();
+    auto& ordinal_data = static_cast<const OrdinalColumn<T>*>(ordinal_column)->get_data();
     T _offset_in_chunk_mask = static_cast<T>((1L << _offset_in_chunk_bits) - 1);
     for (auto i = 0; i < num_rows; ++i) {
         T ordinal = ordinal_data[i];

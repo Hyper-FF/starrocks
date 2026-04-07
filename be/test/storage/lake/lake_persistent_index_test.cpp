@@ -315,7 +315,7 @@ TEST_F(LakePersistentIndexTest, test_major_compaction_with_tablet_range) {
         PrimaryKeyEncoder::encode(pkey_schema, *chunk, 0, 1, pk_column.get(),
                                   PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2);
         if (pk_column->is_binary()) {
-            return down_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
+            return static_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
         } else {
             return std::string(reinterpret_cast<const char*>(pk_column->raw_data()), pk_column->type_size());
         }
@@ -427,7 +427,7 @@ TEST_F(LakePersistentIndexTest, test_range_single_int_pk_end_to_end) {
                 PrimaryKeyEncoder::create_column(pkey_schema, &pk_column, PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2));
         PrimaryKeyEncoder::encode(pkey_schema, *chunk, 0, 1, pk_column.get(),
                                   PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2);
-        return down_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
+        return static_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
     };
 
     auto tablet_id = _tablet_metadata->id();
@@ -735,7 +735,7 @@ TEST_F(LakePersistentIndexTest, test_tablet_range_single_column_pk) {
         PrimaryKeyEncoder::encode(pkey_schema, *chunk, 0, 1, pk_column.get(),
                                   PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2);
         if (pk_column->is_binary()) {
-            return down_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
+            return static_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
         } else {
             return std::string(reinterpret_cast<const char*>(pk_column->raw_data()), pk_column->type_size());
         }
@@ -782,7 +782,7 @@ TEST_F(LakePersistentIndexTest, test_tablet_range_multi_column_pk) {
         PrimaryKeyEncoder::encode(pkey_schema, *chunk, 0, 1, pk_column.get(),
                                   PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2);
         if (pk_column->is_binary()) {
-            return down_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
+            return static_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
         } else {
             return std::string(reinterpret_cast<const char*>(pk_column->raw_data()), pk_column->type_size());
         }

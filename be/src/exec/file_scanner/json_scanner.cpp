@@ -33,7 +33,6 @@
 #include "formats/json/json_utils.h"
 #include "formats/json/nullable_column.h"
 #include "fs/fs.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
@@ -224,7 +223,7 @@ void JsonScanner::_materialize_src_chunk_adaptive_nullable_column(ChunkPtr& chun
     chunk->materialized_nullable();
     for (int i = 0; i < chunk->num_columns(); i++) {
         AdaptiveNullableColumn* adaptive_column =
-                down_cast<AdaptiveNullableColumn*>(chunk->get_column_raw_ptr_by_index(i));
+                static_cast<AdaptiveNullableColumn*>(chunk->get_column_raw_ptr_by_index(i));
         chunk->update_column_by_index(NullableColumn::create(adaptive_column->materialized_raw_data_column(),
                                                              adaptive_column->materialized_raw_null_column()),
                                       i);
@@ -429,7 +428,7 @@ Status JsonReader::_read_chunk_with_except(Chunk* chunk, int32_t rows_to_read) {
 template <typename ParserType>
 Status JsonReader::_read_rows(Chunk* chunk, int32_t rows_to_read, int32_t* rows_read) {
     simdjson::ondemand::object row;
-    auto parser = down_cast<ParserType*>(_parser.get());
+    auto parser = static_cast<ParserType*>(_parser.get());
 
     while (*rows_read < rows_to_read) {
         auto st = parser->get_current(&row);
@@ -595,7 +594,7 @@ Status JsonReader::_construct_row_with_jsonpath(simdjson::ondemand::object* row,
         const char* column_name = _slot_descs[i]->col_name().c_str();
 
         // The columns in JsonReader's chunk are all in NullableColumn type;
-        auto* column = down_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_slot_id(_slot_descs[i]->id()));
+        auto* column = static_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_slot_id(_slot_descs[i]->id()));
         if (i >= jsonpath_size) {
             if (strcmp(column_name, "__op") == 0) {
                 // special treatment for __op column, fill default value '0' rather than null
@@ -656,12 +655,12 @@ Status JsonReader::_construct_row(simdjson::ondemand::object* row, Chunk* chunk)
 }
 
 Status JsonReader::_read_file_stream() {
-    // TODO: Remove the down_cast, should not rely on the specific implementation.
-    auto pipe = make_shared<StreamLoadPipeReader>(down_cast<StreamLoadPipeInputStream*>(_file->stream().get())->pipe());
+    // TODO: Remove the static_cast, should not rely on the specific implementation.
+    auto pipe = make_shared<StreamLoadPipeReader>(static_cast<StreamLoadPipeInputStream*>(_file->stream().get())->pipe());
     if (_range_desc.compression_type != TCompressionType::NO_COMPRESSION &&
         _range_desc.compression_type != TCompressionType::UNKNOWN_COMPRESSION) {
         pipe = std::make_shared<CompressedStreamLoadPipeReader>(
-                down_cast<StreamLoadPipeInputStream*>(_file->stream().get())->pipe(), _range_desc.compression_type);
+                static_cast<StreamLoadPipeInputStream*>(_file->stream().get())->pipe(), _range_desc.compression_type);
     }
     ++_counter->file_read_count;
     SCOPED_RAW_TIMER(&_counter->file_read_ns);
@@ -696,8 +695,8 @@ Status JsonReader::_read_file_broker() {
     ++_counter->file_read_count;
     SCOPED_RAW_TIMER(&_counter->file_read_ns);
 
-    // TODO: Remove the down_cast, should not rely on the specific implementation.
-    auto* stream = down_cast<io::SeekableInputStream*>(_file->stream().get());
+    // TODO: Remove the static_cast, should not rely on the specific implementation.
+    auto* stream = static_cast<io::SeekableInputStream*>(_file->stream().get());
     auto res = stream->get_size();
     if (!res.ok()) {
         return res.status();

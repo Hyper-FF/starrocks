@@ -20,7 +20,6 @@
 #include "column/binary_column.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
-#include "gutil/casts.h"
 #include "runtime/runtime_state.h"
 #include "types/logical_type.h"
 
@@ -32,8 +31,8 @@ public:
             : _name_column(std::move(name_col)), _desc_column(std::move(desc_col)) {}
 
     bool dump(const std::string& name, const butil::StringPiece& desc) override {
-        down_cast<BinaryColumn*>(_name_column->as_mutable_raw_ptr())->append(name);
-        down_cast<BinaryColumn*>(_desc_column->as_mutable_raw_ptr())->append(Slice(desc.data(), desc.size()));
+        static_cast<BinaryColumn*>(_name_column->as_mutable_raw_ptr())->append(name);
+        static_cast<BinaryColumn*>(_desc_column->as_mutable_raw_ptr())->append(Slice(desc.data(), desc.size()));
         return true;
     }
 
@@ -81,7 +80,7 @@ Status SchemaBeBvarsScanner::fill_chunk(ChunkPtr* chunk) {
 
     if (slot_id_to_index_map.count(kSlotBeId) > 0) {
         auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(kSlotBeId);
-        down_cast<Int64Column*>(column)->append_value_multiple_times(&_be_id, copy_size);
+        static_cast<Int64Column*>(column)->append_value_multiple_times(&_be_id, copy_size);
     }
 
     if (slot_id_to_index_map.count(kSlotName) > 0) {

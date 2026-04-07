@@ -17,14 +17,14 @@
 #include "column/column_hash.h"
 #include "exprs/function_context.h"
 #include "exprs/string_functions.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 namespace starrocks {
 static constexpr size_t MAX_STRING_SIZE = 1 << 15;
-// uint16[2^16] can almost fit into L2
+// uint16_t[2^16] can almost fit into L2
 static constexpr size_t MAP_SIZE = 1 << 16;
 // we restrict needle's size smaller than 2^16, so even if every gram in needle is the same as each other
-// we still only need one uint16 to store its frequency
-using NgramHash = uint16;
+// we still only need one uint16_t to store its frequency
+using NgramHash = uint16_t;
 
 struct Ngramstate {
     // use std::unique_ptr<std::vector<NgramHash>> instead  of vector as key

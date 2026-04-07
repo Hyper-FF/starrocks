@@ -25,7 +25,7 @@
 #include <cassert>
 
 #include "common/ownership.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace starrocks {
 class ThreadPool;

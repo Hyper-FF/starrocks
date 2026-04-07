@@ -2147,7 +2147,7 @@ TEST_F(OrcChunkReaderTest, TestOrcIcebergPositionDelete) {
     MutableColumnPtr row_delete_filter = std::move(status.value());
 
     EXPECT_EQ(4, row_delete_filter->size());
-    BooleanColumn* binary_column = down_cast<BooleanColumn*>(row_delete_filter.get());
+    BooleanColumn* binary_column = static_cast<BooleanColumn*>(row_delete_filter.get());
     EXPECT_EQ("[1, 1, 1, 0]", binary_column->debug_string());
 }
 

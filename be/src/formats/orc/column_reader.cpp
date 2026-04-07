@@ -141,7 +141,7 @@ Status DefaultColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, s
 }
 
 Status BooleanColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* column, size_t from, size_t size) {
-    auto* data = down_cast<orc::LongVectorBatch*>(cvb);
+    auto* data = static_cast<orc::LongVectorBatch*>(cvb);
     size_t column_start = column->size();
     column->resize_uninitialized(column_start + size);
     if (_nullable) {
@@ -180,8 +180,8 @@ Status IntColumnReader<Type>::get_next(orc::ColumnVectorBatch* cvb, Column* col,
         }
     } else {
         // try to dyn_cast to long vector batch first. in most case, the cast will succeed.
-        // so there is no performance loss comparing to call `down_cast` directly
-        // because in `down_cast` implementation, there is also a dyn_cast.
+        // so there is no performance loss comparing to call `static_cast` directly
+        // because in `static_cast` implementation, there is also a dyn_cast.
         {
             auto* data = dynamic_cast<orc::LongVectorBatch*>(cvb);
             if (data != nullptr) {
@@ -362,10 +362,10 @@ Status DecimalColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, s
     Column* data_column = ColumnHelper::get_data_column(col);
 
     if (dynamic_cast<orc::Decimal64VectorBatch*>(cvb) != nullptr) {
-        _fill_decimal_column_from_orc_decimal64(down_cast<orc::Decimal64VectorBatch*>(cvb), data_column, col_start,
+        _fill_decimal_column_from_orc_decimal64(static_cast<orc::Decimal64VectorBatch*>(cvb), data_column, col_start,
                                                 from, size);
     } else {
-        _fill_decimal_column_from_orc_decimal128(down_cast<orc::Decimal128VectorBatch*>(cvb), data_column, col_start,
+        _fill_decimal_column_from_orc_decimal128(static_cast<orc::Decimal128VectorBatch*>(cvb), data_column, col_start,
                                                  from, size);
     }
 
@@ -375,7 +375,7 @@ Status DecimalColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, s
 void DecimalColumnReader::_fill_decimal_column_from_orc_decimal64(orc::Decimal64VectorBatch* cvb, Column* col,
                                                                   size_t col_start, size_t from, size_t size) {
     static_assert(sizeof(DecimalV2Value) == sizeof(int128_t));
-    auto* values = reinterpret_cast<int128_t*>(down_cast<DecimalColumn*>(col)->get_data().data());
+    auto* values = reinterpret_cast<int128_t*>(static_cast<DecimalColumn*>(col)->get_data().data());
 
     auto* cvbd = cvb->values.data();
 
@@ -398,7 +398,7 @@ void DecimalColumnReader::_fill_decimal_column_from_orc_decimal64(orc::Decimal64
 
 void DecimalColumnReader::_fill_decimal_column_from_orc_decimal128(orc::Decimal128VectorBatch* cvb, Column* col,
                                                                    size_t col_start, size_t from, size_t size) {
-    auto* values = reinterpret_cast<int128_t*>(down_cast<DecimalColumn*>(col)->get_data().data());
+    auto* values = reinterpret_cast<int128_t*>(static_cast<DecimalColumn*>(col)->get_data().data());
 
     for (size_t i = col_start, cvb_pos = from; i < col_start + size; ++i, ++cvb_pos) {
         uint64_t hi = cvb->values[cvb_pos].getHighBits();
@@ -498,7 +498,7 @@ inline void Decimal32Or64Or128ColumnReader<DecimalType>::_fill_decimal_column_ge
 }
 
 Status StringColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, size_t from, size_t size) {
-    auto* data = down_cast<orc::StringVectorBatch*>(cvb);
+    auto* data = static_cast<orc::StringVectorBatch*>(cvb);
 
     size_t len = 0;
     for (size_t i = 0; i < size; ++i) {
@@ -641,7 +641,7 @@ Status StringColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, si
 }
 
 Status VarbinaryColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, size_t from, size_t size) {
-    auto* data = down_cast<orc::StringVectorBatch*>(cvb);
+    auto* data = static_cast<orc::StringVectorBatch*>(cvb);
     size_t len = 0;
     for (size_t i = 0; i < size; ++i) {
         len += data->length[from + i];
@@ -696,7 +696,7 @@ Status VarbinaryColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col,
 }
 
 Status DateColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* column, size_t from, size_t size) {
-    auto* data = down_cast<orc::LongVectorBatch*>(cvb);
+    auto* data = static_cast<orc::LongVectorBatch*>(cvb);
     size_t column_start = column->size();
     column->resize_uninitialized(column_start + size);
     if (_nullable) {
@@ -725,7 +725,7 @@ Status DateColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* column, s
 template <bool IsInstant>
 Status TimestampColumnReader<IsInstant>::get_next(orc::ColumnVectorBatch* cvb, Column* column, size_t from,
                                                   size_t size) {
-    auto* data = down_cast<orc::TimestampVectorBatch*>(cvb);
+    auto* data = static_cast<orc::TimestampVectorBatch*>(cvb);
     size_t column_start = column->size();
     column->resize_uninitialized(column_start + size);
     if (_nullable) {
@@ -763,7 +763,7 @@ Status TimestampColumnReader<IsInstant>::get_next(orc::ColumnVectorBatch* cvb, C
 }
 
 Status TimeColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* column, size_t from, size_t size) {
-    auto* data = down_cast<orc::LongVectorBatch*>(cvb);
+    auto* data = static_cast<orc::LongVectorBatch*>(cvb);
     size_t column_start = column->size();
     column->resize_uninitialized(column_start + size);
     if (_nullable) {
@@ -783,9 +783,9 @@ Status TimeColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* column, s
 
 Status ArrayColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, size_t from, size_t size) {
     if (_nullable) {
-        auto* orc_list = down_cast<orc::ListVectorBatch*>(cvb);
-        auto* col_nullable = down_cast<NullableColumn*>(col);
-        auto* col_array = down_cast<ArrayColumn*>(col_nullable->data_column_raw_ptr());
+        auto* orc_list = static_cast<orc::ListVectorBatch*>(cvb);
+        auto* col_nullable = static_cast<NullableColumn*>(col);
+        auto* col_array = static_cast<ArrayColumn*>(col_nullable->data_column_raw_ptr());
 
         if (!orc_list->hasNulls) {
             auto* data_col = col_nullable->data_column_raw_ptr();
@@ -829,24 +829,24 @@ Status ArrayColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, siz
 }
 
 Status ArrayColumnReader::_fill_array_column(orc::ColumnVectorBatch* cvb, Column* col, size_t from, size_t size) {
-    auto* orc_list = down_cast<orc::ListVectorBatch*>(cvb);
-    auto* col_array = down_cast<ArrayColumn*>(col->as_mutable_raw_ptr());
+    auto* orc_list = static_cast<orc::ListVectorBatch*>(cvb);
+    auto* col_array = static_cast<ArrayColumn*>(col->as_mutable_raw_ptr());
 
     UInt32Column* offsets = col_array->offsets_column_raw_ptr();
     copy_array_offset(orc_list->offsets, from, size + 1, offsets);
 
     auto* elements = col_array->elements_column_raw_ptr();
-    const int elements_from = implicit_cast<int>(orc_list->offsets[from]);
-    const int elements_size = implicit_cast<int>(orc_list->offsets[from + size] - elements_from);
+    const int elements_from = static_cast<int>(orc_list->offsets[from]);
+    const int elements_size = static_cast<int>(orc_list->offsets[from + size] - elements_from);
 
     return _child_readers[0]->get_next(orc_list->elements.get(), elements, elements_from, elements_size);
 }
 
 Status MapColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, size_t from, size_t size) {
     if (_nullable) {
-        auto* orc_map = down_cast<orc::MapVectorBatch*>(cvb);
-        auto* col_nullable = down_cast<NullableColumn*>(col->as_mutable_raw_ptr());
-        auto* col_map = down_cast<MapColumn*>(col_nullable->data_column_raw_ptr());
+        auto* orc_map = static_cast<orc::MapVectorBatch*>(cvb);
+        auto* col_nullable = static_cast<NullableColumn*>(col->as_mutable_raw_ptr());
+        auto* col_map = static_cast<MapColumn*>(col_nullable->data_column_raw_ptr());
 
         if (!orc_map->hasNulls) {
             auto* data_col = col_nullable->data_column_raw_ptr();
@@ -890,15 +890,15 @@ Status MapColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, size_
 }
 
 Status MapColumnReader::_fill_map_column(orc::ColumnVectorBatch* cvb, Column* col, size_t from, size_t size) {
-    auto* orc_map = down_cast<orc::MapVectorBatch*>(cvb);
-    auto* col_map = down_cast<MapColumn*>(col->as_mutable_raw_ptr());
+    auto* orc_map = static_cast<orc::MapVectorBatch*>(cvb);
+    auto* col_map = static_cast<MapColumn*>(col->as_mutable_raw_ptr());
 
     UInt32Column* offsets = col_map->offsets_column_raw_ptr();
     copy_array_offset(orc_map->offsets, from, size + 1, offsets);
 
     auto* keys = col_map->keys_column_raw_ptr();
-    const int kv_from = implicit_cast<int>(orc_map->offsets[from]);
-    const int kv_size = implicit_cast<int>(orc_map->offsets[from + size] - kv_from);
+    const int kv_from = static_cast<int>(orc_map->offsets[from]);
+    const int kv_size = static_cast<int>(orc_map->offsets[from + size] - kv_from);
 
     if (_child_readers[0] == nullptr) {
         keys->append_default(kv_size);
@@ -917,9 +917,9 @@ Status MapColumnReader::_fill_map_column(orc::ColumnVectorBatch* cvb, Column* co
 
 Status StructColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, size_t from, size_t size) {
     if (_nullable) {
-        auto* orc_struct = down_cast<orc::StructVectorBatch*>(cvb);
-        auto* col_nullable = down_cast<NullableColumn*>(col->as_mutable_raw_ptr());
-        auto* col_struct = down_cast<StructColumn*>(col_nullable->data_column_raw_ptr());
+        auto* orc_struct = static_cast<orc::StructVectorBatch*>(cvb);
+        auto* col_nullable = static_cast<NullableColumn*>(col->as_mutable_raw_ptr());
+        auto* col_struct = static_cast<StructColumn*>(col_nullable->data_column_raw_ptr());
 
         if (!orc_struct->hasNulls) {
             auto* data_col = col_nullable->data_column_raw_ptr();
@@ -961,8 +961,8 @@ Status StructColumnReader::get_next(orc::ColumnVectorBatch* cvb, Column* col, si
 }
 
 Status StructColumnReader::_fill_struct_column(orc::ColumnVectorBatch* cvb, Column* col, size_t from, size_t size) {
-    auto* orc_struct = down_cast<orc::StructVectorBatch*>(cvb);
-    auto* col_struct = down_cast<StructColumn*>(col->as_mutable_raw_ptr());
+    auto* orc_struct = static_cast<orc::StructVectorBatch*>(cvb);
+    auto* col_struct = static_cast<StructColumn*>(col->as_mutable_raw_ptr());
 
     auto field_columns = col_struct->fields();
     for (size_t i = 0; i < _type.children.size(); i++) {

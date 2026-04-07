@@ -21,7 +21,6 @@
 #include "column/vectorized_fwd.h"
 #include "data_sketch/ds_theta.h"
 #include "exprs/agg/aggregate.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -81,7 +80,7 @@ public:
         int64_t prev_memory = *mem_usage;
 
         DCHECK(column->is_binary());
-        const BinaryColumn* theta_column = down_cast<const BinaryColumn*>(column);
+        const BinaryColumn* theta_column = static_cast<const BinaryColumn*>(column);
         auto slice = theta_column->get_slice(row_num);
         DataSketchesTheta theta(slice, mem_usage);
         this->data(state).theta_sketch->merge(theta);
@@ -92,7 +91,7 @@ public:
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        Int64Column* column = down_cast<Int64Column*>(dst);
+        Int64Column* column = static_cast<Int64Column*>(dst);
         int64_t result = 0L;
         if (LIKELY(this->data(state).theta_sketch != nullptr)) {
             result = this->data(state).theta_sketch->estimate_cardinality();
@@ -105,7 +104,7 @@ public:
     void serialize_to_column([[maybe_unused]] FunctionContext* ctx, ConstAggDataPtr __restrict state,
                              Column* to) const override {
         DCHECK(to->is_binary());
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         if (UNLIKELY(this->data(state).theta_sketch == nullptr)) {
             column->append_default();
         } else {
@@ -119,7 +118,7 @@ public:
     void convert_to_serialize_format([[maybe_unused]] FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         const auto& datas = GetContainer<LT>::get_data(src[0]);
-        auto* result = down_cast<BinaryColumn*>(dst.get());
+        auto* result = static_cast<BinaryColumn*>(dst.get());
 
         Bytes& bytes = result->get_bytes();
         result->get_offset().resize(chunk_size + 1);
@@ -145,7 +144,7 @@ public:
                             Column* to) const override {
         DCHECK(to->is_numeric());
 
-        auto* column = down_cast<Int64Column*>(to);
+        auto* column = static_cast<Int64Column*>(to);
         if (UNLIKELY(this->data(state).theta_sketch == nullptr)) {
             column->append(0L);
         } else {

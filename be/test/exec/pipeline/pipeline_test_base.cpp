@@ -44,7 +44,7 @@ void PipelineTestBase::start_test() {
 
 OpFactories PipelineTestBase::maybe_interpolate_local_passthrough_exchange(OpFactories& pred_operators) {
     DCHECK(!pred_operators.empty() && pred_operators[0]->is_source());
-    auto* source_operator = down_cast<SourceOperatorFactory*>(pred_operators[0].get());
+    auto* source_operator = static_cast<SourceOperatorFactory*>(pred_operators[0].get());
     if (source_operator->degree_of_parallelism() > 1) {
         auto pseudo_plan_node_id = -200;
         auto mem_mgr = std::make_shared<ChunkBufferMemoryManager>(_vector_chunk_size,
@@ -150,7 +150,7 @@ ChunkPtr PipelineTestBase::_create_and_fill_chunk(const std::vector<SlotDescript
         auto* data_column = chunk->get_column_raw_ptr_by_index(i);
 
         if (data_column->is_nullable()) {
-            auto* nullable_column = down_cast<NullableColumn*>(data_column);
+            auto* nullable_column = static_cast<NullableColumn*>(data_column);
             data_column = nullable_column->data_column_raw_ptr();
         }
 

@@ -40,7 +40,7 @@
 
 #include "base/phmap/phmap.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/hash/string_hash.h"
+#include "base/gutil/hash/string_hash.h"
 #include "runtime/mem_pool.h"
 #include "storage/olap_common.h"
 #include "storage/range.h"

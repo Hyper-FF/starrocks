@@ -16,7 +16,6 @@
 
 #include "column/nullable_column.h"
 #include "exprs/agg/aggregate.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -91,14 +90,14 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_numeric());
-        const auto* input_column = down_cast<const Int64Column*>(column);
+        const auto* input_column = static_cast<const Int64Column*>(column);
         this->data(state).count += input_column->immutable_data()[row_num];
     }
 
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<Int64Column*>(dst);
+        auto* column = static_cast<Int64Column*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = this->data(state).count;
         }
@@ -106,12 +105,12 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_numeric());
-        down_cast<Int64Column*>(to)->append(this->data(state).count);
+        static_cast<Int64Column*>(to)->append(this->data(state).count);
     }
 
     void batch_serialize(FunctionContext* ctx, size_t chunk_size, const Buffer<AggDataPtr>& agg_states,
                          size_t state_offset, Column* to) const override {
-        auto* column = down_cast<Int64Column*>(to);
+        auto* column = static_cast<Int64Column*>(to);
         Buffer<int64_t>& result_data = column->get_data();
         for (size_t i = 0; i < chunk_size; i++) {
             result_data.emplace_back(this->data(agg_states[i] + state_offset).count);
@@ -120,12 +119,12 @@ public:
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_numeric());
-        down_cast<Int64Column*>(to)->append(this->data(state).count);
+        static_cast<Int64Column*>(to)->append(this->data(state).count);
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* column = down_cast<Int64Column*>(dst.get());
+        auto* column = static_cast<Int64Column*>(dst.get());
         column->get_data().assign(chunk_size, 1);
     }
 
@@ -167,7 +166,7 @@ public:
     void update_batch(FunctionContext* ctx, size_t chunk_size, size_t state_offset, const Column** columns,
                       AggDataPtr* states) const override {
         if (columns[0]->has_null()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* nullable_column = static_cast<const NullableColumn*>(columns[0]);
             const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
             for (size_t i = 0; i < chunk_size; ++i) {
                 this->data(states[i] + state_offset).count += !null_data[i];
@@ -182,7 +181,7 @@ public:
     void update_batch_selectively(FunctionContext* ctx, size_t chunk_size, size_t state_offset, const Column** columns,
                                   AggDataPtr* states, const Filter& filter) const override {
         if (columns[0]->has_null()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* nullable_column = static_cast<const NullableColumn*>(columns[0]);
             const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
             for (size_t i = 0; i < chunk_size; ++i) {
                 if (filter[i] == 0) {
@@ -201,7 +200,7 @@ public:
     void update_batch_single_state(FunctionContext* ctx, size_t chunk_size, const Column** columns,
                                    AggDataPtr __restrict state) const override {
         if (columns[0]->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* nullable_column = static_cast<const NullableColumn*>(columns[0]);
             if (nullable_column->has_null()) {
                 const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
                 for (size_t i = 0; i < chunk_size; ++i) {
@@ -225,7 +224,7 @@ public:
             return;
         }
         if (columns[0]->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(columns[0]);
+            const auto* nullable_column = static_cast<const NullableColumn*>(columns[0]);
             if (nullable_column->has_null()) {
                 const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
                 for (size_t i = frame_start; i < frame_end; ++i) {
@@ -260,7 +259,7 @@ public:
                 return;
             }
             if (columns[0]->is_nullable()) {
-                const auto* nullable_column = down_cast<const NullableColumn*>(columns[0]);
+                const auto* nullable_column = static_cast<const NullableColumn*>(columns[0]);
                 if (nullable_column->has_null()) {
                     const uint8_t* null_data = nullable_column->immutable_null_column_data().data();
                     if (this->data(state).is_frame_init) {
@@ -297,14 +296,14 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_numeric());
-        const auto* input_column = down_cast<const Int64Column*>(column);
+        const auto* input_column = static_cast<const Int64Column*>(column);
         this->data(state).count += input_column->immutable_data()[row_num];
     }
 
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<Int64Column*>(dst);
+        auto* column = static_cast<Int64Column*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = this->data(state).count;
         }
@@ -312,12 +311,12 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_numeric());
-        down_cast<Int64Column*>(to)->append(this->data(state).count);
+        static_cast<Int64Column*>(to)->append(this->data(state).count);
     }
 
     void batch_serialize(FunctionContext* ctx, size_t chunk_size, const Buffer<AggDataPtr>& agg_states,
                          size_t state_offset, Column* to) const override {
-        auto* column = down_cast<Int64Column*>(to);
+        auto* column = static_cast<Int64Column*>(to);
         Buffer<int64_t>& result_data = column->get_data();
         for (size_t i = 0; i < chunk_size; i++) {
             result_data.emplace_back(this->data(agg_states[i] + state_offset).count);
@@ -326,14 +325,14 @@ public:
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_numeric());
-        down_cast<Int64Column*>(to)->append(this->data(state).count);
+        static_cast<Int64Column*>(to)->append(this->data(state).count);
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* column = down_cast<Int64Column*>(dst.get());
+        auto* column = static_cast<Int64Column*>(dst.get());
         if (src[0]->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(src[0].get());
+            const auto* nullable_column = static_cast<const NullableColumn*>(src[0].get());
             if (nullable_column->has_null()) {
                 Buffer<int64_t>& dst_data = column->get_data();
                 dst_data.resize(chunk_size);

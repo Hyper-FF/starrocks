@@ -30,7 +30,7 @@
 #include "common/utils.h"
 #include "exec/tablet_sink.h"
 #include "exprs/expr_context.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "absl/strings/str_join.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"

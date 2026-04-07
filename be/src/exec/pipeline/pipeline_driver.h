@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <gutil/bits.h>
+#include "base/gutil/bits.h>
 #include "absl/strings/substitute.h"
 
 #include <atomic>
@@ -320,7 +320,7 @@ public:
         return _operators.empty() ? nullptr : dynamic_cast<ScanOperator*>(_operators.front().get());
     }
     SourceOperator* source_operator() {
-        return _operators.empty() ? nullptr : down_cast<SourceOperator*>(_operators.front().get());
+        return _operators.empty() ? nullptr : static_cast<SourceOperator*>(_operators.front().get());
     }
     RuntimeProfile* runtime_profile() { return _runtime_profile.get(); }
     void update_peak_driver_queue_size_counter(size_t new_value);

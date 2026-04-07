@@ -30,7 +30,6 @@
 #include "exec/spill/spill_components.h"
 #include "exec/spill/spiller.h"
 #include "exec/spill/spiller.hpp"
-#include "gutil/casts.h"
 #include "runtime/current_thread.h"
 #include "runtime/runtime_state.h"
 #include "runtime/runtime_state_helper.h"
@@ -368,10 +367,10 @@ Status SpillableHashJoinProbeOperator::_status() const {
 void SpillableHashJoinProbeOperator::_check_partitions() {
     if (_is_finishing) {
 #ifndef NDEBUG
-        auto partitioned_writer = down_cast<spill::PartitionedSpillerWriter*>(_probe_spiller->writer().get());
+        auto partitioned_writer = static_cast<spill::PartitionedSpillerWriter*>(_probe_spiller->writer().get());
         size_t build_rows = 0;
         for (const auto& [level, partitions] : partitioned_writer->level_to_partitions()) {
-            auto writer = down_cast<spill::PartitionedSpillerWriter*>(_join_builder->spiller()->writer().get());
+            auto writer = static_cast<spill::PartitionedSpillerWriter*>(_join_builder->spiller()->writer().get());
             auto& build_partitions = writer->level_to_partitions().find(level)->second;
             DCHECK_EQ(build_partitions.size(), partitions.size());
             for (size_t i = 0; i < partitions.size(); ++i) {

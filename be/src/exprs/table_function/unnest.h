@@ -34,7 +34,7 @@ public:
             return {};
         }
         Column* arg0 = state->get_columns()[0]->as_mutable_raw_ptr();
-        auto* col_array = down_cast<ArrayColumn*>(ColumnHelper::get_data_column(arg0));
+        auto* col_array = static_cast<ArrayColumn*>(ColumnHelper::get_data_column(arg0));
         state->set_processed_rows(arg0->size());
         Columns result;
         if (arg0->has_null() || state->get_is_left_join()) {

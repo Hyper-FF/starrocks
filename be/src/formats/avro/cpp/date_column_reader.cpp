@@ -19,7 +19,7 @@
 namespace starrocks::avrocpp {
 
 Status DateColumnReader::read_datum(const avro::GenericDatum& datum, Column* column) {
-    auto date_column = down_cast<FixedLengthColumn<DateValue>*>(column);
+    auto date_column = static_cast<FixedLengthColumn<DateValue>*>(column);
 
     switch (datum.type()) {
     case avro::AVRO_INT:
@@ -59,7 +59,7 @@ Status DateColumnReader::read_string_value(const avro::GenericDatum& datum, Fixe
 }
 
 Status DatetimeColumnReader::read_datum(const avro::GenericDatum& datum, Column* column) {
-    auto datetime_column = down_cast<FixedLengthColumn<TimestampValue>*>(column);
+    auto datetime_column = static_cast<FixedLengthColumn<TimestampValue>*>(column);
 
     switch (datum.type()) {
     case avro::AVRO_LONG:

@@ -241,7 +241,7 @@ static void testRoundDecimal(const std::vector<std::string>& arg0_values, const 
         if (maybe_nullable_res_column->is_nullable()) {
             decimal_res_column = nullptr;
             null_fags_res_column =
-                    down_cast<const NullableColumn*>(maybe_nullable_res_column.get())->null_column().get();
+                    static_cast<const NullableColumn*>(maybe_nullable_res_column.get())->null_column().get();
         } else {
             decimal_res_column = ColumnHelper::cast_to<TYPE_DECIMAL128>(maybe_nullable_res_column).get();
         }
@@ -249,7 +249,7 @@ static void testRoundDecimal(const std::vector<std::string>& arg0_values, const 
         ASSERT_TRUE(res_column->is_nullable());
         decimal_res_column =
                 ColumnHelper::cast_to<TYPE_DECIMAL128>(FunctionHelper::get_data_column_of_nullable(res_column)).get();
-        null_fags_res_column = down_cast<const NullableColumn*>(res_column.get())->null_column().get();
+        null_fags_res_column = static_cast<const NullableColumn*>(res_column.get())->null_column().get();
     } else {
         ASSERT_FALSE(res_column->is_constant());
         auto maybe_nullable_res_column = FunctionHelper::get_data_column_of_const(res_column);
@@ -258,7 +258,7 @@ static void testRoundDecimal(const std::vector<std::string>& arg0_values, const 
                                                                                 std::move(maybe_nullable_res_column)))
                                          .get();
             null_fags_res_column =
-                    down_cast<const NullableColumn*>(maybe_nullable_res_column.get())->null_column().get();
+                    static_cast<const NullableColumn*>(maybe_nullable_res_column.get())->null_column().get();
         } else {
             decimal_res_column = ColumnHelper::cast_to<TYPE_DECIMAL128>(maybe_nullable_res_column).get();
         }

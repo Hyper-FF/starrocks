@@ -17,7 +17,7 @@
 #include <mutex>
 
 #include "common/status.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace starrocks {
 class HeapProf {

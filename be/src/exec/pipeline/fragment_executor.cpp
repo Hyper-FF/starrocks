@@ -43,8 +43,7 @@
 #include "exec/scan_node.h"
 #include "exec/tablet_sink.h"
 #include "exec/workgroup/work_group.h"
-#include "gutil/casts.h"
-#include "gutil/map_util.h"
+#include "base/gutil/map_util.h"
 #include "runtime/batch_write/batch_write_mgr.h"
 #include "runtime/data_stream_mgr.h"
 #include "runtime/data_stream_sender.h"
@@ -364,7 +363,7 @@ static void collect_non_broadcast_rf_ids(const ExecNode* node, std::unordered_se
         collect_non_broadcast_rf_ids(child, filter_ids);
     }
     if (node->type() == TPlanNodeType::HASH_JOIN_NODE) {
-        const auto* join_node = down_cast<const HashJoinNode*>(node);
+        const auto* join_node = static_cast<const HashJoinNode*>(node);
         if (join_node->distribution_mode() != TJoinDistributionMode::BROADCAST) {
             for (const auto* rf : join_node->build_runtime_filters()) {
                 filter_ids.insert(rf->filter_id());
@@ -385,7 +384,7 @@ static std::unordered_set<int32_t> collect_broadcast_join_right_offsprings(
     }
     offsprings.insert(node->id());
     if (node->type() == TPlanNodeType::HASH_JOIN_NODE) {
-        const auto* join_node = down_cast<const HashJoinNode*>(node);
+        const auto* join_node = static_cast<const HashJoinNode*>(node);
         if (join_node->distribution_mode() == TJoinDistributionMode::BROADCAST &&
             join_node->can_generate_global_runtime_filter()) {
             broadcast_join_right_offsprings.insert(offsprings_per_child[1].begin(), offsprings_per_child[1].end());
@@ -417,7 +416,7 @@ static Status add_scan_ranges_partition_values(RuntimeState* runtime_state,
         }
         if (table == nullptr) continue;
         // only HiveTableDescriptor(includes hive,iceberg,hudi,deltalake etc) supports this feature.
-        HiveTableDescriptor* hive_table = down_cast<HiveTableDescriptor*>(table);
+        HiveTableDescriptor* hive_table = static_cast<HiveTableDescriptor*>(table);
         RETURN_IF_ERROR(hive_table->add_partition_value(runtime_state, obj_pool, hdfs_scan_range.partition_id,
                                                         hdfs_scan_range.partition_value));
     }
@@ -488,14 +487,14 @@ Status FragmentExecutor::_prepare_exec_plan(ExecEnv* exec_env, const UnifiedExec
     plan->collect_nodes(TPlanNodeType::EXCHANGE_NODE, &exch_nodes);
     for (auto* exch_node : exch_nodes) {
         int num_senders = FindWithDefault(params.per_exch_num_senders, exch_node->id(), 0);
-        down_cast<ExchangeNode*>(exch_node)->set_num_senders(num_senders);
+        static_cast<ExchangeNode*>(exch_node)->set_num_senders(num_senders);
     }
 
     std::vector<ExecNode*> lookup_nodes;
     plan->collect_nodes(TPlanNodeType::LOOKUP_NODE, &lookup_nodes);
     for (auto* lookup_node : lookup_nodes) {
         int num_senders = FindWithDefault(params.per_look_up_num_fetchers, lookup_node->id(), 0);
-        down_cast<LookUpNode*>(lookup_node)->set_num_fetchers(num_senders);
+        static_cast<LookUpNode*>(lookup_node)->set_num_fetchers(num_senders);
     }
 
     // set scan ranges
@@ -532,7 +531,7 @@ Status FragmentExecutor::_prepare_exec_plan(ExecEnv* exec_env, const UnifiedExec
     }
 
     for (auto& i : scan_nodes) {
-        auto* scan_node = down_cast<ScanNode*>(i);
+        auto* scan_node = static_cast<ScanNode*>(i);
         const std::vector<TScanRangeParams>& scan_ranges = request.scan_ranges_of_node(scan_node->id());
         const auto& scan_ranges_per_driver_seq = request.per_driver_seq_scan_ranges_of_node(scan_node->id());
 
@@ -595,7 +594,7 @@ Status FragmentExecutor::_prepare_exec_plan(ExecEnv* exec_env, const UnifiedExec
     int64_t logical_scan_limit = 0;
     int64_t physical_scan_limit = 0;
     for (auto& i : scan_nodes) {
-        auto* scan_node = down_cast<ScanNode*>(i);
+        auto* scan_node = static_cast<ScanNode*>(i);
         if (scan_node->limit() > 0) {
             // The upper bound of records we actually will scan is `limit * dop * io_parallelism`.
             // For SQL like: select * from xxx limit 5, the underlying scan_limit should be 5 * parallelism
@@ -616,7 +615,7 @@ Status FragmentExecutor::_prepare_exec_plan(ExecEnv* exec_env, const UnifiedExec
     for (auto* node : capture_version_nodes) {
         const std::vector<TScanRangeParams>& scan_ranges = request.scan_ranges_of_node(node->id());
         ASSIGN_OR_RETURN(auto morsel_queue_factory,
-                         down_cast<CaptureVersionNode*>(node)->scan_range_to_morsel_queue_factory(scan_ranges));
+                         static_cast<CaptureVersionNode*>(node)->scan_range_to_morsel_queue_factory(scan_ranges));
         morsel_queue_factories.emplace(node->id(), std::move(morsel_queue_factory));
     }
 

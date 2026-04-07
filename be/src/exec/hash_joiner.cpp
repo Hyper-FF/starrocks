@@ -203,7 +203,7 @@ void HashJoiner::_init_hash_table_param(HashTableParam* param, RuntimeState* sta
     for (auto i = 0; i < _build_expr_ctxs.size(); i++) {
         Expr* expr = _build_expr_ctxs[i]->root();
         if (expr->is_slotref()) {
-            param->join_keys.emplace_back(JoinKeyDesc{&expr->type(), _is_null_safes[i], down_cast<ColumnRef*>(expr)});
+            param->join_keys.emplace_back(JoinKeyDesc{&expr->type(), _is_null_safes[i], static_cast<ColumnRef*>(expr)});
         } else {
             param->join_keys.emplace_back(JoinKeyDesc{&expr->type(), _is_null_safes[i], nullptr});
         }

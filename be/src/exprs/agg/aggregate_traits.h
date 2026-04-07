@@ -18,7 +18,7 @@
 
 #include "column/array_column.h"
 #include "column/runtime_type_traits.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -37,11 +37,11 @@ struct AggDataTypeTraits<lt, FixedLengthLTGuard<lt>> {
 
     static void append_value(ColumnType* column, const ValueType& value) { column->append(value); }
     static void append_values(Column* column, const ValueType& value, size_t count) {
-        down_cast<ColumnType*>(column)->append_value_multiple_times(&value, count);
+        static_cast<ColumnType*>(column)->append_value_multiple_times(&value, count);
     }
 
     static RefType get_row_ref(const Column& column, size_t row) {
-        return down_cast<const ColumnType&>(column).immutable_data()[row];
+        return static_cast<const ColumnType&>(column).immutable_data()[row];
     }
     static RefType get_ref(const ValueType& value) { return value; }
 
@@ -76,7 +76,7 @@ struct AggDataTypeTraits<lt, ObjectFamilyLTGuard<lt>> {
         if (count == 0) {
             return;
         }
-        auto* col = down_cast<ColumnType*>(column);
+        auto* col = static_cast<ColumnType*>(column);
         col->reserve(col->size() + count);
         for (size_t i = 0; i < count; ++i) {
             col->append(&value);
@@ -86,7 +86,7 @@ struct AggDataTypeTraits<lt, ObjectFamilyLTGuard<lt>> {
     static RefType get_ref(const ValueType& value) { return &value; }
 
     static const RefType get_row_ref(const Column& column, size_t row) {
-        return down_cast<const ColumnType&>(column).get_object(row);
+        return static_cast<const ColumnType&>(column).get_object(row);
     }
 
     static void update_max(ValueType& current, const RefType& input) { current = std::max<ValueType>(current, *input); }
@@ -157,18 +157,18 @@ struct AggDataTypeTraits<lt, StringOrBinaryGuard<lt>> {
     static void append_values(Column* column, const ValueType& value, size_t count) {
         if (UNLIKELY(column->is_large_binary())) {
             Slice slice(value.data(), value.size());
-            down_cast<LargeColumnType*>(column)->append_value_multiple_times(&slice, count);
+            static_cast<LargeColumnType*>(column)->append_value_multiple_times(&slice, count);
         } else {
             Slice slice(value.data(), value.size());
-            down_cast<ColumnType*>(column)->append_value_multiple_times(&slice, count);
+            static_cast<ColumnType*>(column)->append_value_multiple_times(&slice, count);
         }
     }
 
     static RefType get_row_ref(const Column& column, size_t row) {
         if (UNLIKELY(column.is_large_binary())) {
-            return down_cast<const LargeColumnType&>(column).get_slice(row);
+            return static_cast<const LargeColumnType&>(column).get_slice(row);
         }
-        return down_cast<const ColumnType&>(column).get_slice(row);
+        return static_cast<const ColumnType&>(column).get_slice(row);
     }
 
     static RefType get_ref(const ValueType& value) { return Slice(value.data(), value.size()); }

@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "column/json_column.h"
-#include "gutil/casts.h"
 #include "types/json_value.h"
 #include "util/json_flattener.h"
 
@@ -52,7 +51,7 @@ public:
         std::cout << "Loaded " << _json_column->size() << " rows from " << filepath << std::endl;
     }
 
-    const JsonColumn* get_column() const { return down_cast<JsonColumn*>(_json_column.get()); }
+    const JsonColumn* get_column() const { return static_cast<JsonColumn*>(_json_column.get()); }
 
 private:
     MutableColumnPtr _json_column;

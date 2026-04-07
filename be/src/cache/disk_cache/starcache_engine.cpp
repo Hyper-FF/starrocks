@@ -22,7 +22,7 @@
 #include "cache/status.h"
 #include "common/logging.h"
 #include "common/statusor.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "runtime/current_thread.h"
 
 namespace starrocks {

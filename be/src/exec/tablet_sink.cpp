@@ -60,7 +60,7 @@
 #include "exprs/expr.h"
 #include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
@@ -801,7 +801,7 @@ Status OlapTableSink::_fill_auto_increment_id_internal(Chunk* chunk, SlotDescrip
         return Status::OK();
     }
 
-    auto nullable_col_mut = down_cast<NullableColumn*>(col->as_mutable_raw_ptr());
+    auto nullable_col_mut = static_cast<NullableColumn*>(col->as_mutable_raw_ptr());
     auto* data_col_mut = nullable_col_mut->data_column_raw_ptr();
     const auto null_datas = nullable_col_mut->immutable_null_column_data();
     Filter filter(null_datas.begin(), null_datas.end());
@@ -830,8 +830,8 @@ Status OlapTableSink::_fill_auto_increment_id_internal(Chunk* chunk, SlotDescrip
     // But if auto increment column is the key, the value of increment column will decide which row
     // will be deleteed and it is matter in this case.
     // Here we just set 0 value in this case.
-    uint32 del_rows = SIMD::count_nonzero(init_filter);
-    auto* int64_col = down_cast<Int64Column*>(data_col_mut);
+    uint32_t del_rows = SIMD::count_nonzero(init_filter);
+    auto* int64_col = static_cast<Int64Column*>(data_col_mut);
     if (del_rows != 0) {
         RETURN_IF_ERROR(int64_col->fill_range(std::vector<int64_t>(del_rows, 0), init_filter));
     }
@@ -951,7 +951,7 @@ void OlapTableSink::_validate_decimal(RuntimeState* state, Chunk* chunk, Column*
                                       std::vector<uint8_t>* validate_selection) {
     using CppType = RunTimeCppType<LT>;
     using ColumnType = RunTimeColumnType<LT>;
-    auto* data_column = down_cast<ColumnType*>(ColumnHelper::get_data_column(column));
+    auto* data_column = static_cast<ColumnType*>(ColumnHelper::get_data_column(column));
     const auto num_rows = data_column->get_data().size();
     auto* data = &data_column->get_data().front();
 
@@ -996,7 +996,7 @@ void OlapTableSink::_validate_data(RuntimeState* state, Chunk* chunk) {
 
         // update_column for auto increment column.
         if (_has_auto_increment && _auto_increment_slot_id == desc->id() && column_ptr->is_nullable()) {
-            auto* nullable = down_cast<NullableColumn*>(column_ptr->as_mutable_raw_ptr());
+            auto* nullable = static_cast<NullableColumn*>(column_ptr->as_mutable_raw_ptr());
             // If nullable->has_null() && _null_expr_in_auto_increment == true, it means that user specify a
             // null value in auto increment column, we abort the all rows with null.
             // Because be know nothing about whether this row is specified by the user as null or setted during planning.
@@ -1035,7 +1035,7 @@ void OlapTableSink::_validate_data(RuntimeState* state, Chunk* chunk) {
             // Auto increment column is not nullable but use NullableColumn to implement. We should skip the check for it.
         } else if (!desc->is_nullable() && column_ptr->is_nullable() &&
                    (!_has_auto_increment || _auto_increment_slot_id != desc->id())) {
-            auto* nullable = down_cast<NullableColumn*>(column_ptr->as_mutable_raw_ptr());
+            auto* nullable = static_cast<NullableColumn*>(column_ptr->as_mutable_raw_ptr());
             // Non-nullable column shouldn't have null value,
             // If there is null value, which means expr compute has a error.
             if (nullable->has_null()) {
@@ -1061,7 +1061,7 @@ void OlapTableSink::_validate_data(RuntimeState* state, Chunk* chunk) {
             }
             chunk->update_column(std::move(nullable->data_column()), desc->id());
         } else if (column_ptr->has_null()) {
-            auto* nullable = down_cast<NullableColumn*>(column_ptr->as_mutable_raw_ptr());
+            auto* nullable = static_cast<NullableColumn*>(column_ptr->as_mutable_raw_ptr());
             NullData& nulls = nullable->null_column_data();
             for (size_t j = 0; j < num_rows; ++j) {
                 if (nulls[j] && _validate_selection[j] != VALID_SEL_FAILED) {
@@ -1082,7 +1082,7 @@ void OlapTableSink::_validate_data(RuntimeState* state, Chunk* chunk) {
             }
             uint32_t len = desc->type().len;
             Column* data_column = ColumnHelper::get_data_column(column);
-            auto* binary = down_cast<BinaryColumn*>(data_column);
+            auto* binary = static_cast<BinaryColumn*>(data_column);
             Offsets& offset = binary->get_offset();
             for (size_t j = 0; j < num_rows; ++j) {
                 if (_validate_selection[j] == VALID_SEL_OK) {
@@ -1103,7 +1103,7 @@ void OlapTableSink::_validate_data(RuntimeState* state, Chunk* chunk) {
         }
         case TYPE_DECIMALV2: {
             column = ColumnHelper::get_data_column(column);
-            auto* decimal = down_cast<DecimalColumn*>(column);
+            auto* decimal = static_cast<DecimalColumn*>(column);
             Buffer<DecimalV2Value>& datas = decimal->get_data();
             int scale = desc->type().scale;
             for (size_t j = 0; j < num_rows; ++j) {
@@ -1141,7 +1141,7 @@ void OlapTableSink::_validate_data(RuntimeState* state, Chunk* chunk) {
             break;
         case TYPE_MAP: {
             column = ColumnHelper::get_data_column(column);
-            auto* map = down_cast<MapColumn*>(column);
+            auto* map = static_cast<MapColumn*>(column);
             map->remove_duplicated_keys(true);
             break;
         }
@@ -1157,7 +1157,7 @@ void OlapTableSink::_padding_char_column(Chunk* chunk) {
         if (desc->type().type == TYPE_CHAR) {
             Column* column = chunk->get_column_raw_ptr_by_slot_id(desc->id());
             Column* data_column = ColumnHelper::get_data_column(column);
-            auto* binary = down_cast<BinaryColumn*>(data_column);
+            auto* binary = static_cast<BinaryColumn*>(data_column);
             Offsets& offset = binary->get_offset();
             uint32_t len = desc->type().len;
 
@@ -1183,7 +1183,7 @@ void OlapTableSink::_padding_char_column(Chunk* chunk) {
             }
 
             if (desc->is_nullable()) {
-                auto* nullable_column = down_cast<NullableColumn*>(column);
+                auto* nullable_column = static_cast<NullableColumn*>(column);
                 auto new_column = NullableColumn::create(std::move(new_binary), nullable_column->null_column());
                 chunk->update_column(std::move(new_column), desc->id());
             } else {

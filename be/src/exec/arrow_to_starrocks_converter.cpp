@@ -34,7 +34,7 @@
 #include "exec/file_scanner/parquet_scanner.h"
 #endif
 #include "base/utility/pred_guard.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "absl/strings/substitute.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
@@ -135,8 +135,8 @@ struct ArrowConverter {
                         size_t column_start_idx, [[maybe_unused]] uint8_t* null_data,
                         [[maybe_unused]] Filter* chunk_filter, ArrowConvertContext* ctx,
                         [[maybe_unused]] ConvertFuncTree* conv_func) {
-        auto concrete_array = down_cast<const ArrowArrayType*>(array);
-        auto concrete_column = down_cast<ColumnType*>(column);
+        auto concrete_array = static_cast<const ArrowArrayType*>(array);
+        auto concrete_column = static_cast<ColumnType*>(column);
         concrete_column->resize(column->size() + num_elements);
         CppType* data = &concrete_column->get_data().front() + column_start_idx;
         if constexpr (is_directly_copyable<AT, LT>) {
@@ -256,8 +256,8 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, BinaryATGuard<AT>, StringO
     static Status apply(const arrow::Array* array, size_t array_start_idx, size_t num_elements, Column* column,
                         size_t column_start_idx, [[maybe_unused]] uint8_t* null_data, Filter* chunk_filter,
                         ArrowConvertContext* ctx, [[maybe_unused]] ConvertFuncTree* conv_func) {
-        auto concrete_array = down_cast<const ArrowArrayType*>(array);
-        auto concrete_column = down_cast<ColumnType*>(column);
+        auto concrete_array = static_cast<const ArrowArrayType*>(array);
+        auto concrete_column = static_cast<ColumnType*>(column);
         auto* filter_data = (&chunk_filter->front()) + column_start_idx;
         size_t max_length = binary_max_length<LT>;
         if (ctx != nullptr) {
@@ -470,9 +470,9 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, ArrowDecimalATGuard<AT>, A
                         size_t column_start_idx, [[maybe_unused]] uint8_t* null_data,
                         [[maybe_unused]] Filter* chunk_filter, ArrowConvertContext* ctx,
                         [[maybe_unused]] ConvertFuncTree* conv_func) {
-        auto concrete_array = down_cast<const ArrowArrayType*>(array);
+        auto concrete_array = static_cast<const ArrowArrayType*>(array);
         auto concrete_type = std::static_pointer_cast<ArrowType>(array->type());
-        auto concrete_column = down_cast<ColumnType*>(column);
+        auto concrete_column = static_cast<ColumnType*>(column);
         const auto src_scale = concrete_type->scale();
 
         auto dst_scale = 9;
@@ -676,9 +676,9 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, DateOrDateTimeATGuard<AT>,
                         size_t column_start_idx, [[maybe_unused]] uint8_t* null_data,
                         [[maybe_unused]] Filter* chunk_filter, ArrowConvertContext* ctx,
                         [[maybe_unused]] ConvertFuncTree* conv_func) {
-        auto* concrete_array = down_cast<const ArrowArrayType*>(array);
+        auto* concrete_array = static_cast<const ArrowArrayType*>(array);
         auto concrete_type = std::static_pointer_cast<ArrowType>(array->type());
-        auto* concrete_column = down_cast<ColumnType*>(column);
+        auto* concrete_column = static_cast<ColumnType*>(column);
 
         auto* arrow_data = concrete_array->raw_values() + array_start_idx;
         concrete_column->resize(column->size() + num_elements);
@@ -739,7 +739,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, JsonGuard<LT>> {
                         size_t column_start_idx, [[maybe_unused]] uint8_t* null_data,
                         [[maybe_unused]] Filter* chunk_filter, ArrowConvertContext* ctx,
                         [[maybe_unused]] ConvertFuncTree* conv_func) {
-        auto* json_column = down_cast<JsonColumn*>(column);
+        auto* json_column = static_cast<JsonColumn*>(column);
         json_column->reserve(column->size() + num_elements);
 
         return convert_arrow_to_json(array, json_column, array_start_idx, num_elements);
@@ -751,7 +751,7 @@ static void list_map_offsets_copy(const arrow::Array* layer, const size_t array_
                                   UInt32Column* col_offsets) {
     using ArrowArrayType = typename arrow::TypeTraits<T>::ArrayType;
     using OffsetsType = typename T::offset_type;
-    auto* concrete_array = down_cast<const ArrowArrayType*>(layer);
+    auto* concrete_array = static_cast<const ArrowArrayType*>(layer);
     auto* arrow_offsets_data = concrete_array->raw_value_offsets() + array_start_idx;
     auto arrow_base_offset = arrow_offsets_data[0];
     arrow_offsets_data += 1;
@@ -770,18 +770,18 @@ static arrow::Array* get_list_map_array_child(const arrow::Array* array, size_t 
     using ArrowArrayType = typename arrow::TypeTraits<T>::ArrayType;
     using OffsetsType = typename T::offset_type;
     if (child_array_start_idx && child_array_num_elements) {
-        auto child_array = down_cast<const ArrowArrayType*>(array);
+        auto child_array = static_cast<const ArrowArrayType*>(array);
         *child_array_start_idx = child_array->value_offset(array_start_idx),
         *child_array_num_elements = child_array->value_offset(array_start_idx + num_elements) - *child_array_start_idx;
     }
     if constexpr (std::is_same<T, arrow::MapType>::value) {
         if (child_id == 0) {
-            return down_cast<const ArrowArrayType*>(array)->keys().get();
+            return static_cast<const ArrowArrayType*>(array)->keys().get();
         } else {
-            return down_cast<const ArrowArrayType*>(array)->items().get();
+            return static_cast<const ArrowArrayType*>(array)->items().get();
         }
     } else {
-        return down_cast<const ArrowArrayType*>(array)->values().get();
+        return static_cast<const ArrowArrayType*>(array)->values().get();
     }
 }
 
@@ -797,7 +797,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, ArrayGuard<LT>> {
                                                  const size_t num_elements, UInt32Column* col_offsets) {
         using ArrowArrayType = typename arrow::TypeTraits<arrow::FixedSizeListType>::ArrayType;
         using OffsetsType = typename arrow::FixedSizeListType::offset_type;
-        auto* concrete_array = down_cast<const ArrowArrayType*>(layer);
+        auto* concrete_array = static_cast<const ArrowArrayType*>(layer);
         auto arrow_base_offset = concrete_array->value_offset(array_start_idx);
         auto start_idx = col_offsets->size() - 1;
         col_offsets->resize(col_offsets->size() + num_elements);
@@ -834,7 +834,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, ArrayGuard<LT>> {
     static Status apply(const arrow::Array* array, size_t array_start_idx, size_t num_elements, Column* column,
                         size_t chunk_start_idx, [[maybe_unused]] uint8_t* null_data, Filter* chunk_filter,
                         ArrowConvertContext* ctx, ConvertFuncTree* conv_func) {
-        auto* col_array = down_cast<ArrayColumn*>(column);
+        auto* col_array = static_cast<ArrayColumn*>(column);
         UInt32Column* col_offsets = col_array->offsets_column_raw_ptr();
 
         auto type_id = array->type_id();
@@ -875,7 +875,7 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, MapGuard<LT>> {
                         size_t chunk_start_idx, [[maybe_unused]] uint8_t* null_data, Filter* chunk_filter,
                         ArrowConvertContext* ctx, ConvertFuncTree* conv_func) {
         // offset
-        auto* col_map = down_cast<MapColumn*>(column);
+        auto* col_map = static_cast<MapColumn*>(column);
         UInt32Column* col_offsets = col_map->offsets_column_raw_ptr();
         list_map_offsets_copy<arrow::MapType>(array, array_start_idx, num_elements, col_offsets);
         // keys, values
@@ -913,8 +913,8 @@ struct ArrowConverter<AT, LT, is_nullable, is_strict, StructGurad<LT>> {
     static Status apply(const arrow::Array* array, size_t array_start_idx, size_t num_elements, Column* column,
                         size_t chunk_start_idx, [[maybe_unused]] uint8_t* null_data, Filter* chunk_filter,
                         ArrowConvertContext* ctx, ConvertFuncTree* conv_func) {
-        auto* struct_col = down_cast<StructColumn*>(column);
-        auto* struct_array = down_cast<const arrow::StructArray*>(array);
+        auto* struct_col = static_cast<StructColumn*>(column);
+        auto* struct_array = static_cast<const arrow::StructArray*>(array);
 
         DCHECK_EQ(conv_func->field_names.size(), conv_func->children.size());
         for (size_t i = 0; i < conv_func->field_names.size(); i++) {

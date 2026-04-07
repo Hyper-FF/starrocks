@@ -37,7 +37,7 @@
 
 #include "base/bit/bit_stream_utils.inline.h"
 #include "base/bit/bit_util.h"
-#include "gutil/port.h"
+#include "base/gutil/port.h"
 
 namespace starrocks {
 

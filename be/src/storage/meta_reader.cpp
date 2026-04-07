@@ -392,7 +392,7 @@ Status SegmentMetaCollecter::_collect_flat_json(ColumnId cid, Column* column) {
         return Status::OK();
     }
 
-    ArrayColumn* array_column = down_cast<ArrayColumn*>(column);
+    ArrayColumn* array_column = static_cast<ArrayColumn*>(column);
     auto* offsets_col = array_column->offsets_column_raw_ptr();
     auto* elements_col = array_column->elements_column_raw_ptr();
     size_t size = offsets_col->immutable_data().back();
@@ -451,10 +451,10 @@ Status SegmentMetaCollecter::_collect_dict_for_column(ColumnIterator* column_ite
     ArrayColumn* array_column = nullptr;
 
     if (column->is_nullable()) {
-        nullable_column = down_cast<NullableColumn*>(column);
-        array_column = down_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
+        nullable_column = static_cast<NullableColumn*>(column);
+        array_column = static_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
     } else {
-        array_column = down_cast<ArrayColumn*>(column);
+        array_column = static_cast<ArrayColumn*>(column);
     }
 
     auto* offsets = array_column->offsets_column_raw_ptr();

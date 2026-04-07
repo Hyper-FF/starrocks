@@ -22,7 +22,7 @@
 #include "base/string/string_parser.hpp"
 #include "base/uid_util.h"
 #include "gen_cpp/Types_types.h" // for PUniqueId
-#include "gutil/strings/util.h"
+#include "base/gutil/strings/util.h"
 
 namespace starrocks::lake {
 
@@ -30,7 +30,7 @@ constexpr static const int kTabletMetadataFilenameLength = 38;
 constexpr static const int kTxnLogFilenameLength = 37;
 constexpr static const int kTabletMetadataLockFilenameLength = 55;
 
-constexpr static const int64 kInitialVersion = 1;
+constexpr static const int64_t kInitialVersion = 1;
 
 constexpr static const char* const kGCFileName = "GC.json";
 

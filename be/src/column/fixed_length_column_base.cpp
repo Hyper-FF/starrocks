@@ -25,8 +25,7 @@
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
 #include "common/config_local_io_fwd.h"
-#include "gutil/casts.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "absl/strings/substitute.h"
 #include "types/value_generator.h"
 
@@ -74,7 +73,7 @@ void FixedLengthColumnBase<T>::append_value_multiple_times(const Column& src, ui
     size_t orig_size = datas.size();
     datas.resize(orig_size + size);
 
-    const auto& src_col = down_cast<const FixedLengthColumnBase<T>&>(src);
+    const auto& src_col = static_cast<const FixedLengthColumnBase<T>&>(src);
     const auto src_datas = src_col.immutable_data();
     const T* src_data = src_datas.data();
 
@@ -113,7 +112,7 @@ void FixedLengthColumnBase<T>::append_default(size_t count) {
 template <typename T>
 StatusOr<MutableColumnPtr> FixedLengthColumnBase<T>::replicate(const Buffer<uint32_t>& offsets) {
     auto dest = this->clone_empty();
-    auto& dest_data = down_cast<FixedLengthColumnBase<T>&>(*dest);
+    auto& dest_data = static_cast<FixedLengthColumnBase<T>&>(*dest);
     auto& dest_datas = dest_data.get_data();
 
     const auto datas = this->immutable_data();
@@ -160,7 +159,7 @@ template <typename T>
 void FixedLengthColumnBase<T>::update_rows(const Column& src, const uint32_t* indexes) {
     auto& datas = get_data();
 
-    const auto& src_col = down_cast<const FixedLengthColumnBase<T>&>(src);
+    const auto& src_col = static_cast<const FixedLengthColumnBase<T>&>(src);
     const auto src_datas = src_col.immutable_data();
     const T* src_data = src_datas.data();
 
@@ -185,7 +184,7 @@ size_t FixedLengthColumnBase<T>::filter_range(const Filter& filter, size_t from,
 template <typename T>
 int FixedLengthColumnBase<T>::compare_at(size_t left, size_t right, const Column& rhs, int nan_direction_hint) const {
     const auto lhs_datas = this->immutable_data();
-    const auto rhs_datas = down_cast<const FixedLengthColumnBase<T>&>(rhs).immutable_data();
+    const auto rhs_datas = static_cast<const FixedLengthColumnBase<T>&>(rhs).immutable_data();
     DCHECK_LT(left, lhs_datas.size());
     DCHECK_LT(right, rhs_datas.size());
     T x = lhs_datas[left];

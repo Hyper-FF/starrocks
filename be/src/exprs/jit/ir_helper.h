@@ -87,9 +87,9 @@ public:
      */
     static StatusOr<llvm::Value*> create_ir_number(llvm::IRBuilder<>& b, const LogicalType& type, int64_t value);
 
-    // cast bool of int8 to llvm bool int1
-    static llvm::Value* bool_to_cond(llvm::IRBuilder<>& b, llvm::Value* int8) {
-        return b.CreateICmpNE(int8, llvm::ConstantInt::get(int8->getType(), 0));
+    // cast bool of int8_t to llvm bool int1
+    static llvm::Value* bool_to_cond(llvm::IRBuilder<>& b, llvm::Value* int8_t) {
+        return b.CreateICmpNE(int8_t, llvm::ConstantInt::get(int8_t->getType(), 0));
     }
 
     static StatusOr<llvm::Value*> load_ir_number(llvm::IRBuilder<>& b, const LogicalType& type, const uint8_t* value);

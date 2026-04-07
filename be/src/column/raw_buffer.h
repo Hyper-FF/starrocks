@@ -28,7 +28,7 @@
 #include "base/memory/memory_allocator.h"
 #include "common/logging.h"
 #include "fmt/format.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks::util {
 

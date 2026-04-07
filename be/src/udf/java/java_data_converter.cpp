@@ -196,10 +196,10 @@ StatusOr<jvalue> cast_to_jvalue(const TypeDescriptor& type_desc, bool is_boxed, 
     jvalue v;
 
     if (col->is_nullable()) {
-        if (down_cast<const NullableColumn*>(col)->is_null(row_num)) {
+        if (static_cast<const NullableColumn*>(col)->is_null(row_num)) {
             return jvalue{.l = nullptr};
         }
-        col = down_cast<const NullableColumn*>(col)->data_column().get();
+        col = static_cast<const NullableColumn*>(col)->data_column().get();
     }
 
     DCHECK(!col->is_nullable());
@@ -208,7 +208,7 @@ StatusOr<jvalue> cast_to_jvalue(const TypeDescriptor& type_desc, bool is_boxed, 
         switch (type) {
 #define M(NAME)                                                         \
     case NAME: {                                                        \
-        auto spec_col = down_cast<const RunTimeColumnType<NAME>*>(col); \
+        auto spec_col = static_cast<const RunTimeColumnType<NAME>*>(col); \
         const auto container = spec_col->immutable_data();              \
         return cast_to_jvalue<NAME>(container[row_num], helper);        \
     }
@@ -224,7 +224,7 @@ StatusOr<jvalue> cast_to_jvalue(const TypeDescriptor& type_desc, bool is_boxed, 
     switch (type) {
 #define CREATE_BOX_TYPE(NAME, TYPE)                                     \
     case NAME: {                                                        \
-        auto spec_col = down_cast<const RunTimeColumnType<NAME>*>(col); \
+        auto spec_col = static_cast<const RunTimeColumnType<NAME>*>(col); \
         const auto container = spec_col->immutable_data();              \
         return jvalue{.l = helper.new##TYPE(container[row_num])};       \
     }
@@ -238,13 +238,13 @@ StatusOr<jvalue> cast_to_jvalue(const TypeDescriptor& type_desc, bool is_boxed, 
         CREATE_BOX_TYPE(TYPE_DOUBLE, Double)
 
     case TYPE_VARCHAR: {
-        auto spec_col = down_cast<const BinaryColumn*>(col);
+        auto spec_col = static_cast<const BinaryColumn*>(col);
         Slice slice = spec_col->get_slice(row_num);
         v.l = helper.newString(slice.get_data(), slice.get_size());
         break;
     }
     case TYPE_ARRAY: {
-        auto spec_col = down_cast<const ArrayColumn*>(col);
+        auto spec_col = static_cast<const ArrayColumn*>(col);
         auto [offset, size] = spec_col->get_element_offset_size(row_num);
         const ListMeta& meta = helper.list_meta();
         ASSIGN_OR_RETURN(auto object, meta.array_list_class->newLocalInstance());
@@ -261,7 +261,7 @@ StatusOr<jvalue> cast_to_jvalue(const TypeDescriptor& type_desc, bool is_boxed, 
         return res;
     }
     case TYPE_MAP: {
-        auto spec_col = down_cast<const MapColumn*>(col);
+        auto spec_col = static_cast<const MapColumn*>(col);
         auto [offset, size] = spec_col->get_map_offset_size(row_num);
         const ListMeta& meta = helper.list_meta();
         ASSIGN_OR_RETURN(auto key_lists, meta.array_list_class->newLocalInstance());
@@ -303,7 +303,7 @@ void assign_jvalue(MethodTypeDescriptor method_type_desc, Column* col, int row_n
     Column* data_col = col;
     if (col->is_nullable() && method_type_desc.type != LogicalType::TYPE_VARCHAR &&
         method_type_desc.type != LogicalType::TYPE_CHAR) {
-        auto* nullable_column = down_cast<NullableColumn*>(col);
+        auto* nullable_column = static_cast<NullableColumn*>(col);
         if (val.l == nullptr) {
             nullable_column->set_null(row_num);
             return;
@@ -314,7 +314,7 @@ void assign_jvalue(MethodTypeDescriptor method_type_desc, Column* col, int row_n
 #define ASSIGN_BOX_TYPE(NAME, TYPE)                                                \
     case NAME: {                                                                   \
         auto data = helper.val##TYPE(val.l);                                       \
-        down_cast<RunTimeColumnType<NAME>*>(data_col)->get_data()[row_num] = data; \
+        static_cast<RunTimeColumnType<NAME>*>(data_col)->get_data()[row_num] = data; \
         break;                                                                     \
     }
 
@@ -385,10 +385,10 @@ Status append_jvalue(const TypeDescriptor& type_desc, bool is_box, Column* col, 
             JavaListStub list_stub(val.l);
             ASSIGN_OR_RETURN(auto len, list_stub.size());
             if (col->is_nullable()) {
-                down_cast<NullableColumn*>(col)->null_column_data().emplace_back(0);
+                static_cast<NullableColumn*>(col)->null_column_data().emplace_back(0);
             }
             auto* data_column = ColumnHelper::get_data_column(col);
-            auto* array_column = down_cast<ArrayColumn*>(data_column);
+            auto* array_column = static_cast<ArrayColumn*>(data_column);
             for (size_t i = 0; i < len; ++i) {
                 ASSIGN_OR_RETURN(auto element, list_stub.get(i));
                 RETURN_IF_ERROR(append_jvalue(type_desc.children[0], true, array_column->elements_column_raw_ptr(),
@@ -401,10 +401,10 @@ Status append_jvalue(const TypeDescriptor& type_desc, bool is_box, Column* col, 
         }
         case TYPE_MAP: {
             if (col->is_nullable()) {
-                down_cast<NullableColumn*>(col)->null_column_data().emplace_back(0);
+                static_cast<NullableColumn*>(col)->null_column_data().emplace_back(0);
             }
             auto* data_column = ColumnHelper::get_data_column(col);
-            auto* map_column = down_cast<MapColumn*>(data_column);
+            auto* map_column = static_cast<MapColumn*>(data_column);
 
             // extract map object to list
             ASSIGN_OR_RETURN(jobject key_list, helper.extract_key_list(val.l));
@@ -541,10 +541,10 @@ Status JavaDataTypeConverter::convert_to_boxed_array(FunctionContext* ctx, const
     for (int i = 0; i < num_cols; ++i) {
         jobject arg = nullptr;
         if (columns[i]->only_null() ||
-            (columns[i]->is_nullable() && down_cast<const NullableColumn*>(columns[i])->null_count() == num_rows)) {
+            (columns[i]->is_nullable() && static_cast<const NullableColumn*>(columns[i])->null_count() == num_rows)) {
             arg = helper.create_array(num_rows);
         } else if (columns[i]->is_constant()) {
-            auto* data_column = down_cast<const ConstColumn*>(columns[i])->data_column_raw_ptr();
+            auto* data_column = static_cast<const ConstColumn*>(columns[i])->data_column_raw_ptr();
             data_column->as_mutable_raw_ptr()->resize(1);
             ASSIGN_OR_RETURN(jvalue jval, cast_to_jvalue(*ctx->get_arg_type(i), true, data_column, 0));
             arg = helper.create_object_array(jval.l, num_rows);

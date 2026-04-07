@@ -24,7 +24,7 @@
 #include "common/statusor.h"
 #include "compaction_task_context.h"
 #include "gen_cpp/Types_types.h" // for PUniqueId
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "storage/lake/metadata_iterator.h"
 #include "storage/lake/tablet_metadata.h"
 #include "storage/lake/txn_log.h"

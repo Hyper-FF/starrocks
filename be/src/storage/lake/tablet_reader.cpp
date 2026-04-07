@@ -25,7 +25,7 @@
 #include "common/config_lake_fwd.h"
 #include "common/config_scan_io_fwd.h"
 #include "common/status.h"
-#include "gutil/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
 #include "storage/aggregate_iterator.h"

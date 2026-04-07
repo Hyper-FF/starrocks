@@ -319,7 +319,7 @@ static StatusOr<const ColumnPredicate*> create_struct_subfield_eq_predicate(Obje
 
 static StatusOr<std::string> variant_json_at(const ColumnPtr& column, size_t row_num) {
     const Column* data_col = ColumnHelper::get_data_column(column.get());
-    auto* variant_col = down_cast<const VariantColumn*>(data_col);
+    auto* variant_col = static_cast<const VariantColumn*>(data_col);
     VariantRowValue cell;
     const VariantRowValue* row = variant_col->get_row_value(row_num, &cell);
     if (row == nullptr) {
@@ -1578,7 +1578,7 @@ TEST_F(GroupReaderTest, VariantColumnReaderWithArrayShredding) {
     element_value_field.physical_type = tparquet::Type::BYTE_ARRAY;
     element_value_field.physical_column_index = 2;
 
-    // Array element: list.element.typed_value (int32)
+    // Array element: list.element.typed_value (int32_t)
     ParquetField element_typed_value_field;
     element_typed_value_field.name = "typed_value";
     element_typed_value_field.type = ColumnType::SCALAR;

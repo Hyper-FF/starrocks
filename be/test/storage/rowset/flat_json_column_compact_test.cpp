@@ -29,7 +29,6 @@
 #include "common/statusor.h"
 #include "fs/fs_memory.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "gutil/casts.h"
 #include "storage/chunk_helper.h"
 #include "storage/rowset/column_iterator.h"
 #include "storage/rowset/column_reader.h"
@@ -68,7 +67,7 @@ protected:
 
     MutableColumnPtr normal_json(const std::string& json, bool is_nullable) {
         auto json_col = JsonColumn::create();
-        auto* json_column = down_cast<JsonColumn*>(json_col.get());
+        auto* json_column = static_cast<JsonColumn*>(json_col.get());
         if ("NULL" != json) {
             ASSIGN_OR_ABORT(auto jv, JsonValue::parse(json));
             json_column->append(&jv);
@@ -88,7 +87,7 @@ protected:
         auto json_col = JsonColumn::create();
         if ("NULL" != json) {
             auto flat_col = JsonColumn::create();
-            auto* flat_column = down_cast<JsonColumn*>(flat_col.get());
+            auto* flat_column = static_cast<JsonColumn*>(flat_col.get());
             ASSIGN_OR_ABORT(auto jv, JsonValue::parse(json));
             flat_column->append(&jv);
 
@@ -113,7 +112,7 @@ protected:
         auto json_col = JsonColumn::create();
 
         auto flat_col = JsonColumn::create();
-        auto* flat_column = down_cast<JsonColumn*>(flat_col.get());
+        auto* flat_column = static_cast<JsonColumn*>(flat_col.get());
         auto null_col = NullColumn::create();
 
         for (const auto& json : jsons) {
@@ -259,9 +258,9 @@ protected:
 
     JsonColumn* get_json_column(MutableColumnPtr& col) {
         if (col->is_nullable()) {
-            return down_cast<JsonColumn*>(down_cast<NullableColumn*>(col.get())->data_column_raw_ptr());
+            return static_cast<JsonColumn*>(static_cast<NullableColumn*>(col.get())->data_column_raw_ptr());
         }
-        return down_cast<JsonColumn*>(col.get());
+        return static_cast<JsonColumn*>(col.get());
     }
 
     MutableColumns to_mutable_columns(Columns&& columns) {

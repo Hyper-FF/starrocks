@@ -209,9 +209,9 @@ static void verify_typed_only_into_base_shredded_fast_path(TypedOnlyIntoBaseShre
     case TypedOnlyIntoBaseShreddedAppendMode::kAppend:
         dst->append(*src, 0, 2);
         ASSERT_EQ(3, dst->size());
-        ASSERT_EQ(7, down_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(0).get_int64());
-        ASSERT_EQ(10, down_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(1).get_int64());
-        ASSERT_EQ(11, down_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(2).get_int64());
+        ASSERT_EQ(7, static_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(0).get_int64());
+        ASSERT_EQ(10, static_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(1).get_int64());
+        ASSERT_EQ(11, static_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(2).get_int64());
         assert_null_base_payload(dst.get(), 1);
         assert_null_base_payload(dst.get(), 2);
         return;
@@ -219,17 +219,17 @@ static void verify_typed_only_into_base_shredded_fast_path(TypedOnlyIntoBaseShre
         uint32_t indexes[] = {1};
         dst->append_selective(*src, indexes, 0, 1);
         ASSERT_EQ(2, dst->size());
-        ASSERT_EQ(7, down_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(0).get_int64());
-        ASSERT_EQ(11, down_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(1).get_int64());
+        ASSERT_EQ(7, static_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(0).get_int64());
+        ASSERT_EQ(11, static_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(1).get_int64());
         assert_null_base_payload(dst.get(), 1);
         return;
     }
     case TypedOnlyIntoBaseShreddedAppendMode::kAppendValueMultipleTimes:
         dst->append_value_multiple_times(*src, 1, 2);
         ASSERT_EQ(3, dst->size());
-        ASSERT_EQ(7, down_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(0).get_int64());
-        ASSERT_EQ(11, down_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(1).get_int64());
-        ASSERT_EQ(11, down_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(2).get_int64());
+        ASSERT_EQ(7, static_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(0).get_int64());
+        ASSERT_EQ(11, static_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(1).get_int64());
+        ASSERT_EQ(11, static_cast<const NullableColumn*>(dst->typed_column_by_index(0))->get(2).get_int64());
         assert_null_base_payload(dst.get(), 1);
         assert_null_base_payload(dst.get(), 2);
         return;
@@ -268,7 +268,7 @@ PARALLEL_TEST(VariantColumnTest, test_build_column) {
         auto copy = column->clone();
         ASSERT_EQ(copy->size(), 1);
 
-        auto* variant_column = down_cast<VariantColumn*>(copy.get());
+        auto* variant_column = static_cast<VariantColumn*>(copy.get());
         VariantRowValue row_buffer;
         const VariantRowValue* res = variant_column->get_row_value(0, &row_buffer);
         ASSERT_NE(nullptr, res);
@@ -318,7 +318,7 @@ PARALLEL_TEST(VariantColumnTest, test_serialize) {
     EXPECT_EQ(col_sz, written);
     auto new_column = column->clone_empty();
     new_column->deserialize_and_append(buffer.data());
-    auto* deserialized_column = down_cast<VariantColumn*>(new_column.get());
+    auto* deserialized_column = static_cast<VariantColumn*>(new_column.get());
     VariantRowValue deserialized_row_buffer;
     const VariantRowValue* deserialized_variant = deserialized_column->get_row_value(0, &deserialized_row_buffer);
     ASSERT_NE(nullptr, deserialized_variant);
@@ -368,7 +368,7 @@ PARALLEL_TEST(VariantColumnTest, test_clone_shredded_schema_integrity) {
                               std::move(remain));
 
     auto cloned_holder = src->clone();
-    auto* cloned = down_cast<VariantColumn*>(cloned_holder.get());
+    auto* cloned = static_cast<VariantColumn*>(cloned_holder.get());
     ASSERT_EQ(1, cloned->shredded_paths().size());
     ASSERT_EQ(1, cloned->shredded_types().size());
     ASSERT_EQ(1, cloned->typed_columns().size());
@@ -395,7 +395,7 @@ PARALLEL_TEST(VariantColumnTest, test_append_strings) {
     const std::string_view int1_value_str(reinterpret_cast<const char*>(int1_value), sizeof(int1_value));
 
     // Build binary in VariantRowValue serialize format:
-    // [uint32 total_size LE][metadata bytes][remain bytes]
+    // [uint32_t total_size LE][metadata bytes][remain bytes]
     const auto& empty_meta = VariantMetadata::kEmptyMetadata;
     const uint32_t total_size = static_cast<uint32_t>(empty_meta.size() + int1_value_str.size());
     std::string serialize_buf;
@@ -406,7 +406,7 @@ PARALLEL_TEST(VariantColumnTest, test_append_strings) {
 
     ASSERT_EQ(1, variant_column->size());
 
-    // Build expected using VariantRowValue Slice format: [uint32 total_size][metadata][value]
+    // Build expected using VariantRowValue Slice format: [uint32_t total_size][metadata][value]
     constexpr uint32_t int1_total_size = sizeof(int1_value) + VariantMetadata::kEmptyMetadata.size();
     std::string variant_string;
     variant_string.resize(int1_total_size + sizeof(uint32_t));
@@ -436,7 +436,7 @@ PARALLEL_TEST(VariantColumnTest, test_shredded_append_interop) {
     dst_append->append(*src, 0, src->size());
     ASSERT_EQ(3, dst_append->size());
 
-    const auto* typed_append = down_cast<const NullableColumn*>(dst_append->typed_column_by_index(0));
+    const auto* typed_append = static_cast<const NullableColumn*>(dst_append->typed_column_by_index(0));
     ASSERT_FALSE(typed_append->get(0).is_null());
     ASSERT_EQ(10, typed_append->get(0).get_int64());
     ASSERT_TRUE(typed_append->get(1).is_null());
@@ -454,7 +454,7 @@ PARALLEL_TEST(VariantColumnTest, test_shredded_append_interop) {
     dst_selective->append_selective(*src, indexes, 0, 2);
     ASSERT_EQ(2, dst_selective->size());
 
-    const auto* typed_selective = down_cast<const NullableColumn*>(dst_selective->typed_column_by_index(0));
+    const auto* typed_selective = static_cast<const NullableColumn*>(dst_selective->typed_column_by_index(0));
     ASSERT_EQ(30, typed_selective->get(0).get_int64());
     ASSERT_EQ(10, typed_selective->get(1).get_int64());
 
@@ -467,7 +467,7 @@ PARALLEL_TEST(VariantColumnTest, test_shredded_append_interop) {
     dst_repeat->append_value_multiple_times(*src, 1, 2);
     ASSERT_EQ(2, dst_repeat->size());
 
-    const auto* typed_repeat = down_cast<const NullableColumn*>(dst_repeat->typed_column_by_index(0));
+    const auto* typed_repeat = static_cast<const NullableColumn*>(dst_repeat->typed_column_by_index(0));
     ASSERT_TRUE(typed_repeat->get(0).is_null());
     ASSERT_TRUE(typed_repeat->get(1).is_null());
     const auto r_rep0 = dst_repeat->remain_value_column()->get(0).get_slice();
@@ -521,9 +521,9 @@ PARALLEL_TEST(VariantColumnTest, test_shredded_append_schema_alignment) {
     ASSERT_EQ(3, dst->size());
     ASSERT_EQ((std::vector<std::string>{"a", "b", "c"}), dst->shredded_paths());
 
-    const auto* typed_a = down_cast<const NullableColumn*>(dst->typed_column_by_index(0));
-    const auto* typed_b = down_cast<const NullableColumn*>(dst->typed_column_by_index(1));
-    const auto* typed_c = down_cast<const NullableColumn*>(dst->typed_column_by_index(2));
+    const auto* typed_a = static_cast<const NullableColumn*>(dst->typed_column_by_index(0));
+    const auto* typed_b = static_cast<const NullableColumn*>(dst->typed_column_by_index(1));
+    const auto* typed_c = static_cast<const NullableColumn*>(dst->typed_column_by_index(2));
 
     ASSERT_TRUE(typed_a->get(0).is_null());
     ASSERT_EQ(10, typed_a->get(1).get_int64());
@@ -586,7 +586,7 @@ PARALLEL_TEST(VariantColumnTest, test_append_type_conflict_numeric_widen_via_mer
 
     ASSERT_EQ((std::vector<std::string>{"a"}), dst->shredded_paths());
     ASSERT_EQ((std::vector<TypeDescriptor>{TypeDescriptor(TYPE_BIGINT)}), dst->shredded_types());
-    const auto* typed_a = down_cast<const NullableColumn*>(dst->typed_column_by_index(0));
+    const auto* typed_a = static_cast<const NullableColumn*>(dst->typed_column_by_index(0));
     ASSERT_EQ(12, typed_a->get(0).get_int64());
     ASSERT_EQ(100000, typed_a->get(1).get_int64());
 }
@@ -1055,7 +1055,7 @@ PARALLEL_TEST(VariantColumnTest, test_typed_only_promotion_new_rows_use_remain_p
     col->append(&appended);
 
     ASSERT_EQ(2, col->size());
-    const auto* typed_root = down_cast<const NullableColumn*>(col->typed_column_by_index(0));
+    const auto* typed_root = static_cast<const NullableColumn*>(col->typed_column_by_index(0));
     ASSERT_FALSE(typed_root->get(0).is_null());
     ASSERT_TRUE(typed_root->get(1).is_null());
 

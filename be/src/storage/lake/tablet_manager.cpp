@@ -34,7 +34,7 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "gutil/strings/util.h"
+#include "base/gutil/strings/util.h"
 #include "storage/lake/cloud_native_index_compaction_task.h"
 #include "storage/lake/compaction_policy.h"
 #include "storage/lake/compaction_scheduler.h"

@@ -16,14 +16,13 @@
 
 #include "column/fixed_length_column.h"
 #include "common/logging.h"
-#include "gutil/casts.h"
 #include "types/decimalv2_value.h"
 
 namespace starrocks::csv {
 
 Status DecimalV2Converter::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                         const Options& options) const {
-    auto decimal_column = down_cast<const FixedLengthColumn<DecimalV2Value>*>(&column);
+    auto decimal_column = static_cast<const FixedLengthColumn<DecimalV2Value>*>(&column);
     return os->write(decimal_column->immutable_data()[row_num]);
 }
 
@@ -36,7 +35,7 @@ bool DecimalV2Converter::read_string(Column* column, const Slice& s, const Optio
     DecimalV2Value v;
     int err = v.parse_from_str(s.data, s.size);
     if (err == 0) {
-        down_cast<FixedLengthColumn<DecimalV2Value>*>(column)->append(v);
+        static_cast<FixedLengthColumn<DecimalV2Value>*>(column)->append(v);
     }
     return err == 0;
 }

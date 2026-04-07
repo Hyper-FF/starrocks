@@ -113,7 +113,7 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
     auto* fragment_ctx = context->fragment_context();
     TableDescriptor* table_desc =
             runtime_state->desc_tbl().get_table_descriptor(thrift_sink.iceberg_table_sink.target_table_id);
-    auto* iceberg_table_desc = down_cast<IcebergTableDescriptor*>(table_desc);
+    auto* iceberg_table_desc = static_cast<IcebergTableDescriptor*>(table_desc);
     auto& t_iceberg_sink = thrift_sink.iceberg_table_sink;
 
     // Determine if this is a delete sink (delete files) or regular sink (data files)

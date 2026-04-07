@@ -29,7 +29,6 @@
 #include "common/status.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 #include "jni.h"
 #include "types/logical_type.h"
 #include "udf/java/java_data_converter.h"
@@ -51,10 +50,10 @@ public:
         // TODO merge
         const BinaryColumn* input_column = nullptr;
         if (column->is_nullable()) {
-            auto* null_column = down_cast<const NullableColumn*>(column);
-            input_column = down_cast<const BinaryColumn*>(null_column->data_column().get());
+            auto* null_column = static_cast<const NullableColumn*>(column);
+            input_column = static_cast<const BinaryColumn*>(null_column->data_column().get());
         } else {
-            input_column = down_cast<const BinaryColumn*>(column);
+            input_column = static_cast<const BinaryColumn*>(column);
         }
         Slice slice = input_column->get_slice(row_num);
         auto* udaf_ctx = get_java_udaf_context(ctx);
@@ -75,12 +74,12 @@ public:
         BinaryColumn* column = nullptr;
         // TODO serialize
         if (to->is_nullable()) {
-            auto* null_column = down_cast<NullableColumn*>(to);
+            auto* null_column = static_cast<NullableColumn*>(to);
             null_column->null_column_raw_ptr()->append(DATUM_NOT_NULL);
-            column = down_cast<BinaryColumn*>(null_column->data_column_raw_ptr());
+            column = static_cast<BinaryColumn*>(null_column->data_column_raw_ptr());
         } else {
             DCHECK(to->is_binary());
-            column = down_cast<BinaryColumn*>(to);
+            column = static_cast<BinaryColumn*>(to);
         }
 
         size_t old_size = column->get_bytes().size();
@@ -457,7 +456,7 @@ public:
         } else {
             helper.get_result_from_boxed_array(ctx, type, to, res, batch_size);
             (void)ColumnHelper::update_nested_has_null(to);
-            down_cast<NullableColumn*>(to)->update_has_null();
+            static_cast<NullableColumn*>(to)->update_has_null();
         }
     }
 

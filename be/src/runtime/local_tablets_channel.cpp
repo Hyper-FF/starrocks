@@ -32,7 +32,7 @@
 #include "common/statusor.h"
 #include "exec/tablet_info.h"
 #include "gen_cpp/internal_service.pb.h"
-#include "gutil/ref_counted.h"
+#include "base/gutil/ref_counted.h"
 #include "absl/strings/str_join.h"
 #include "runtime/closure_guard.h"
 #include "runtime/descriptors.h"

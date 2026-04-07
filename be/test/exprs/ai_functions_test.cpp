@@ -90,7 +90,7 @@ protected:
     // Helper method to validate sentiment analysis responses
     static void validateSentimentResponses(const ColumnPtr& result_column, size_t expected_size) {
         ASSERT_EQ(result_column->size(), expected_size);
-        const auto* binary_column = down_cast<const BinaryColumn*>(result_column.get());
+        const auto* binary_column = static_cast<const BinaryColumn*>(result_column.get());
 
         for (size_t i = 0; i < expected_size; ++i) {
             std::string response = binary_column->get_slice(i).to_string();
@@ -267,7 +267,7 @@ TEST_F(AiFunctionsTest, AiQueryWithNullValues) {
         ASSERT_TRUE(null_data[1]) << "Row 1 should be null (prompt is null)";
     } else {
         // If result is not nullable, it might return empty strings or error messages
-        const auto* binary_result = down_cast<const BinaryColumn*>(result_column.get());
+        const auto* binary_result = static_cast<const BinaryColumn*>(result_column.get());
         ASSERT_NE(binary_result, nullptr) << "Result should be either NullableColumn or BinaryColumn";
 
         // Verify that null inputs produce some predictable output (empty string or error message)
@@ -296,7 +296,7 @@ TEST_F(AiFunctionsTest, DISABLED_SingleSentimentAnalysisCall) {
     validateSentimentResponses(result_column, 1);
 
     // For this specific positive test case, we expect "positive"
-    const auto* binary_column = down_cast<const BinaryColumn*>(result_column.get());
+    const auto* binary_column = static_cast<const BinaryColumn*>(result_column.get());
     std::string response = binary_column->get_slice(0).to_string();
     ASSERT_EQ(response, "positive");
 }
@@ -323,7 +323,7 @@ TEST_F(AiFunctionsTest, DISABLED_MultipleSameSentimentAnalysisCalls) {
     validateSentimentResponses(result_column, num_calls);
 
     // For these specific positive test cases, we expect all "positive"
-    const auto* binary_column = down_cast<const BinaryColumn*>(result_column.get());
+    const auto* binary_column = static_cast<const BinaryColumn*>(result_column.get());
     for (int i = 0; i < num_calls; ++i) {
         std::string response = binary_column->get_slice(i).to_string();
         ASSERT_EQ(response, "positive") << "Response at index " << i << " should be positive";

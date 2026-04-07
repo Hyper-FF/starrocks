@@ -31,7 +31,6 @@
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
 #include "common/config_rowset_fwd.h"
-#include "gutil/casts.h"
 #include "storage/column_predicate.h"
 #include "types/logical_type.h"
 
@@ -220,8 +219,8 @@ template <LogicalType Type>
 bool BinaryPlainPageDecoder<Type>::append_range(uint32_t idx, uint32_t end, Column* dst) const {
     if constexpr (Type == TYPE_VARCHAR) {
         auto data_column = ColumnHelper::get_data_column(dst);
-        auto& bytes = down_cast<BinaryColumn*>(data_column)->get_bytes();
-        auto& offsets = down_cast<BinaryColumn*>(data_column)->get_offset();
+        auto& bytes = static_cast<BinaryColumn*>(data_column)->get_bytes();
+        auto& offsets = static_cast<BinaryColumn*>(data_column)->get_offset();
         DCHECK_GE(offsets.size(), 1);
 
         uint32_t begin_offset = offsets.back();
@@ -255,9 +254,9 @@ bool BinaryPlainPageDecoder<Type>::append_range(uint32_t idx, uint32_t end, Colu
         memcpy(bytes.data() + old_bytes_size, _data.get_data() + offset(idx), append_bytes_length);
 
         if (dst->is_nullable()) {
-            auto& null_data = down_cast<NullableColumn*>(dst)->null_column_data();
+            auto& null_data = static_cast<NullableColumn*>(dst)->null_column_data();
             size_t null_data_size = null_data.size();
-            down_cast<NullableColumn*>(dst)->null_column_data().resize(null_data_size + end - idx, 0);
+            static_cast<NullableColumn*>(dst)->null_column_data().resize(null_data_size + end - idx, 0);
         }
 
 #ifndef NDEBUG
@@ -398,10 +397,10 @@ Status BinaryPlainPageDecoder<Type>::next_range_with_filter(
         RETURN_IF_ERROR(append_with_mask</*PositiveSelect=*/true>(data_column, *temp_data_column, selection, num_rows));
 
         if (dst->is_nullable()) {
-            auto* nullable_column = down_cast<NullableColumn*>(dst);
+            auto* nullable_column = static_cast<NullableColumn*>(dst);
             if (null != nullptr) {
                 // Append null flags for selected rows if null_data is provided
-                auto* temp_nullable = down_cast<NullableColumn*>(temp_eval_column->as_mutable_raw_ptr());
+                auto* temp_nullable = static_cast<NullableColumn*>(temp_eval_column->as_mutable_raw_ptr());
                 RETURN_IF_ERROR(append_with_mask</*PositiveSelect=*/true>(
                         nullable_column->null_column_raw_ptr(), *temp_nullable->null_column(), selection, num_rows));
                 nullable_column->update_has_null();

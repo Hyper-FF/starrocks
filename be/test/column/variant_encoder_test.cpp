@@ -22,7 +22,6 @@
 #include "column/column_helper.h"
 #include "column/fixed_length_column.h"
 #include "column/variant_column.h"
-#include "gutil/casts.h"
 #include "types/type_descriptor.h"
 #include "types/variant.h"
 
@@ -59,7 +58,7 @@ PARALLEL_TEST(VariantEncoderTest, encode_int_column) {
     ColumnPtr out = builder.build(false);
     ASSERT_EQ(2, out->size());
 
-    const auto* out_data = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(out.get()));
+    const auto* out_data = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(out.get()));
     ASSERT_NE(nullptr, out_data);
     ASSERT_EQ(2, out_data->size());
     ASSERT_FALSE(out_data->is_null(0));

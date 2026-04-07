@@ -705,7 +705,7 @@ Status ScalarColumnWriter::append(const Column& column) {
     const uint8_t* ptr = column.raw_data();
     // Currently, ColumnWriter does not support null-only columns
     const uint8_t* null =
-            is_nullable() ? down_cast<const NullableColumn*>(&column)->immutable_null_column_data().data() : nullptr;
+            is_nullable() ? static_cast<const NullableColumn*>(&column)->immutable_null_column_data().data() : nullptr;
     return _append(ptr, null, column.size(), column.has_null());
 }
 
@@ -724,7 +724,7 @@ Status ScalarColumnWriter::append_array_offsets(const Column& column) {
     // [1, 2, 3], [4, 5, 6]
     // In memory, it will be transformed by actual offset(0, 3, 6)
     // In disk, offset is stored as length array(3, 3)
-    auto& offsets = down_cast<const UInt32Column&>(column);
+    auto& offsets = static_cast<const UInt32Column&>(column);
     auto& data = offsets.immutable_data();
 
     std::vector<uint32_t> array_size;
@@ -888,12 +888,12 @@ Status StringColumnWriter::append(const Column& column) {
 inline void StringColumnWriter::speculate_column_and_set_encoding(const Column& column) {
     Status st;
     if (column.is_nullable()) {
-        const auto& data_col = down_cast<const NullableColumn&>(column).data_column();
-        const auto& bin_col = down_cast<const BinaryColumn&>(*data_col);
+        const auto& data_col = static_cast<const NullableColumn&>(column).data_column();
+        const auto& bin_col = static_cast<const BinaryColumn&>(*data_col);
         const auto detect_encoding = speculate_string_encoding(bin_col);
         st = _scalar_column_writer->set_encoding(detect_encoding);
     } else if (column.is_binary()) {
-        const auto& bin_col = down_cast<const BinaryColumn&>(column);
+        const auto& bin_col = static_cast<const BinaryColumn&>(column);
         auto detect_encoding = speculate_string_encoding(bin_col);
         st = _scalar_column_writer->set_encoding(detect_encoding);
     }
@@ -941,14 +941,14 @@ Status StringColumnWriter::check_string_lengths(const Column& column) {
     size_t limit = length();
     auto row_count = column.size();
     const uint8_t* null =
-            is_nullable() ? down_cast<const NullableColumn*>(&column)->immutable_null_column_data().data() : nullptr;
+            is_nullable() ? static_cast<const NullableColumn*>(&column)->immutable_null_column_data().data() : nullptr;
     const BinaryColumn* bin_col;
 
     if (is_nullable()) {
-        const auto& data_col = down_cast<const NullableColumn*>(&column)->data_column();
-        bin_col = down_cast<const BinaryColumn*>(data_col.get());
+        const auto& data_col = static_cast<const NullableColumn*>(&column)->data_column();
+        bin_col = static_cast<const BinaryColumn*>(data_col.get());
     } else {
-        bin_col = down_cast<const BinaryColumn*>(&column);
+        bin_col = static_cast<const BinaryColumn*>(&column);
     }
     for (size_t i = 0; i < row_count; i++) {
         // skip string length check if it is null
@@ -1053,10 +1053,10 @@ inline EncodingTypePB DictColumnWriter::speculate_encoding(const Column& column)
     using ColumnType = typename RunTimeTypeTraits<Type>::ColumnType;
     const ColumnType* numerical_col;
     if (column.is_nullable()) {
-        const auto& data_col = down_cast<const NullableColumn&>(column).data_column();
-        numerical_col = &down_cast<const ColumnType&>(*data_col);
+        const auto& data_col = static_cast<const NullableColumn&>(column).data_column();
+        numerical_col = &static_cast<const ColumnType&>(*data_col);
     } else {
-        numerical_col = &down_cast<const ColumnType&>(column);
+        numerical_col = &static_cast<const ColumnType&>(column);
     }
 
     auto row_count = numerical_col->size();

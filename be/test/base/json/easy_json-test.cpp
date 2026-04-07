@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstdint>
 #include "base/json/easy_json.h"
 
 #include <gtest/gtest.h>
@@ -23,7 +24,6 @@
 
 #include <string>
 
-#include "gutil/integral_types.h"
 
 using rapidjson::SizeType;
 using rapidjson::Value;

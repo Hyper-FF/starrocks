@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "runtime/global_dict/types_fwd_decl.h"
 #include "storage/lake/persistent_index_sstable.h"
 #include "storage/lake/tablet_writer.h"

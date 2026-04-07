@@ -198,13 +198,13 @@ public:
         DCHECK(dst->is_nullable());
         size_t null_cnt = null_infos.num_nulls;
         if (dst->is_nullable()) {
-            NullColumn* null_column = down_cast<NullableColumn*>(dst)->null_column_raw_ptr();
+            NullColumn* null_column = static_cast<NullableColumn*>(dst)->null_column_raw_ptr();
             auto& null_data = null_column->get_data();
             size_t prev_num_rows = null_data.size();
             raw::stl_vector_resize_uninitialized(&null_data, count + prev_num_rows);
             uint8_t* __restrict__ dst_nulls = null_data.data() + prev_num_rows;
             memcpy(dst_nulls, is_nulls, count);
-            down_cast<NullableColumn*>(dst)->set_has_null(null_cnt > 0);
+            static_cast<NullableColumn*>(dst)->set_has_null(null_cnt > 0);
         }
 
         size_t max_size = 0;
@@ -265,7 +265,7 @@ public:
     Status next_batch(size_t count, ColumnContentType content_type, Column* dst, const FilterData* filter) override {
         size_t num_decoded = 0;
         if (dst->is_nullable()) {
-            down_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
+            static_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
         }
 
 #define CHECK_DECODING_BOUND                                                                                  \
@@ -532,11 +532,11 @@ public:
 
         const uint8_t* __restrict is_nulls = null_infos.nulls_data();
         DCHECK(dst->is_nullable());
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
         // fill null columns
         _next_null_column(count, null_infos, nullable_column);
         // fill data columns
-        auto* binary_column = down_cast<BinaryColumn*>(nullable_column->data_column_raw_ptr());
+        auto* binary_column = static_cast<BinaryColumn*>(nullable_column->data_column_raw_ptr());
         size_t null_cnt = null_infos.num_nulls;
         size_t read_count = count - null_cnt;
 

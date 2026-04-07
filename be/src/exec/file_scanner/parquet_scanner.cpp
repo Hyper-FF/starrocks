@@ -53,8 +53,8 @@ Status ParquetScanner::open() {
     }
     auto range = _scan_range.ranges[0];
     _num_of_columns_from_file = range.__isset.num_of_columns_from_file
-                                        ? implicit_cast<int>(range.num_of_columns_from_file)
-                                        : implicit_cast<int>(_src_slot_descriptors.size());
+                                        ? static_cast<int>(range.num_of_columns_from_file)
+                                        : static_cast<int>(_src_slot_descriptors.size());
 
     for (auto i = 0; i < _num_of_columns_from_file; ++i) {
         _conv_funcs.emplace_back(std::make_unique<ConvertFuncTree>());
@@ -209,8 +209,8 @@ Status ParquetScanner::build_dest(const arrow::DataType* arrow_type, const TypeD
         for (auto i = 0; i < 2; i++) {
             TypeDescriptor type;
             auto cf = std::make_unique<ConvertFuncTree>();
-            auto sub_at = i == 0 ? down_cast<const arrow::MapType*>(arrow_type)->key_type()
-                                 : down_cast<const arrow::MapType*>(arrow_type)->item_type();
+            auto sub_at = i == 0 ? static_cast<const arrow::MapType*>(arrow_type)->key_type()
+                                 : static_cast<const arrow::MapType*>(arrow_type)->item_type();
             RETURN_IF_ERROR(
                     build_dest(sub_at.get(), &type_desc->children[i], true, &type, cf.get(), need_cast, strict_mode));
             raw_type_desc->children.emplace_back(std::move(type));
@@ -258,7 +258,7 @@ Status ParquetScanner::build_dest(const arrow::DataType* arrow_type, const TypeD
             switch (strict_pt) {
             case TYPE_DECIMAL128:
             case TYPE_DECIMAL256: {
-                const auto* decimal_type = down_cast<const arrow::DecimalType*>(arrow_type);
+                const auto* decimal_type = static_cast<const arrow::DecimalType*>(arrow_type);
                 auto precision = decimal_type->precision();
                 auto scale = decimal_type->scale();
                 auto max_precision = strict_pt == TYPE_DECIMAL256 ? decimal_precision_limit<int256_t>
@@ -328,7 +328,7 @@ Status ParquetScanner::convert_array_to_column(ConvertFuncTree* conv_func, size_
     // obtains timezone from array. thus timezone in array should be rectified to
     // state->timezone.
     if (array->type_id() == ArrowTypeId::TIMESTAMP) {
-        auto* timestamp_type = down_cast<arrow::TimestampType*>(array->type().get());
+        auto* timestamp_type = static_cast<arrow::TimestampType*>(array->type().get());
         auto& mutable_timezone = (std::string&)timestamp_type->timezone();
         mutable_timezone = conv_ctx->state->timezone();
     }
@@ -336,7 +336,7 @@ Status ParquetScanner::convert_array_to_column(ConvertFuncTree* conv_func, size_
     uint8_t* null_data;
     Column* data_column;
     if (column->is_nullable()) {
-        auto nullable_column = down_cast<NullableColumn*>(column);
+        auto nullable_column = static_cast<NullableColumn*>(column);
         auto null_column = nullable_column->null_column_raw_ptr();
         size_t null_count = fill_null_column(array, batch_start_idx, num_elements, null_column, chunk_start_idx);
         nullable_column->set_has_null(null_count != 0);
@@ -353,7 +353,7 @@ Status ParquetScanner::convert_array_to_column(ConvertFuncTree* conv_func, size_
                               chunk_filter, conv_ctx, conv_func);
     if (st.ok() && column->is_nullable()) {
         // in some scene such as string length exceeds limit, the column will be set NULL, so we need reset has_null
-        down_cast<NullableColumn*>(column)->update_has_null();
+        static_cast<NullableColumn*>(column)->update_has_null();
     }
     return st;
 }

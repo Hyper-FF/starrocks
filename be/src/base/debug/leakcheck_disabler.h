@@ -17,7 +17,7 @@
 #pragma once
 
 #include "base/debug/leak_annotations.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace starrocks::debug {
 

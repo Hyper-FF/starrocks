@@ -34,13 +34,13 @@ TypeDescriptor SchemaBeDataCacheMetricsScanner::_used_bytes_detail_type = TypeDe
         TypeDescriptor::from_logical_type(TYPE_INT), TypeDescriptor::from_logical_type(TYPE_BIGINT));
 
 SchemaScanner::ColumnDesc SchemaBeDataCacheMetricsScanner::_s_columns[] = {
-        {"BE_ID", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64), false},
+        {"BE_ID", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64_t), false},
         {"STATUS", TypeDescriptor::create_varchar_type(sizeof(Slice)), sizeof(Slice), false},
-        {"DISK_QUOTA_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64), true},
-        {"DISK_USED_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64), true},
-        {"MEM_QUOTA_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64), true},
-        {"MEM_USED_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64), true},
-        {"META_USED_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64), true},
+        {"DISK_QUOTA_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64_t), true},
+        {"DISK_USED_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64_t), true},
+        {"MEM_QUOTA_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64_t), true},
+        {"MEM_USED_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64_t), true},
+        {"META_USED_BYTES", TypeDescriptor::from_logical_type(TYPE_BIGINT), sizeof(int64_t), true},
         {"DIR_SPACES", _dir_spaces_type, 16, true},
         {"USED_BYTES_DETAIL", _used_bytes_detail_type, 16, true}};
 

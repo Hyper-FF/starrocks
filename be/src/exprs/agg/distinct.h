@@ -34,7 +34,6 @@
 #include "exprs/function_context.h"
 #include "gen_cpp/Data_types.h"
 #include "glog/logging.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 #include "thrift/protocol/TJSONProtocol.h"
 
@@ -476,7 +475,7 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_binary());
-        const auto* input_column = down_cast<const BinaryColumn*>(column);
+        const auto* input_column = static_cast<const BinaryColumn*>(column);
         Slice slice = input_column->get_slice(row_num);
         if constexpr (IsSlice<T>) {
             this->data(state).deserialize_and_merge(ctx->mem_pool(), (const uint8_t*)slice.data, slice.size);
@@ -495,7 +494,7 @@ public:
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         size_t old_size = column->get_bytes().size();
         size_t new_size = old_size + this->data(state).serialize_size();
         column->get_bytes().resize(new_size);
@@ -506,10 +505,10 @@ public:
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         DCHECK(dst->is_binary());
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
         Bytes& bytes = dst_column->get_bytes();
 
-        const auto* src_column = down_cast<const ColumnType*>(src[0].get());
+        const auto* src_column = static_cast<const ColumnType*>(src[0].get());
         if constexpr (IsSlice<T>) {
             bytes.reserve(chunk_size * (sizeof(uint32_t) + src_column->get_slice(0).size));
         } else {
@@ -546,7 +545,7 @@ public:
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(!to->is_nullable());
         if constexpr (DistinctType == AggDistinctType::COUNT) {
-            down_cast<Int64Column*>(to)->append(this->data(state).distinct_count());
+            static_cast<Int64Column*>(to)->append(this->data(state).distinct_count());
         } else if constexpr (DistinctType == AggDistinctType::SUM && is_starrocks_arithmetic<T>::value) {
             to->append_datum(Datum(this->data(state).sum_distinct()));
         }
@@ -615,7 +614,7 @@ public:
         auto* data_column = ColumnHelper::get_data_column(columns[0]);
 
         if (data_column->is_array()) {
-            const auto* array_column = down_cast<const ArrayColumn*>(data_column);
+            const auto* array_column = static_cast<const ArrayColumn*>(data_column);
             const auto* column = array_column->elements_column().get();
             const auto off = array_column->offsets().immutable_data();
             const auto& datas = GetContainer<TYPE_VARCHAR>::get_data(column);
@@ -638,7 +637,7 @@ public:
             return;
         }
 
-        const auto* input_column = down_cast<const BinaryColumn*>(ColumnHelper::get_data_column(column));
+        const auto* input_column = static_cast<const BinaryColumn*>(ColumnHelper::get_data_column(column));
         Slice slice = input_column->get_slice(row_num);
 
         this->data(state).deserialize_and_merge(ctx->mem_pool(), (const uint8_t*)slice.data, slice.size);
@@ -650,9 +649,9 @@ public:
         auto& agg_state = this->data(state);
 
         auto serialize = [=](const DictMergeState& dict_state) {
-            auto* column = down_cast<BinaryColumn*>(ColumnHelper::get_data_column(to));
+            auto* column = static_cast<BinaryColumn*>(ColumnHelper::get_data_column(to));
             if (to->is_nullable()) {
-                down_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
+                static_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
             }
             size_t old_size = column->get_bytes().size();
             size_t new_size = old_size + dict_state.serialize_size();
@@ -684,9 +683,9 @@ public:
             std::vector<int32_t> dict_ids;
             dict_ids.resize(agg_state.set.size());
 
-            auto* binary_column = down_cast<BinaryColumn*>(ColumnHelper::get_data_column(to));
+            auto* binary_column = static_cast<BinaryColumn*>(ColumnHelper::get_data_column(to));
             if (to->is_nullable()) {
-                down_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
+                static_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
             }
 
             // set dict_ids as [1...n]
@@ -767,7 +766,7 @@ struct TFusedMultiDistinctFunction final
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         auto& state_impl = this->data(const_cast<AggDataPtr>(state));
-        auto* struct_column = down_cast<StructColumn*>(dst);
+        auto* struct_column = static_cast<StructColumn*>(dst);
         // compute count
         {
             auto* count_column = struct_column->field_column_raw_ptr("count").value();
@@ -800,7 +799,7 @@ struct TFusedMultiDistinctFunction final
 
             if (count == 0) {
                 DCHECK(avg_column->is_nullable());
-                auto* nullable_avg = down_cast<NullableColumn*>(avg_column);
+                auto* nullable_avg = static_cast<NullableColumn*>(avg_column);
                 auto& null_data = nullable_avg->null_column_data();
                 for (auto i = start; i < end; ++i) {
                     null_data[i] = DATUM_NULL;

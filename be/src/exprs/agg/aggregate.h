@@ -431,7 +431,7 @@ public:
     void merge_batch(FunctionContext* ctx, size_t chunk_size, size_t state_offset, const Column* column,
                      AggDataPtr* states) const override {
         if (!this->support_nullable_immediate_input() && column->is_nullable()) {
-            NullableColumn* nullable_column = down_cast<NullableColumn*>(const_cast<Column*>(column));
+            NullableColumn* nullable_column = static_cast<NullableColumn*>(const_cast<Column*>(column));
             DCHECK_EQ(false, nullable_column->has_null());
             auto* data_column = nullable_column->data_column().get();
             for (size_t i = 0; i < chunk_size; ++i) {
@@ -455,7 +455,7 @@ public:
         };
 
         if (!this->support_nullable_immediate_input() && column->is_nullable()) {
-            NullableColumn* nullable_column = down_cast<NullableColumn*>(const_cast<Column*>(column));
+            NullableColumn* nullable_column = static_cast<NullableColumn*>(const_cast<Column*>(column));
             DCHECK_EQ(false, nullable_column->has_null());
             auto* data_column = nullable_column->data_column().get();
             merge_selectively(data_column);
@@ -467,7 +467,7 @@ public:
     void merge_batch_single_state(FunctionContext* ctx, AggDataPtr __restrict state, const Column* input, size_t start,
                                   size_t size) const override {
         if (!this->support_nullable_immediate_input() && input->is_nullable()) {
-            NullableColumn* nullable_column = down_cast<NullableColumn*>(const_cast<Column*>(input));
+            NullableColumn* nullable_column = static_cast<NullableColumn*>(const_cast<Column*>(input));
             DCHECK_EQ(false, nullable_column->has_null());
             auto* data_column = nullable_column->data_column().get();
             for (size_t i = start; i < start + size; ++i) {

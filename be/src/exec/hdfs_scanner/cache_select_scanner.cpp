@@ -264,7 +264,7 @@ Status CacheSelectScanner::_write_disk_ranges(std::shared_ptr<io::SharedBuffered
     RETURN_IF_ERROR(shared_input_stream->set_io_ranges(io_ranges));
 
     io::CacheSelectInputStream* cache_select_input_stream =
-            down_cast<io::CacheSelectInputStream*>(cache_input_stream.get());
+            static_cast<io::CacheSelectInputStream*>(cache_input_stream.get());
 
     for (const DiskRange& merged_disk_range : merged_disk_ranges) {
         RETURN_IF_ERROR(

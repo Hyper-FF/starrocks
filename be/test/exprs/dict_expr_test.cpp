@@ -125,7 +125,7 @@ TEST_F(DictMappingTest, test1) {
         dict_column->get_data().emplace_back(3);
         dict_column->get_data().emplace_back(4);
         auto nullable_column = NullableColumn::wrap_if_necessary(dict_column);
-        auto c = down_cast<NullableColumn*>(nullable_column->as_mutable_raw_ptr());
+        auto c = static_cast<NullableColumn*>(nullable_column->as_mutable_raw_ptr());
         c->set_null(0);
         chunk->append_column(nullable_column, 1);
 
@@ -187,7 +187,7 @@ TEST_F(DictMappingTest, test_function_return_exception) {
         dict_column->get_data().emplace_back(4);
         dict_column->get_data().emplace_back(5);
         auto nullable_column = NullableColumn::wrap_if_necessary(dict_column);
-        auto c = down_cast<NullableColumn*>(nullable_column->as_mutable_raw_ptr());
+        auto c = static_cast<NullableColumn*>(nullable_column->as_mutable_raw_ptr());
         c->set_null(0);
         chunk->append_column(nullable_column, 1);
 
@@ -259,7 +259,7 @@ TEST_F(DictMappingTest, test_expression_returns_null_for_some_values) {
     ASSERT_OK(result.status());
     auto result_column = result.value();
     ASSERT_TRUE(result_column->is_nullable());
-    auto* nullable_result = down_cast<const NullableColumn*>(result_column.get());
+    auto* nullable_result = static_cast<const NullableColumn*>(result_column.get());
     EXPECT_TRUE(nullable_result->is_null(0)) << "Input '1' should produce NULL";
     EXPECT_FALSE(nullable_result->is_null(1)) << "Input '2' should produce 'ok'";
     EXPECT_EQ(nullable_result->get(1).get_slice(), "ok");

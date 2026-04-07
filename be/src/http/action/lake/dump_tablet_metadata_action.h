@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "http/http_handler.h"
 
 namespace starrocks {

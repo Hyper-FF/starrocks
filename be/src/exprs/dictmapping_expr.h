@@ -22,7 +22,6 @@
 #include "exprs/column_ref.h"
 #include "exprs/expr.h"
 #include "glog/logging.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 class RuntimeState;
@@ -62,7 +61,7 @@ public:
 
     SlotId slot_id() {
         DCHECK_GE(children().size(), 2);
-        return down_cast<const ColumnRef*>(get_child(0))->slot_id();
+        return static_cast<const ColumnRef*>(get_child(0))->slot_id();
     }
 
     int get_slot_ids(std::vector<SlotId>* slot_ids) const override { return get_child(1)->get_slot_ids(slot_ids); }

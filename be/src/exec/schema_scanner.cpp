@@ -338,11 +338,11 @@ bool SchemaScanner::_parse_expr_predicate(Expr* conjunct, const std::string& col
     SlotId slot_id;
     int result_child_idx = 0;
     if (child0->node_type() == TExprNodeType::type::SLOT_REF && child1->node_type() == TExprNodeType::STRING_LITERAL) {
-        slot_id = down_cast<ColumnRef*>(child0)->slot_id();
+        slot_id = static_cast<ColumnRef*>(child0)->slot_id();
         result_child_idx = 1;
     } else if (child1->node_type() == TExprNodeType::type::SLOT_REF &&
                child0->node_type() == TExprNodeType::STRING_LITERAL) {
-        slot_id = down_cast<ColumnRef*>(child1)->slot_id();
+        slot_id = static_cast<ColumnRef*>(child1)->slot_id();
         result_child_idx = 0;
     } else {
         return false;

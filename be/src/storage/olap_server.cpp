@@ -433,7 +433,7 @@ void* StorageEngine::_repair_compaction_thread_callback(void* arg) {
 #endif
     Status status = Status::OK();
     while (!_bg_worker_stopped.load(std::memory_order_consume)) {
-        std::pair<int64_t, vector<uint32_t>> task(-1, vector<uint32>());
+        std::pair<int64_t, vector<uint32_t>> task(-1, vector<uint32_t>());
         {
             std::lock_guard lg(_repair_compaction_tasks_lock);
             if (!_repair_compaction_tasks.empty()) {

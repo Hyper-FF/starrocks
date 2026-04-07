@@ -51,9 +51,9 @@ public:
         if (column->is_nullable()) {
             // This is NullableColumn, get its data_column
             lowcard_column =
-                    down_cast<const ColumnType*>(down_cast<const NullableColumn*>(column)->data_column().get());
+                    static_cast<const ColumnType*>(static_cast<const NullableColumn*>(column)->data_column().get());
         } else {
-            lowcard_column = down_cast<const ColumnType*>(column);
+            lowcard_column = static_cast<const ColumnType*>(column);
         }
         if (!column->has_null()) {
             for (uint16_t i = from; i < to; i++) {
@@ -61,7 +61,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = from; i < to; i++) {
                 sel[i] = evaluate_at_nullable(i, null_data, lowcard_column);
             }
@@ -75,9 +75,9 @@ public:
         if (column->is_nullable()) {
             // This is NullableColumn, get its data_column
             lowcard_column =
-                    down_cast<const ColumnType*>(down_cast<const NullableColumn*>(column)->data_column().get());
+                    static_cast<const ColumnType*>(static_cast<const NullableColumn*>(column)->data_column().get());
         } else {
-            lowcard_column = down_cast<const ColumnType*>(column);
+            lowcard_column = static_cast<const ColumnType*>(column);
         }
         if (!column->has_null()) {
             for (uint16_t i = from; i < to; i++) {
@@ -85,7 +85,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = from; i < to; i++) {
                 sel[i] = (sel[i] && evaluate_at_nullable(i, null_data, lowcard_column));
             }
@@ -99,9 +99,9 @@ public:
         if (column->is_nullable()) {
             // This is NullableColumn, get its data_column
             lowcard_column =
-                    down_cast<const ColumnType*>(down_cast<const NullableColumn*>(column)->data_column().get());
+                    static_cast<const ColumnType*>(static_cast<const NullableColumn*>(column)->data_column().get());
         } else {
-            lowcard_column = down_cast<const ColumnType*>(column);
+            lowcard_column = static_cast<const ColumnType*>(column);
         }
         if (!column->has_null()) {
             for (uint16_t i = from; i < to; i++) {
@@ -109,7 +109,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = from; i < to; i++) {
                 sel[i] = (sel[i] || evaluate_at_nullable(i, null_data, lowcard_column));
             }
@@ -123,9 +123,9 @@ public:
         if (column->is_nullable()) {
             // This is NullableColumn, get its data_column
             lowcard_column =
-                    down_cast<const ColumnType*>(down_cast<const NullableColumn*>(column)->data_column().get());
+                    static_cast<const ColumnType*>(static_cast<const NullableColumn*>(column)->data_column().get());
         } else {
-            lowcard_column = down_cast<const ColumnType*>(column);
+            lowcard_column = static_cast<const ColumnType*>(column);
         }
 
         uint16_t new_size = 0;
@@ -137,7 +137,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = 0; i < sel_size; ++i) {
                 uint16_t data_idx = sel[i];
                 sel[new_size] = data_idx;

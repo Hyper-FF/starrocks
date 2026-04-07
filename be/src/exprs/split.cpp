@@ -109,7 +109,7 @@ StatusOr<ColumnPtr> StringFunctions::split(FunctionContext* context, const starr
     array_offsets->reserve(row_nums + 1);
 
     //Array Binary
-    const auto* haystack_columns = down_cast<const BinaryColumn*>(ColumnHelper::get_data_column(columns[0].get()));
+    const auto* haystack_columns = static_cast<const BinaryColumn*>(ColumnHelper::get_data_column(columns[0].get()));
     BinaryColumn::MutablePtr array_binary_column = BinaryColumn::create();
 
     auto state = reinterpret_cast<SplitState*>(context->get_function_state(FunctionContext::FRAGMENT_LOCAL));

@@ -235,7 +235,7 @@ public:
             }
         } else {
             /* must use const uint8_t* to make vectorized effect, vector<uint8_t> not work */
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (size_t i = from; i < to; i++) {
                 sel[i] = Op::apply(sel[i], (uint8_t)((!is_null[i]) & eval(v[i], _value)));
             }
@@ -612,7 +612,7 @@ public:
             }
         } else {
             /* must use const uint8_t* to make vectorized effect, vector<uint8_t> not work */
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (size_t i = from; i < to; i++) {
                 sel[i] = Op::apply(sel[i], (uint8_t)((!is_null[i]) && eval(v[i], _value)));
             }
@@ -640,9 +640,9 @@ public:
         if (column->is_nullable()) {
             // This is NullableColumn, get its data_column
             binary_column =
-                    down_cast<const BinaryColumn*>(down_cast<const NullableColumn*>(column)->data_column().get());
+                    static_cast<const BinaryColumn*>(static_cast<const NullableColumn*>(column)->data_column().get());
         } else {
-            binary_column = down_cast<const BinaryColumn*>(column);
+            binary_column = static_cast<const BinaryColumn*>(column);
         }
 
         uint16_t new_size = 0;
@@ -655,7 +655,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = 0; i < sel_size; ++i) {
                 uint16_t data_idx = sel[i];
                 sel[new_size] = data_idx;
@@ -995,9 +995,9 @@ public:
         const BinaryColumn* binary_column;
         if (column->is_nullable()) {
             binary_column =
-                    down_cast<const BinaryColumn*>(down_cast<const NullableColumn*>(column)->data_column().get());
+                    static_cast<const BinaryColumn*>(static_cast<const NullableColumn*>(column)->data_column().get());
         } else {
-            binary_column = down_cast<const BinaryColumn*>(column);
+            binary_column = static_cast<const BinaryColumn*>(column);
         }
 
         const auto& offsets = binary_column->get_offset();
@@ -1014,7 +1014,7 @@ public:
             }
         } else {
             // Nullable column: check not null AND length != 0
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = 0; i < sel_size; ++i) {
                 uint16_t data_idx = sel[i];
                 uint32_t len = offset_data[data_idx + 1] - offset_data[data_idx];

@@ -30,7 +30,7 @@ namespace starrocks {
 template <typename T>
 MutableColumnPtr create_decimal_column(int precision, int scale, size_t num_rows, const std::string& prefix) {
     auto col = DecimalV3Column<T>::create(precision, scale, num_rows);
-    auto& data = down_cast<DecimalV3Column<T>*>(col.get())->get_data();
+    auto& data = static_cast<DecimalV3Column<T>*>(col.get())->get_data();
     for (auto i = 0; i < num_rows; ++i) {
         std::string s = prefix + std::to_string(i);
         DecimalV3Cast::from_string<T>(&data[i], precision, scale, s.c_str(), s.size());

@@ -44,7 +44,7 @@ std::optional<MutableColumnPtr> ColumnViewHelper::create_column_view(const TypeD
     }
     MutableColumnPtr default_column = ColumnHelper::create_column(type_desc, nullable);
     if (default_column->is_nullable()) {
-        down_cast<NullableColumn*>(default_column.get())->append_default_not_null_value();
+        static_cast<NullableColumn*>(default_column.get())->append_default_not_null_value();
     } else {
         default_column->append_default();
     }

@@ -165,8 +165,8 @@ public:
     Status do_visit(const FixedLengthColumn<T>& _) {
         using ColumnType = const FixedLengthColumn<T>;
         using Container = typename ColumnType::ImmContainer;
-        const auto left_data = down_cast<ColumnType*>(_left_col)->immutable_data();
-        const auto right_data = down_cast<ColumnType*>(_right_col)->immutable_data();
+        const auto left_data = static_cast<ColumnType*>(_left_col)->immutable_data();
+        const auto right_data = static_cast<ColumnType*>(_right_col)->immutable_data();
         return merge_ordinary_column<Container, T>(left_data, right_data);
     }
 
@@ -175,13 +175,13 @@ public:
         using ColumnType = const BinaryColumnBase<SizeT>;
         if (use_german_string) {
             using Container = typename BinaryColumnBase<SizeT>::GermanStringContainer;
-            auto& left_data = down_cast<const ColumnType*>(_left_col)->get_german_strings();
-            auto& right_data = down_cast<const ColumnType*>(_right_col)->get_german_strings();
+            auto& left_data = static_cast<const ColumnType*>(_left_col)->get_german_strings();
+            auto& right_data = static_cast<const ColumnType*>(_right_col)->get_german_strings();
             return merge_ordinary_column<Container, GermanString>(left_data, right_data);
         } else {
             using ImmContainer = typename BinaryColumnBase<SizeT>::ImmContainer;
-            auto left_data = down_cast<const ColumnType*>(_left_col)->immutable_data();
-            auto right_data = down_cast<const ColumnType*>(_right_col)->immutable_data();
+            auto left_data = static_cast<const ColumnType*>(_left_col)->immutable_data();
+            auto right_data = static_cast<const ColumnType*>(_right_col)->immutable_data();
             return merge_ordinary_column<ImmContainer, Slice>(left_data, right_data);
         }
     }
@@ -190,8 +190,8 @@ public:
         // Fast path
         if (!_left_col->has_null() && !_right_col->has_null()) {
             DCHECK(_left_col->is_nullable() && _right_col->is_nullable());
-            const auto* lhs_data = down_cast<const NullableColumn*>(_left_col)->data_column().get();
-            const auto* rhs_data = down_cast<const NullableColumn*>(_right_col)->data_column().get();
+            const auto* lhs_data = static_cast<const NullableColumn*>(_left_col)->data_column().get();
+            const auto* rhs_data = static_cast<const NullableColumn*>(_right_col)->data_column().get();
             MergeTwoColumn merge2({_sort_order, _null_first}, lhs_data, rhs_data, _equal_ranges, _perm);
             merge2.set_use_german_string(is_use_german_string());
             return lhs_data->accept(&merge2);

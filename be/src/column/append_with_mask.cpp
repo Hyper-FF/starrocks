@@ -38,7 +38,7 @@ Status AppendWithMaskVisitor<PositiveSelect>::do_visit(NullableColumn* column) {
         return Status::OK();
     }
 
-    auto* nullable_column = down_cast<NullableColumn*>(column);
+    auto* nullable_column = static_cast<NullableColumn*>(column);
     size_t orig_size = nullable_column->null_column()->size();
 
     if (_src.only_null()) {
@@ -48,7 +48,7 @@ Status AppendWithMaskVisitor<PositiveSelect>::do_visit(NullableColumn* column) {
     }
 
     if (_src.is_nullable()) {
-        const auto* src_column = down_cast<const NullableColumn*>(&_src);
+        const auto* src_column = static_cast<const NullableColumn*>(&_src);
         if (!src_column->has_null()) {
             size_t selected = count_selected();
             nullable_column->null_column_raw_ptr()->resize(orig_size + selected);

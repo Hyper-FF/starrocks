@@ -50,8 +50,8 @@ TEST_F(FunctionHelperTest, testMergeConstColumnMergeWithNullColumn) {
     auto result_column = FunctionHelper::merge_column_and_null_column(std::move(const_column), std::move(null_column));
     ASSERT_TRUE(result_column->is_nullable());
     ASSERT_EQ(result_column->size(), 10);
-    auto* result_nullable_column = down_cast<const NullableColumn*>(result_column.get());
-    auto* result_data_column = down_cast<const Decimal128Column*>(result_nullable_column->data_column().get());
+    auto* result_nullable_column = static_cast<const NullableColumn*>(result_column.get());
+    auto* result_data_column = static_cast<const Decimal128Column*>(result_nullable_column->data_column().get());
     auto& result_data = result_data_column->get_data();
     for (int i = 0; i < 10; ++i) {
         if (i % 2 == 0) {
@@ -83,8 +83,8 @@ TEST_F(FunctionHelperTest, testMergeNullableColumnMergeWithNullColumn) {
             FunctionHelper::merge_column_and_null_column(std::move(nullable_column), std::move(null_column));
     ASSERT_TRUE(result_column->is_nullable());
     ASSERT_EQ(result_column->size(), 10);
-    auto* result_nullable_column = down_cast<const NullableColumn*>(result_column.get());
-    auto* result_data_column = down_cast<const Decimal128Column*>(result_nullable_column->data_column().get());
+    auto* result_nullable_column = static_cast<const NullableColumn*>(result_column.get());
+    auto* result_data_column = static_cast<const Decimal128Column*>(result_nullable_column->data_column().get());
     auto& result_data = result_data_column->get_data();
     for (int i = 0; i < 10; ++i) {
         if (i % 2 == 0 && i % 3 != 0) {
@@ -109,8 +109,8 @@ TEST_F(FunctionHelperTest, testMergeNotNullableColumnMergeWithNullColumn) {
     auto result_column = FunctionHelper::merge_column_and_null_column(std::move(data_column), std::move(null_column));
     ASSERT_TRUE(result_column->is_nullable());
     ASSERT_EQ(result_column->size(), 10);
-    auto* result_nullable_column = down_cast<const NullableColumn*>(result_column.get());
-    auto* result_data_column = down_cast<const Decimal128Column*>(result_nullable_column->data_column().get());
+    auto* result_nullable_column = static_cast<const NullableColumn*>(result_column.get());
+    auto* result_data_column = static_cast<const Decimal128Column*>(result_nullable_column->data_column().get());
     auto& result_data = result_data_column->get_data();
     for (int i = 0; i < 10; ++i) {
         if (i % 2 == 0) {
@@ -133,7 +133,7 @@ TEST_F(FunctionHelperTest, testCreateColumnScalarNullableAndNonNullable) {
     auto nullable = FunctionHelper::create_column(type_desc, true);
     ASSERT_NE(nullable, nullptr);
     ASSERT_TRUE(nullable->is_nullable());
-    auto* nullable_column = down_cast<NullableColumn*>(nullable.get());
+    auto* nullable_column = static_cast<NullableColumn*>(nullable.get());
     ASSERT_TRUE(nullable_column->data_column()->is_numeric());
 }
 
@@ -144,7 +144,7 @@ TEST_F(FunctionHelperTest, testCreateColumnArray) {
     ASSERT_NE(array_column, nullptr);
     ASSERT_TRUE(array_column->is_array());
 
-    auto* col = down_cast<ArrayColumn*>(array_column.get());
+    auto* col = static_cast<ArrayColumn*>(array_column.get());
     ASSERT_TRUE(col->elements().is_nullable());
     ASSERT_TRUE(ColumnHelper::get_data_column(col->elements_column_raw_ptr())->is_numeric());
     ASSERT_EQ(col->size(), 0);
@@ -162,7 +162,7 @@ TEST_F(FunctionHelperTest, testCreateColumnStruct) {
     ASSERT_NE(struct_column, nullptr);
     ASSERT_TRUE(struct_column->is_struct());
 
-    auto* col = down_cast<StructColumn*>(struct_column.get());
+    auto* col = static_cast<StructColumn*>(struct_column.get());
     ASSERT_EQ(col->fields_size(), 2);
     ASSERT_TRUE(col->field_column_raw_ptr(0)->is_nullable());
     ASSERT_TRUE(ColumnHelper::get_data_column(col->field_column_raw_ptr(0))->is_numeric());
@@ -178,7 +178,7 @@ TEST_F(FunctionHelperTest, testCreateColumnMapUnknownFallbackToNull) {
     ASSERT_NE(map_column, nullptr);
     ASSERT_TRUE(map_column->is_map());
 
-    auto* col = down_cast<MapColumn*>(map_column.get());
+    auto* col = static_cast<MapColumn*>(map_column.get());
     ASSERT_TRUE(col->keys().is_nullable());
     ASSERT_TRUE(col->values().is_nullable());
     auto* key_data = ColumnHelper::get_data_column(col->keys_column_raw_ptr());

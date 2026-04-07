@@ -33,7 +33,7 @@
 #include "formats/parquet/parquet_file_writer.h"
 #include "formats/utils.h"
 #include "fs/fs_factory.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "storage/chunk_helper.h"

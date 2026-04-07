@@ -29,7 +29,6 @@
 #include "formats/parquet/column_converter.h"
 #include "formats/parquet/encoding_plain.h"
 #include "formats/parquet/schema.h"
-#include "gutil/casts.h"
 #include "storage/column_predicate.h"
 #include "storage/types.h"
 #include "types/date_value.h"

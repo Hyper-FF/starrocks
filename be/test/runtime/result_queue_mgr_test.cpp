@@ -87,7 +87,7 @@ TEST_F(ResultQueueMgrTest, fetch_result_normal) {
     queue_mgr.create_queue(query_id, &block_queue_t);
     ASSERT_TRUE(block_queue_t != nullptr);
 
-    std::shared_ptr<arrow::Field> field = arrow::field("k1", arrow::int32(), true);
+    std::shared_ptr<arrow::Field> field = arrow::field("k1", arrow::int32_t(), true);
     std::vector<std::shared_ptr<arrow::Field>> fields;
     fields.push_back(field);
     std::shared_ptr<arrow::Schema> schema = arrow::schema(std::move(fields));

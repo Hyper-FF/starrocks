@@ -100,7 +100,7 @@ public:
 
     template <class T>
     T as() {
-        return down_cast<T>(this);
+        return static_cast<T>(this);
     }
     uint64_t running_flush_tasks() const { return _running_flush_tasks.load(); }
 

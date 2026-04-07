@@ -505,8 +505,8 @@ size_t GlobalDriverExecutor::calculate_parked_driver(const ConstDriverPredicator
 
 void GlobalDriverExecutor::_finalize_epoch(DriverRawPtr driver, RuntimeState* runtime_state, DriverState state) {
     DCHECK(driver);
-    DCHECK(down_cast<StreamPipelineDriver*>(driver));
-    auto* stream_driver = down_cast<StreamPipelineDriver*>(driver);
+    DCHECK(static_cast<StreamPipelineDriver*>(driver));
+    auto* stream_driver = static_cast<StreamPipelineDriver*>(driver);
     stream_driver->epoch_finalize(runtime_state, state);
 }
 

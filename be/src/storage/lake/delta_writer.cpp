@@ -1001,7 +1001,7 @@ Status DeltaWriterImpl::fill_auto_increment_id(Chunk& chunk) {
         const TabletColumn& tablet_column = _write_schema->column(i);
         if (tablet_column.is_auto_increment()) {
             auto* column = chunk.get_column_raw_ptr_by_index(i);
-            auto* int64_column = down_cast<Int64Column*>(column);
+            auto* int64_column = static_cast<Int64Column*>(column);
             RETURN_IF_ERROR(int64_column->fill_range(ids, filter));
             break;
         }

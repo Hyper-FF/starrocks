@@ -50,7 +50,7 @@
 
 #include "base/bthreads/semaphore.h"
 #include "common/status.h"
-#include "gutil/ref_counted.h"
+#include "base/gutil/ref_counted.h"
 // resolve `barrier` macro conflicts with boost/thread.hpp header file
 #undef barrier
 #include "base/container/priority_queue.h"

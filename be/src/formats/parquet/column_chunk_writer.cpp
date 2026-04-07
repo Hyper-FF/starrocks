@@ -18,7 +18,6 @@
 #include <parquet/types.h>
 
 #include "formats/parquet/level_builder.h"
-#include "gutil/casts.h"
 
 namespace starrocks::parquet {
 
@@ -27,7 +26,7 @@ ColumnChunkWriter::ColumnChunkWriter(::parquet::ColumnWriter* column_writer) : _
 #define WRITE_BATCH_CASE(ParquetType)                                                                           \
     case ParquetType: {                                                                                         \
         auto typed_column_writer =                                                                              \
-                down_cast<::parquet::TypedColumnWriter<::parquet::PhysicalType<ParquetType>>*>(_column_writer); \
+                static_cast<::parquet::TypedColumnWriter<::parquet::PhysicalType<ParquetType>>*>(_column_writer); \
         auto values = reinterpret_cast<::parquet::type_traits<ParquetType>::value_type*>(result.values);        \
         if (result.null_bitset == nullptr) {                                                                    \
             typed_column_writer->WriteBatch(result.num_levels, result.def_levels, result.rep_levels, values);   \
@@ -56,7 +55,7 @@ void ColumnChunkWriter::write(const LevelBuilderResult& result) {
 #define ESTIMATED_BUFFERED_VALUE_BYTES(ParquetType)                                                             \
     case ParquetType: {                                                                                         \
         auto typed_column_writer =                                                                              \
-                down_cast<::parquet::TypedColumnWriter<::parquet::PhysicalType<ParquetType>>*>(_column_writer); \
+                static_cast<::parquet::TypedColumnWriter<::parquet::PhysicalType<ParquetType>>*>(_column_writer); \
         return typed_column_writer->estimated_buffered_value_bytes();                                           \
     }
 

@@ -23,7 +23,6 @@
 #include "column/vectorized_fwd.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/agg/aggregate_traits.h"
-#include "gutil/casts.h"
 #include "simdjson.h"
 #include "storage/type_info_allocator_adapter.h"
 #include "storage/types.h"

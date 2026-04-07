@@ -442,7 +442,7 @@ bool ApplicationVersion::IsAlwaysCompressed() const {
 StatusOr<FileMetaDataPtr> FileMetaDataParser::get_file_metadata() {
     // return from split_context directly
     if (_scanner_ctx->split_context != nullptr) {
-        auto split_ctx = down_cast<const SplitContext*>(_scanner_ctx->split_context);
+        auto split_ctx = static_cast<const SplitContext*>(_scanner_ctx->split_context);
         return split_ctx->file_metadata;
     }
 
@@ -522,7 +522,7 @@ Status FileMetaDataParser::_parse_footer(FileMetaDataPtr* file_metadata_ptr, int
         int64_t before_bytes = CurrentThread::current().get_consumed_bytes();
         tparquet::FileMetaData t_metadata;
         // deserialize footer
-        RETURN_IF_ERROR(deserialize_thrift_msg(reinterpret_cast<const uint8*>(footer_buffer.data()) +
+        RETURN_IF_ERROR(deserialize_thrift_msg(reinterpret_cast<const uint8_t*>(footer_buffer.data()) +
                                                        footer_buffer.size() - PARQUET_FOOTER_SIZE - metadata_length,
                                                &metadata_length, TProtocolType::COMPACT, &t_metadata));
 

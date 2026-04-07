@@ -23,7 +23,6 @@
 #include "column/map_column.h"
 #include "column/struct_column.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 #include "types/logical_type.h"
 #include "types/logical_type_infra.h"
 #include "types/type_descriptor.h"
@@ -31,9 +30,9 @@
 namespace starrocks {
 Filter& ColumnHelper::merge_nullable_filter(Column* column) {
     if (column->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(column);
+        auto* nullable_column = static_cast<NullableColumn*>(column);
         auto nulls = nullable_column->null_column_data().data();
-        auto& sel_vec = (down_cast<UInt8Column*>(nullable_column->data_column_raw_ptr()))->get_data();
+        auto& sel_vec = (static_cast<UInt8Column*>(nullable_column->data_column_raw_ptr()))->get_data();
         // NOTE(zc): Must use uint8_t* to enable auto-vectorized.
         auto selected = sel_vec.data();
         size_t num_rows = sel_vec.size();
@@ -43,7 +42,7 @@ Filter& ColumnHelper::merge_nullable_filter(Column* column) {
         }
         return sel_vec;
     } else {
-        return (down_cast<UInt8Column*>(column))->get_data();
+        return (static_cast<UInt8Column*>(column))->get_data();
     }
 }
 
@@ -54,7 +53,7 @@ void ColumnHelper::merge_two_filters(const ColumnPtr& column, Filter* __restrict
         // NOTE(zc): Must use uint8_t* to enable auto-vectorized.
         const auto nulls = nullable_column->null_column_data().data();
         const auto datas =
-                (down_cast<const UInt8Column*>(nullable_column->data_column().get()))->immutable_data().data();
+                (static_cast<const UInt8Column*>(nullable_column->data_column().get()))->immutable_data().data();
         auto num_rows = nullable_column->size();
         // we treat null(1) as false(0)
         for (size_t j = 0; j < num_rows; ++j) {
@@ -322,7 +321,7 @@ int64_t ColumnHelper::find_first_not_equal(const Column* column, int64_t target,
 
 // expression trees' return column should align return type when some return columns maybe diff from the required
 // return type, as well the null flag. e.g., concat_ws returns col from create_const_null_column(), it's type is
-// Nullable(int8), but required return type is nullable(string), so col need align return type to nullable(string).
+// Nullable(int8_t), but required return type is nullable(string), so col need align return type to nullable(string).
 MutableColumnPtr ColumnHelper::align_return_type(MutableColumnPtr&& old_col, const TypeDescriptor& type_desc,
                                                  size_t num_rows, bool is_nullable) {
     MutableColumnPtr new_column;
@@ -333,7 +332,7 @@ MutableColumnPtr ColumnHelper::align_return_type(MutableColumnPtr&& old_col, con
         // Note: we must create a new column every time here,
         // because result_columns[i] is shared_ptr
         new_column = ColumnHelper::create_column(type_desc, false);
-        auto* const_column = down_cast<const ConstColumn*>(old_col.get());
+        auto* const_column = static_cast<const ConstColumn*>(old_col.get());
         new_column->append(*const_column->data_column(), 0, 1);
         new_column->assign(num_rows, 0);
     } else {
@@ -526,9 +525,9 @@ std::tuple<UInt32Column::Ptr, ColumnPtr, NullColumnPtr> ColumnHelper::unpack_arr
     DCHECK(!column->is_nullable() && !column->is_constant());
     DCHECK(column->is_array());
 
-    const ArrayColumn* array_column = down_cast<const ArrayColumn*>(column.get());
-    auto elements_column = down_cast<const NullableColumn*>(array_column->elements_column().get())->data_column();
-    auto null_column = down_cast<const NullableColumn*>(array_column->elements_column().get())->null_column();
+    const ArrayColumn* array_column = static_cast<const ArrayColumn*>(column.get());
+    auto elements_column = static_cast<const NullableColumn*>(array_column->elements_column().get())->data_column();
+    auto null_column = static_cast<const NullableColumn*>(array_column->elements_column().get())->null_column();
     auto offsets_column = array_column->offsets_column();
     return {offsets_column, elements_column, null_column};
 }
@@ -536,16 +535,16 @@ std::tuple<UInt32Column::Ptr, ColumnPtr, NullColumnPtr> ColumnHelper::unpack_arr
 bool ColumnHelper::get_binary_slice_at(const Column* column, size_t row, Slice* out) {
     if (column == nullptr || out == nullptr) return false;
     if (column->is_constant()) {
-        column = down_cast<const ConstColumn*>(column)->data_column().get();
+        column = static_cast<const ConstColumn*>(column)->data_column().get();
         row = 0;
     }
     if (column->is_nullable()) {
-        const auto* nc = down_cast<const NullableColumn*>(column);
+        const auto* nc = static_cast<const NullableColumn*>(column);
         if (nc->is_null(row)) return false;
         column = nc->data_column().get();
     }
     if (!column->is_binary()) return false;
-    *out = down_cast<const BinaryColumn*>(column)->get_slice(row);
+    *out = static_cast<const BinaryColumn*>(column)->get_slice(row);
     return true;
 }
 

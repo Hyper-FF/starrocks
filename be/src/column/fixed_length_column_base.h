@@ -260,7 +260,7 @@ public:
     size_t reference_memory_usage(size_t from, size_t size) const override { return 0; }
 
     void swap_column(Column& rhs) override {
-        auto& r = down_cast<FixedLengthColumnBase&>(rhs);
+        auto& r = static_cast<FixedLengthColumnBase&>(rhs);
         std::swap(this->_delete_state, r._delete_state);
         std::swap(this->_data, r._data);
         std::swap(this->_resource, r._resource);

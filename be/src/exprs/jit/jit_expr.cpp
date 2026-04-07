@@ -154,7 +154,7 @@ StatusOr<ColumnPtr> JITExpr::evaluate_checked(starrocks::ExprContext* context, C
     (*_jit_callable)(num_rows, jit_columns.data());
     //TODO: _jit_function return has_null
     if (is_nullable()) {
-        down_cast<NullableColumn*>(result_column.get())->update_has_null();
+        static_cast<NullableColumn*>(result_column.get())->update_has_null();
     }
     return result_column;
 }

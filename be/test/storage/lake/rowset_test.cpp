@@ -689,8 +689,8 @@ TEST_F(LakeRowsetTest, test_tablet_range_multi_column_range_pruning) {
                 break;
             }
             ASSERT_OK(st);
-            auto kc0 = down_cast<const Int32Column*>(out_chunk->get_column_raw_ptr_by_index(0));
-            auto kc1 = down_cast<const Int32Column*>(out_chunk->get_column_raw_ptr_by_index(1));
+            auto kc0 = static_cast<const Int32Column*>(out_chunk->get_column_raw_ptr_by_index(0));
+            auto kc1 = static_cast<const Int32Column*>(out_chunk->get_column_raw_ptr_by_index(1));
             for (int i = 0; i < out_chunk->num_rows(); ++i) {
                 int v0 = kc0->get_data()[i];
                 int v1 = kc1->get_data()[i];

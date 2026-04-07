@@ -73,9 +73,9 @@ GROUP_SLOW_TEST_F(ParquetCLIReaderTest, ReadAllParquetFiles) {
         // empty parquet file
         unsupported_paths_init.emplace("./be/test/formats/parquet/test_data/empty.parquet");
         // parquet column reader: not supported convert from parquet `INT64` to `TIME`
-        unsupported_paths_init.emplace("./be/test/formats/parquet/test_data/column_converter/int32.parquet");
+        unsupported_paths_init.emplace("./be/test/formats/parquet/test_data/column_converter/int32_t.parquet");
         // parquet column reader: not supported convert from parquet `INT64` to `TIME`
-        unsupported_paths_init.emplace("./be/test/formats/parquet/test_data/column_converter/int64.parquet");
+        unsupported_paths_init.emplace("./be/test/formats/parquet/test_data/column_converter/int64_t.parquet");
         // parquet column reader: not supported convert from parquet `FIXED_LEN_BYTE_ARRAY` to `TIME`
         unsupported_paths_init.emplace(
                 "./be/test/formats/parquet/test_data/column_converter/fixed_len_byte_array.parquet");

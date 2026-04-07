@@ -171,7 +171,7 @@ void StructColumn::remove_first_n_values(size_t count) {
 }
 
 void StructColumn::append(const Column& src, size_t offset, size_t count) {
-    const auto& struct_column = down_cast<const StructColumn&>(src);
+    const auto& struct_column = static_cast<const StructColumn&>(src);
     DCHECK_EQ(_fields.size(), struct_column.fields().size());
     for (size_t i = 0; i < _fields.size(); i++) {
         const Column& source_column = *struct_column.fields()[i];
@@ -187,7 +187,7 @@ void StructColumn::fill_default(const Filter& filter) {
 
 void StructColumn::update_rows(const Column& src, const uint32_t* indexes) {
     DCHECK(src.is_struct());
-    const auto& src_column = down_cast<const StructColumn&>(src);
+    const auto& src_column = static_cast<const StructColumn&>(src);
     DCHECK_EQ(_fields.size(), src_column._fields.size());
     for (size_t i = 0; i < _fields.size(); i++) {
         _fields[i]->update_rows(*src_column._fields[i], indexes);
@@ -200,7 +200,7 @@ void StructColumn::append_selective(const Column& src, const uint32_t* indexes, 
         return;
     }
     DCHECK(src.is_struct());
-    const auto& src_column = down_cast<const StructColumn&>(src);
+    const auto& src_column = static_cast<const StructColumn&>(src);
     DCHECK_EQ(_fields.size(), src_column._fields.size());
     for (size_t i = 0; i < _fields.size(); i++) {
         _fields[i]->append_selective(*src_column._fields[i], indexes, from, size);
@@ -209,7 +209,7 @@ void StructColumn::append_selective(const Column& src, const uint32_t* indexes, 
 
 void StructColumn::append_value_multiple_times(const Column& src, uint32_t index, uint32_t size) {
     DCHECK(src.is_struct());
-    const auto& src_column = down_cast<const StructColumn&>(src);
+    const auto& src_column = static_cast<const StructColumn&>(src);
     DCHECK_EQ(_fields.size(), src_column._fields.size());
     for (size_t i = 0; i < _fields.size(); i++) {
         _fields[i]->append_value_multiple_times(*src_column._fields[i], index, size);
@@ -333,7 +333,7 @@ size_t StructColumn::filter_range(const Filter& filter, size_t from, size_t to) 
 }
 
 int StructColumn::compare_at(size_t left, size_t right, const Column& rhs, int nan_direction_hint) const {
-    const auto& rhs_struct = down_cast<const StructColumn&>(rhs);
+    const auto& rhs_struct = static_cast<const StructColumn&>(rhs);
 
     auto lsize = _fields.size();
     auto rsize = rhs_struct._fields.size();
@@ -349,7 +349,7 @@ int StructColumn::compare_at(size_t left, size_t right, const Column& rhs, int n
 }
 
 int StructColumn::equals(size_t left, const Column& rhs, size_t right, bool safe_eq) const {
-    const auto& rhs_struct = down_cast<const StructColumn&>(rhs);
+    const auto& rhs_struct = static_cast<const StructColumn&>(rhs);
     if (_fields.size() != rhs_struct._fields.size()) {
         return false;
     }
@@ -463,7 +463,7 @@ size_t StructColumn::reference_memory_usage(size_t from, size_t size) const {
 }
 
 void StructColumn::swap_column(Column& rhs) {
-    auto& struct_column = down_cast<StructColumn&>(rhs);
+    auto& struct_column = static_cast<StructColumn&>(rhs);
     for (size_t i = 0; i < _fields.size(); i++) {
         _fields[i]->swap_column(*struct_column._fields[i]);
     }

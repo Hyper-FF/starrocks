@@ -225,7 +225,7 @@ void test_cast_nullable(CastTestCase const& tc, size_t front_fill_size, size_t r
             cast_single_test_case<FromType, ToType, ColumnPackedType::NULLABLE>(tc, front_fill_size, rear_fill_size);
     ASSERT_TRUE(column->is_nullable());
     auto data_column = ColumnHelper::get_data_column(column.get());
-    auto binary_column = down_cast<const BinaryColumn*>(data_column);
+    auto binary_column = static_cast<const BinaryColumn*>(data_column);
     auto actual = binary_column->get_slice(front_fill_size).to_string();
     int precision = std::get<3>(tc);
     int scale = std::get<4>(tc);

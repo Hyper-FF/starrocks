@@ -35,7 +35,7 @@ public:
         _columns.clear();
         _ratio = ratio;
         auto column = BenchUtil::create_random_string_column(_num_rows, 20);
-        auto binary = down_cast<BinaryColumn*>(column.get());
+        auto binary = static_cast<BinaryColumn*>(column.get());
         Bytes& data = binary->get_bytes();
         std::random_device rd;
         std::mt19937 rng(rd());

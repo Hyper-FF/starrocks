@@ -22,7 +22,6 @@
 #include "column/nullable_column.h"
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 #include "runtime/global_dict/config.h"
 #include "runtime/global_dict/types.h"
 #include "types/datum.h"
@@ -56,26 +55,26 @@ Status GlobalDictDecoderBase<Dict>::decode_array(const Column* in, Column* out) 
     TypeDescriptor stringType;
     stringType.type = TYPE_VARCHAR;
     if (in->is_constant()) {
-        const auto* const_column = down_cast<const ConstColumn*>(in);
-        const auto* in_array = down_cast<const ArrayColumn*>(const_column->data_column().get());
+        const auto* const_column = static_cast<const ConstColumn*>(in);
+        const auto* in_array = static_cast<const ArrayColumn*>(const_column->data_column().get());
         auto in_element = in_array->elements_column();
         const auto& in_offsets_ref = in_array->offsets();
 
-        auto* out_array = down_cast<ArrayColumn*>(out);
+        auto* out_array = static_cast<ArrayColumn*>(out);
         auto* out_element = out_array->elements_column_raw_ptr();
         auto* out_offsets = out_array->offsets_column_raw_ptr();
         const auto& in_offsets_data = in_offsets_ref.immutable_data();
         out_offsets->get_data().assign(in_offsets_data.begin(), in_offsets_data.end());
         return decode_string(in_element.get(), out_element);
     } else if (in->is_nullable()) {
-        const auto* in_nullable = down_cast<const NullableColumn*>(in);
-        const auto* in_array = down_cast<const ArrayColumn*>(in_nullable->data_column().get());
+        const auto* in_nullable = static_cast<const NullableColumn*>(in);
+        const auto* in_array = static_cast<const ArrayColumn*>(in_nullable->data_column().get());
         const auto& in_null_ref = *in_nullable->null_column_raw_ptr();
         auto in_element = in_array->elements_column();
         const auto& in_offsets_ref = in_array->offsets();
 
-        auto* out_nullable = down_cast<NullableColumn*>(out);
-        auto* out_array = down_cast<ArrayColumn*>(out_nullable->data_column_raw_ptr());
+        auto* out_nullable = static_cast<NullableColumn*>(out);
+        auto* out_array = static_cast<ArrayColumn*>(out_nullable->data_column_raw_ptr());
         auto* out_null = out_nullable->null_column_raw_ptr();
         auto* out_element = out_array->elements_column_raw_ptr();
         auto* out_offsets = out_array->offsets_column_raw_ptr();
@@ -86,11 +85,11 @@ Status GlobalDictDecoderBase<Dict>::decode_array(const Column* in, Column* out) 
         out_nullable->set_has_null(in_nullable->has_null());
         return decode_string(in_element.get(), out_element);
     } else {
-        const auto* in_array = down_cast<const ArrayColumn*>(in);
+        const auto* in_array = static_cast<const ArrayColumn*>(in);
         auto in_element = in_array->elements_column();
         const auto& in_offsets_ref = in_array->offsets();
 
-        auto* out_array = down_cast<ArrayColumn*>(out);
+        auto* out_array = static_cast<ArrayColumn*>(out);
         auto* out_element = out_array->elements_column_raw_ptr();
         auto* out_offsets = out_array->offsets_column_raw_ptr();
         const auto& in_offsets_data = in_offsets_ref.immutable_data();
@@ -119,8 +118,8 @@ Status GlobalDictDecoderBase<Dict>::decode_string(const Column* in, Column* out)
     }
 
     if (!in->is_nullable()) {
-        auto* res_column = down_cast<StringColumnType*>(out);
-        const auto* column = down_cast<const DictColumnType*>(in);
+        auto* res_column = static_cast<StringColumnType*>(out);
+        const auto* column = static_cast<const DictColumnType*>(in);
         const auto& dict_data = column->immutable_data();
 
         const size_t num_rows = in->size();
@@ -138,12 +137,12 @@ Status GlobalDictDecoderBase<Dict>::decode_string(const Column* in, Column* out)
         return Status::OK();
     }
 
-    const auto* column = down_cast<const NullableColumn*>(in);
-    auto* res_column = down_cast<NullableColumn*>(out);
+    const auto* column = static_cast<const NullableColumn*>(in);
+    auto* res_column = static_cast<NullableColumn*>(out);
     res_column->null_column_data().resize(in->size());
 
-    auto* res_data_column = down_cast<StringColumnType*>(res_column->data_column_raw_ptr());
-    const auto* data_column = down_cast<const DictColumnType*>(column->data_column().get());
+    auto* res_data_column = static_cast<StringColumnType*>(res_column->data_column_raw_ptr());
+    const auto* data_column = static_cast<const DictColumnType*>(column->data_column().get());
     const auto& dict_data = data_column->immutable_data();
 
     const size_t num_rows = in->size();

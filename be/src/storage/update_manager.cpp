@@ -25,7 +25,7 @@
 #include "common/config_primary_key_fwd.h"
 #include "common/system/cpu_info.h"
 #include "fs/fs_factory.h"
-#include "gutil/endian.h"
+#include "base/gutil/endian.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"

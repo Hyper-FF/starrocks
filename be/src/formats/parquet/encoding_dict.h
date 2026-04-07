@@ -130,10 +130,10 @@ public:
 
     Status next_dict_code_batch_with_nulls(size_t count, size_t cur_size, const NullInfos& null_infos, Column* dst) {
         size_t null_cnt = null_infos.num_nulls;
-        auto nullable_column = down_cast<NullableColumn*>(dst);
+        auto nullable_column = static_cast<NullableColumn*>(dst);
 
         size_t read_count = count - null_cnt;
-        Int32Column* data_column = down_cast<Int32Column*>(nullable_column->data_column_raw_ptr());
+        Int32Column* data_column = static_cast<Int32Column*>(nullable_column->data_column_raw_ptr());
         // resize data
         data_column->resize_uninitialized(cur_size + count);
         int32_t* __restrict__ data = data_column->get_data().data() + cur_size;
@@ -211,7 +211,7 @@ public:
             return Decoder::next_batch_with_nulls(count, null_infos, content_type, dst, filter);
         }
         size_t cur_size = dst->size();
-        _next_null_column(count, null_infos, down_cast<NullableColumn*>(dst));
+        _next_null_column(count, null_infos, static_cast<NullableColumn*>(dst));
 
         switch (content_type) {
         case DICT_CODE: {
@@ -232,8 +232,8 @@ public:
         const uint8_t* __restrict is_nulls = null_infos.nulls_data();
         // assign null infos
         size_t null_cnt = null_infos.num_nulls;
-        auto nullable_column = down_cast<NullableColumn*>(dst);
-        FixedLengthColumn<T>* data_column = down_cast<FixedLengthColumn<T>*>(nullable_column->data_column_raw_ptr());
+        auto nullable_column = static_cast<NullableColumn*>(dst);
+        FixedLengthColumn<T>* data_column = static_cast<FixedLengthColumn<T>*>(nullable_column->data_column_raw_ptr());
         // resize data
         data_column->resize_uninitialized(cur_size + count);
         T* __restrict__ data = data_column->get_data().data() + cur_size;
@@ -286,11 +286,11 @@ private:
     Status _next_batch_value(size_t count, Column* dst, const FilterData* filter) override {
         FixedLengthColumn<T>* data_column /* = nullptr */;
         if (dst->is_nullable()) {
-            auto nullable_column = down_cast<NullableColumn*>(dst);
+            auto nullable_column = static_cast<NullableColumn*>(dst);
             nullable_column->null_column_raw_ptr()->append_default(count);
-            data_column = down_cast<FixedLengthColumn<T>*>(nullable_column->data_column_raw_ptr());
+            data_column = static_cast<FixedLengthColumn<T>*>(nullable_column->data_column_raw_ptr());
         } else {
-            data_column = down_cast<FixedLengthColumn<T>*>(dst);
+            data_column = static_cast<FixedLengthColumn<T>*>(dst);
         }
 
         size_t cur_size = data_column->size();
@@ -472,7 +472,7 @@ private:
             return Decoder::next_batch_with_nulls(count, null_infos, content_type, dst, filter);
         }
         size_t cur_size = dst->size();
-        _next_null_column(count, null_infos, down_cast<NullableColumn*>(dst));
+        _next_null_column(count, null_infos, static_cast<NullableColumn*>(dst));
 
         switch (content_type) {
         case DICT_CODE: {
@@ -581,7 +581,7 @@ private:
                 return Status::InternalError("Index not in dictionary bounds");
             }
             if (dst->is_nullable()) {
-                down_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
+                static_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
             }
             auto* binary_column = ColumnHelper::get_binary_column(dst);
             for (int i = 0; i < count; ++i) {

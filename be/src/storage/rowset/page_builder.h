@@ -39,7 +39,7 @@
 
 #include "base/string/faststring.h"
 #include "common/status.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "runtime/global_dict/types.h"
 #include "storage/rowset/common.h"
 

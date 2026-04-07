@@ -34,7 +34,7 @@ template <typename T>
 static Status add_adaptive_nullable_numeric_column(Column* column, const TypeDescriptor& type_desc,
                                                    const std::string& name, simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+    auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
 
     try {
         auto* data_column = nullable_column->begin_append_not_default_value();
@@ -71,7 +71,7 @@ template <typename T>
 static Status add_nullable_numeric_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                           simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<NullableColumn*>(column);
+    auto nullable_column = static_cast<NullableColumn*>(column);
     auto* null_column = nullable_column->null_column_raw_ptr();
     auto data_column = nullable_column->data_column_raw_ptr();
 
@@ -103,7 +103,7 @@ template Status add_nullable_numeric_column<float>(Column* column, const TypeDes
 
 static Status add_boolean_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                  simdjson::ondemand::value* value) {
-    auto bool_column = down_cast<FixedLengthColumn<uint8_t>*>(column);
+    auto bool_column = static_cast<FixedLengthColumn<uint8_t>*>(column);
 
     try {
         simdjson::ondemand::json_type tp = value->type();
@@ -186,7 +186,7 @@ static Status add_boolean_column(Column* column, const TypeDescriptor& type_desc
 static Status add_adaptive_nullable_boolean_column(Column* column, const TypeDescriptor& type_desc,
                                                    const std::string& name, simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+    auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
 
     try {
         auto* data_column = nullable_column->begin_append_not_default_value();
@@ -203,7 +203,7 @@ static Status add_adaptive_nullable_boolean_column(Column* column, const TypeDes
 static Status add_nullable_boolean_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                           simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<NullableColumn*>(column);
+    auto nullable_column = static_cast<NullableColumn*>(column);
     auto* null_column = nullable_column->null_column_raw_ptr();
     auto data_column = nullable_column->data_column_raw_ptr();
 
@@ -221,7 +221,7 @@ static Status add_nullable_boolean_column(Column* column, const TypeDescriptor& 
 static Status add_adaptive_nullable_binary_column(Column* column, const TypeDescriptor& type_desc,
                                                   const std::string& name, simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+    auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
 
     try {
         auto* data_column = nullable_column->begin_append_not_default_value();
@@ -238,7 +238,7 @@ static Status add_adaptive_nullable_binary_column(Column* column, const TypeDesc
 static Status add_nullable_binary_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                          simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<NullableColumn*>(column);
+    auto nullable_column = static_cast<NullableColumn*>(column);
     auto* null_column = nullable_column->null_column_raw_ptr();
     auto data_column = nullable_column->data_column_raw_ptr();
 
@@ -255,7 +255,7 @@ static Status add_nullable_binary_column(Column* column, const TypeDescriptor& t
 
 static Status add_adaptive_nullable_native_json_column(Column* column, const TypeDescriptor& type_desc,
                                                        const std::string& name, simdjson::ondemand::value* value) {
-    auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+    auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
 
     try {
         auto* data_column = nullable_column->begin_append_not_default_value();
@@ -272,7 +272,7 @@ static Status add_adaptive_nullable_native_json_column(Column* column, const Typ
 static Status add_nullable_native_json_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                               simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<NullableColumn*>(column);
+    auto nullable_column = static_cast<NullableColumn*>(column);
     auto* null_column = nullable_column->null_column_raw_ptr();
     auto data_column = nullable_column->data_column_raw_ptr();
 
@@ -291,8 +291,8 @@ static Status add_adaptive_nullable_array_column(Column* column, const TypeDescr
                                                  const std::string& name, simdjson::ondemand::value* value) {
     try {
         if (value->type() == simdjson::ondemand::json_type::array) {
-            auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
-            auto array_column = down_cast<ArrayColumn*>(nullable_column->begin_append_not_default_value());
+            auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
+            auto array_column = static_cast<ArrayColumn*>(nullable_column->begin_append_not_default_value());
             auto* elems_column = array_column->elements_column_raw_ptr();
 
             simdjson::ondemand::array arr = value->get_array();
@@ -324,8 +324,8 @@ static Status add_nullable_array_column(Column* column, const TypeDescriptor& ty
                                         simdjson::ondemand::value* value) {
     try {
         if (value->type() == simdjson::ondemand::json_type::array) {
-            auto nullable_column = down_cast<NullableColumn*>(column);
-            auto array_column = down_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
+            auto nullable_column = static_cast<NullableColumn*>(column);
+            auto array_column = static_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
             auto* null_column = nullable_column->null_column_raw_ptr();
             auto* elems_column = array_column->elements_column_raw_ptr();
 
@@ -357,7 +357,7 @@ static Status add_nullable_array_column(Column* column, const TypeDescriptor& ty
 static Status add_adaptive_nullable_struct_column(Column* column, const TypeDescriptor& type_desc,
                                                   const std::string& name, simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+    auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
     auto* data_column = nullable_column->begin_append_not_default_value();
     RETURN_IF_ERROR(add_struct_column(data_column, type_desc, name, value));
     nullable_column->finish_append_one_not_default_value();
@@ -367,7 +367,7 @@ static Status add_adaptive_nullable_struct_column(Column* column, const TypeDesc
 static Status add_nullable_struct_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                          simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<NullableColumn*>(column);
+    auto nullable_column = static_cast<NullableColumn*>(column);
     auto* null_column = nullable_column->null_column_raw_ptr();
     auto data_column = nullable_column->data_column_raw_ptr();
     RETURN_IF_ERROR(add_struct_column(data_column, type_desc, name, value));
@@ -378,7 +378,7 @@ static Status add_nullable_struct_column(Column* column, const TypeDescriptor& t
 static Status add_adaptive_nullable_map_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                                simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+    auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
     auto* data_column = nullable_column->begin_append_not_default_value();
     RETURN_IF_ERROR(add_map_column(data_column, type_desc, name, value));
     nullable_column->finish_append_one_not_default_value();
@@ -388,7 +388,7 @@ static Status add_adaptive_nullable_map_column(Column* column, const TypeDescrip
 static Status add_nullable_map_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                       simdjson::ondemand::value* value) {
     DCHECK(!value->is_null());
-    auto nullable_column = down_cast<NullableColumn*>(column);
+    auto nullable_column = static_cast<NullableColumn*>(column);
     auto* null_column = nullable_column->null_column_raw_ptr();
     auto data_column = nullable_column->data_column_raw_ptr();
     RETURN_IF_ERROR(add_map_column(data_column, type_desc, name, value));
@@ -464,7 +464,7 @@ Status add_adaptive_nullable_column_by_json_object(Column* column, const TypeDes
                                                    const std::string& name, simdjson::ondemand::object* value,
                                                    bool invalid_as_null) {
     try {
-        auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+        auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
 
         auto* data_column = nullable_column->begin_append_not_default_value();
 

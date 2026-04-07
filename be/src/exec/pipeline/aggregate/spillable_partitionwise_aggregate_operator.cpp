@@ -269,7 +269,7 @@ ChunkPtr& SpillablePartitionWiseAggregateSinkOperator::_append_hash_column(Chunk
     auto& hash_values = hash_column->get_data();
     // TODO: use different hash method
     for (auto* expr : group_by_exprs) {
-        auto slot_id = down_cast<const ColumnRef*>(expr->root())->slot_id();
+        auto slot_id = static_cast<const ColumnRef*>(expr->root())->slot_id();
         auto column = chunk->get_column_by_slot_id(slot_id);
         column->fnv_hash(hash_values.data(), 0, num_rows);
     }

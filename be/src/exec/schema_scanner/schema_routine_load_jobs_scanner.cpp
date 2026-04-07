@@ -102,7 +102,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 4: {
@@ -114,7 +114,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 5: {
@@ -126,7 +126,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 6: {
@@ -196,7 +196,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice reasons_of_state_changed = Slice(info.reasons_of_state_changed);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&reasons_of_state_changed);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -206,7 +206,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice error_log_urls = Slice(info.error_log_urls);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&error_log_urls);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -216,7 +216,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice sql = Slice(info.tracking_sql);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&sql);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -226,7 +226,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice other_msg = Slice(info.other_msg);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&other_msg);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -239,7 +239,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (!s.ok()) {
                     LOG(WARNING) << "parse latest_source_position failed. latest_source_position:"
                                  << latest_source_position.to_string() << " error:" << s;
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 } else {
                     fill_column_with_slot<TYPE_JSON>(column, (void*)&json_value_ptr);
                 }
@@ -253,7 +253,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                 Status s = JsonValue::parse(offset_lag, &json_value);
                 if (!s.ok()) {
                     LOG(WARNING) << "parse offset_lag failed. offset_lag:" << offset_lag.to_string() << " error:" << s;
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 } else {
                     fill_column_with_slot<TYPE_JSON>(column, (void*)&json_value_ptr);
                 }
@@ -268,7 +268,7 @@ Status SchemaRoutineLoadJobsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (!s.ok()) {
                     LOG(WARNING) << "parse timestamp_progress failed. timestamp_progress:"
                                  << timestamp_progress.to_string() << " error:" << s;
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 } else {
                     fill_column_with_slot<TYPE_JSON>(column, (void*)&json_value_ptr);
                 }

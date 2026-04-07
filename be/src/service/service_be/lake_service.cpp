@@ -156,7 +156,7 @@ void add_failed_tablets(PublishVersionResponse* response, const ReshardingTablet
     }
 }
 
-bool should_rebuild_pindex(const std::unordered_set<int64>& rebuild_pindex_tablets,
+bool should_rebuild_pindex(const std::unordered_set<int64_t>& rebuild_pindex_tablets,
                            const lake::PublishTabletInfo& tablet_info) {
     if (rebuild_pindex_tablets.count(tablet_info.get_tablet_id_in_metadata()) > 0) {
         return true;
@@ -280,7 +280,7 @@ void LakeServiceImpl::publish_version(::google::protobuf::RpcController* control
              task_num);
 
     Status::OK().to_protobuf(response->mutable_status());
-    std::unordered_set<int64> rebuild_pindex_tablets;
+    std::unordered_set<int64_t> rebuild_pindex_tablets;
     for (auto id : request->rebuild_pindex_tablet_ids()) {
         LOG(INFO) << "get rebuild tablet: " << id;
         rebuild_pindex_tablets.insert(id);

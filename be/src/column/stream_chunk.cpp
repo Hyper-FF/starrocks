@@ -58,7 +58,7 @@ StreamChunkPtr StreamChunkConverter::make_stream_chunk(ChunkPtr chunk, Int8Colum
 }
 
 bool StreamChunkConverter::has_ops_column(const StreamChunk& chunk) {
-    if (chunk.has_extra_data() && down_cast<ChunkExtraColumnsData*>(chunk.get_extra_data().get())) {
+    if (chunk.has_extra_data() && static_cast<ChunkExtraColumnsData*>(chunk.get_extra_data().get())) {
         return true;
     }
     return false;
@@ -80,7 +80,7 @@ bool StreamChunkConverter::has_ops_column(const StreamChunk* chunk_ptr) {
 
 const Int8Column* StreamChunkConverter::ops_col(const StreamChunk& stream_chunk) {
     DCHECK(has_ops_column(stream_chunk));
-    auto extra_column_data = down_cast<ChunkExtraColumnsData*>(stream_chunk.get_extra_data().get());
+    auto extra_column_data = static_cast<ChunkExtraColumnsData*>(stream_chunk.get_extra_data().get());
     DCHECK(extra_column_data);
     DCHECK_EQ(extra_column_data->columns().size(), 1);
     auto* op_col = ColumnHelper::as_raw_column<Int8Column>(extra_column_data->columns()[0].get());
@@ -116,7 +116,7 @@ const StreamRowOp* StreamChunkConverter::ops(const StreamChunkPtr& stream_chunk)
 
 ChunkPtr StreamChunkConverter::to_chunk(const StreamChunkPtr& stream_chunk) {
     if (has_ops_column(stream_chunk)) {
-        auto extra_column_data = down_cast<ChunkExtraColumnsData*>(stream_chunk->get_extra_data().get());
+        auto extra_column_data = static_cast<ChunkExtraColumnsData*>(stream_chunk->get_extra_data().get());
         DCHECK(extra_column_data);
         auto mock_slot_id = stream_chunk->num_columns();
         for (auto& extra_column : extra_column_data->columns()) {

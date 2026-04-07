@@ -21,14 +21,13 @@
 #include "common/compiler_util.h"
 #include "common/status.h"
 #include "fmt/core.h"
-#include "gutil/casts.h"
 #include "storage/rowset/dictcode_column_iterator.h"
 
 namespace starrocks {
 Status ColumnDecoder::encode_to_global_id(Column* datas, Column* codes) {
     const Column* data = datas;
     if (datas->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(datas);
+        auto* nullable_column = static_cast<NullableColumn*>(datas);
         data = nullable_column->data_column_raw_ptr();
     }
     if (data->is_binary()) {
@@ -44,10 +43,10 @@ Status ColumnDecoder::_encode_string_to_global_id(Column* datas, Column* codes) 
     size_t num_rows = datas->size();
     codes->resize(num_rows);
     if (datas->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(datas);
-        const auto* binary_column = down_cast<const BinaryColumn*>(nullable_column->data_column_raw_ptr());
-        auto* lowcard_nullcolumn = down_cast<NullableColumn*>(codes);
-        auto* lowcard_datacolumn = down_cast<LowCardDictColumn*>(lowcard_nullcolumn->data_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(datas);
+        const auto* binary_column = static_cast<const BinaryColumn*>(nullable_column->data_column_raw_ptr());
+        auto* lowcard_nullcolumn = static_cast<NullableColumn*>(codes);
+        auto* lowcard_datacolumn = static_cast<LowCardDictColumn*>(lowcard_nullcolumn->data_column_raw_ptr());
         auto& lowcard_data = lowcard_datacolumn->get_data();
         const auto& null_data = nullable_column->immutable_null_column_data();
         for (int i = 0; i < num_rows; ++i) {
@@ -68,8 +67,8 @@ Status ColumnDecoder::_encode_string_to_global_id(Column* datas, Column* codes) 
         const auto& null_col_data = nullable_column->immutable_null_column_data();
         lowcard_nullcolumn->null_column_data().assign(null_col_data.begin(), null_col_data.end());
     } else {
-        auto* binary_column = down_cast<BinaryColumn*>(datas);
-        auto* lowcard_column = down_cast<LowCardDictColumn*>(codes);
+        auto* binary_column = static_cast<BinaryColumn*>(datas);
+        auto* lowcard_column = static_cast<LowCardDictColumn*>(codes);
         auto& lowcard_data = lowcard_column->get_data();
         for (int i = 0; i < num_rows; ++i) {
             auto iter = _global_dict->find(binary_column->get_slice(i));
@@ -86,10 +85,10 @@ Status ColumnDecoder::_encode_string_to_global_id(Column* datas, Column* codes) 
 
 Status ColumnDecoder::_encode_array_to_global_id(Column* datas, Column* codes) {
     if (datas->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(datas);
-        auto* lowcard_nullcolumn = down_cast<NullableColumn*>(codes);
-        auto* array_column = down_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
-        auto* lowcard_array_column = down_cast<ArrayColumn*>(lowcard_nullcolumn->data_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(datas);
+        auto* lowcard_nullcolumn = static_cast<NullableColumn*>(codes);
+        auto* array_column = static_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
+        auto* lowcard_array_column = static_cast<ArrayColumn*>(lowcard_nullcolumn->data_column_raw_ptr());
 
         lowcard_nullcolumn->set_has_null(nullable_column->has_null());
         const auto& null_col_data = nullable_column->immutable_null_column_data();
@@ -99,8 +98,8 @@ Status ColumnDecoder::_encode_array_to_global_id(Column* datas, Column* codes) {
         return _encode_string_to_global_id(array_column->elements_column_raw_ptr(),
                                            lowcard_array_column->elements_column_raw_ptr());
     } else {
-        auto* array_column = down_cast<ArrayColumn*>(datas);
-        auto* lowcard_array_column = down_cast<ArrayColumn*>(codes);
+        auto* array_column = static_cast<ArrayColumn*>(datas);
+        auto* lowcard_array_column = static_cast<ArrayColumn*>(codes);
         const auto& offsets_data = array_column->offsets().immutable_data();
         lowcard_array_column->offsets_column_raw_ptr()->get_data().assign(offsets_data.begin(), offsets_data.end());
         return _encode_string_to_global_id(array_column->elements_column_raw_ptr(),

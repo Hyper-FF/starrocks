@@ -25,7 +25,6 @@
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
 #include "exec/aggregate/agg_profile.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {
@@ -155,7 +154,7 @@ struct AggHashSetOfOneNumberKey : public AggHashSet<HashSet, AggHashSetOfOneNumb
     template <bool compute_and_allocate>
     ALWAYS_NOINLINE void build_set_noprefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
                                               Filter* not_founds) {
-        const auto* column = down_cast<const ColumnType*>(key_columns[0].get());
+        const auto* column = static_cast<const ColumnType*>(key_columns[0].get());
         const auto keys = column->immutable_data();
 
         for (size_t i = 0; i < chunk_size; ++i) {
@@ -173,7 +172,7 @@ struct AggHashSetOfOneNumberKey : public AggHashSet<HashSet, AggHashSetOfOneNumb
     template <bool compute_and_allocate>
     ALWAYS_NOINLINE void build_set_prefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
                                             Filter* not_founds) {
-        const auto* column = down_cast<const ColumnType*>(key_columns[0].get());
+        const auto* column = static_cast<const ColumnType*>(key_columns[0].get());
         const auto keys = column->immutable_data();
 
         AGG_HASH_SET_PRECOMPUTE_HASH_VALS();
@@ -188,7 +187,7 @@ struct AggHashSetOfOneNumberKey : public AggHashSet<HashSet, AggHashSetOfOneNumb
     }
 
     void insert_keys_to_columns(const ResultVector& keys, MutableColumns& key_columns, size_t chunk_size) {
-        auto* column = down_cast<ColumnType*>(key_columns[0].get());
+        auto* column = static_cast<ColumnType*>(key_columns[0].get());
         column->get_data().insert(column->get_data().end(), keys.begin(), keys.begin() + chunk_size);
     }
 
@@ -244,8 +243,8 @@ struct AggHashSetOfOneNullableNumberKey
     template <bool compute_and_allocate>
     ALWAYS_NOINLINE void build_set_noprefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
                                               Filter* not_founds) {
-        const auto* nullable_column = down_cast<const NullableColumn*>(key_columns[0].get());
-        const auto* data_column = down_cast<const ColumnType*>(nullable_column->data_column().get());
+        const auto* nullable_column = static_cast<const NullableColumn*>(key_columns[0].get());
+        const auto* data_column = static_cast<const ColumnType*>(nullable_column->data_column().get());
         const auto& null_data = nullable_column->null_column_data();
         const auto keys = data_column->immutable_data();
 
@@ -275,8 +274,8 @@ struct AggHashSetOfOneNullableNumberKey
     template <bool compute_and_allocate>
     ALWAYS_NOINLINE void build_set_prefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
                                             Filter* not_founds) {
-        const auto* nullable_column = down_cast<const NullableColumn*>(key_columns[0].get());
-        const auto* data_column = down_cast<const ColumnType*>(nullable_column->data_column().get());
+        const auto* nullable_column = static_cast<const NullableColumn*>(key_columns[0].get());
+        const auto* data_column = static_cast<const ColumnType*>(nullable_column->data_column().get());
         const auto keys = data_column->immutable_data();
 
         AGG_HASH_SET_PRECOMPUTE_HASH_VALS();
@@ -291,8 +290,8 @@ struct AggHashSetOfOneNullableNumberKey
     }
 
     void insert_keys_to_columns(ResultVector& keys, MutableColumns& key_columns, size_t chunk_size) {
-        auto* nullable_column = down_cast<NullableColumn*>(key_columns[0].get());
-        auto* column = down_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(key_columns[0].get());
+        auto* column = static_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
         column->get_data().insert(column->get_data().end(), keys.begin(), keys.begin() + chunk_size);
         nullable_column->null_column_data().resize(chunk_size);
     }
@@ -335,7 +334,7 @@ struct AggHashSetOfOneStringKey : public AggHashSet<HashSet, AggHashSetOfOneStri
     template <bool compute_and_allocate>
     ALWAYS_NOINLINE void build_set_noprefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
                                               Filter* not_founds) {
-        auto* column = down_cast<const BinaryColumn*>(key_columns[0].get());
+        auto* column = static_cast<const BinaryColumn*>(key_columns[0].get());
         for (size_t i = 0; i < chunk_size; ++i) {
             auto tmp = column->get_slice(i);
             if constexpr (compute_and_allocate) {
@@ -355,7 +354,7 @@ struct AggHashSetOfOneStringKey : public AggHashSet<HashSet, AggHashSetOfOneStri
     template <bool compute_and_allocate>
     ALWAYS_NOINLINE void build_set_prefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
                                             Filter* not_founds) {
-        const auto* column = down_cast<const BinaryColumn*>(key_columns[0].get());
+        const auto* column = static_cast<const BinaryColumn*>(key_columns[0].get());
         cache.reserve(chunk_size);
         for (size_t i = 0; i < chunk_size; ++i) {
             cache[i] = KeyType(column->get_slice(i));
@@ -378,7 +377,7 @@ struct AggHashSetOfOneStringKey : public AggHashSet<HashSet, AggHashSetOfOneStri
     }
 
     void insert_keys_to_columns(ResultVector& keys, MutableColumns& key_columns, size_t chunk_size) {
-        auto* column = down_cast<BinaryColumn*>(key_columns[0].get());
+        auto* column = static_cast<BinaryColumn*>(key_columns[0].get());
         keys.resize(chunk_size);
         column->append_strings(keys.data(), keys.size());
     }
@@ -424,8 +423,8 @@ struct AggHashSetOfOneNullableStringKey : public AggHashSet<HashSet, AggHashSetO
     template <bool compute_and_allocate>
     ALWAYS_NOINLINE void build_set_noprefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
                                               Filter* not_founds) {
-        const auto* nullable_column = down_cast<const NullableColumn*>(key_columns[0].get());
-        const auto* data_column = down_cast<const BinaryColumn*>(nullable_column->data_column().get());
+        const auto* nullable_column = static_cast<const NullableColumn*>(key_columns[0].get());
+        const auto* data_column = static_cast<const BinaryColumn*>(nullable_column->data_column().get());
         const auto& null_data = nullable_column->null_column_data();
 
         if (nullable_column->has_null()) {
@@ -454,8 +453,8 @@ struct AggHashSetOfOneNullableStringKey : public AggHashSet<HashSet, AggHashSetO
     template <bool compute_and_allocate>
     ALWAYS_NOINLINE void build_set_prefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
                                             Filter* not_founds) {
-        const auto* nullable_column = down_cast<const NullableColumn*>(key_columns[0].get());
-        const auto* data_column = down_cast<const BinaryColumn*>(nullable_column->data_column().get());
+        const auto* nullable_column = static_cast<const NullableColumn*>(key_columns[0].get());
+        const auto* data_column = static_cast<const BinaryColumn*>(nullable_column->data_column().get());
 
         cache.reserve(chunk_size);
         for (size_t i = 0; i < chunk_size; ++i) {
@@ -494,8 +493,8 @@ struct AggHashSetOfOneNullableStringKey : public AggHashSet<HashSet, AggHashSetO
 
     void insert_keys_to_columns(ResultVector& keys, MutableColumns& key_columns, size_t chunk_size) {
         DCHECK(key_columns[0]->is_nullable());
-        auto* nullable_column = down_cast<NullableColumn*>(key_columns[0].get());
-        auto* column = down_cast<BinaryColumn*>(nullable_column->data_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(key_columns[0].get());
+        auto* column = static_cast<BinaryColumn*>(nullable_column->data_column_raw_ptr());
         keys.resize(chunk_size);
         column->append_strings(keys.data(), keys.size());
         nullable_column->null_column_data().resize(chunk_size);

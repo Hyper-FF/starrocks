@@ -488,7 +488,7 @@ PARALLEL_TEST(BinaryColumnTest, test_clone) {
 
     c1.reset();
 
-    slices = down_cast<BinaryColumn*>(c2.get())->immutable_data();
+    slices = static_cast<BinaryColumn*>(c2.get())->immutable_data();
     ASSERT_EQ(2, c2->size());
     ASSERT_EQ("abc", slices[0]);
     ASSERT_EQ("def", slices[1]);
@@ -509,7 +509,7 @@ PARALLEL_TEST(BinaryColumnTest, test_clone_shared) {
 
     c1.reset();
 
-    slices = down_cast<BinaryColumn*>(c2.get())->immutable_data();
+    slices = static_cast<BinaryColumn*>(c2.get())->immutable_data();
     ASSERT_EQ(2, c2->size());
     ASSERT_EQ("abc", slices[0]);
     ASSERT_EQ("def", slices[1]);
@@ -610,7 +610,7 @@ PARALLEL_TEST(BinaryColumnTest, test_replicate) {
 
     auto c2 = c1->replicate(offsets).value();
 
-    auto slices = down_cast<const BinaryColumn*>(c2.get())->immutable_data();
+    auto slices = static_cast<const BinaryColumn*>(c2.get())->immutable_data();
     ASSERT_EQ(5, c2->size());
     ASSERT_EQ("abc", slices[0]);
     ASSERT_EQ("abc", slices[1]);

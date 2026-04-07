@@ -68,7 +68,7 @@
 #include "gen_cpp/TFileBrokerService.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
-#include "gutil/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "runtime/base_load_path_mgr.h"
 #include "runtime/batch_write/batch_write_mgr.h"

@@ -37,7 +37,7 @@ StatusOr<pipeline::OpFactories> StreamAggregateNode::decompose_to_pipeline(pipel
     // We cannot get degree of parallelism from PipelineBuilderContext, of which is only a suggest value
     // and we may set other parallelism for source operator in many special cases
     size_t degree_of_parallelism =
-            down_cast<pipeline::SourceOperatorFactory*>(operators_with_sink[0].get())->degree_of_parallelism();
+            static_cast<pipeline::SourceOperatorFactory*>(operators_with_sink[0].get())->degree_of_parallelism();
 
     // shared by sink operator and source operator
     OpFactories operators_with_source;

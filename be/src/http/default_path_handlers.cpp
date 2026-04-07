@@ -34,7 +34,7 @@
 
 #include "http/default_path_handlers.h"
 
-#include <gutil/strings/numbers.h>
+#include "base/gutil/strings/numbers.h>
 #include "absl/strings/substitute.h"
 
 #include <algorithm>

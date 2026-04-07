@@ -28,7 +28,6 @@
 #include "exec/pipeline/operator.h"
 #include "exec/pipeline_node.h"
 #include "exprs/expr_context.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {

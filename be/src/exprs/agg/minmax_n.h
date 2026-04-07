@@ -233,7 +233,7 @@ public:
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         // Like approx_top_k: serialize_to_column outputs to BinaryColumn (for distributed aggregation)
         DCHECK(to->is_binary());
-        serialize_state(this->data(state), down_cast<BinaryColumn*>(to));
+        serialize_state(this->data(state), static_cast<BinaryColumn*>(to));
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
@@ -241,7 +241,7 @@ public:
         DCHECK(!src[0]->is_nullable());
         int32_t n = get_n_value(ctx);
         DCHECK(dst->is_binary());
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
         const auto* src_column = src[0].get();
 
         for (size_t i = 0; i < src_column->size(); ++i) {
@@ -310,7 +310,7 @@ public:
 
     void batch_serialize(FunctionContext* ctx, size_t chunk_size, const Buffer<AggDataPtr>& agg_states,
                          size_t state_offset, Column* to) const override {
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         for (size_t i = 0; i < chunk_size; i++) {
             serialize_state(this->data(agg_states[i] + state_offset), column);
         }
@@ -325,7 +325,7 @@ public:
             return;
         }
 
-        auto* array_column = down_cast<ArrayColumn*>(to);
+        auto* array_column = static_cast<ArrayColumn*>(to);
 
         // Get sorted values from heap
         std::vector<CppType> values;

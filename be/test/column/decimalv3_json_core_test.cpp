@@ -18,14 +18,13 @@
 
 #include "column/decimalv3_column.h"
 #include "column/json_column.h"
-#include "gutil/casts.h"
 #include "types/decimalv3.h"
 
 namespace starrocks {
 
 TEST(DecimalV3JsonCoreTest, Decimal64SerializeCompareAndDefault) {
     auto col = Decimal64Column::create(18, 2, 2);
-    auto* decimal_col = down_cast<Decimal64Column*>(col.get());
+    auto* decimal_col = static_cast<Decimal64Column*>(col.get());
     auto& data = decimal_col->get_data();
 
     ASSERT_EQ(2, data.size());

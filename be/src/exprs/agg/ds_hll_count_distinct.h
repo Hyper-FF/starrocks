@@ -20,7 +20,6 @@
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
 #include "exprs/agg/aggregate.h"
-#include "gutil/casts.h"
 #include "types/hll_sketch.h"
 
 namespace starrocks {
@@ -81,7 +80,7 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_binary());
-        const BinaryColumn* hll_column = down_cast<const BinaryColumn*>(column);
+        const BinaryColumn* hll_column = static_cast<const BinaryColumn*>(column);
         DataSketchesHll hll(hll_column->get(row_num).get_slice(), &(this->data(state).memory_usage));
         if (UNLIKELY(this->data(state).hll_sketch == nullptr)) {
             this->data(state).hll_sketch = std::make_unique<DataSketchesHll>(
@@ -95,7 +94,7 @@ public:
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        Int64Column* column = down_cast<Int64Column*>(dst);
+        Int64Column* column = static_cast<Int64Column*>(dst);
         int64_t result = 0L;
         if (LIKELY(this->data(state).hll_sketch != nullptr)) {
             result = this->data(state).hll_sketch->estimate_cardinality();
@@ -108,7 +107,7 @@ public:
     void serialize_to_column([[maybe_unused]] FunctionContext* ctx, ConstAggDataPtr __restrict state,
                              Column* to) const override {
         DCHECK(to->is_binary());
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         if (UNLIKELY(this->data(state).hll_sketch == nullptr)) {
             column->append_default();
         } else {
@@ -122,7 +121,7 @@ public:
     void convert_to_serialize_format([[maybe_unused]] FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         const auto& datas = GetContainer<LT>::get_data(src[0]);
-        auto* result = down_cast<BinaryColumn*>(dst.get());
+        auto* result = static_cast<BinaryColumn*>(dst.get());
 
         Bytes& bytes = result->get_bytes();
         bytes.reserve(chunk_size * 10);
@@ -159,7 +158,7 @@ public:
                             Column* to) const override {
         DCHECK(to->is_numeric());
 
-        auto* column = down_cast<Int64Column*>(to);
+        auto* column = static_cast<Int64Column*>(to);
         if (UNLIKELY(this->data(state).hll_sketch == nullptr)) {
             column->append(0L);
         } else {

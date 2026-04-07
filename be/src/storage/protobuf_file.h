@@ -18,7 +18,7 @@
 #include <utility>
 
 #include "common/status.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace google::protobuf {
 class Message;

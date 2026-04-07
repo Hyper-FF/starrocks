@@ -457,8 +457,8 @@ Status RowsetUpdateState::_prepare_auto_increment_partial_update_states(uint32_t
     _auto_increment_delete_pks[segment_id].reset();
     _auto_increment_delete_pks[segment_id] = _upserts[segment_id]->standalone_pk_column()->clone_empty();
     std::vector<uint32_t> delete_idxes;
-    const int64* data = nullptr;
-    TRY_CATCH_BAD_ALLOC(data = reinterpret_cast<const int64*>(
+    const int64_t* data = nullptr;
+    TRY_CATCH_BAD_ALLOC(data = reinterpret_cast<const int64_t*>(
                                 _auto_increment_partial_update_states[segment_id].write_column->raw_data()));
 
     // just check the rows which are not exist in the previous version
@@ -805,8 +805,8 @@ Status RowsetUpdateState::_resolve_conflict_auto_increment(const RowsetUpdateSta
         _auto_increment_delete_pks[segment_id].reset();
         _auto_increment_delete_pks[segment_id] = _upserts[segment_id]->standalone_pk_column()->clone_empty();
         std::vector<uint32_t> delete_idxes;
-        const int64* data = nullptr;
-        TRY_CATCH_BAD_ALLOC(data = reinterpret_cast<const int64*>(
+        const int64_t* data = nullptr;
+        TRY_CATCH_BAD_ALLOC(data = reinterpret_cast<const int64_t*>(
                                     _auto_increment_partial_update_states[segment_id].write_column->raw_data()));
 
         // just check the rows which are not exist in the previous version

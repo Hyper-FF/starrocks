@@ -25,7 +25,7 @@
 #include "exec/spill/block_manager.h"
 #include "exec/spill/data_stream.h"
 #include "exec/spill/spill_fwd.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace starrocks::spill {
 

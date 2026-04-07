@@ -377,7 +377,7 @@ public:
      * Convert the bitmap to an array. Write the output to "ans",
      * caller is responsible to ensure that there is enough memory
      * allocated
-     * (e.g., ans = new uint32[mybitmap.cardinality()];)
+     * (e.g., ans = new uint32_t[mybitmap.cardinality()];)
      */
     void toUint64Array(uint64_t* ans) const {
         // Annoyingly, VS 2017 marks std::accumulate() as [[nodiscard]]

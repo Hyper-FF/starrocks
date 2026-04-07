@@ -27,7 +27,6 @@
 #include "exprs/expr_executor.h"
 #include "gen_cpp/Exprs_types.h"
 #include "gen_cpp/Types_types.h"
-#include "gutil/casts.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_filter_worker.h"

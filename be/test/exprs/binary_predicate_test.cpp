@@ -51,7 +51,7 @@ TEST_F(VectorizedBinaryPredicateTest, eqExpr) {
     expr->_children.push_back(&col1);
     expr->_children.push_back(&col2);
 
-    // normal int8
+    // normal int8_t
 #ifdef STARROCKS_JIT_ENABLE
     {
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
@@ -86,7 +86,7 @@ TEST_F(VectorizedBinaryPredicateTest, neExpr) {
     expr->_children.push_back(&col2);
 
 #ifdef STARROCKS_JIT_ENABLE
-    // normal int8
+    // normal int8_t
     {
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
         ExprsTestHelper::verify_with_jit(
@@ -118,7 +118,7 @@ TEST_F(VectorizedBinaryPredicateTest, geExpr) {
     expr->_children.push_back(&col1);
     expr->_children.push_back(&col2);
 
-    // normal int8
+    // normal int8_t
 #ifdef STARROCKS_JIT_ENABLE
     {
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
@@ -290,7 +290,7 @@ TEST_F(VectorizedBinaryPredicateTest, eqForNullExpr) {
     expr->_children.push_back(&col1);
     expr->_children.push_back(&col2);
 
-    // normal int8
+    // normal int8_t
 #ifdef STARROCKS_JIT_ENABLE
     {
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);

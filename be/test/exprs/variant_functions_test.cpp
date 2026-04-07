@@ -33,7 +33,6 @@
 #include "exprs/mock_vectorized_expr.h"
 #include "exprs/variant_path_reader.h"
 #include "fs/fs.h"
-#include "gutil/casts.h"
 #include "runtime/runtime_state.h"
 #include "types/datum.h"
 #include "types/logical_type.h"
@@ -201,7 +200,7 @@ static MutableColumnPtr build_nullable_struct_is_column(const std::vector<DatumS
 // Decode VARIANT function result via VariantColumn::get_row_value so shredded/plain internals are both supported.
 static StatusOr<std::string> variant_result_to_json(const ColumnPtr& result, size_t row_num) {
     ColumnPtr data_col = ColumnHelper::get_data_column(result.get());
-    auto* variant_data_col = down_cast<const VariantColumn*>(data_col.get());
+    auto* variant_data_col = static_cast<const VariantColumn*>(data_col.get());
     if (variant_data_col == nullptr) {
         return Status::InvalidArgument("result data column is not VariantColumn");
     }
@@ -216,7 +215,7 @@ static StatusOr<std::string> variant_result_to_json(const ColumnPtr& result, siz
 static StatusOr<std::string> variant_result_to_json(const ColumnPtr& result, size_t row_num,
                                                     const cctz::time_zone& ctz) {
     ColumnPtr data_col = ColumnHelper::get_data_column(result.get());
-    auto* variant_data_col = down_cast<const VariantColumn*>(data_col.get());
+    auto* variant_data_col = static_cast<const VariantColumn*>(data_col.get());
     if (variant_data_col == nullptr) {
         return Status::InvalidArgument("result data column is not VariantColumn");
     }

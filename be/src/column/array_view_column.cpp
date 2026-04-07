@@ -20,7 +20,6 @@
 
 #include "column/array_column.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -47,7 +46,7 @@ void ArrayViewColumn::assign(size_t n, size_t idx) {
 }
 
 void ArrayViewColumn::append(const Column& src, size_t offset, size_t count) {
-    const auto& array_view_column = down_cast<const ArrayViewColumn&>(src);
+    const auto& array_view_column = static_cast<const ArrayViewColumn&>(src);
     const auto& src_offsets = array_view_column.offsets();
     const auto& src_lengths = array_view_column.lengths();
 
@@ -134,7 +133,7 @@ size_t ArrayViewColumn::filter_range(const Filter& filter, size_t from, size_t t
 
 int ArrayViewColumn::compare_at(size_t left, size_t right, const Column& right_column, int nan_direction_hint) const {
     // @TODO support compare with ArrayColumn
-    const auto& rhs = down_cast<const ArrayViewColumn&>(right_column);
+    const auto& rhs = static_cast<const ArrayViewColumn&>(right_column);
     size_t lhs_offset = _offsets->immutable_data()[left];
     size_t lhs_length = _lengths->immutable_data()[left];
     size_t rhs_offset = rhs._offsets->immutable_data()[right];
@@ -163,7 +162,7 @@ void ArrayViewColumn::compare_column(const Column& rhs, std::vector<int8_t>* out
 }
 
 int ArrayViewColumn::equals(size_t left, const Column& right_column, size_t right, bool safe_eq) const {
-    const auto& rhs = down_cast<const ArrayViewColumn&>(right_column);
+    const auto& rhs = static_cast<const ArrayViewColumn&>(right_column);
     size_t lhs_offset = _offsets->immutable_data()[left];
     size_t lhs_length = _lengths->immutable_data()[left];
     size_t rhs_offset = rhs._offsets->immutable_data()[right];
@@ -210,7 +209,7 @@ void ArrayViewColumn::put_mysql_row_buffer(MysqlRowBuffer* buf, size_t idx, bool
 size_t ArrayViewColumn::get_element_null_count(size_t idx) const {
     size_t offset = _offsets->immutable_data()[idx];
     size_t length = _lengths->immutable_data()[idx];
-    auto nullable_column = down_cast<const NullableColumn*>(_elements.get());
+    auto nullable_column = static_cast<const NullableColumn*>(_elements.get());
     return nullable_column->null_count(offset, length);
 }
 
@@ -260,7 +259,7 @@ MutableColumnPtr ArrayViewColumn::clone_empty() const {
 }
 
 void ArrayViewColumn::swap_column(Column& rhs) {
-    auto& array_view_column = down_cast<ArrayViewColumn&>(rhs);
+    auto& array_view_column = static_cast<ArrayViewColumn&>(rhs);
     _offsets->swap_column(*array_view_column._offsets);
     _lengths->swap_column(*array_view_column._lengths);
     _elements->swap_column(*array_view_column._elements);
@@ -311,10 +310,10 @@ MutableColumnPtr ArrayViewColumn::from_array_column(const ColumnPtr& column) {
     ColumnPtr view_elements;
 
     if (column->is_nullable()) {
-        auto nullable_column = down_cast<const NullableColumn*>(column.get());
+        auto nullable_column = static_cast<const NullableColumn*>(column.get());
         DCHECK(nullable_column != nullptr);
         const auto null_data = nullable_column->immutable_null_column_data();
-        auto array_column = down_cast<const ArrayColumn*>(nullable_column->data_column().get());
+        auto array_column = static_cast<const ArrayColumn*>(nullable_column->data_column().get());
         const auto array_offsets = array_column->offsets().immutable_data();
 
         view_elements = array_column->elements_column();
@@ -332,7 +331,7 @@ MutableColumnPtr ArrayViewColumn::from_array_column(const ColumnPtr& column) {
         return ret;
     }
 
-    auto array_column = down_cast<const ArrayColumn*>(column.get());
+    auto array_column = static_cast<const ArrayColumn*>(column.get());
     view_elements = array_column->elements_column();
     const auto array_offsets = array_column->offsets().immutable_data();
 
@@ -351,13 +350,13 @@ ColumnPtr ArrayViewColumn::to_array_column(const ColumnPtr& column) {
     }
 
     if (column->is_nullable()) {
-        auto nullable_column = down_cast<const NullableColumn*>(column.get());
+        auto nullable_column = static_cast<const NullableColumn*>(column.get());
         DCHECK(nullable_column != nullptr);
-        auto array_view_column = down_cast<const ArrayViewColumn*>(nullable_column->data_column().get());
+        auto array_view_column = static_cast<const ArrayViewColumn*>(nullable_column->data_column().get());
         auto array_column = array_view_column->to_array_column();
         return NullableColumn::create(array_column, nullable_column->null_column());
     }
-    auto array_view_column = down_cast<const ArrayViewColumn*>(column.get());
+    auto array_view_column = static_cast<const ArrayViewColumn*>(column.get());
     return array_view_column->to_array_column();
 }
 } // namespace starrocks

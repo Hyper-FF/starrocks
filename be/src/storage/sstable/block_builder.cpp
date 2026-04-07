@@ -23,8 +23,8 @@
 // shared_bytes == 0 for restart points.
 //
 // The trailer of the block has the form:
-//     restarts: uint32[num_restarts]
-//     num_restarts: uint32
+//     restarts: uint32_t[num_restarts]
+//     num_restarts: uint32_t
 // restarts[i] contains the offset within the block of the ith restart point.
 
 #include "storage/sstable/block_builder.h"

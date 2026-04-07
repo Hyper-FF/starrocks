@@ -108,7 +108,7 @@ Status SchemaTaskRunsScanner::fill_chunk(ChunkPtr* chunk) {
             // CREATE_TIME
             {
                 auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(3);
-                auto* nullable_column = down_cast<NullableColumn*>(column);
+                auto* nullable_column = static_cast<NullableColumn*>(column);
                 if (task_run_info.__isset.create_time) {
                     int64_t create_time = task_run_info.create_time;
                     if (create_time <= 0) {
@@ -128,7 +128,7 @@ Status SchemaTaskRunsScanner::fill_chunk(ChunkPtr* chunk) {
             // FINISH_TIME
             {
                 auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(4);
-                auto* nullable_column = down_cast<NullableColumn*>(column);
+                auto* nullable_column = static_cast<NullableColumn*>(column);
                 if (task_run_info.__isset.finish_time) {
                     int64_t complete_time = task_run_info.finish_time;
                     if (complete_time <= 0) {
@@ -217,7 +217,7 @@ Status SchemaTaskRunsScanner::fill_chunk(ChunkPtr* chunk) {
             // EXPIRE_TIME
             {
                 auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(10);
-                auto* nullable_column = down_cast<NullableColumn*>(column);
+                auto* nullable_column = static_cast<NullableColumn*>(column);
                 if (task_run_info.__isset.expire_time) {
                     int64_t expire_time = task_run_info.expire_time;
                     if (expire_time <= 0) {
@@ -320,7 +320,7 @@ Status SchemaTaskRunsScanner::fill_chunk(ChunkPtr* chunk) {
             // PROCESS_TIME
             {
                 auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(17);
-                auto* nullable_column = down_cast<NullableColumn*>(column);
+                auto* nullable_column = static_cast<NullableColumn*>(column);
                 if (task_run_info.__isset.process_time) {
                     int64_t complete_time = task_run_info.process_time;
                     if (complete_time <= 0) {

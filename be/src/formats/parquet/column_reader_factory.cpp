@@ -525,7 +525,7 @@ StatusOr<ColumnReaderPtr> ColumnReaderFactory::create(ColumnReaderPtr raw_reader
     if (raw_reader->get_column_parquet_field()->type == ColumnType::ARRAY) {
         ASSIGN_OR_RETURN(ColumnReaderPtr child_reader,
                          ColumnReaderFactory::create(
-                                 std::move((down_cast<ListColumnReader*>(raw_reader.get()))->get_element_reader()),
+                                 std::move((static_cast<ListColumnReader*>(raw_reader.get()))->get_element_reader()),
                                  dict, slot_id, num_rows));
         return std::make_unique<ListColumnReader>(raw_reader->get_column_parquet_field(), std::move(child_reader));
     } else {

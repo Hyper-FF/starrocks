@@ -22,7 +22,7 @@
 #include <limits>
 
 #include "base/logging.h"
-#include "gutil/sysinfo.h"
+#include "base/gutil/sysinfo.h"
 
 namespace starrocks {
 

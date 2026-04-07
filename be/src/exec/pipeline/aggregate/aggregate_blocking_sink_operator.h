@@ -56,7 +56,7 @@ public:
 
 protected:
     AggregateBlockingSinkOperatorFactory* factory() {
-        return down_cast<AggregateBlockingSinkOperatorFactory*>(_factory);
+        return static_cast<AggregateBlockingSinkOperatorFactory*>(_factory);
     }
     void _build_in_runtime_filters(RuntimeState* state);
 

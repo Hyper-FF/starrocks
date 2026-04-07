@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <gutil/strings/fastmem.h>
+#include "base/gutil/strings/fastmem.h>
 
 #include "base/decimal_types.h"
 #include "column/column_builder.h"

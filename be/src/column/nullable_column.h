@@ -285,7 +285,7 @@ public:
     }
 
     void swap_column(Column& rhs) override {
-        auto& r = down_cast<NullableColumn&>(rhs);
+        auto& r = static_cast<NullableColumn&>(rhs);
         _data_column->swap_column(*r._data_column);
         _null_column->swap_column(*r._null_column);
         std::swap(_delete_state, r._delete_state);
@@ -300,7 +300,7 @@ public:
     }
 
     void swap_null_column(Column& rhs) {
-        auto& r = down_cast<NullableColumn&>(rhs);
+        auto& r = static_cast<NullableColumn&>(rhs);
         _null_column->swap_column(*r._null_column);
         std::swap(_has_null, r._has_null);
     }

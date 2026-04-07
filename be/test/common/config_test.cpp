@@ -277,19 +277,19 @@ TEST_F(ConfigTest, test_list_configs) {
             {"cfg_mbool", "true", "bool", "true", true},
             {"cfg_double", "123.456", "double", "123.456", false},
             {"cfg_mdouble", "-123.456", "double", "-123.456", true},
-            {"cfg_int16", "2561", "int16", "2561", false},
-            {"cfg_mint16", "-2561", "int16", "-2561", true},
-            {"cfg_int32", "65536123", "int32", "65536123", false},
-            {"cfg_mint32", "-65536123", "int32", "-65536123", true},
-            {"cfg_int64", "4294967296123", "int64", "4294967296123", false},
-            {"cfg_mint64", "-4294967296123", "int64", "-4294967296123", true},
+            {"cfg_int16", "2561", "int16_t", "2561", false},
+            {"cfg_mint16", "-2561", "int16_t", "-2561", true},
+            {"cfg_int32", "65536123", "int32_t", "65536123", false},
+            {"cfg_mint32", "-65536123", "int32_t", "-65536123", true},
+            {"cfg_int64", "4294967296123", "int64_t", "4294967296123", false},
+            {"cfg_mint64", "-4294967296123", "int64_t", "-4294967296123", true},
             {"cfg_string", "test_string", "string", "test_string", false},
             {"cfg_mstring", "test_mstring", "string", "test_mstring", true},
             {"cfg_bools", "true,false,true", "list<bool>", "true,false,true", false},
             {"cfg_doubles", "0.1,0.2,0.3", "list<double>", "0.1,0.2,0.3", false},
-            {"cfg_int16s", "1,2,3", "list<int16>", "1,2,3", false},
-            {"cfg_int32s", "10,20,30", "list<int32>", "10,20,30", false},
-            {"cfg_int64s", "100,200,300", "list<int64>", "100,200,300", false},
+            {"cfg_int16s", "1,2,3", "list<int16_t>", "1,2,3", false},
+            {"cfg_int32s", "10,20,30", "list<int32_t>", "10,20,30", false},
+            {"cfg_int64s", "100,200,300", "list<int64_t>", "100,200,300", false},
             {"cfg_strings", "s1,s2,s3", "list<string>", "s1,s2,s3", false},
     };
 
@@ -363,14 +363,14 @@ TEST_F(ConfigTest, test_set_config) {
     ASSERT_TRUE(config::set_config("cfg_double", "654.321").ok());
     ASSERT_EQ(cfg_double, 654.321);
 
-    // int16
+    // int16_t
     ASSERT_EQ(cfg_int16_t, 2561);
     ASSERT_TRUE(config::set_config("cfg_int16_t", "2562").ok());
     ASSERT_EQ(cfg_int16_t, 2562);
     ASSERT_TRUE(config::rollback_config("cfg_int16_t").ok());
     ASSERT_EQ(cfg_int16_t, 2561);
 
-    // int32
+    // int32_t
     ASSERT_EQ(cfg_int32_t, 65536123);
     ASSERT_TRUE(config::set_config("cfg_int32_t", "65536124").ok());
     ASSERT_EQ(cfg_int32_t, 65536124);
@@ -379,7 +379,7 @@ TEST_F(ConfigTest, test_set_config) {
     ASSERT_TRUE(config::set_config("cfg_int32_t", "65536124").ok());
     ASSERT_EQ(cfg_int32_t, 65536124);
 
-    // int64
+    // int64_t
     ASSERT_EQ(cfg_int64_t, 4294967296123);
     ASSERT_TRUE(config::set_config("cfg_int64_t", "4294967296124").ok());
     ASSERT_EQ(cfg_int64_t, 4294967296124);

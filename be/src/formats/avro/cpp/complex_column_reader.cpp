@@ -31,7 +31,7 @@ StructColumnReader::StructColumnReader(const std::string& col_name, const TypeDe
 Status StructColumnReader::read_datum(const avro::GenericDatum& datum, Column* column) {
     DCHECK_EQ(datum.type(), avro::AVRO_RECORD);
 
-    auto struct_column = down_cast<StructColumn*>(column);
+    auto struct_column = static_cast<StructColumn*>(column);
     const auto& record = datum.value<avro::GenericRecord>();
 
     for (size_t i = 0; i < _type_desc.children.size(); ++i) {
@@ -40,7 +40,7 @@ Status StructColumnReader::read_datum(const avro::GenericDatum& datum, Column* c
 
         if (record.hasField(field_name)) {
             const auto& field = record.field(field_name);
-            auto* field_reader = down_cast<NullableColumnReader*>(_field_readers[i].get());
+            auto* field_reader = static_cast<NullableColumnReader*>(_field_readers[i].get());
             RETURN_IF_ERROR(field_reader->read_datum(field, field_column));
         } else {
             field_column->append_nulls(1);
@@ -52,9 +52,9 @@ Status StructColumnReader::read_datum(const avro::GenericDatum& datum, Column* c
 Status ArrayColumnReader::read_datum(const avro::GenericDatum& datum, Column* column) {
     DCHECK_EQ(datum.type(), avro::AVRO_ARRAY);
 
-    auto* element_reader = down_cast<NullableColumnReader*>(_element_reader.get());
+    auto* element_reader = static_cast<NullableColumnReader*>(_element_reader.get());
 
-    auto array_column = down_cast<ArrayColumn*>(column);
+    auto array_column = static_cast<ArrayColumn*>(column);
     auto* elements_column = array_column->elements_column_raw_ptr();
     auto* offsets_column = array_column->offsets_column_raw_ptr();
 
@@ -75,12 +75,12 @@ Status ArrayColumnReader::read_datum(const avro::GenericDatum& datum, Column* co
 Status MapColumnReader::read_datum(const avro::GenericDatum& datum, Column* column) {
     DCHECK_EQ(datum.type(), avro::AVRO_MAP);
 
-    auto* value_reader = down_cast<NullableColumnReader*>(_value_reader.get());
+    auto* value_reader = static_cast<NullableColumnReader*>(_value_reader.get());
 
-    auto map_column = down_cast<MapColumn*>(column);
-    auto keys_column = down_cast<NullableColumn*>(map_column->keys_column_raw_ptr());
+    auto map_column = static_cast<MapColumn*>(column);
+    auto keys_column = static_cast<NullableColumn*>(map_column->keys_column_raw_ptr());
     auto* keys_null_column = keys_column->null_column_raw_ptr();
-    auto keys_data_column = down_cast<BinaryColumn*>(keys_column->data_column_raw_ptr());
+    auto keys_data_column = static_cast<BinaryColumn*>(keys_column->data_column_raw_ptr());
     auto* values_column = map_column->values_column_raw_ptr();
     auto* offsets_column = map_column->offsets_column_raw_ptr();
 

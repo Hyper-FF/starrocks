@@ -39,7 +39,7 @@
 #include <vector>
 
 #include "agent/agent_common.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace starrocks {
 

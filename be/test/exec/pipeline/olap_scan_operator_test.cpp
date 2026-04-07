@@ -92,7 +92,7 @@ TEST_F(OlapScanOperatorTest, test_finish_sequence) {
     // create operator
     auto scan_prepare_operator = scan_prepare_operator_factory.create(1, 0);
     ASSERT_TRUE(scan_prepare_operator != nullptr);
-    down_cast<OlapScanPrepareOperator*>(scan_prepare_operator.get())->add_morsel_queue(&morsel_queue);
+    static_cast<OlapScanPrepareOperator*>(scan_prepare_operator.get())->add_morsel_queue(&morsel_queue);
 
     auto scan_operator = scan_operator_factory.create(1, 0);
     ASSERT_TRUE(scan_operator != nullptr);

@@ -16,7 +16,6 @@
 
 #include "exec/sorting/sorting.h"
 #include "exprs/agg/aggregate_state_allocator.h"
-#include "gutil/casts.h"
 #include "storage/column_aggregate_func.h"
 
 namespace starrocks {

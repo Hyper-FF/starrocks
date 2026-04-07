@@ -57,7 +57,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
     case AVRO_INT64: {
         int64_t in;
         if (avro_value_get_long(&value, &in) != 0) {
-            auto err_msg = absl::Substitute("Get int64 value error. column=$0", name);
+            auto err_msg = absl::Substitute("Get int64_t value error. column=$0", name);
             return Status::InvalidArgument(err_msg);
         }
         T out{};
@@ -180,7 +180,7 @@ static Status add_column_with_string_value_numeric(FixedLengthColumn<T>* column,
 template <typename T>
 Status add_numeric_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                           const avro_value_t& value) {
-    auto numeric_column = down_cast<FixedLengthColumn<T>*>(column);
+    auto numeric_column = static_cast<FixedLengthColumn<T>*>(column);
     avro_type_t type = avro_value_get_type(&value);
     switch (type) {
     case AVRO_INT32:

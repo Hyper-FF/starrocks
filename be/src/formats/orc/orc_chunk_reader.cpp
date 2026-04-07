@@ -32,7 +32,6 @@
 #include "formats/orc/orc_mapping.h"
 #include "formats/orc/orc_memory_pool.h"
 #include "formats/orc/utils.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "orc_schema_builder.h"
 #include "runtime/runtime_filter.h"
@@ -466,7 +465,7 @@ Status OrcChunkReader::_fill_chunk(ChunkPtr* chunk, const std::vector<SlotDescri
                                    const std::vector<int>* indices) {
     int column_size = src_slot_descriptors.size();
     DCHECK_GT(_batch->numElements, 0);
-    const auto& batch_vec = down_cast<orc::StructVectorBatch*>(_batch.get());
+    const auto& batch_vec = static_cast<orc::StructVectorBatch*>(_batch.get());
     if (_broker_load_mode) {
         // always allocate load filter. it's much easier to use in fill chunk function.
         if (_broker_load_filter == nullptr) {
@@ -734,7 +733,7 @@ bool OrcChunkReader::_ok_to_add_binary_in_conjunct(
     if (c->node_type() != TExprNodeType::type::SLOT_REF) {
         return false;
     }
-    const SlotId slot_id = down_cast<ColumnRef*>(c)->slot_id();
+    const SlotId slot_id = static_cast<ColumnRef*>(c)->slot_id();
 
     // slot can't be not found.
     const auto& iter = slot_id_to_pos_in_src_slot_descriptors.find(slot_id);
@@ -783,7 +782,7 @@ bool OrcChunkReader::_ok_to_add_is_null_conjunct(
     if (c->node_type() != TExprNodeType::type::SLOT_REF) {
         return false;
     }
-    const SlotId slot_id = down_cast<ColumnRef*>(c)->slot_id();
+    const SlotId slot_id = static_cast<ColumnRef*>(c)->slot_id();
 
     // slot can't be not found.
     const auto& iter = slot_id_to_pos_in_src_slot_descriptors.find(slot_id);
@@ -841,7 +840,7 @@ static StatusOr<orc::Literal> translate_to_orc_literal(Expr* lit, orc::Predicate
         return {pred_type};
     }
 
-    auto* vlit = down_cast<VectorizedLiteral*>(lit);
+    auto* vlit = static_cast<VectorizedLiteral*>(lit);
     ASSIGN_OR_RETURN(auto ptr, vlit->evaluate_checked(nullptr, nullptr));
     if (ptr->only_null()) {
         return {pred_type};
@@ -899,7 +898,7 @@ Status OrcChunkReader::_add_conjunct(const Expr* conjunct,
     // If conjunct is slot ref, like SELECT * FROM tbl where col;
     // We build SearchArgument about col=true directly.
     if (node_type == TExprNodeType::type::SLOT_REF) {
-        auto* ref = down_cast<const ColumnRef*>(conjunct);
+        auto* ref = static_cast<const ColumnRef*>(conjunct);
         DCHECK(conjunct->type().type == LogicalType::TYPE_BOOLEAN);
         const SlotId& slot_id = ref->slot_id();
         const uint64_t column_id =
@@ -947,7 +946,7 @@ Status OrcChunkReader::_add_conjunct(const Expr* conjunct,
 
     Expr* slot = conjunct->get_child(0);
     DCHECK(slot->is_slotref());
-    const SlotId& slot_id = down_cast<ColumnRef*>(slot)->slot_id();
+    const SlotId& slot_id = static_cast<ColumnRef*>(slot)->slot_id();
     const size_t pos = slot_id_to_pos_in_src_slot_descriptors.at(slot_id);
     const uint64_t column_id = _root_mapping->get_orc_type_child_mapping(pos).orc_type->getColumnId();
 
@@ -1243,7 +1242,7 @@ Status OrcChunkReader::apply_dict_filter_eval_cache(const std::unordered_map<Slo
 
     const uint32_t size = _batch->numElements;
     filter->assign(size, 1);
-    const auto& struct_batch = down_cast<orc::StructVectorBatch*>(_batch.get());
+    const auto& struct_batch = static_cast<orc::StructVectorBatch*>(_batch.get());
     bool filter_all = false;
 
     for (const auto& it : dict_filter_eval_cache) {
@@ -1259,7 +1258,7 @@ Status OrcChunkReader::apply_dict_filter_eval_cache(const std::unordered_map<Slo
         Filter& data = static_cast<BooleanColumn*>(data_filter.get())->get_data();
         DCHECK(data.size() == size);
 
-        auto* batch = down_cast<orc::StringVectorBatch*>(struct_batch->fieldsColumnIdMap[column_id]);
+        auto* batch = static_cast<orc::StringVectorBatch*>(struct_batch->fieldsColumnIdMap[column_id]);
         for (uint32_t i = 0; i < size; i++) {
             int64_t code = batch->codes[i];
             DCHECK(code < dict_filter.size());

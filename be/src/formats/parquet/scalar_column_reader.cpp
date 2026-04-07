@@ -21,7 +21,6 @@
 #include "formats/parquet/predicate_filter_evaluator.h"
 #include "formats/parquet/stored_column_reader_with_index.h"
 #include "formats/parquet/utils.h"
-#include "gutil/casts.h"
 #include "io/shared_buffered_input_stream.h"
 #include "runtime/global_dict/dict_column.h"
 #include "statistics_helper.h"
@@ -368,7 +367,7 @@ Status RawColumnReader::_init_column_bloom_filter(int offset, int length, BloomF
         RETURN_IF_ERROR(_opts.file->read_at_fully(offset, bloom_filter_data.data(), header_len));
     }
 
-    RETURN_IF_ERROR(deserialize_thrift_msg(reinterpret_cast<const uint8*>(bloom_filter_data.data()), &header_len,
+    RETURN_IF_ERROR(deserialize_thrift_msg(reinterpret_cast<const uint8_t*>(bloom_filter_data.data()), &header_len,
                                            TProtocolType::COMPACT, &header));
     if (length == 0) {
         bloom_filter_data.resize(header_len + header.numBytes + 1);
@@ -557,7 +556,7 @@ Status ScalarColumnReader::_dict_decode(ColumnPtr& dst, ColumnPtr& src) {
     RETURN_IF_ERROR(_reader->get_dict_values(codes_column->get_data(), *codes_nullable_column, dict_values));
     DCHECK_EQ(dict_codes->size(), dict_values->size());
     if (dst->is_nullable()) {
-        auto* nullable_values = down_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
+        auto* nullable_values = static_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
         nullable_values->swap_null_column(*(codes_nullable_column->as_mutable_raw_ptr()));
     }
     src->as_mutable_raw_ptr()->reset_column();
@@ -670,12 +669,12 @@ Status LowCardColumnReader::fill_dst_column(ColumnPtr& dst, ColumnPtr& src) {
         }
     }
 
-    auto* dst_data_column = down_cast<LowCardDictColumn*>(ColumnHelper::get_data_column(dst->as_mutable_raw_ptr()));
+    auto* dst_data_column = static_cast<LowCardDictColumn*>(ColumnHelper::get_data_column(dst->as_mutable_raw_ptr()));
     SIMDGather::gather(dst_data_column->get_data().data(), _code_convert_map->data(), codes.data(),
                        _code_convert_map->size(), num_rows);
 
     if (dst->is_nullable()) {
-        auto* nullable_dst = down_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
+        auto* nullable_dst = static_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
         nullable_dst->swap_null_column(*codes_nullable_column);
     }
 
@@ -766,7 +765,7 @@ Status LowRowsColumnReader::fill_dst_column(ColumnPtr& dst, ColumnPtr& src) {
     const ColumnPtr& readed_column = src;
     auto* nullable_string_column = ColumnHelper::as_raw_column<NullableColumn>(readed_column);
     auto* binary_column = ColumnHelper::as_raw_column<BinaryColumn>(nullable_string_column->data_column_raw_ptr());
-    auto* dst_data_column = down_cast<LowCardDictColumn*>(ColumnHelper::get_data_column(dst->as_mutable_raw_ptr()));
+    auto* dst_data_column = static_cast<LowCardDictColumn*>(ColumnHelper::get_data_column(dst->as_mutable_raw_ptr()));
     for (size_t i = 0; i < src->size(); i++) {
         if (src->is_null(i)) {
             dst_data_column->get_data()[i] = 1;
@@ -784,7 +783,7 @@ Status LowRowsColumnReader::fill_dst_column(ColumnPtr& dst, ColumnPtr& src) {
     }
 
     if (dst->is_nullable()) {
-        auto* nullable_dst = down_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
+        auto* nullable_dst = static_cast<NullableColumn*>(dst->as_mutable_raw_ptr());
         nullable_dst->swap_null_column(*(nullable_string_column->as_mutable_raw_ptr()));
     }
 

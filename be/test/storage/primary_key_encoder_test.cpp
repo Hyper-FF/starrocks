@@ -22,7 +22,7 @@
 #include "column/binary_column.h"
 #include "column/chunk.h"
 #include "column/schema.h"
-#include "gutil/stringprintf.h"
+#include "base/gutil/stringprintf.h"
 #include "storage/chunk_helper.h"
 #include "types/date_value.h"
 #include "types/datum.h"
@@ -131,8 +131,8 @@ TEST(PrimaryKeyEncoderTest, testEncodeComposite) {
                   dchunk->get_column_by_index(1)->get(i).get_slice());
         ASSERT_EQ(pchunk->get_column_by_index(2)->get(i).get_int16(),
                   dchunk->get_column_by_index(2)->get(i).get_int16());
-        ASSERT_EQ(pchunk->get_column_by_index(3)->get(i).get<uint8>(),
-                  dchunk->get_column_by_index(3)->get(i).get<uint8>());
+        ASSERT_EQ(pchunk->get_column_by_index(3)->get(i).get<uint8_t>(),
+                  dchunk->get_column_by_index(3)->get(i).get<uint8_t>());
     }
 }
 
@@ -273,7 +273,7 @@ TEST(PrimaryKeyEncoderTest, testV2EncodingPreservesSortOrderForInt) {
                               PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2);
 
     // Verify that encoded keys preserve the same order as original values
-    auto& bcol = down_cast<BinaryColumn&>(*dest);
+    auto& bcol = static_cast<BinaryColumn&>(*dest);
     for (size_t i = 1; i < bcol.size(); i++) {
         Slice prev = bcol.get_slice(i - 1);
         Slice curr = bcol.get_slice(i);
@@ -299,7 +299,7 @@ TEST(PrimaryKeyEncoderTest, testV2EncodingPreservesSortOrderForBigint) {
     PrimaryKeyEncoder::encode(*sc, *pchunk, 0, pchunk->num_rows(), dest.get(),
                               PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2);
 
-    auto& bcol = down_cast<BinaryColumn&>(*dest);
+    auto& bcol = static_cast<BinaryColumn&>(*dest);
     for (size_t i = 1; i < bcol.size(); i++) {
         Slice prev = bcol.get_slice(i - 1);
         Slice curr = bcol.get_slice(i);
@@ -325,7 +325,7 @@ static void verify_v2_sort_order_preserved(const Schema& schema, const Chunk& ch
     ASSERT_TRUE(PrimaryKeyEncoder::create_column(schema, &dest, PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2).ok());
     PrimaryKeyEncoder::encode(schema, chunk, 0, n, dest.get(), PrimaryKeyEncodingType::PK_ENCODING_TYPE_V2);
     ASSERT_TRUE(dest->is_binary());
-    auto& bcol = down_cast<BinaryColumn&>(*dest);
+    auto& bcol = static_cast<BinaryColumn&>(*dest);
     ASSERT_EQ(bcol.size(), n);
     for (size_t i = 1; i < bcol.size(); i++) {
         Slice prev = bcol.get_slice(i - 1);

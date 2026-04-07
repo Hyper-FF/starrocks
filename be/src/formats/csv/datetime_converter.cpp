@@ -16,14 +16,13 @@
 
 #include "column/fixed_length_column.h"
 #include "common/logging.h"
-#include "gutil/casts.h"
 #include "types/timestamp_value.h"
 
 namespace starrocks::csv {
 
 Status DatetimeConverter::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                        const Options& options) const {
-    auto datetime_column = down_cast<const FixedLengthColumn<TimestampValue>*>(&column);
+    auto datetime_column = static_cast<const FixedLengthColumn<TimestampValue>*>(&column);
     return os->write(datetime_column->immutable_data()[row_num]);
 }
 
@@ -38,7 +37,7 @@ bool DatetimeConverter::read_string(Column* column, const Slice& s, const Option
     TimestampValue v{};
     bool r = v.from_string(s.data, s.size);
     if (r) {
-        down_cast<FixedLengthColumn<TimestampValue>*>(column)->append(v);
+        static_cast<FixedLengthColumn<TimestampValue>*>(column)->append(v);
     }
     return r;
 }

@@ -52,7 +52,6 @@
 #include "common/logging.h"
 #include "exprs/column_ref.h"
 #include "exprs/expr_context.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
@@ -65,7 +64,7 @@ namespace {
 
 ColumnRef* find_first_column_ref(Expr* expr) {
     if (expr->is_slotref()) {
-        return down_cast<ColumnRef*>(expr);
+        return static_cast<ColumnRef*>(expr);
     }
     for (Expr* child : expr->children()) {
         if (ColumnRef* ref = find_first_column_ref(child); ref != nullptr) {
@@ -83,16 +82,16 @@ Status convert_to_arrow_type(const TypeDescriptor& type, std::shared_ptr<arrow::
         *result = arrow::boolean();
         break;
     case TYPE_TINYINT:
-        *result = arrow::int8();
+        *result = arrow::int8_t();
         break;
     case TYPE_SMALLINT:
-        *result = arrow::int16();
+        *result = arrow::int16_t();
         break;
     case TYPE_INT:
-        *result = arrow::int32();
+        *result = arrow::int32_t();
         break;
     case TYPE_BIGINT:
-        *result = arrow::int64();
+        *result = arrow::int64_t();
         break;
     case TYPE_FLOAT:
         *result = arrow::float32();
@@ -168,16 +167,16 @@ Status convert_to_arrow_type_for_flight_sql(const TypeDescriptor& type, std::sha
         *result = arrow::boolean();
         break;
     case TYPE_TINYINT:
-        *result = arrow::int8();
+        *result = arrow::int8_t();
         break;
     case TYPE_SMALLINT:
-        *result = arrow::int16();
+        *result = arrow::int16_t();
         break;
     case TYPE_INT:
-        *result = arrow::int32();
+        *result = arrow::int32_t();
         break;
     case TYPE_BIGINT:
-        *result = arrow::int64();
+        *result = arrow::int64_t();
         break;
     case TYPE_LARGEINT:
         *result = std::make_shared<arrow::Decimal128Type>(38, 0);

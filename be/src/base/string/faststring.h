@@ -40,8 +40,8 @@
 
 #include "base/string/posion.h"
 #include "base/string/slice.h"
-#include "gutil/port.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/port.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 

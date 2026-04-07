@@ -37,9 +37,9 @@
 #include <endian.h>
 
 #include "base/compiler_util.h"
-#include "gutil/bits.h"
-#include "gutil/endian.h"
-#include "gutil/port.h"
+#include "base/gutil/bits.h"
+#include "base/gutil/endian.h"
+#include "base/gutil/port.h"
 
 namespace starrocks {
 

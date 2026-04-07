@@ -31,7 +31,6 @@
 #include "exprs/agg/aggregate.h"
 #include "exprs/agg/aggregate_state_allocator.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {
@@ -184,7 +183,7 @@ public:
             ctx->set_error("Percentile rate is required");
             return;
         }
-        const auto* rate = down_cast<const ConstColumn*>(columns[1]);
+        const auto* rate = static_cast<const ConstColumn*>(columns[1]);
         double rate_value = rate->get(0).get_double();
         if (UNLIKELY(rate_value < 0 || rate_value > 1)) {
             ctx->set_error("Percentile rate must be between 0 and 1");
@@ -197,7 +196,7 @@ public:
                 size_t row_num) const override {
         this->init_state_if_needed(ctx, columns, state);
 
-        const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+        const auto& column = static_cast<const InputColumnType&>(*columns[0]);
         auto column_data = column.immutable_data();
         this->data(state).update(column_data[row_num]);
     }
@@ -206,7 +205,7 @@ public:
                                    AggDataPtr __restrict state) const override {
         this->init_state_if_needed(ctx, columns, state);
 
-        const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+        const auto& column = static_cast<const InputColumnType&>(*columns[0]);
         auto column_data = column.immutable_data();
         this->data(state).update_batch(column_data);
     }
@@ -245,7 +244,7 @@ public:
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
         size_t old_size = bytes.size();
         size_t items_size = this->data(state).items.size();
@@ -281,10 +280,10 @@ public:
         if (chunk_size <= 0) {
             return;
         }
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
         Bytes& bytes = dst_column->get_bytes();
         double rate = ColumnHelper::get_const_value<TYPE_DOUBLE>(src[1]);
-        const auto& src_column = *down_cast<const InputColumnType*>(src[0].get());
+        const auto& src_column = *static_cast<const InputColumnType*>(src[0].get());
         const InputCppType* src_data = src_column.immutable_data().data();
         for (auto i = 0; i < chunk_size; ++i) {
             size_t old_size = bytes.size();
@@ -306,7 +305,7 @@ public:
             ctx->set_error("Percentile rate is required");
             return;
         }
-        const auto* rate = down_cast<const ConstColumn*>(columns[1]);
+        const auto* rate = static_cast<const ConstColumn*>(columns[1]);
         double rate_value = rate->get(0).get_double();
         if (UNLIKELY(rate_value < 0 || rate_value > 1)) {
             ctx->set_error("Percentile rate must be between 0 and 1");
@@ -319,7 +318,7 @@ public:
                 size_t row_num) const override {
         this->init_state_if_needed(ctx, columns, state);
 
-        const auto& column = down_cast<const BinaryColumn&>(*columns[0]);
+        const auto& column = static_cast<const BinaryColumn&>(*columns[0]);
         const auto column_data = column.immutable_data();
         // use mem_pool to hold the slice's data, otherwise after chunk is processed, the memory of slice used is gone
         size_t element_size = column_data[row_num].get_size();
@@ -369,7 +368,7 @@ public:
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
         size_t old_size = bytes.size();
         size_t items_size = this->data(state).items.size();
@@ -403,11 +402,11 @@ public:
         if (chunk_size <= 0) {
             return;
         }
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
         Bytes& bytes = dst_column->get_bytes();
         double rate = ColumnHelper::get_const_value<TYPE_DOUBLE>(src[1]);
 
-        const auto& src_column = *down_cast<const BinaryColumn*>(src[0].get());
+        const auto& src_column = *static_cast<const BinaryColumn*>(src[0].get());
         const auto src_data = src_column.immutable_data();
         for (auto i = 0; i < chunk_size; ++i) {
             size_t old_size = bytes.size();
@@ -438,7 +437,7 @@ class PercentileContAggregateFunction final : public PercentileContDiscAggregate
 
         // for group by
         if (grid.size() == 0) {
-            ResultColumnType* column = down_cast<ResultColumnType*>(to);
+            ResultColumnType* column = static_cast<ResultColumnType*>(to);
             auto& items = const_cast<typename PercentileStateTypes<LT>::ItemType&>(this->data(state).items);
             std::sort(items.begin(), items.end());
 
@@ -488,7 +487,7 @@ class PercentileContAggregateFunction final : public PercentileContDiscAggregate
             kWayMergeSort<LT, InputCppType, false>(grid, b, ls, mp, goal, k, junior_elm, senior_elm);
         }
 
-        ResultColumnType* column = down_cast<ResultColumnType*>(to);
+        ResultColumnType* column = static_cast<ResultColumnType*>(to);
 
         if (rate == 0) {
             column->append(junior_elm);
@@ -522,7 +521,7 @@ class PercentileDiscAggregateFunction final : public PercentileContDiscAggregate
         pdqsort(new_vector.begin(), new_vector.end());
         const double& rate = this->data(state).rate;
 
-        ResultColumnType* column = down_cast<ResultColumnType*>(to);
+        ResultColumnType* column = static_cast<ResultColumnType*>(to);
         if (new_vector.empty()) {
             column->append_default();
             return;
@@ -644,13 +643,13 @@ public:
 
     void update(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state,
                 size_t row_num) const override {
-        const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+        const auto& column = static_cast<const InputColumnType&>(*columns[0]);
         this->data(state).update(column.immutable_data()[row_num]);
     }
 
     void update_batch_single_state(FunctionContext* ctx, size_t chunk_size, const Column** columns,
                                    AggDataPtr __restrict state) const override {
-        const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+        const auto& column = static_cast<const InputColumnType&>(*columns[0]);
         this->data(state).update_batch(column.immutable_data());
     }
 
@@ -662,7 +661,7 @@ public:
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         size_t serialize_size = this->data(state).serialize_size();
 
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
         size_t old_size = bytes.size();
         size_t new_size = old_size + serialize_size;
@@ -678,14 +677,14 @@ public:
         size_t serialize_row = (sizeof(int) + sizeof(InputCppType) + sizeof(int64_t));
         size_t serialize_size = serialize_row * chunk_size;
 
-        auto* column = down_cast<BinaryColumn*>(dst.get());
+        auto* column = static_cast<BinaryColumn*>(dst.get());
         Bytes& bytes = column->get_bytes();
         size_t old_size = bytes.size();
         size_t new_size = old_size + serialize_size;
         bytes.resize(new_size);
         unsigned char* cur = bytes.data() + old_size;
 
-        const auto& src_column = *down_cast<const InputColumnType*>(src[0].get());
+        const auto& src_column = *static_cast<const InputColumnType*>(src[0].get());
         const InputCppType* src_data = src_column.immutable_data().data();
 
         size_t cur_size = old_size;
@@ -730,7 +729,7 @@ public:
         double rate = 0;
         DCHECK_EQ(ctx->get_num_args(), 2);
         if (ctx->get_num_args() == 2) {
-            const auto* rate_column = down_cast<const ConstColumn*>(ctx->get_constant_column(1).get());
+            const auto* rate_column = static_cast<const ConstColumn*>(ctx->get_constant_column(1).get());
             rate = rate_column->get(0).get_double();
         }
         DCHECK(rate >= 0 && rate <= 1);
@@ -740,7 +739,7 @@ public:
             return;
         }
         auto res = result.build_result(rate);
-        down_cast<InputColumnType*>(to)->append(res);
+        static_cast<InputColumnType*>(to)->append(res);
     }
 };
 

@@ -20,7 +20,6 @@
 #include "base/hash/unaligned_access.h"
 #include "base/string/slice.h" // for Slice
 #include "common/logging.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h" // for Substitute
 #include "storage/chunk_helper.h"
 #include "storage/range.h"
@@ -60,7 +59,7 @@ uint32_t DictPageBuilder<Type>::add(const uint8_t* vals, uint32_t count) {
         DCHECK_GT(count, 0);
         ValueCodeType value_code = -1;
         // Manually devirtualization.
-        auto* code_page = down_cast<BitshufflePageBuilder<DataTypeTraits<Type>::type>*>(_data_page_builder.get());
+        auto* code_page = static_cast<BitshufflePageBuilder<DataTypeTraits<Type>::type>*>(_data_page_builder.get());
 
         if (_data_page_builder->count() == 0) {
             memcpy(&_first_value, vals, sizeof(ValueType));
@@ -195,7 +194,7 @@ Status DictPageDecoder<Type>::seek_to_position_in_page(uint32_t pos) {
 
 template <LogicalType Type>
 void DictPageDecoder<Type>::set_dict_decoder(PageDecoder* dict_decoder) {
-    _dict_decoder = down_cast<BitShufflePageDecoder<Type>*>(dict_decoder);
+    _dict_decoder = static_cast<BitShufflePageDecoder<Type>*>(dict_decoder);
 }
 
 template <LogicalType Type>

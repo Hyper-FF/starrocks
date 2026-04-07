@@ -348,7 +348,7 @@ Status HdfsTextScanner::_parse_csv(int chunk_size, ChunkPtr* chunk) {
     CSVReader::Fields fields{};
     for (; rows_read < chunk_size; rows_read++) {
         CSVReader::Record record{};
-        Status status = down_cast<HdfsScannerCSVReader*>(_reader.get())->next_record(&record);
+        Status status = static_cast<HdfsScannerCSVReader*>(_reader.get())->next_record(&record);
         if (status.is_end_of_file()) {
             break;
         } else if (!status.ok()) {
@@ -416,7 +416,7 @@ Status HdfsTextScanner::_create_csv_reader() {
         _reader = std::make_shared<HdfsScannerCSVReader>(_file.get(), _line_delimiter, _need_probe_line_delimiter,
                                                          _field_delimiter, scan_range->file_length);
     }
-    auto* reader = down_cast<HdfsScannerCSVReader*>(_reader.get());
+    auto* reader = static_cast<HdfsScannerCSVReader*>(_reader.get());
 
     // (TODO) only support uncompressed file to skip utf-8 bom, because compressed input stream didn't support seek() function
     if (_compression_type == NO_COMPRESSION) {
@@ -450,7 +450,7 @@ Status HdfsTextScanner::_create_csv_reader() {
 StatusOr<bool> HdfsTextScanner::_has_utf8_bom() const {
     // if reading start of file, skipping UTF-8 BOM
     if (_scanner_ctx.scan_range->offset == 0) {
-        auto* reader = down_cast<HdfsScannerCSVReader*>(_reader.get());
+        auto* reader = static_cast<HdfsScannerCSVReader*>(_reader.get());
         CSVReader::Record first_line;
         RETURN_IF_ERROR(reader->next_record(&first_line));
         if (first_line.size >= 3 && static_cast<unsigned char>(first_line.data[0]) == 0xEF &&

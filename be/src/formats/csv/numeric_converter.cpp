@@ -22,7 +22,7 @@ namespace starrocks::csv {
 template <typename T>
 Status NumericConverter<T>::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                          const Options& options) const {
-    auto numeric_column = down_cast<const FixedLengthColumn<DataType>*>(&column);
+    auto numeric_column = static_cast<const FixedLengthColumn<DataType>*>(&column);
     const auto idata = numeric_column->immutable_data();
     if constexpr (std::is_same_v<int8_t, DataType>) {
         return os->write<int16_t>(idata[row_num]);
@@ -42,7 +42,7 @@ bool NumericConverter<T>::read_string(Column* column, const Slice& s, const Opti
     StringParser::ParseResult r;
     auto v = StringParser::string_to_int<DataType>(s.data, s.size, &r);
     if (r == StringParser::PARSE_SUCCESS) {
-        down_cast<FixedLengthColumn<DataType>*>(column)->append(v);
+        static_cast<FixedLengthColumn<DataType>*>(column)->append(v);
         return true;
     } else if (r != StringParser::PARSE_OVERFLOW && r != StringParser::PARSE_UNDERFLOW) {
         if constexpr (sizeof(DataType) <= sizeof(int32_t)) {
@@ -52,12 +52,12 @@ bool NumericConverter<T>::read_string(Column* column, const Slice& s, const Opti
                 // Implicit cast.
                 // NOTE: this behavior is consistent with the cast expression of StarRocks but different
                 // from MySQL.
-                auto n = implicit_cast<DataType>(d);
+                auto n = static_cast<DataType>(d);
                 // Check overflow/underflow.
-                if (implicit_cast<double>(n) != d) {
+                if (static_cast<double>(n) != d) {
                     return false;
                 } else {
-                    down_cast<FixedLengthColumn<DataType>*>(column)->append(n);
+                    static_cast<FixedLengthColumn<DataType>*>(column)->append(n);
                     return true;
                 }
             } else {
@@ -69,7 +69,7 @@ bool NumericConverter<T>::read_string(Column* column, const Slice& s, const Opti
                 return false;
             } else {
                 int64_t n = decimal.int_value();
-                down_cast<FixedLengthColumn<DataType>*>(column)->append(implicit_cast<DataType>(n));
+                static_cast<FixedLengthColumn<DataType>*>(column)->append(static_cast<DataType>(n));
                 return true;
             }
         }

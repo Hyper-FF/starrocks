@@ -34,7 +34,6 @@
 #include "formats/parquet/utils.h"
 #include "fs/fs.h"
 #include "gen_cpp/parquet_types.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "io/shared_buffered_input_stream.h"
 

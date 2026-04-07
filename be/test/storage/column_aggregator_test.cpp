@@ -412,8 +412,8 @@ TEST(ColumnAggregator, testNullIntReplaceIfNotNull) {
 
     auto agg1 = NullableColumn::create(Int32Column::create(), NullColumn::create());
 
-    auto dst = down_cast<Int32Column*>(agg1->data_column_raw_ptr());
-    auto ndst = down_cast<NullColumn*>(agg1->null_column_raw_ptr());
+    auto dst = static_cast<Int32Column*>(agg1->data_column_raw_ptr());
+    auto ndst = static_cast<NullColumn*>(agg1->null_column_raw_ptr());
 
     aggregator->update_aggregate(agg1.get());
     aggregator->update_source(nsrc1);
@@ -519,8 +519,8 @@ TEST(ColumnAggregator, testNullIntReplace) {
 
     auto agg1 = NullableColumn::create(Int32Column::create(), NullColumn::create());
 
-    auto dst = down_cast<Int32Column*>(agg1->data_column_raw_ptr());
-    auto ndst = down_cast<NullColumn*>(agg1->null_column_raw_ptr());
+    auto dst = static_cast<Int32Column*>(agg1->data_column_raw_ptr());
+    auto ndst = static_cast<NullColumn*>(agg1->null_column_raw_ptr());
 
     aggregator->update_aggregate(agg1.get());
     aggregator->update_source(nsrc1);

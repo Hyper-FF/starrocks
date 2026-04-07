@@ -40,11 +40,11 @@ Status CacheAwareDictDecoder::next_batch(size_t count, ColumnContentType content
     case DICT_CODE: {
         FixedLengthColumn<int32_t>* data_column;
         if (dst->is_nullable()) {
-            auto nullable_column = down_cast<NullableColumn*>(dst);
+            auto nullable_column = static_cast<NullableColumn*>(dst);
             nullable_column->null_column_raw_ptr()->append_default(count);
-            data_column = down_cast<FixedLengthColumn<int32_t>*>(nullable_column->data_column_raw_ptr());
+            data_column = static_cast<FixedLengthColumn<int32_t>*>(nullable_column->data_column_raw_ptr());
         } else {
-            data_column = down_cast<FixedLengthColumn<int32_t>*>(dst);
+            data_column = static_cast<FixedLengthColumn<int32_t>*>(dst);
         }
         size_t cur_size = data_column->size();
         data_column->resize_uninitialized(cur_size + count);
@@ -106,14 +106,14 @@ Status Decoder::next_batch_with_nulls(size_t count, const NullInfos& null_infos,
 }
 void Decoder::_next_null_column(size_t count, const NullInfos& null_infos, NullableColumn* dst) {
     size_t null_cnt = null_infos.num_nulls;
-    NullColumn* null_column = down_cast<NullableColumn*>(dst)->null_column_raw_ptr();
+    NullColumn* null_column = static_cast<NullableColumn*>(dst)->null_column_raw_ptr();
     const uint8_t* __restrict is_nulls = null_infos.nulls_data();
     auto& null_data = null_column->get_data();
     size_t prev_num_rows = null_data.size();
     raw::stl_vector_resize_uninitialized(&null_data, count + prev_num_rows);
     uint8_t* __restrict__ dst_nulls = null_data.data() + prev_num_rows;
     memcpy(dst_nulls, is_nulls, count);
-    down_cast<NullableColumn*>(dst)->set_has_null(null_cnt > 0);
+    static_cast<NullableColumn*>(dst)->set_has_null(null_cnt > 0);
 }
 
 using TypeEncodingPair = std::pair<tparquet::Type::type, tparquet::Encoding::type>;

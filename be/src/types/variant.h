@@ -288,13 +288,13 @@ public:
 
     // Get the primitive boolean value.
     StatusOr<bool> get_bool() const;
-    // Get the primitive int8 value.
+    // Get the primitive int8_t value.
     StatusOr<int8_t> get_int8() const;
-    // Get the primitive int16 value.
+    // Get the primitive int16_t value.
     StatusOr<int16_t> get_int16() const;
-    // Get the primitive int32 value.
+    // Get the primitive int32_t value.
     StatusOr<int32_t> get_int32() const;
-    // Get the primitive int64 value.
+    // Get the primitive int64_t value.
     StatusOr<int64_t> get_int64() const;
     // Get the string value, including both short string optimization and primitive string type.
     StatusOr<std::string_view> get_string() const;

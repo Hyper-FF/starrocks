@@ -45,7 +45,6 @@
 #include "common/version.h"
 #include "exec/pipeline/fragment_context.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 #include "runtime/runtime_state.h"
 #include "storage/key_coder.h"
 #include "storage/primary_key_encoder.h"
@@ -109,7 +108,7 @@ StatusOr<ColumnPtr> UtilityFunctions::uuid(FunctionContext* ctx, const Columns& 
     int32_t num_rows = ColumnHelper::get_const_value<TYPE_INT>(columns.back());
 
     ASSIGN_OR_RETURN(auto col, UtilityFunctions::uuid_numeric(ctx, columns));
-    const auto uuid_data = down_cast<const Int128Column*>(col.get())->immutable_data();
+    const auto uuid_data = static_cast<const Int128Column*>(col.get())->immutable_data();
 
     auto res = BinaryColumn::create();
     auto& bytes = res->get_bytes();

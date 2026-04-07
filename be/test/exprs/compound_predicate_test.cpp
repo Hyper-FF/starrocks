@@ -51,7 +51,7 @@ TEST_F(VectorizedCompoundPredicateTest, andExpr) {
     expr->_children.push_back(&col1);
     expr->_children.push_back(&col2);
 
-    // normal int8
+    // normal int8_t
     {
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
         ExprsTestHelper::verify_with_jit(ptr, expr.get(), &runtime_state, [](ColumnPtr const& ptr) {
@@ -78,7 +78,7 @@ TEST_F(VectorizedCompoundPredicateTest, orExpr) {
     expr->_children.push_back(&col1);
     expr->_children.push_back(&col2);
 
-    // normal int8
+    // normal int8_t
     {
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
         ExprsTestHelper::verify_with_jit(ptr, expr.get(), &runtime_state, [](ColumnPtr const& ptr) {
@@ -374,7 +374,7 @@ TEST_F(VectorizedCompoundPredicateTest, notExpr) {
         MockVectorizedExpr<TYPE_BOOLEAN> col1(expr_node, 10, 1);
         expr->_children.push_back(&col1);
 
-        // normal int8
+        // normal int8_t
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
         ExprsTestHelper::verify_with_jit(ptr, expr.get(), &runtime_state, [](ColumnPtr const& ptr) {
             ASSERT_FALSE(ptr->is_nullable());
@@ -394,7 +394,7 @@ TEST_F(VectorizedCompoundPredicateTest, notExpr) {
         expr->_children.clear();
         expr->_children.push_back(&col1);
 
-        // normal int8
+        // normal int8_t
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
         ExprsTestHelper::verify_with_jit(ptr, expr.get(), &runtime_state, [](ColumnPtr const& ptr) {
             ASSERT_FALSE(ptr->is_nullable());

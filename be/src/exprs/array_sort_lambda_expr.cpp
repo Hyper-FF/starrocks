@@ -47,7 +47,7 @@ Status ArraySortLambdaExpr::prepare(RuntimeState* state, ExprContext* context) {
     DCHECK(get_num_children() == 2);
     RETURN_IF_ERROR(_children[0]->prepare(state, context));
 
-    auto lambda_fun = down_cast<LambdaFunction*>(_children[1]);
+    auto lambda_fun = static_cast<LambdaFunction*>(_children[1]);
     LambdaFunction::ExtractContext extract_ctx;
 
     extract_ctx.next_slot_id = context->root()->max_used_slot_id() + 1;
@@ -152,7 +152,7 @@ public:
         }
 
         auto* data_col = ColumnHelper::get_data_column(result_col.get());
-        auto* boolean_col = down_cast<const BooleanColumn*>(data_col);
+        auto* boolean_col = static_cast<const BooleanColumn*>(data_col);
         DCHECK(boolean_col->size() == 1);
         return boolean_col->immutable_data()[0];
     }
@@ -172,8 +172,8 @@ private:
 
 StatusOr<ColumnPtr> ArraySortLambdaExpr::evaluate_lambda_expr(ExprContext* context, Chunk* chunk,
                                                               const Column* data_column) {
-    const auto& element_col = down_cast<const ArrayColumn*>(data_column)->elements_column();
-    const auto& offsets_col = down_cast<const ArrayColumn*>(data_column)->offsets();
+    const auto& element_col = static_cast<const ArrayColumn*>(data_column)->elements_column();
+    const auto& offsets_col = static_cast<const ArrayColumn*>(data_column)->offsets();
 
     auto lambda_func = dynamic_cast<LambdaFunction*>(_children[1]);
     std::vector<SlotId> capture_slot_ids;
@@ -463,15 +463,15 @@ StatusOr<ColumnPtr> ArraySortLambdaExpr::evaluate_checked(ExprContext* context, 
     auto* data_column = ColumnHelper::get_data_column(array_col.get());
     DCHECK(data_column->is_array() && !data_column->is_nullable() && !data_column->is_constant());
     if (array_col->is_nullable()) {
-        null_column = down_cast<const NullableColumn*>(array_col.get())->null_column();
-        const auto& offsets = down_cast<const ArrayColumn*>(data_column)->offsets();
+        null_column = static_cast<const NullableColumn*>(array_col.get())->null_column();
+        const auto& offsets = static_cast<const ArrayColumn*>(data_column)->offsets();
         data_column->as_mutable_raw_ptr()->empty_null_in_complex_column(null_column->immutable_data(),
                                                                         offsets.immutable_data());
     }
-    const auto* lambda_fun = down_cast<LambdaFunction*>(_children[1]);
+    const auto* lambda_fun = static_cast<LambdaFunction*>(_children[1]);
     RETURN_IF_ERROR(check_lambda_only_depends_on_args(lambda_fun));
     // Validate strict weak ordering if lambda depends on arguments (i.e., it's a comparator)
-    RETURN_IF_ERROR(validate_strict_weak_ordering(context, chunk, down_cast<const ArrayColumn*>(data_column)));
+    RETURN_IF_ERROR(validate_strict_weak_ordering(context, chunk, static_cast<const ArrayColumn*>(data_column)));
 
     return evaluate_lambda_expr(context, chunk, data_column);
 }

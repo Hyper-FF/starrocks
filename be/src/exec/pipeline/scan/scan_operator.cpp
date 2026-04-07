@@ -73,7 +73,7 @@ Status ScanOperator::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(SourceOperator::prepare(state));
 
     _unique_metrics->add_info_string("MorselQueueType", _morsel_queue->name());
-    auto num_heavy_exprs = down_cast<ScanOperatorFactory*>(_factory)->scan_node()->get_heavy_expr_ctxs().size();
+    auto num_heavy_exprs = static_cast<ScanOperatorFactory*>(_factory)->scan_node()->get_heavy_expr_ctxs().size();
     _unique_metrics->add_info_string("NumHeavyExprs", std::to_string(num_heavy_exprs));
     _peak_buffer_size_counter = _unique_metrics->AddHighWaterMarkCounter(
             "PeakChunkBufferSize", TUnit::UNIT,
@@ -443,7 +443,7 @@ Status ScanOperator::_trigger_next_scan(RuntimeState* state, int chunk_source_in
     task.workgroup = _workgroup;
     // TODO: consider more factors, such as scan bytes and i/o time.
     task.priority = OlapScanNode::compute_priority(COUNTER_VALUE(_submit_task_counter));
-    task.task_group = down_cast<const ScanOperatorFactory*>(_factory)->scan_task_group();
+    task.task_group = static_cast<const ScanOperatorFactory*>(_factory)->scan_task_group();
     task.peak_scan_task_queue_size_counter = _peak_scan_task_queue_size_counter;
     const auto io_task_start_nano = MonotonicNanos();
     task.work_function = [wp = _query_ctx, this, state, chunk_source_index, query_trace_ctx, driver_id,

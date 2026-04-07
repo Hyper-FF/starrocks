@@ -27,7 +27,6 @@
 #include "exprs/agg/aggregate.h"
 #include "exprs/agg/sum.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 #include "types/logical_type.h"
 
@@ -146,7 +145,7 @@ public:
                 size_t row_num) const override {
         DCHECK(!columns[0]->is_nullable());
 
-        const auto* map_column = down_cast<const MapColumn*>(ColumnHelper::get_data_column(columns[0]));
+        const auto* map_column = static_cast<const MapColumn*>(ColumnHelper::get_data_column(columns[0]));
         auto& offsets = map_column->offsets().immutable_data();
 
         if (offsets[row_num + 1] > offsets[row_num]) {
@@ -161,7 +160,7 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(!column->is_nullable());
-        const auto* map_column = down_cast<const MapColumn*>(ColumnHelper::get_data_column(column));
+        const auto* map_column = static_cast<const MapColumn*>(ColumnHelper::get_data_column(column));
         auto& offsets = map_column->offsets().immutable_data();
 
         if (offsets[row_num + 1] > offsets[row_num]) {
@@ -176,7 +175,7 @@ public:
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(!to->is_nullable());
         auto& state_impl = this->data(state);
-        auto* map_column = down_cast<MapColumn*>(ColumnHelper::get_data_column(to));
+        auto* map_column = static_cast<MapColumn*>(ColumnHelper::get_data_column(to));
 
         size_t total_entries = state_impl.hash_map.size() + (state_impl.has_null_key ? 1 : 0);
         auto* key_column = map_column->keys_column_raw_ptr();
@@ -209,8 +208,8 @@ private:
     template <typename KeyValue>
     void append_key(Column* key_column, const KeyValue& key) const {
         DCHECK(key_column->is_nullable());
-        auto* nullable_key = down_cast<NullableColumn*>(key_column);
-        auto* key_data_col = down_cast<KeyColumnType*>(nullable_key->data_column()->as_mutable_raw_ptr());
+        auto* nullable_key = static_cast<NullableColumn*>(key_column);
+        auto* key_data_col = static_cast<KeyColumnType*>(nullable_key->data_column()->as_mutable_raw_ptr());
         append_key_data(key_data_col, key);
         nullable_key->null_column_data().push_back(0);
     }
@@ -227,8 +226,8 @@ private:
 
     void append_value_data(Column* value_data_col, ValueResultCppType value) const {
         DCHECK(value_data_col->is_nullable());
-        auto* nullable_value_col = down_cast<NullableColumn*>(value_data_col);
-        auto* data_column = down_cast<ValueResultColumnType*>(nullable_value_col->data_column()->as_mutable_raw_ptr());
+        auto* nullable_value_col = static_cast<NullableColumn*>(value_data_col);
+        auto* data_column = static_cast<ValueResultColumnType*>(nullable_value_col->data_column()->as_mutable_raw_ptr());
         data_column->get_data().push_back(value);
         nullable_value_col->null_column_data().push_back(0);
     }
@@ -250,8 +249,8 @@ public:
         DCHECK(!src[0]->is_nullable());
         DCHECK(!dst->is_nullable());
 
-        const auto* src_map_column = down_cast<const MapColumn*>(ColumnHelper::get_data_column(src[0]));
-        auto* dst_map_column = down_cast<MapColumn*>(ColumnHelper::get_data_column(dst.get()));
+        const auto* src_map_column = static_cast<const MapColumn*>(ColumnHelper::get_data_column(src[0]));
+        auto* dst_map_column = static_cast<MapColumn*>(ColumnHelper::get_data_column(dst.get()));
         ColumnViewer<VT> value_viewer(src_map_column->values_column());
 
         size_t element_size = src_map_column->keys().size();
@@ -261,10 +260,10 @@ public:
         DCHECK(dst_map_column->values_column()->is_nullable());
 
         NullableColumn* nullable_dst_values_column =
-                down_cast<NullableColumn*>(dst_map_column->values_column_raw_ptr());
+                static_cast<NullableColumn*>(dst_map_column->values_column_raw_ptr());
         auto& null_data = nullable_dst_values_column->null_column_data();
         ValueResultColumnType* dst_values_column =
-                down_cast<ValueResultColumnType*>(nullable_dst_values_column->data_column()->as_mutable_raw_ptr());
+                static_cast<ValueResultColumnType*>(nullable_dst_values_column->data_column()->as_mutable_raw_ptr());
         auto& dst_value_data = dst_values_column->get_data();
         for (size_t i = 0; i < element_size; ++i) {
             bool is_null = value_viewer.is_null(i);

@@ -22,7 +22,6 @@
 #include "column/vectorized_fwd.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 #include "types/bitmap_value.h"
 #include "util/bitmap_intersect.h"
 
@@ -84,10 +83,10 @@ public:
             this->data(state).initial = true;
         }
 
-        const auto* bitmap_column = down_cast<const BitmapColumn*>(columns[0]);
+        const auto* bitmap_column = static_cast<const BitmapColumn*>(columns[0]);
 
         // based on NullableAggregateFunctionVariadic.
-        const auto* key_column = down_cast<const InputColumnType*>(columns[1]);
+        const auto* key_column = static_cast<const InputColumnType*>(columns[1]);
 
         auto bimtap_value = bitmap_column->get_pool()[row_num];
         auto key_value = GetContainer<LT>::get_data(key_column)[row_num];
@@ -110,7 +109,7 @@ public:
         DCHECK(to->is_binary());
         auto& intersect = this->data(state).intersect;
 
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
 
         size_t old_size = bytes.size();
@@ -138,8 +137,8 @@ public:
             }
         }
 
-        const auto* bitmap_column = down_cast<const BitmapColumn*>(src[0].get());
-        const auto* key_column = down_cast<const InputColumnType*>(src[1].get());
+        const auto* bitmap_column = static_cast<const BitmapColumn*>(src[0].get());
+        const auto* key_column = static_cast<const InputColumnType*>(src[1].get());
 
         // compute bytes for serialization for this chunk.
         int new_size = 0;
@@ -165,7 +164,7 @@ public:
             intersect_chunks.emplace_back(intersect_per_row);
         }
 
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
         Bytes& bytes = dst_column->get_bytes();
         size_t old_size = bytes.size();
         bytes.resize(new_size);
@@ -183,7 +182,7 @@ public:
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         auto& intersect = this->data(state).intersect;
-        down_cast<ResultColumnType*>(to)->append(intersect.intersect_count());
+        static_cast<ResultColumnType*>(to)->append(intersect.intersect_count());
     }
 
     std::string get_name() const override { return "intersect count"; }

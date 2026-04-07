@@ -24,9 +24,8 @@
 #include "column/mysql_row_buffer.h"
 #include "column/vectorized_fwd.h"
 #include "common/config_local_io_fwd.h"
-#include "gutil/bits.h"
-#include "gutil/casts.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/bits.h"
+#include "base/gutil/strings/fastmem.h"
 #include "absl/strings/substitute.h"
 
 namespace starrocks {
@@ -105,14 +104,14 @@ void BinaryColumnBase<T>::append(const Column& src, size_t offset, size_t count)
     // Same offset type.
     const bool src_is_same_type = std::is_same_v<T, uint32_t> ? src.is_binary() : src.is_large_binary();
     if (src_is_same_type) {
-        _append_binary_impl(down_cast<const BinaryColumnBase<T>&>(src), offset, count);
+        _append_binary_impl(static_cast<const BinaryColumnBase<T>&>(src), offset, count);
         return;
     }
 
     // Cross-type path: only LargeBinaryColumn can append from BinaryColumn, not the reverse.
     if constexpr (std::is_same_v<T, uint64_t>) {
         if (src.is_binary()) {
-            _append_binary_impl(down_cast<const BinaryColumn&>(src), offset, count);
+            _append_binary_impl(static_cast<const BinaryColumn&>(src), offset, count);
             return;
         }
     }
@@ -133,7 +132,7 @@ void BinaryColumnBase<T>::append_selective(const Column& src, const uint32_t* in
 
     indexes += from;
 
-    const auto& src_column = down_cast<const BinaryColumnBase<T>&>(src);
+    const auto& src_column = static_cast<const BinaryColumnBase<T>&>(src);
     auto& bytes = get_bytes();
 
     const size_t prev_num_offsets = _offsets.size();
@@ -194,7 +193,7 @@ void BinaryColumnBase<T>::append_selective(const Column& src, const uint32_t* in
 
 template <typename T>
 void BinaryColumnBase<T>::append_value_multiple_times(const Column& src, uint32_t index, uint32_t size) {
-    auto& src_column = down_cast<const BinaryColumnBase<T>&>(src);
+    auto& src_column = static_cast<const BinaryColumnBase<T>&>(src);
     auto& src_offsets = src_column.get_offset();
     const uint8_t* src_bytes = src_column._data_base();
     auto& bytes = get_bytes();
@@ -551,7 +550,7 @@ void BinaryColumnBase<T>::fill_default(const Filter& filter) {
 
 template <typename T>
 void BinaryColumnBase<T>::update_rows(const Column& src, const uint32_t* indexes) {
-    const auto& src_column = down_cast<const BinaryColumnBase<T>&>(src);
+    const auto& src_column = static_cast<const BinaryColumnBase<T>&>(src);
     size_t replace_num = src.size();
     bool need_resize = false;
     for (size_t i = 0; i < replace_num; ++i) {
@@ -616,7 +615,7 @@ void BinaryColumnBase<T>::remove_first_n_values(size_t count) {
     size_t remain_size = _offsets.size() - 1 - count;
 
     MutableColumnPtr column = cut(count, remain_size);
-    auto* binary_column = down_cast<BinaryColumnBase<T>*>(column.get());
+    auto* binary_column = static_cast<BinaryColumnBase<T>*>(column.get());
     _offsets = std::move(binary_column->_offsets);
     _bytes = std::move(binary_column->get_bytes());
     _resource.reset();
@@ -731,7 +730,7 @@ size_t BinaryColumnBase<T>::filter_range(const Filter& filter, size_t from, size
 
 template <typename T>
 int BinaryColumnBase<T>::compare_at(size_t left, size_t right, const Column& rhs, int nan_direction_hint) const {
-    const auto& right_column = down_cast<const BinaryColumnBase<T>&>(rhs);
+    const auto& right_column = static_cast<const BinaryColumnBase<T>&>(rhs);
     return get_slice(left).compare(right_column.get_slice(right));
 }
 

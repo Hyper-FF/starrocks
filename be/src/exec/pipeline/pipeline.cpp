@@ -156,8 +156,8 @@ Status Pipeline::reset_epoch(RuntimeState* state) {
     _num_epoch_finished_drivers = 0;
     for (const auto& driver : drivers()) {
         DCHECK_EQ(driver->driver_state(), pipeline::DriverState::EPOCH_FINISH);
-        DCHECK(down_cast<pipeline::StreamPipelineDriver*>(driver.get()));
-        auto* stream_driver = down_cast<pipeline::StreamPipelineDriver*>(driver.get());
+        DCHECK(static_cast<pipeline::StreamPipelineDriver*>(driver.get()));
+        auto* stream_driver = static_cast<pipeline::StreamPipelineDriver*>(driver.get());
         RETURN_IF_ERROR(stream_driver->reset_epoch(state));
     }
     return Status::OK();

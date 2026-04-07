@@ -46,12 +46,12 @@
 #include "common/logging.h"
 #include "common/status.h"
 #include "common/system/cpu_info.h"
-#include "gutil/atomicops.h"
-#include "gutil/port.h"
-#include "gutil/ref_counted.h"
+#include "base/gutil/atomicops.h"
+#include "base/gutil/port.h"
+#include "base/gutil/ref_counted.h"
 #include "absl/strings/substitute.h"
-#include "gutil/sysinfo.h"
-#include "gutil/walltime.h"
+#include "base/gutil/sysinfo.h"
+#include "base/gutil/walltime.h"
 
 using std::atomic;
 using std::shared_ptr;

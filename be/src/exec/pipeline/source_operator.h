@@ -180,8 +180,8 @@ public:
     }
 
 protected:
-    const SourceOperatorFactory* _source_factory() const { return down_cast<const SourceOperatorFactory*>(_factory); }
-    SourceOperatorFactory* _source_factory() { return down_cast<SourceOperatorFactory*>(_factory); }
+    const SourceOperatorFactory* _source_factory() const { return static_cast<const SourceOperatorFactory*>(_factory); }
+    SourceOperatorFactory* _source_factory() { return static_cast<SourceOperatorFactory*>(_factory); }
 
     MorselQueue* _morsel_queue = nullptr;
 

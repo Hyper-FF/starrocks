@@ -18,7 +18,6 @@
 #include "column/const_column.h"
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 class FunctionContext;
@@ -36,7 +35,7 @@ public:
      */
     static inline ColumnPtr get_data_column_of_nullable(const ColumnPtr& ptr) {
         if (ptr->is_nullable()) {
-            return down_cast<const NullableColumn*>(ptr.get())->data_column();
+            return static_cast<const NullableColumn*>(ptr.get())->data_column();
         }
         return ptr;
     }
@@ -55,7 +54,7 @@ public:
      */
     static inline ColumnPtr get_data_column_of_const(const ColumnPtr& ptr) {
         if (ptr->is_constant()) {
-            return down_cast<const ConstColumn*>(ptr.get())->data_column();
+            return static_cast<const ConstColumn*>(ptr.get())->data_column();
         }
         return ptr;
     }
@@ -85,22 +84,22 @@ public:
 template <typename ToColumnType, typename CppType>
 inline void FunctionHelper::get_data_of_column(const Column* col, size_t row_num, CppType& data) {
     if (col->is_constant()) {
-        auto const_col = down_cast<const ConstColumn*>(col);
+        auto const_col = static_cast<const ConstColumn*>(col);
         col = const_col->data_column().get();
         row_num = 0;
     }
-    const auto* column = down_cast<const ToColumnType*>(col);
+    const auto* column = static_cast<const ToColumnType*>(col);
     data = column->immutable_data()[row_num];
 }
 
 template <>
 inline void FunctionHelper::get_data_of_column<BinaryColumn, Slice>(const Column* col, size_t row_num, Slice& data) {
     if (col->is_constant()) {
-        auto const_col = down_cast<const ConstColumn*>(col);
+        auto const_col = static_cast<const ConstColumn*>(col);
         col = const_col->data_column().get();
         row_num = 0;
     }
-    const auto* column = down_cast<const BinaryColumn*>(col);
+    const auto* column = static_cast<const BinaryColumn*>(col);
     data = column->get_slice(row_num);
 }
 

@@ -249,7 +249,7 @@ public:
                     }
 
                     // avoid memory reallocation when looking up hash table
-                    down_cast<BinaryColumn*>(dest)->reserve(size, slice_size);
+                    static_cast<BinaryColumn*>(dest)->reserve(size, slice_size);
                     for (size_t i = 0; i < size; i++) {
                         if (slices[i].data == nullptr) {
                             value_encode_flags[i] = SKIP_DECODE_FLAG;
@@ -313,11 +313,11 @@ public:
 
 private:
     // Avoid creating Datum
-    inline void _append_value(Column* dest, const ValueCppType& v) { down_cast<ValueColumnType*>(dest)->append(v); }
+    inline void _append_value(Column* dest, const ValueCppType& v) { static_cast<ValueColumnType*>(dest)->append(v); }
 
     inline void _append_nullable(Column* dest, Column* null_column) {
-        down_cast<ValueColumnType*>(dest)->append_default(1);
-        down_cast<UInt8Column*>(null_column)->get_data()[dest->size() - 1] = 1;
+        static_cast<ValueColumnType*>(dest)->append_default(1);
+        static_cast<UInt8Column*>(null_column)->get_data()[dest->size() - 1] = 1;
     }
 
     template <class KeyCppType, class ValueCppType>

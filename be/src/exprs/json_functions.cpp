@@ -42,7 +42,6 @@
 #include "exprs/function_helper.h"
 #include "exprs/jsonpath.h"
 #include "glog/logging.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "storage/chunk_helper.h"
 #include "types/json_value.h"
@@ -503,7 +502,7 @@ template <LogicalType ResultType>
 StatusOr<ColumnPtr> JsonFunctions::_json_query_impl(FunctionContext* context, const Columns& columns) {
     RETURN_IF_COLUMNS_ONLY_NULL(columns);
     const auto* cc = ColumnHelper::get_data_column(columns[0].get());
-    const JsonColumn* js = down_cast<const JsonColumn*>(cc);
+    const JsonColumn* js = static_cast<const JsonColumn*>(cc);
     if (js->is_flat_json()) {
         return _flat_json_query_impl<ResultType>(context, columns);
     }
@@ -513,7 +512,7 @@ StatusOr<ColumnPtr> JsonFunctions::_json_query_impl(FunctionContext* context, co
 StatusOr<ColumnPtr> JsonFunctions::_json_query_scalar_impl(FunctionContext* context, const Columns& columns) {
     RETURN_IF_COLUMNS_ONLY_NULL(columns);
     const auto* cc = ColumnHelper::get_data_column(columns[0].get());
-    const JsonColumn* js = down_cast<const JsonColumn*>(cc);
+    const JsonColumn* js = static_cast<const JsonColumn*>(cc);
     if (js->is_flat_json()) {
         return _flat_json_query_impl<TYPE_VARCHAR>(context, columns, true);
     }
@@ -656,10 +655,10 @@ static StatusOr<ColumnPtr> _extract_from_flat_json(FunctionContext* context, con
 
     const JsonColumn* json_column;
     if (columns[0]->is_nullable()) {
-        auto* nullable = down_cast<const NullableColumn*>(columns[0].get());
-        json_column = down_cast<const JsonColumn*>(nullable->data_column().get());
+        auto* nullable = static_cast<const NullableColumn*>(columns[0].get());
+        json_column = static_cast<const JsonColumn*>(nullable->data_column().get());
     } else {
-        json_column = down_cast<const JsonColumn*>(columns[0].get());
+        json_column = static_cast<const JsonColumn*>(columns[0].get());
     }
 
     // flat json path must be constant
@@ -794,7 +793,7 @@ StatusOr<ColumnPtr> JsonFunctions::_full_json_query_impl(FunctionContext* contex
 StatusOr<ColumnPtr> JsonFunctions::json_exists(FunctionContext* context, const Columns& columns) {
     RETURN_IF_COLUMNS_ONLY_NULL(columns);
     const auto* cc = ColumnHelper::get_data_column(columns[0].get());
-    const JsonColumn* js = down_cast<const JsonColumn*>(cc);
+    const JsonColumn* js = static_cast<const JsonColumn*>(cc);
     if (js->is_flat_json()) {
         return _flat_json_exists(context, columns);
     }
@@ -1007,7 +1006,7 @@ StatusOr<ColumnPtr> JsonFunctions::json_object(FunctionContext* context, const C
 StatusOr<ColumnPtr> JsonFunctions::json_length(FunctionContext* context, const Columns& columns) {
     RETURN_IF_COLUMNS_ONLY_NULL(columns);
     const auto* cc = ColumnHelper::get_data_column(columns[0].get());
-    const JsonColumn* js = down_cast<const JsonColumn*>(cc);
+    const JsonColumn* js = static_cast<const JsonColumn*>(cc);
     if (js->is_flat_json()) {
         return _flat_json_length(context, columns);
     }
@@ -1123,7 +1122,7 @@ StatusOr<ColumnPtr> JsonFunctions::json_keys(FunctionContext* context, const Col
     }
 
     const auto* cc = ColumnHelper::get_data_column(columns[0].get());
-    const JsonColumn* js = down_cast<const JsonColumn*>(cc);
+    const JsonColumn* js = static_cast<const JsonColumn*>(cc);
     if (js->is_flat_json()) {
         return _flat_json_keys_with_path(context, columns);
     }
@@ -1692,7 +1691,7 @@ static bool _json_set_recursive(arangodb::velocypack::Builder& builder, arangodb
                         vpack::ArrayBuilder ab(&builder);
                         int target_idx = -1;
                         if (piece.array_selector->type == ArraySelectorType::SINGLE) {
-                            target_idx = down_cast<ArraySelectorSingle*>(piece.array_selector.get())->index;
+                            target_idx = static_cast<ArraySelectorSingle*>(piece.array_selector.get())->index;
                         }
 
                         size_t array_len = it.value.length();
@@ -1740,7 +1739,7 @@ static bool _json_set_recursive(arangodb::velocypack::Builder& builder, arangodb
         int target_idx = -1;
 
         if (has_selector && piece.array_selector->type == ArraySelectorType::SINGLE) {
-            target_idx = down_cast<ArraySelectorSingle*>(piece.array_selector.get())->index;
+            target_idx = static_cast<ArraySelectorSingle*>(piece.array_selector.get())->index;
         }
 
         size_t array_len = slice.length();
@@ -1793,7 +1792,7 @@ static StatusOr<JsonValue> _json_set_one_path(JsonValue* json_val, const JsonPat
 
     if (root_has_selector && root.isArray()) {
         vpack::ArrayBuilder ab(&builder);
-        int target_idx = down_cast<ArraySelectorSingle*>(path.paths[0].array_selector.get())->index;
+        int target_idx = static_cast<ArraySelectorSingle*>(path.paths[0].array_selector.get())->index;
 
         size_t len = root.length();
         bool is_last_step = (path.paths.size() == 1);

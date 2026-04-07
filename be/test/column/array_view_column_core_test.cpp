@@ -33,7 +33,7 @@ TEST(ArrayViewColumnCoreTest, RoundTripAndCompare) {
     ASSERT_TRUE(restored->is_array());
     EXPECT_EQ("[[1,2], [3]]", restored->debug_string());
 
-    auto* view = down_cast<ArrayViewColumn*>(view_col.get());
+    auto* view = static_cast<ArrayViewColumn*>(view_col.get());
     EXPECT_EQ(0, view->compare_at(0, 0, *view_col, 1));
     EXPECT_LT(view->compare_at(0, 1, *view_col, 1), 0);
 }

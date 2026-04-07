@@ -114,7 +114,7 @@ static ColumnPtr _build_typed_bulk_result(const Column* typed_col, const Column*
     const Column* typed_data = typed_col;
     const uint8_t* typed_null_data = nullptr;
     if (typed_col->is_nullable()) {
-        const auto* tn = down_cast<const NullableColumn*>(typed_col);
+        const auto* tn = static_cast<const NullableColumn*>(typed_col);
         typed_data = tn->data_column().get();
         typed_null_data = tn->null_column()->get_data().data();
     }
@@ -128,7 +128,7 @@ static ColumnPtr _build_typed_bulk_result(const Column* typed_col, const Column*
     uint8_t* rn = result_null->get_data().data();
 
     if (variant_col->is_nullable()) {
-        const uint8_t* vn = down_cast<const NullableColumn*>(variant_col)->null_column()->get_data().data();
+        const uint8_t* vn = static_cast<const NullableColumn*>(variant_col)->null_column()->get_data().data();
         for (size_t i = 0; i < num_rows; ++i) rn[i] = vn[i];
     }
     if (typed_null_data != nullptr) {
@@ -164,11 +164,11 @@ static ColumnPtr _build_typed_cast_result(FunctionContext* context, const Column
 
     std::vector<uint8_t> null_mask(num_rows, 0);
     if (variant_col->is_nullable()) {
-        const uint8_t* vn = down_cast<const NullableColumn*>(variant_col)->null_column()->get_data().data();
+        const uint8_t* vn = static_cast<const NullableColumn*>(variant_col)->null_column()->get_data().data();
         for (size_t i = 0; i < num_rows; ++i) null_mask[i] = vn[i];
     }
     if (typed_col->is_nullable()) {
-        const uint8_t* tn = down_cast<const NullableColumn*>(typed_col)->null_column()->get_data().data();
+        const uint8_t* tn = static_cast<const NullableColumn*>(typed_col)->null_column()->get_data().data();
         for (size_t i = 0; i < num_rows; ++i) null_mask[i] |= tn[i];
     }
 
@@ -208,7 +208,7 @@ StatusOr<ColumnPtr> VariantFunctions::_do_variant_query(FunctionContext* context
 
     auto variant_viewer = ColumnViewer<TYPE_VARIANT>(columns[0]);
     auto path_viewer = ColumnViewer<TYPE_VARCHAR>(columns[1]);
-    const auto* variant_data_column = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(columns[0].get()));
+    const auto* variant_data_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(columns[0].get()));
 
     // For const paths, the parsed VariantPath is cached in FunctionContext.
     // Prepare a local reader once per batch; for non-const paths, re-prepare per row.
@@ -277,7 +277,7 @@ StatusOr<ColumnPtr> VariantFunctions::variant_typeof(FunctionContext* context, c
     auto variant_viewer = ColumnViewer<TYPE_VARIANT>(variant_column);
     size_t num_rows = variant_column->size();
     const auto* variant_data_column =
-            down_cast<const VariantColumn*>(ColumnHelper::get_data_column(variant_column.get()));
+            static_cast<const VariantColumn*>(ColumnHelper::get_data_column(variant_column.get()));
 
     ColumnBuilder<TYPE_VARCHAR> result(num_rows);
     for (size_t row = 0; row < num_rows; ++row) {

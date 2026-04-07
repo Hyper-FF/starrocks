@@ -21,9 +21,8 @@
 #include "column/mysql_row_buffer.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/bits.h"
-#include "gutil/casts.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/bits.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 void ArrayColumn::check_or_die() const {
@@ -102,7 +101,7 @@ void ArrayColumn::append_array_element(const Column& elem, size_t null_elem) {
 }
 
 void ArrayColumn::append(const Column& src, size_t offset, size_t count) {
-    const auto& array_column = down_cast<const ArrayColumn&>(src);
+    const auto& array_column = static_cast<const ArrayColumn&>(src);
 
     const auto src_offsets = array_column.offsets().immutable_data();
     size_t src_offset = src_offsets[offset];
@@ -173,7 +172,7 @@ void ArrayColumn::fill_default(const Filter& filter) {
 }
 
 void ArrayColumn::update_rows(const Column& src, const uint32_t* indexes) {
-    const auto& array_column = down_cast<const ArrayColumn&>(src);
+    const auto& array_column = static_cast<const ArrayColumn&>(src);
 
     const auto src_offsets = array_column.offsets().immutable_data();
     auto& offsets = _offsets->get_data();
@@ -383,7 +382,7 @@ size_t ArrayColumn::filter_range(const Filter& filter, size_t from, size_t to) {
 }
 
 int ArrayColumn::compare_at(size_t left, size_t right, const Column& right_column, int nan_direction_hint) const {
-    const auto& rhs = down_cast<const ArrayColumn&>(right_column);
+    const auto& rhs = static_cast<const ArrayColumn&>(right_column);
     const auto offsets = _offsets->immutable_data();
 
     size_t lhs_offset = offsets[left];
@@ -404,7 +403,7 @@ int ArrayColumn::compare_at(size_t left, size_t right, const Column& right_colum
 }
 
 int ArrayColumn::equals(size_t left, const Column& rhs, size_t right, bool safe_eq) const {
-    const auto& rhs_array = down_cast<const ArrayColumn&>(rhs);
+    const auto& rhs_array = static_cast<const ArrayColumn&>(rhs);
 
     const auto offsets = _offsets->immutable_data();
     const auto rhs_offsets = rhs_array.offsets().immutable_data();
@@ -506,7 +505,7 @@ std::pair<size_t, size_t> ArrayColumn::get_element_offset_size(size_t idx) const
 
 size_t ArrayColumn::get_element_null_count(size_t idx) const {
     auto offset_size = get_element_offset_size(idx);
-    auto nullable = down_cast<const NullableColumn*>(_elements.get());
+    auto nullable = static_cast<const NullableColumn*>(_elements.get());
     return nullable->null_count(offset_size.first, offset_size.second);
 }
 
@@ -529,7 +528,7 @@ size_t ArrayColumn::reference_memory_usage(size_t from, size_t size) const {
 }
 
 void ArrayColumn::swap_column(Column& rhs) {
-    auto& array_column = down_cast<ArrayColumn&>(rhs);
+    auto& array_column = static_cast<ArrayColumn&>(rhs);
     _offsets->swap_column(*array_column._offsets);
     _elements->swap_column(*array_column._elements);
 }
@@ -659,15 +658,15 @@ bool ArrayColumn::is_all_array_lengths_equal(const ColumnPtr& v1, const ColumnPt
     }
     auto unpack_const_data_column = [](const ColumnPtr& column) -> ColumnPtr {
         if (column->is_constant()) {
-            return down_cast<const ConstColumn*>(column.get())->data_column();
+            return static_cast<const ConstColumn*>(column.get())->data_column();
         }
         return column;
     };
 
     auto data_v1 = unpack_const_data_column(v1);
     auto data_v2 = unpack_const_data_column(v2);
-    auto* array_v1 = down_cast<const ArrayColumn*>(data_v1.get());
-    auto* array_v2 = down_cast<const ArrayColumn*>(data_v2.get());
+    auto* array_v1 = static_cast<const ArrayColumn*>(data_v1.get());
+    auto* array_v2 = static_cast<const ArrayColumn*>(data_v2.get());
     const auto& offsets_v1 = array_v1->offsets();
     const auto& offsets_v2 = array_v2->offsets();
     if (v1->is_constant() && v2->is_constant()) {

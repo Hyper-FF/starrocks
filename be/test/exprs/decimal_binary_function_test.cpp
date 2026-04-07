@@ -288,7 +288,7 @@ void test_decimal_binary_functions(DecimalTestCaseArray const& test_cases, Mutab
 
     const ColumnType* decimal_column;
     if (result->is_nullable()) {
-        auto nullable_column = down_cast<const NullableColumn*>(result.get());
+        auto nullable_column = static_cast<const NullableColumn*>(result.get());
         decimal_column = (ColumnType*)ColumnHelper::get_data_column(nullable_column);
     } else {
         decimal_column = ColumnHelper::cast_to_raw<ResultType>(result.get());
@@ -352,7 +352,7 @@ void test_decimal_binary_functions_with_nullable_columns(DecimalTestCaseArray co
     ASSERT_TRUE(result.get() != nullptr);
     const ColumnType* decimal_column;
     if (result->is_nullable()) {
-        auto nullable_column = down_cast<const NullableColumn*>(result.get());
+        auto nullable_column = static_cast<const NullableColumn*>(result.get());
         decimal_column = (ColumnType*)ColumnHelper::get_data_column(nullable_column);
     } else {
         decimal_column = ColumnHelper::cast_to_raw<ResultType>(result.get());

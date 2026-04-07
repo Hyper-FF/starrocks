@@ -17,7 +17,7 @@
 #include "base/container/raw_container.h"
 #include "base/hash/hash_util.hpp"
 #include "base/string/slice.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 

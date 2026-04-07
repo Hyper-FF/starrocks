@@ -84,7 +84,7 @@ TEST_F(VectorizedIfExprTest, ifArray) {
     {
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
         if (ptr->is_nullable()) {
-            ptr = down_cast<const NullableColumn*>(ptr.get())->data_column();
+            ptr = static_cast<const NullableColumn*>(ptr.get())->data_column();
         }
         ASSERT_TRUE(ptr->is_array());
         ASSERT_TRUE(array1->equals(0, *ptr, 0));

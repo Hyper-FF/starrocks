@@ -36,8 +36,7 @@
 #include "common/statusor.h"
 #include "exprs/mock_vectorized_expr.h"
 #include "gtest/gtest-param-test.h"
-#include "gutil/casts.h"
-#include "gutil/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "types/json_value.h"
 #include "types/logical_type.h"
 #include "util/json_flattener.h"
@@ -778,7 +777,7 @@ TEST_P(FlatJsonExistsTestFixture, flat_json_exists_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     std::vector<LogicalType> param_flat_type;
     for (auto _ : param_flat_path) {
@@ -853,7 +852,7 @@ TEST_F(JsonFunctionsTest, flat_json_invalid_path_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     std::vector<LogicalType> param_flat_type;
     for (auto _ : param_flat_path) {
@@ -902,7 +901,7 @@ TEST_F(JsonFunctionsTest, flat_json_invalid_constant_json_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     std::vector<LogicalType> param_flat_type;
     for (auto _ : param_flat_path) {
@@ -947,7 +946,7 @@ TEST_F(JsonFunctionsTest, flat_json_variable_path_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     std::vector<LogicalType> param_flat_type;
     for (auto _ : param_flat_path) {
@@ -993,7 +992,7 @@ TEST_F(JsonFunctionsTest, flat_json_invalid_variable_path_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     std::vector<LogicalType> param_flat_type;
     for (auto _ : param_flat_path) {
@@ -1041,7 +1040,7 @@ TEST_F(JsonFunctionsTest, flat_json_invalid_null_path_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     std::vector<LogicalType> param_flat_type;
     for (auto _ : param_flat_path) {
@@ -1088,7 +1087,7 @@ TEST_F(JsonFunctionsTest, flat_json_constant_path_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     std::vector<LogicalType> param_flat_type;
     for (auto _ : param_flat_path) {
@@ -1400,7 +1399,7 @@ TEST_P(FlatJsonLengthTestFixture, flat_json_length_test) {
     Columns flat_columns;
 
     auto flat_json = JsonColumn::create();
-    auto* flat_json_ptr = down_cast<JsonColumn*>(flat_json.get());
+    auto* flat_json_ptr = static_cast<JsonColumn*>(flat_json.get());
 
     std::vector<LogicalType> param_flat_type;
     for (auto _ : param_flat_path) {
@@ -1740,11 +1739,11 @@ TEST_F(JsonFunctionsTest, query_json_obj) {
 
     auto flat_json1 = JsonColumn::create();
     ASSIGN_OR_ABORT(auto jj1, JsonValue::parse(R"({"a1": 1, "b1": 2})"));
-    down_cast<JsonColumn*>(flat_json1.get())->append(jj1);
+    static_cast<JsonColumn*>(flat_json1.get())->append(jj1);
 
     auto remain = JsonColumn::create();
     ASSIGN_OR_ABORT(auto jj2, JsonValue::parse(R"({"has_active_email": false, "c1": 3})"));
-    down_cast<JsonColumn*>(remain.get())->append(jj2);
+    static_cast<JsonColumn*>(remain.get())->append(jj2);
 
     MutableColumns flat_js;
     flat_js.emplace_back(flat_json1->as_mutable_ptr());

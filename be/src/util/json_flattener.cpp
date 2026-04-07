@@ -49,7 +49,6 @@
 #include "exprs/cast_expr.h"
 #include "exprs/column_ref.h"
 #include "exprs/expr_context.h"
-#include "gutil/casts.h"
 #include "runtime/descriptors.h"
 #include "storage/rowset/column_reader.h"
 #include "types/json_value.h"
@@ -162,7 +161,7 @@ void extract_json(const vpack::Slice* json, NullableColumn* result) {
     if (json->isNone()) {
         result->append_nulls(1);
     } else {
-        down_cast<JsonColumn*>(result->data_column_raw_ptr())->append(JsonValue(*json));
+        static_cast<JsonColumn*>(result->data_column_raw_ptr())->append(JsonValue(*json));
         result->null_column_raw_ptr()->append(0);
     }
 }
@@ -170,8 +169,8 @@ void extract_json(const vpack::Slice* json, NullableColumn* result) {
 template <LogicalType TYPE>
 void merge_number(vpack::Builder* builder, const std::string_view& name, const Column* src, size_t idx) {
     DCHECK(src->is_nullable());
-    auto* nullable_column = down_cast<const NullableColumn*>(src);
-    auto* col = down_cast<const RunTimeColumnType<TYPE>*>(nullable_column->data_column().get());
+    auto* nullable_column = static_cast<const NullableColumn*>(src);
+    auto* col = static_cast<const RunTimeColumnType<TYPE>*>(nullable_column->data_column().get());
     const auto data = col->immutable_data().data();
 
     if constexpr (TYPE == LogicalType::TYPE_LARGEINT) {
@@ -184,15 +183,15 @@ void merge_number(vpack::Builder* builder, const std::string_view& name, const C
 
 void merge_string(vpack::Builder* builder, const std::string_view& name, const Column* src, size_t idx) {
     DCHECK(src->is_nullable());
-    auto* nullable_column = down_cast<const NullableColumn*>(src);
-    auto* col = down_cast<const BinaryColumn*>(nullable_column->data_column().get());
+    auto* nullable_column = static_cast<const NullableColumn*>(src);
+    auto* col = static_cast<const BinaryColumn*>(nullable_column->data_column().get());
     builder->addUnchecked(name.data(), name.size(), vpack::Value(col->get_slice(idx).to_string()));
 }
 
 void merge_json(vpack::Builder* builder, const std::string_view& name, const Column* src, size_t idx) {
     DCHECK(src->is_nullable());
-    auto* nullable_column = down_cast<const NullableColumn*>(src);
-    auto* col = down_cast<const JsonColumn*>(nullable_column->data_column().get());
+    auto* nullable_column = static_cast<const NullableColumn*>(src);
+    auto* col = static_cast<const JsonColumn*>(nullable_column->data_column().get());
     builder->addUnchecked(name.data(), name.size(), col->get_object(idx)->to_vslice());
 }
 
@@ -358,7 +357,7 @@ StatusOr<size_t> JsonPathDeriver::check_null_factor(const std::vector<const Colu
             null_count += column->size();
             continue;
         } else if (column->is_nullable()) {
-            auto* nullable_column = down_cast<const NullableColumn*>(column);
+            auto* nullable_column = static_cast<const NullableColumn*>(column);
             null_count += nullable_column->null_count();
         }
     }
@@ -492,12 +491,12 @@ void JsonPathDeriver::_derived_on_flat_json(const std::vector<const Column*>& js
         const JsonColumn* json_col;
         size_t hits = 0;
         if (col->is_nullable()) {
-            auto nullable = down_cast<const NullableColumn*>(col);
+            auto nullable = static_cast<const NullableColumn*>(col);
             hits = col->size() - nullable->null_count();
-            json_col = down_cast<const JsonColumn*>(nullable->data_column().get());
+            json_col = static_cast<const JsonColumn*>(nullable->data_column().get());
         } else {
             hits = col->size();
-            json_col = down_cast<const JsonColumn*>(col);
+            json_col = static_cast<const JsonColumn*>(col);
         }
 
         if (!json_col->is_flat_json()) {
@@ -520,15 +519,15 @@ void JsonPathDeriver::_derived(const Column* col, size_t mark_row) {
     const JsonColumn* json_col;
 
     if (col->is_nullable()) {
-        auto nullable = down_cast<const NullableColumn*>(col);
-        json_col = down_cast<const JsonColumn*>(nullable->data_column().get());
+        auto nullable = static_cast<const NullableColumn*>(col);
+        json_col = static_cast<const JsonColumn*>(nullable->data_column().get());
     } else {
-        json_col = down_cast<const JsonColumn*>(col);
+        json_col = static_cast<const JsonColumn*>(col);
     }
 
     if (json_col->is_flat_json()) {
         if (json_col->has_remain()) {
-            json_col = down_cast<const JsonColumn*>(json_col->get_remain().get());
+            json_col = static_cast<const JsonColumn*>(json_col->get_remain().get());
         } else {
             return;
         }
@@ -791,7 +790,7 @@ JsonFlattener::JsonFlattener(JsonPathDeriver& deriver) {
 
     if (_has_remain) {
         _flat_columns.emplace_back(ColumnHelper::create_column(TypeDescriptor(LogicalType::TYPE_JSON), false));
-        _remain = down_cast<JsonColumn*>(_flat_columns.back().get());
+        _remain = static_cast<JsonColumn*>(_flat_columns.back().get());
     }
 }
 
@@ -810,7 +809,7 @@ JsonFlattener::JsonFlattener(const std::vector<std::string>& paths, const std::v
 
     if (_has_remain) {
         _flat_columns.emplace_back(ColumnHelper::create_column(TypeDescriptor(LogicalType::TYPE_JSON), false));
-        _remain = down_cast<JsonColumn*>(_flat_columns.back().get());
+        _remain = static_cast<JsonColumn*>(_flat_columns.back().get());
     }
 }
 void JsonFlattener::flatten(const Column* json_column) {
@@ -822,22 +821,22 @@ void JsonFlattener::flatten(const Column* json_column) {
     const JsonColumn* json_data = nullptr;
     if (json_column->is_nullable()) {
         // append null column
-        auto* nullable_column = down_cast<const NullableColumn*>(json_column);
-        json_data = down_cast<const JsonColumn*>(nullable_column->data_column().get());
+        auto* nullable_column = static_cast<const NullableColumn*>(json_column);
+        json_data = static_cast<const JsonColumn*>(nullable_column->data_column().get());
     } else {
-        json_data = down_cast<const JsonColumn*>(json_column);
+        json_data = static_cast<const JsonColumn*>(json_column);
     }
 
     // output
     if (_has_remain) {
         _flatten<true>(json_column, json_data);
         for (size_t i = 0; i < _flat_columns.size() - 1; i++) {
-            down_cast<NullableColumn*>(_flat_columns[i].get())->update_has_null();
+            static_cast<NullableColumn*>(_flat_columns[i].get())->update_has_null();
         }
     } else {
         _flatten<false>(json_column, json_data);
         for (size_t i = 0; i < _flat_columns.size(); i++) {
-            down_cast<NullableColumn*>(_flat_columns[i].get())->update_has_null();
+            static_cast<NullableColumn*>(_flat_columns[i].get())->update_has_null();
         }
     }
 
@@ -881,7 +880,7 @@ bool JsonFlattener::_flatten_json(const vpack::Slice& value, const JsonFlatPath*
             auto index = child->second->index;
             DCHECK(_flat_columns.size() > index);
             DCHECK(_flat_columns[index]->is_nullable());
-            auto* c = down_cast<NullableColumn*>(_flat_columns[index].get());
+            auto* c = static_cast<NullableColumn*>(_flat_columns[index].get());
             DCHECK(flat_json::JSON_EXTRACT_FUNC.contains(child->second->type))
                     << "unsupported json type: " << child->second->type;
             auto func = flat_json::JSON_EXTRACT_FUNC.at(child->second->type);
@@ -976,7 +975,7 @@ MutableColumns JsonFlattener::mutable_result() {
         _flat_columns[i] = std::move(cloned);
     }
     if (_has_remain) {
-        _remain = down_cast<JsonColumn*>(_flat_columns.back().get());
+        _remain = static_cast<JsonColumn*>(_flat_columns.back().get());
     }
     return res;
 }
@@ -1036,9 +1035,9 @@ ColumnPtr JsonMerger::merge(const Columns& columns) {
     DCHECK(_src_columns.empty());
 
     _result = NullableColumn::create(JsonColumn::create(), NullColumn::create());
-    auto* nullable_result = down_cast<NullableColumn*>(_result.get());
-    _json_result = down_cast<JsonColumn*>(nullable_result->data_column_raw_ptr());
-    _null_result = down_cast<NullColumn*>(nullable_result->null_column_raw_ptr());
+    auto* nullable_result = static_cast<NullableColumn*>(_result.get());
+    _json_result = static_cast<JsonColumn*>(nullable_result->data_column_raw_ptr());
+    _null_result = static_cast<NullColumn*>(nullable_result->null_column_raw_ptr());
     size_t rows = columns[0]->size();
     _result->reserve(rows);
 
@@ -1054,12 +1053,12 @@ ColumnPtr JsonMerger::merge(const Columns& columns) {
 
     _src_columns.clear();
     if (_output_nullable) {
-        down_cast<NullableColumn*>(_result.get())->update_has_null();
+        static_cast<NullableColumn*>(_result.get())->update_has_null();
         // IMPORTANT: Check column integrity to prevent NullableColumn inconsistency
         _result->check_or_die();
         return _result;
     } else {
-        auto data_column = down_cast<NullableColumn*>(_result.get())->data_column();
+        auto data_column = static_cast<NullableColumn*>(_result.get())->data_column();
         // IMPORTANT: Check column integrity to prevent NullableColumn inconsistency
         data_column->check_or_die();
         return data_column;
@@ -1069,7 +1068,7 @@ ColumnPtr JsonMerger::merge(const Columns& columns) {
 template <bool IN_TREE>
 void JsonMerger::_merge_impl(size_t rows) {
     if (_has_remain) {
-        auto remain = down_cast<const JsonColumn*>(_src_columns.back());
+        auto remain = static_cast<const JsonColumn*>(_src_columns.back());
         for (size_t i = 0; i < rows; i++) {
             auto obj = remain->get_object(i);
             auto vs = obj->to_vslice();
@@ -1579,7 +1578,7 @@ Status HyperJsonTransformer::_cast(const MergeTask& task, const ColumnPtr& col) 
         auto check = _dst_columns[task.dst_index]->append_nulls(col->size());
         DCHECK(check);
     } else if (res->is_constant()) {
-        auto data = down_cast<ConstColumn*>(res.get())->data_column();
+        auto data = static_cast<ConstColumn*>(res.get())->data_column();
         _dst_columns[task.dst_index]->append_value_multiple_times(*data, 0, col->size());
     } else if (_dst_columns[task.dst_index]->is_nullable() && !res->is_nullable()) {
         auto nl = NullColumn::create(col->size(), 0);

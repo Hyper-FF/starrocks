@@ -36,15 +36,15 @@ ColumnPtr ColumnHelper::convert_time_column_from_double_to_str(const ColumnPtr& 
     if (column->only_null()) {
         res = column;
     } else if (column->is_nullable()) {
-        auto* nullable_column = down_cast<const NullableColumn*>(column.get());
-        auto* data_column = down_cast<const DoubleColumn*>(nullable_column->data_column().get());
+        auto* nullable_column = static_cast<const NullableColumn*>(column.get());
+        auto* data_column = static_cast<const DoubleColumn*>(nullable_column->data_column().get());
         res = NullableColumn::create(get_binary_column(data_column, column->size()), nullable_column->null_column());
     } else if (column->is_constant()) {
-        auto* const_column = down_cast<const ConstColumn*>(column.get());
+        auto* const_column = static_cast<const ConstColumn*>(column.get());
         std::string time_str = time_str_from_double(const_column->get(0).get_double());
         res = ColumnHelper::create_const_column<TYPE_VARCHAR>(time_str, column->size());
     } else {
-        auto* data_column = down_cast<const DoubleColumn*>(column.get());
+        auto* data_column = static_cast<const DoubleColumn*>(column.get());
         res = get_binary_column(data_column, column->size());
     }
 

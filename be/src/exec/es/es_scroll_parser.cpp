@@ -293,12 +293,12 @@ template <LogicalType type, typename CppType>
 void ScrollParser::_append_data(Column* column, CppType& value) {
     auto appender = [](auto* column, CppType& value) {
         using ColumnType = typename starrocks::RunTimeColumnType<type>;
-        auto* runtime_column = down_cast<ColumnType*>(column);
+        auto* runtime_column = static_cast<ColumnType*>(column);
         runtime_column->append(value);
     };
 
     if (column->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(column);
+        auto* nullable_column = static_cast<NullableColumn*>(column);
         auto* data_column = nullable_column->data_column_raw_ptr();
         NullData& null_data = nullable_column->null_column_data();
         null_data.push_back(0);
@@ -551,13 +551,13 @@ Status ScrollParser::_append_array_val(const rapidjson::Value& col, const TypeDe
     ArrayColumn* array = nullptr;
 
     if (column->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(column);
+        auto* nullable_column = static_cast<NullableColumn*>(column);
         auto* data_column = nullable_column->data_column_raw_ptr();
         NullData& null_data = nullable_column->null_column_data();
         null_data.push_back(0);
-        array = down_cast<ArrayColumn*>(data_column);
+        array = static_cast<ArrayColumn*>(data_column);
     } else {
-        array = down_cast<ArrayColumn*>(column);
+        array = static_cast<ArrayColumn*>(column);
     }
 
     auto* offsets = array->offsets_column_raw_ptr();

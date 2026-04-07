@@ -44,8 +44,8 @@
 #include "column/chunk.h"
 #include "column/fixed_length_column.h"
 #include "column/schema.h"
-#include "gutil/endian.h"
-#include "gutil/stringprintf.h"
+#include "base/gutil/endian.h"
+#include "base/gutil/stringprintf.h"
 #include "storage/dictionary_cache_manager.h"
 #include "storage/tablet_schema.h"
 #include "types/date_value.h"
@@ -302,7 +302,7 @@ Status PrimaryKeyEncoder::create_column(const Schema& schema, MutableColumnPtr* 
         }
     } else {
         // composite keys encoding to binary
-        // TODO(cbl): support fixed length encoded keys, e.g. (int32, int32) => int64
+        // TODO(cbl): support fixed length encoded keys, e.g. (int32_t, int32_t) => int64_t
         if (large_column) {
             *pcolumn = LargeBinaryColumn::create();
         } else {
@@ -364,14 +364,14 @@ void PrimaryKeyEncoder::encode(const Schema& schema, const Chunk& chunk, size_t 
         // simple encoding without big-endian transformation
         auto& src = chunk.get_column_by_index(0);
         if (dest->is_large_binary() && src->is_binary()) {
-            auto& bdest = down_cast<LargeBinaryColumn&>(*dest);
-            const auto& bsrc = down_cast<const BinaryColumn&>(*src);
+            auto& bdest = static_cast<LargeBinaryColumn&>(*dest);
+            const auto& bsrc = static_cast<const BinaryColumn&>(*src);
             for (size_t i = 0; i < len; i++) {
                 bdest.append(bsrc.get_slice(offset + i));
             }
         } else if (dest->is_binary() && src->is_large_binary()) {
-            auto& bdest = down_cast<BinaryColumn&>(*dest);
-            const auto& bsrc = down_cast<const LargeBinaryColumn&>(*src);
+            auto& bdest = static_cast<BinaryColumn&>(*dest);
+            const auto& bsrc = static_cast<const LargeBinaryColumn&>(*src);
             for (size_t i = 0; i < len; i++) {
                 bdest.append(bsrc.get_slice(offset + i));
             }
@@ -388,7 +388,7 @@ void PrimaryKeyEncoder::encode(const Schema& schema, const Chunk& chunk, size_t 
         std::iota(primary_key_iota_idxes.begin(), primary_key_iota_idxes.end(), 0);
         prepare_ops_datas(schema, primary_key_iota_idxes, chunk, &ops, &datas);
         if (dest->is_binary()) {
-            auto& bdest = down_cast<BinaryColumn&>(*dest);
+            auto& bdest = static_cast<BinaryColumn&>(*dest);
             bdest.reserve(bdest.size() + len);
             std::string buff;
             for (size_t i = 0; i < len; i++) {
@@ -399,7 +399,7 @@ void PrimaryKeyEncoder::encode(const Schema& schema, const Chunk& chunk, size_t 
                 bdest.append(buff);
             }
         } else {
-            auto& bdest = down_cast<LargeBinaryColumn&>(*dest);
+            auto& bdest = static_cast<LargeBinaryColumn&>(*dest);
             bdest.reserve(bdest.size() + len);
             std::string buff;
             for (size_t i = 0; i < len; i++) {
@@ -432,7 +432,7 @@ Status PrimaryKeyEncoder::encode_sort_key(const Schema& schema, const Chunk& chu
         }
     }
     if (dest->is_binary()) {
-        auto& bdest = down_cast<BinaryColumn&>(*dest);
+        auto& bdest = static_cast<BinaryColumn&>(*dest);
         bdest.reserve(bdest.size() + len);
         std::string buff;
         if (!has_nullable_sort_key) {
@@ -458,7 +458,7 @@ Status PrimaryKeyEncoder::encode_sort_key(const Schema& schema, const Chunk& chu
             }
         }
     } else {
-        auto& bdest = down_cast<LargeBinaryColumn&>(*dest);
+        auto& bdest = static_cast<LargeBinaryColumn&>(*dest);
         bdest.reserve(bdest.size() + len);
         std::string buff;
         if (!has_nullable_sort_key) {
@@ -503,7 +503,7 @@ void PrimaryKeyEncoder::encode_selective(const Schema& schema, const Chunk& chun
         std::iota(primary_key_iota_idxes.begin(), primary_key_iota_idxes.end(), 0);
         prepare_ops_datas(schema, primary_key_iota_idxes, chunk, &ops, &datas);
         if (dest->is_binary()) {
-            auto& bdest = down_cast<BinaryColumn&>(*dest);
+            auto& bdest = static_cast<BinaryColumn&>(*dest);
             bdest.reserve(bdest.size() + len);
             std::string buff;
             for (int i = 0; i < len; i++) {
@@ -515,7 +515,7 @@ void PrimaryKeyEncoder::encode_selective(const Schema& schema, const Chunk& chun
                 bdest.append(buff);
             }
         } else {
-            auto& bdest = down_cast<LargeBinaryColumn&>(*dest);
+            auto& bdest = static_cast<LargeBinaryColumn&>(*dest);
             bdest.reserve(bdest.size() + len);
             std::string buff;
             for (int i = 0; i < len; i++) {
@@ -586,17 +586,17 @@ bool PrimaryKeyEncoder::encode_exceed_limit(const Schema& schema, const Chunk& c
 template <LogicalType LT>
 void decode_pk_fixed_value(Slice* s, Column& column) {
     if constexpr (LT == TYPE_DATE) {
-        auto& tc = down_cast<DateColumn&>(column);
+        auto& tc = static_cast<DateColumn&>(column);
         DateValue v;
         decode_integral(s, &v._julian);
         tc.append(v);
     } else if constexpr (LT == TYPE_DATETIME) {
-        auto& tc = down_cast<TimestampColumn&>(column);
+        auto& tc = static_cast<TimestampColumn&>(column);
         TimestampValue v;
         decode_integral(s, &v._timestamp);
         tc.append(v);
     } else {
-        auto& tc = down_cast<RunTimeColumnType<LT>&>(column);
+        auto& tc = static_cast<RunTimeColumnType<LT>&>(column);
         RunTimeCppType<LT> v;
         decode_integral(s, &v);
         tc.append(v);
@@ -624,7 +624,7 @@ Status decode_internal(const Schema& schema, const T& bkeys, size_t offset, size
                 APPLY_FOR_ALL_PK_SUPPORT_FIXED_TYPE(M)
 #undef M
             case TYPE_VARCHAR: {
-                auto& tc = down_cast<BinaryColumn&>(column);
+                auto& tc = static_cast<BinaryColumn&>(column);
                 bool fast_decode = value_encode_flags != nullptr ? (bool)((*value_encode_flags)[i]) : false;
                 if (!fast_decode) {
                     std::string v;
@@ -652,10 +652,10 @@ Status PrimaryKeyEncoder::decode(const Schema& schema, const Column& keys, size_
     } else {
         RETURN_ERROR_IF_FALSE(keys.is_binary() || keys.is_large_binary());
         if (keys.is_binary()) {
-            auto& bkeys = down_cast<const BinaryColumn&>(keys);
+            auto& bkeys = static_cast<const BinaryColumn&>(keys);
             return decode_internal(schema, bkeys, offset, len, dest, value_encode_flags);
         } else {
-            auto& bkeys = down_cast<const LargeBinaryColumn&>(keys);
+            auto& bkeys = static_cast<const LargeBinaryColumn&>(keys);
             return decode_internal(schema, bkeys, offset, len, dest, value_encode_flags);
         }
     }

@@ -53,18 +53,18 @@ public:
 
             // merge null flags for each level
             if (col->is_nullable()) {
-                const auto* nullable = down_cast<const NullableColumn*>(col.get());
+                const auto* nullable = static_cast<const NullableColumn*>(col.get());
                 union_null_column = FunctionHelper::union_null_column(union_null_column, nullable->null_column());
             }
 
             const Column* tmp_col = ColumnHelper::get_data_column(col.get());
             DCHECK(tmp_col->is_struct());
-            const auto* struct_column = down_cast<const StructColumn*>(tmp_col);
+            const auto* struct_column = static_cast<const StructColumn*>(tmp_col);
             ASSIGN_OR_RETURN(col, struct_column->field_column(fieldname));
         }
 
         if (col->is_nullable()) {
-            const auto* nullable = down_cast<const NullableColumn*>(col.get());
+            const auto* nullable = static_cast<const NullableColumn*>(col.get());
             union_null_column = FunctionHelper::union_null_column(union_null_column, nullable->null_column());
             col = nullable->data_column();
         }

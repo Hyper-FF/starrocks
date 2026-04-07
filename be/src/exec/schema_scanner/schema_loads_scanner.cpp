@@ -70,7 +70,7 @@ bool _try_parse_datetime_range_predicate(const SchemaScannerParam* param, Expr* 
         return false;
     }
 
-    const SlotId slot_id = down_cast<const ColumnRef*>(slot_child)->slot_id();
+    const SlotId slot_id = static_cast<const ColumnRef*>(slot_child)->slot_id();
     auto& slot_id_mapping = param->slot_id_mapping;
     if (const auto it = slot_id_mapping.find(slot_id);
         it == slot_id_mapping.end() || !boost::iequals(it->second->col_name(), col_name)) {
@@ -259,7 +259,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice profile_id = Slice(info.profile_id);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&profile_id);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -287,7 +287,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice warehouse = Slice(info.warehouse);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&warehouse);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -349,7 +349,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (!s.ok()) {
                     LOG(WARNING) << "parse runtime details failed. runtime details:" << runtime_details.to_string()
                                  << " error:" << s;
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 } else {
                     fill_column_with_slot<TYPE_JSON>(column, (void*)&json_value_ptr);
                 }
@@ -364,7 +364,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 19: {
@@ -376,7 +376,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 20: {
@@ -388,7 +388,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 21: {
@@ -400,7 +400,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 22: {
@@ -411,7 +411,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 Status s = JsonValue::parse(properties, &json_value);
                 if (!s.ok()) {
                     LOG(WARNING) << "parse properties failed. properties:" << properties.to_string() << " error:" << s;
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 } else {
                     fill_column_with_slot<TYPE_JSON>(column, (void*)&json_value_ptr);
                 }
@@ -423,7 +423,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice error_msg = Slice(info.error_msg);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&error_msg);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -433,7 +433,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice sql = Slice(info.tracking_sql);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&sql);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -443,7 +443,7 @@ Status SchemaLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice path = Slice(info.rejected_record_path);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&path);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }

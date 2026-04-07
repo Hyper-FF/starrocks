@@ -20,7 +20,7 @@
 #include <variant>
 
 #include "base/container/lru_cache.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace starrocks {
 class CacheKey;

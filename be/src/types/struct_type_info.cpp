@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "common/logging.h"
-#include "gutil/casts.h"
 #include "types/type_info.h"
 
 namespace starrocks {
@@ -61,7 +60,7 @@ TypeInfoPtr get_struct_type_info(std::vector<TypeInfoPtr> field_types) {
 }
 
 const std::vector<TypeInfoPtr>& get_struct_field_types(const TypeInfo* type_info) {
-    auto struct_type = down_cast<const StructTypeInfo*>(type_info);
+    auto struct_type = static_cast<const StructTypeInfo*>(type_info);
     return struct_type->field_types();
 }
 

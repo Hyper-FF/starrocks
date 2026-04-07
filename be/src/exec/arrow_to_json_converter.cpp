@@ -24,7 +24,6 @@
 #include "arrow/type_traits.h"
 #include "column/json_column.h"
 #include "common/statusor.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "types/json_value.h"
 
@@ -148,7 +147,7 @@ static Status convert_multi_arrow_primitive(const Array* array, JsonColumn* outp
     case type: {                                                                 \
         using TypeClass = TypeIdTraits<type>::Type;                              \
         using ArrayType = TypeTraits<TypeClass>::ArrayType;                      \
-        auto real_array = down_cast<const ArrayType*>(array);                    \
+        auto real_array = static_cast<const ArrayType*>(array);                    \
         for (int i = array_start_idx; i < array_start_idx + num_elements; i++) { \
             vpack::Builder builder;                                              \
             if (is_physical_signed(type)) {                                      \
@@ -171,7 +170,7 @@ static Status convert_multi_arrow_primitive(const Array* array, JsonColumn* outp
 #undef M
 
     case Type::BOOL: {
-        auto real_array = down_cast<const BooleanArray*>(array);
+        auto real_array = static_cast<const BooleanArray*>(array);
         auto array_end_idx = std::min(array_start_idx + num_elements, static_cast<size_t>(array->length()));
         for (size_t i = array_start_idx; i < array_end_idx; i++) {
             vpack::Builder builder;
@@ -181,7 +180,7 @@ static Status convert_multi_arrow_primitive(const Array* array, JsonColumn* outp
         break;
     }
     case Type::STRING: {
-        auto real_array = down_cast<const StringArray*>(array);
+        auto real_array = static_cast<const StringArray*>(array);
         auto array_end_idx = std::min(array_start_idx + num_elements, static_cast<size_t>(array->length()));
         for (size_t i = array_start_idx; i < array_end_idx; i++) {
             vpack::Builder builder;
@@ -221,7 +220,7 @@ static Status convert_single_arrow_struct(const StructArray* array, int offset, 
 static StatusOr<std::string> convert_array_element_to_string(const Array* array, int offset) {
     switch (array->type_id()) {
     case Type::STRING: {
-        auto key_array = down_cast<const StringArray*>(array);
+        auto key_array = static_cast<const StringArray*>(array);
         return key_array->GetString(offset);
     }
 #define M(type)                                                          \
@@ -229,7 +228,7 @@ static StatusOr<std::string> convert_array_element_to_string(const Array* array,
         using TypeClass = TypeIdTraits<type>::Type;                      \
         using ArrayType = TypeTraits<TypeClass>::ArrayType;              \
         using CType = TypeTraits<TypeClass>::CType;                      \
-        CType value = down_cast<const ArrayType*>(array)->Value(offset); \
+        CType value = static_cast<const ArrayType*>(array)->Value(offset); \
         return std::to_string(value);                                    \
     }
 
@@ -262,7 +261,7 @@ static Status convert_arrow_to_json_element(const Array* array, Type::type type_
         using TypeClass = TypeIdTraits<type>::Type;                      \
         using ArrayType = TypeTraits<TypeClass>::ArrayType;              \
         using CType = TypeTraits<TypeClass>::CType;                      \
-        CType value = down_cast<const ArrayType*>(array)->Value(offset); \
+        CType value = static_cast<const ArrayType*>(array)->Value(offset); \
         builder->add(field_name, vpack::Value(value));                   \
         break;                                                           \
     }
@@ -272,30 +271,30 @@ static Status convert_arrow_to_json_element(const Array* array, Type::type type_
 #undef M
 
     case Type::BOOL: {
-        bool value = down_cast<const BooleanArray*>(array)->Value(offset);
+        bool value = static_cast<const BooleanArray*>(array)->Value(offset);
         builder->add(field_name, vpack::Value(value));
         break;
     }
     case Type::STRING: {
-        auto value = down_cast<const StringArray*>(array)->Value(offset);
+        auto value = static_cast<const StringArray*>(array)->Value(offset);
         builder->add(field_name, vpack::Value(std::string_view(value.data(), value.length())));
         break;
     }
     case Type::STRUCT: {
         vpack::Builder sub_builder;
-        RETURN_IF_ERROR(convert_single_arrow_struct(down_cast<const StructArray*>(array), offset, &sub_builder));
+        RETURN_IF_ERROR(convert_single_arrow_struct(static_cast<const StructArray*>(array), offset, &sub_builder));
         builder->add(field_name, sub_builder.slice());
         break;
     }
     case Type::LIST: {
         vpack::Builder sub_builder;
-        RETURN_IF_ERROR(convert_single_arrow_list(down_cast<const ListArray*>(array), offset, &sub_builder));
+        RETURN_IF_ERROR(convert_single_arrow_list(static_cast<const ListArray*>(array), offset, &sub_builder));
         builder->add(field_name, sub_builder.slice());
         break;
     }
     case Type::MAP: {
         vpack::Builder sub_builder;
-        RETURN_IF_ERROR(convert_single_arrow_map(down_cast<const MapArray*>(array), offset, &sub_builder));
+        RETURN_IF_ERROR(convert_single_arrow_map(static_cast<const MapArray*>(array), offset, &sub_builder));
         builder->add(field_name, sub_builder.slice());
         break;
     }
@@ -314,17 +313,17 @@ static Status convert_arrow_to_json_array(const Array* array, Type::type value_t
     case t: {                                                                            \
         using TypeClass = TypeIdTraits<t>::Type;                                         \
         using ArrayType = TypeTraits<TypeClass>::ArrayType;                              \
-        return convert_arrow_to_json_array(down_cast<const ArrayType*>(array), builder); \
+        return convert_arrow_to_json_array(static_cast<const ArrayType*>(array), builder); \
     }
         APPLY_FOR_ALL_NUMERIC(M)
 #undef M
 
     case Type::BOOL:
-        return convert_arrow_to_json_array(down_cast<const BooleanArray*>(array), builder);
+        return convert_arrow_to_json_array(static_cast<const BooleanArray*>(array), builder);
     case Type::STRING:
-        return convert_arrow_to_json_array(down_cast<const StringArray*>(array), builder);
+        return convert_arrow_to_json_array(static_cast<const StringArray*>(array), builder);
     case Type::STRUCT: {
-        auto real_array = down_cast<const StructArray*>(array);
+        auto real_array = static_cast<const StructArray*>(array);
         builder->openArray();
         for (int i = 0; i < array->length(); i++) {
             RETURN_IF_ERROR(convert_single_arrow_struct(real_array, i, builder));
@@ -333,7 +332,7 @@ static Status convert_arrow_to_json_array(const Array* array, Type::type value_t
         break;
     }
     case Type::LIST: {
-        auto real_array = down_cast<const ListArray*>(array);
+        auto real_array = static_cast<const ListArray*>(array);
         builder->openArray();
         for (int i = 0; i < array->length(); i++) {
             RETURN_IF_ERROR(convert_single_arrow_list(real_array, i, builder));
@@ -342,7 +341,7 @@ static Status convert_arrow_to_json_array(const Array* array, Type::type value_t
         break;
     }
     case Type::MAP: {
-        auto real_array = down_cast<const MapArray*>(array);
+        auto real_array = static_cast<const MapArray*>(array);
         builder->openArray();
         for (int i = 0; i < array->length(); i++) {
             RETURN_IF_ERROR(convert_single_arrow_map(real_array, i, builder));
@@ -384,11 +383,11 @@ Status convert_arrow_to_json(const Array* array, JsonColumn* output, size_t arra
     auto type = array->type_id();
     switch (type) {
     case Type::LIST:
-        return convert_multi_arrow_list(down_cast<const ListArray*>(array), output, array_start_idx, num_elements);
+        return convert_multi_arrow_list(static_cast<const ListArray*>(array), output, array_start_idx, num_elements);
     case Type::STRUCT:
-        return convert_multi_arrow_struct(down_cast<const StructArray*>(array), output, array_start_idx, num_elements);
+        return convert_multi_arrow_struct(static_cast<const StructArray*>(array), output, array_start_idx, num_elements);
     case Type::MAP:
-        return convert_multi_arrow_map(down_cast<const MapArray*>(array), output, array_start_idx, num_elements);
+        return convert_multi_arrow_map(static_cast<const MapArray*>(array), output, array_start_idx, num_elements);
 
     case Type::STRING:
     case Type::BOOL:

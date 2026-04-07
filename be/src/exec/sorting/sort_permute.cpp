@@ -32,8 +32,7 @@
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "exec/sorting/sorting.h"
-#include "gutil/casts.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 
@@ -102,7 +101,7 @@ public:
         null_columns.reserve(_columns.size());
         data_columns.reserve(_columns.size());
         for (auto& col : _columns) {
-            const auto* src_column = down_cast<const NullableColumn*>(col);
+            const auto* src_column = static_cast<const NullableColumn*>(col);
             null_columns.push_back(src_column->null_column());
             data_columns.push_back(src_column->data_column());
         }
@@ -132,7 +131,7 @@ public:
         data.resize(output + _perm.size());
 
         for (auto& p : _perm) {
-            const Container& container = down_cast<const ColumnType*>(_columns[PermTraits::chunk(p)])->immutable_data();
+            const Container& container = static_cast<const ColumnType*>(_columns[PermTraits::chunk(p)])->immutable_data();
             data[output++] = container[PermTraits::index(p)];
         }
 
@@ -149,7 +148,7 @@ public:
         data.resize(output + _perm.size());
 
         for (auto& p : _perm) {
-            const Container& container = down_cast<const ColumnType*>(_columns[PermTraits::chunk(p)])->immutable_data();
+            const Container& container = static_cast<const ColumnType*>(_columns[PermTraits::chunk(p)])->immutable_data();
             data[output++] = container[PermTraits::index(p)];
         }
 
@@ -179,7 +178,7 @@ public:
         size_t added_bytes = 0;
 
         for (auto& p : _perm) {
-            Slice slice = down_cast<const BinaryColumnBase<T>*>(_columns[PermTraits::chunk(p)])
+            Slice slice = static_cast<const BinaryColumnBase<T>*>(_columns[PermTraits::chunk(p)])
                                   ->get_slice(PermTraits::index(p));
             added_bytes += slice.get_size();
             slices.push_back(slice);

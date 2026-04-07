@@ -155,7 +155,7 @@ ColumnPtr PushBrokerReader::_build_hll_column(const ColumnPtr& column) {
 ColumnPtr PushBrokerReader::_padding_char_column(const ColumnPtr& column, const SlotDescriptor* slot_desc,
                                                  size_t num_rows) {
     const Column* data_column = ColumnHelper::get_data_column(column.get());
-    const auto* binary = down_cast<const BinaryColumn*>(data_column);
+    const auto* binary = static_cast<const BinaryColumn*>(data_column);
     const auto offsets = binary->get_offset();
     uint32_t len = slot_desc->type().len;
 
@@ -179,7 +179,7 @@ ColumnPtr PushBrokerReader::_padding_char_column(const ColumnPtr& column, const 
     }
 
     if (slot_desc->is_nullable()) {
-        auto* nullable_column = down_cast<const NullableColumn*>(column.get());
+        auto* nullable_column = static_cast<const NullableColumn*>(column.get());
         return NullableColumn::create(std::move(new_binary), nullable_column->null_column());
     }
     return new_binary;

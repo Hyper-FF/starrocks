@@ -18,7 +18,6 @@
 
 #include "column/runtime_type_traits.h"
 #include "exprs/agg/aggregate.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -62,7 +61,7 @@ public:
                 size_t row_num) const override {
         DCHECK(columns[0]->is_numeric() || columns[0]->is_decimal());
 
-        const auto* column = down_cast<const InputColumnType*>(columns[0]);
+        const auto* column = static_cast<const InputColumnType*>(columns[0]);
 
         int64_t temp = 1 + this->data(state).count;
 
@@ -140,7 +139,7 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_binary());
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
 
         size_t old_size = bytes.size();
@@ -157,7 +156,7 @@ public:
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         DCHECK(dst->is_binary());
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
         Bytes& bytes = dst_column->get_bytes();
         size_t old_size = bytes.size();
 
@@ -165,7 +164,7 @@ public:
         bytes.resize(one_element_size * chunk_size);
         dst_column->get_offset().resize(chunk_size + 1);
 
-        const auto* src_column = down_cast<const InputColumnType*>(src[0].get());
+        const auto* src_column = static_cast<const InputColumnType*>(src[0].get());
 
         TResult mean = {};
         TResult m2;
@@ -216,45 +215,45 @@ public:
         if constexpr (lt_is_decimalv2<LT>) {
             if constexpr (is_sample) {
                 if (count > 1) {
-                    down_cast<ResultColumnType*>(to)->append(this->data(state).m2 / DecimalV2Value(count - 1, 0));
+                    static_cast<ResultColumnType*>(to)->append(this->data(state).m2 / DecimalV2Value(count - 1, 0));
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(DecimalV2Value(0));
+                    static_cast<ResultColumnType*>(to)->append(DecimalV2Value(0));
                 }
             } else {
                 if (count > 0) {
-                    down_cast<ResultColumnType*>(to)->append(this->data(state).m2 / DecimalV2Value(count, 0));
+                    static_cast<ResultColumnType*>(to)->append(this->data(state).m2 / DecimalV2Value(count, 0));
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(DecimalV2Value(0));
+                    static_cast<ResultColumnType*>(to)->append(DecimalV2Value(0));
                 }
             }
         } else if constexpr (lt_is_decimal128<LT>) {
             if constexpr (is_sample) {
                 if (count > 1) {
                     auto result = (Decimal128P38S9(this->data(state).m2) / (count - 1)).value();
-                    down_cast<ResultColumnType*>(to)->append(result);
+                    static_cast<ResultColumnType*>(to)->append(result);
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(TResult(0));
+                    static_cast<ResultColumnType*>(to)->append(TResult(0));
                 }
             } else {
                 if (count > 0) {
                     auto result = (Decimal128P38S9(this->data(state).m2) / count).value();
-                    down_cast<ResultColumnType*>(to)->append(result);
+                    static_cast<ResultColumnType*>(to)->append(result);
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(TResult(0));
+                    static_cast<ResultColumnType*>(to)->append(TResult(0));
                 }
             }
         } else {
             if constexpr (is_sample) {
                 if (count > 1) {
-                    down_cast<ResultColumnType*>(to)->append(this->data(state).m2 / (count - 1));
+                    static_cast<ResultColumnType*>(to)->append(this->data(state).m2 / (count - 1));
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(0);
+                    static_cast<ResultColumnType*>(to)->append(0);
                 }
             } else {
                 if (count > 0) {
-                    down_cast<ResultColumnType*>(to)->append(this->data(state).m2 / count);
+                    static_cast<ResultColumnType*>(to)->append(this->data(state).m2 / count);
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(0);
+                    static_cast<ResultColumnType*>(to)->append(0);
                 }
             }
         }
@@ -310,7 +309,7 @@ public:
             }
         }
 
-        auto* column = down_cast<ResultColumnType*>(dst);
+        auto* column = static_cast<ResultColumnType*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = result;
         }
@@ -350,18 +349,18 @@ public:
                     result = this->data(state).m2 / DecimalV2Value(count - 1, 0);
                     const double value = sqrt(static_cast<double>(result));
                     result.assign_from_double(value);
-                    down_cast<ResultColumnType*>(to)->append(result);
+                    static_cast<ResultColumnType*>(to)->append(result);
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(DecimalV2Value(0));
+                    static_cast<ResultColumnType*>(to)->append(DecimalV2Value(0));
                 }
             } else {
                 if (count > 0) {
                     result = this->data(state).m2 / DecimalV2Value(count, 0);
                     const double value = sqrt(static_cast<double>(result));
                     result.assign_from_double(value);
-                    down_cast<ResultColumnType*>(to)->append(result);
+                    static_cast<ResultColumnType*>(to)->append(result);
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(DecimalV2Value(0));
+                    static_cast<ResultColumnType*>(to)->append(DecimalV2Value(0));
                 }
             }
         } else if constexpr (lt_is_decimal128<LT>) {
@@ -370,31 +369,31 @@ public:
                 if (count > 1) {
                     auto double_val = (Decimal128P38S9(this->data(state).m2) / (count - 1)).double_value();
                     result = Decimal128P38S9(sqrt(double_val)).value();
-                    down_cast<ResultColumnType*>(to)->append(result);
+                    static_cast<ResultColumnType*>(to)->append(result);
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(TResult(0));
+                    static_cast<ResultColumnType*>(to)->append(TResult(0));
                 }
             } else {
                 if (count > 0) {
                     auto double_val = (Decimal128P38S9(this->data(state).m2) / count).double_value();
                     result = Decimal128P38S9(sqrt(double_val)).value();
-                    down_cast<ResultColumnType*>(to)->append(result);
+                    static_cast<ResultColumnType*>(to)->append(result);
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(TResult(0));
+                    static_cast<ResultColumnType*>(to)->append(TResult(0));
                 }
             }
         } else {
             if constexpr (is_sample) {
                 if (count > 1) {
-                    down_cast<ResultColumnType*>(to)->append(sqrt(this->data(state).m2 / (count - 1)));
+                    static_cast<ResultColumnType*>(to)->append(sqrt(this->data(state).m2 / (count - 1)));
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(0);
+                    static_cast<ResultColumnType*>(to)->append(0);
                 }
             } else {
                 if (count > 0) {
-                    down_cast<ResultColumnType*>(to)->append(sqrt(this->data(state).m2 / count));
+                    static_cast<ResultColumnType*>(to)->append(sqrt(this->data(state).m2 / count));
                 } else {
-                    down_cast<ResultColumnType*>(to)->append(0);
+                    static_cast<ResultColumnType*>(to)->append(0);
                 }
             }
         }
@@ -457,7 +456,7 @@ public:
             }
         }
 
-        auto* column = down_cast<ResultColumnType*>(dst);
+        auto* column = static_cast<ResultColumnType*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = result;
         }

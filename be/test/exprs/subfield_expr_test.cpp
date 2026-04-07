@@ -198,7 +198,7 @@ TEST_F(SubfieldExprTest, subfield_clone_test) {
     EXPECT_EQ("3", subfield_column->debug_item(2));
 
     // Column must be cloned
-    auto struct_column = down_cast<StructColumn*>(column.get());
+    auto struct_column = static_cast<StructColumn*>(column.get());
     auto field_col = struct_column->field_column("id").value();
     EXPECT_TRUE(ColumnHelper::get_data_column(field_col.get()) != subfield_column);
 }

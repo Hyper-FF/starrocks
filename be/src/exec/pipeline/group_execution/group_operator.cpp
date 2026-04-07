@@ -16,7 +16,6 @@
 
 #include "exec/pipeline/group_execution/execution_group.h"
 #include "exec/pipeline/operator.h"
-#include "gutil/casts.h"
 
 namespace starrocks::pipeline {
 Status GroupedExecutionSinkOperator::prepare(RuntimeState* state) {
@@ -41,7 +40,7 @@ void GroupedExecutionSinkOperator::close(RuntimeState* state) {
 Status GroupedExecutionSinkOperator::set_finishing(RuntimeState* state) {
     _is_finished = true;
     _exchanger->finish(state);
-    down_cast<GroupedExecutionSinkFactory*>(_factory)->submit();
+    static_cast<GroupedExecutionSinkFactory*>(_factory)->submit();
     return Status::OK();
 }
 

@@ -69,8 +69,8 @@ public:
                 size_t row_num) const override {
         DCHECK(ctx->get_num_args() == 2);
 
-        const auto* column0 = down_cast<const InputColumnType*>(columns[0]);
-        const auto* column1 = down_cast<const InputColumnType*>(columns[1]);
+        const auto* column0 = static_cast<const InputColumnType*>(columns[0]);
+        const auto* column1 = static_cast<const InputColumnType*>(columns[1]);
 
         this->data(state).count += 1;
 
@@ -134,7 +134,7 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_binary());
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
 
         size_t old_size = bytes.size();
@@ -161,7 +161,7 @@ public:
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         DCHECK(dst->is_binary());
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
         Bytes& bytes = dst_column->get_bytes();
         size_t old_size = bytes.size();
 
@@ -172,8 +172,8 @@ public:
         bytes.resize(one_element_size * chunk_size);
         dst_column->get_offset().resize(chunk_size + 1);
 
-        const auto* src_column0 = down_cast<const InputColumnType*>(src[0].get());
-        const auto* src_column1 = down_cast<const InputColumnType*>(src[1].get());
+        const auto* src_column0 = static_cast<const InputColumnType*>(src[0].get());
+        const auto* src_column1 = static_cast<const InputColumnType*>(src[1].get());
 
         double meanX = {};
         double meanY = {};
@@ -229,15 +229,15 @@ public:
         int64_t count = this->data(state).count;
         if constexpr (isSample) {
             if (count > 1) {
-                down_cast<ResultColumnType*>(to)->append(this->data(state).c2 / (count - 1));
+                static_cast<ResultColumnType*>(to)->append(this->data(state).c2 / (count - 1));
             } else {
-                down_cast<ResultColumnType*>(to)->append(0);
+                static_cast<ResultColumnType*>(to)->append(0);
             }
         } else {
             if (count > 0) {
-                down_cast<ResultColumnType*>(to)->append(this->data(state).c2 / count);
+                static_cast<ResultColumnType*>(to)->append(this->data(state).c2 / count);
             } else {
-                down_cast<ResultColumnType*>(to)->append(0);
+                static_cast<ResultColumnType*>(to)->append(0);
             }
         }
     }
@@ -262,7 +262,7 @@ public:
             }
         }
 
-        auto* column = down_cast<ResultColumnType*>(dst);
+        auto* column = static_cast<ResultColumnType*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = result;
         }
@@ -294,7 +294,7 @@ public:
             result = this->data(state).c2 / sqrt(this->data(state).m2X) / sqrt(this->data(state).m2Y);
         }
 
-        down_cast<ResultColumnType*>(to)->append(result);
+        static_cast<ResultColumnType*>(to)->append(result);
     }
 
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
@@ -308,7 +308,7 @@ public:
             result = this->data(state).c2 / sqrt(this->data(state).m2X) / sqrt(this->data(state).m2Y);
         }
 
-        auto* column = down_cast<ResultColumnType*>(dst);
+        auto* column = static_cast<ResultColumnType*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = result;
         }

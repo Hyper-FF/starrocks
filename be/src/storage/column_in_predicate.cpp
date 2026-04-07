@@ -18,7 +18,6 @@
 #include "column/column_helper.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 #include "roaring/roaring.hh"
 #include "runtime/runtime_filter.h"
 #include "storage/column_predicate.h"
@@ -49,7 +48,7 @@ public:
                 sel[i] = Op::apply(sel[i], (uint8_t)(_values.contains(v[i])));
             }
         } else {
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (size_t i = from; i < to; i++) {
                 sel[i] = Op::apply(sel[i], (uint8_t)(!null_data[i] && _values.contains(v[i])));
             }
@@ -83,7 +82,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = 0; i < sel_size; ++i) {
                 uint16_t data_idx = sel[i];
                 sel[new_size] = data_idx;
@@ -219,9 +218,9 @@ public:
         if (column->is_nullable()) {
             // This is NullableColumn, get its data_column
             binary_column =
-                    down_cast<const BinaryColumn*>(down_cast<const NullableColumn*>(column)->data_column().get());
+                    static_cast<const BinaryColumn*>(static_cast<const NullableColumn*>(column)->data_column().get());
         } else {
-            binary_column = down_cast<const BinaryColumn*>(column);
+            binary_column = static_cast<const BinaryColumn*>(column);
         }
         if (!column->has_null()) {
             for (size_t i = from; i < to; i++) {
@@ -229,7 +228,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (size_t i = from; i < to; i++) {
                 sel[i] = Op::apply(sel[i], (uint8_t)(!null_data[i] && _slices.contains(binary_column->get_slice(i))));
             }
@@ -257,9 +256,9 @@ public:
         if (column->is_nullable()) {
             // This is NullableColumn, get its data_column
             binary_column =
-                    down_cast<const BinaryColumn*>(down_cast<const NullableColumn*>(column)->data_column().get());
+                    static_cast<const BinaryColumn*>(static_cast<const NullableColumn*>(column)->data_column().get());
         } else {
-            binary_column = down_cast<const BinaryColumn*>(column);
+            binary_column = static_cast<const BinaryColumn*>(column);
         }
 
         uint16_t new_size = 0;
@@ -271,7 +270,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = 0; i < sel_size; ++i) {
                 uint16_t data_idx = sel[i];
                 sel[new_size] = data_idx;
@@ -410,12 +409,12 @@ public:
 
     template <LogicOp Op>
     inline void t_evaluate(const Column* column, uint8_t* sel, uint16_t from, uint16_t to) const {
-        const Int32Column* dict_code_column = down_cast<const Int32Column*>(ColumnHelper::get_data_column(column));
+        const Int32Column* dict_code_column = static_cast<const Int32Column*>(ColumnHelper::get_data_column(column));
         const auto data = dict_code_column->immutable_data();
         Filter filter(to - from, 1);
 
         if (column->has_null()) {
-            const NullColumn* null_column = down_cast<const NullableColumn*>(column)->null_column().get();
+            const NullColumn* null_column = static_cast<const NullableColumn*>(column)->null_column().get();
             const auto null_data = null_column->immutable_data();
             for (auto i = from; i < to; i++) {
                 auto index = data[i] >= _bit_mask.size() ? 0 : data[i];
@@ -508,7 +507,7 @@ public:
             }
         } else {
             /* must use uint8_t* to make vectorized effect */
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = 0; i < sel_size; ++i) {
                 uint16_t data_idx = sel[i];
                 sel[new_size] = data_idx;
@@ -581,7 +580,7 @@ private:
                 sel[i] = Op::apply(sel[i], res);
             }
         } else {
-            const uint8_t* null_data = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* null_data = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (size_t i = from; i < to; i++) {
                 const uint8_t res = _bitset.template contains<true /*CheckRange*/>(v[i], null_data[i] == 0);
                 sel[i] = Op::apply(sel[i], res);

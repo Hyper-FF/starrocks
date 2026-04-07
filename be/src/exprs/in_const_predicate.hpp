@@ -479,10 +479,10 @@ public:
             }
             columns_ref[i] = value;
             if (value->is_constant()) {
-                value = down_cast<const ConstColumn*>(value.get())->data_column();
+                value = static_cast<const ConstColumn*>(value.get())->data_column();
             }
             if (value->is_nullable()) {
-                auto nullable = down_cast<const NullableColumn*>(value.get());
+                auto nullable = static_cast<const NullableColumn*>(value.get());
                 input_null[i] = nullable->null_column();
                 input_data[i] = nullable->data_column();
             } else {

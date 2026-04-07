@@ -75,7 +75,7 @@ void ShuffleChunkPerf::init_types() {
 ColumnPtr ShuffleChunkPerf::init_src_column(const TypeDescriptor& type) {
     MutableColumnPtr c1 = ColumnHelper::create_column(type, true);
     c1->reserve(_src_chunk_size);
-    auto* nullable_col = down_cast<NullableColumn*>(c1.get());
+    auto* nullable_col = static_cast<NullableColumn*>(c1.get());
     for (int k = 0; k < _src_chunk_size; k++) {
         int v = rand();
         if (v % 100 < _null_percent) {
@@ -91,7 +91,7 @@ ColumnPtr ShuffleChunkPerf::init_src_column(const TypeDescriptor& type) {
 ColumnPtr ShuffleChunkPerf::init_src_key_column(const TypeDescriptor& type) {
     MutableColumnPtr c1 = ColumnHelper::create_column(type, true);
     c1->reserve(_src_chunk_size);
-    auto* nullable_col = down_cast<NullableColumn*>(c1.get());
+    auto* nullable_col = static_cast<NullableColumn*>(c1.get());
     for (int k = 0; k < _src_chunk_size; k++) {
         int v = rand();
         auto val = "str123" + std::to_string(v);

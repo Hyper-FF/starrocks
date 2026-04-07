@@ -339,7 +339,7 @@ StatusOr<ColumnPtr> MathFunctions::iceberg_truncate_decimal(FunctionContext* con
     auto& null_data = null_flags->get_data();
     uint8_t* raw_null_flags = null_data.data();
     RunTimeCppType<Type> max_val = 1;
-    int32 pow = original_precision;
+    int32_t pow = original_precision;
     while (pow > 0) {
         max_val *= 10;
         pow--;
@@ -1363,7 +1363,7 @@ StatusOr<ColumnPtr> MathFunctions::cosine_similarity(FunctionContext* context, c
     // If both are const, expand one side to N rows to reuse the single-const fast path.
     // This avoids dereferencing size-1 offsets with target_size rows.
     if (base_is_const && target_is_const) {
-        const auto* const_column = down_cast<const ConstColumn*>(target);
+        const auto* const_column = static_cast<const ConstColumn*>(target);
         const_column->data_column()->as_mutable_raw_ptr()->assign(target_size, 0);
         target = const_column->data_column().get();
         target_is_const = false;
@@ -1375,20 +1375,20 @@ StatusOr<ColumnPtr> MathFunctions::cosine_similarity(FunctionContext* context, c
     // inside the const fast-paths below.
     auto unwrap_to_array = [](const Column* col) -> const Column* {
         if (col->is_constant()) {
-            col = down_cast<const ConstColumn*>(col)->data_column().get();
+            col = static_cast<const ConstColumn*>(col)->data_column().get();
         }
         if (col->is_nullable()) {
-            col = down_cast<const NullableColumn*>(col)->data_column().get();
+            col = static_cast<const NullableColumn*>(col)->data_column().get();
         }
         return col;
     };
 
     // For non-const columns we still need the full N-row view.
     if (!base_is_const && base->is_nullable()) {
-        base = down_cast<const NullableColumn*>(base)->data_column().get();
+        base = static_cast<const NullableColumn*>(base)->data_column().get();
     }
     if (!target_is_const && target->is_nullable()) {
-        target = down_cast<const NullableColumn*>(target)->data_column().get();
+        target = static_cast<const NullableColumn*>(target)->data_column().get();
     }
 
     // check dimension equality.
@@ -1396,22 +1396,22 @@ StatusOr<ColumnPtr> MathFunctions::cosine_similarity(FunctionContext* context, c
     const Column* base_arr_for_meta = base_is_const ? unwrap_to_array(columns[0].get()) : base;
     const Column* target_arr_for_meta = target_is_const ? unwrap_to_array(columns[1].get()) : target;
 
-    const Column* base_flat_meta = down_cast<const ArrayColumn*>(base_arr_for_meta)->elements_column().get();
+    const Column* base_flat_meta = static_cast<const ArrayColumn*>(base_arr_for_meta)->elements_column().get();
     const uint32_t* base_offset_meta =
-            down_cast<const ArrayColumn*>(base_arr_for_meta)->offsets().immutable_data().data();
+            static_cast<const ArrayColumn*>(base_arr_for_meta)->offsets().immutable_data().data();
 
-    const Column* target_flat_meta = down_cast<const ArrayColumn*>(target_arr_for_meta)->elements_column().get();
+    const Column* target_flat_meta = static_cast<const ArrayColumn*>(target_arr_for_meta)->elements_column().get();
     const uint32_t* target_offset_meta =
-            down_cast<const ArrayColumn*>(target_arr_for_meta)->offsets().immutable_data().data();
+            static_cast<const ArrayColumn*>(target_arr_for_meta)->offsets().immutable_data().data();
 
     if (base_flat_meta->has_null() || target_flat_meta->has_null()) {
         return Status::InvalidArgument("cosine_similarity does not support null values");
     }
     if (base_flat_meta->is_nullable()) {
-        base_flat_meta = down_cast<const NullableColumn*>(base_flat_meta)->data_column().get();
+        base_flat_meta = static_cast<const NullableColumn*>(base_flat_meta)->data_column().get();
     }
     if (target_flat_meta->is_nullable()) {
-        target_flat_meta = down_cast<const NullableColumn*>(target_flat_meta)->data_column().get();
+        target_flat_meta = static_cast<const NullableColumn*>(target_flat_meta)->data_column().get();
     }
 
     const Column* base_flat = base_flat_meta;
@@ -1422,12 +1422,12 @@ StatusOr<ColumnPtr> MathFunctions::cosine_similarity(FunctionContext* context, c
     using CppType = RunTimeCppType<TYPE>;
     using ColumnType = RunTimeColumnType<TYPE>;
 
-    const CppType* base_data_head = down_cast<const ColumnType*>(base_flat)->immutable_data().data();
-    const CppType* target_data_head = down_cast<const ColumnType*>(target_flat)->immutable_data().data();
+    const CppType* base_data_head = static_cast<const ColumnType*>(base_flat)->immutable_data().data();
+    const CppType* target_data_head = static_cast<const ColumnType*>(target_flat)->immutable_data().data();
 
     // prepare result with nullable value.
     MutableColumnPtr result = ColumnHelper::create_column(TypeDescriptor{TYPE}, false, false, target_size);
-    ColumnType* data_result = down_cast<ColumnType*>(result.get());
+    ColumnType* data_result = static_cast<ColumnType*>(result.get());
     CppType* result_data = data_result->get_data().data();
 
     if constexpr (std::is_same_v<CppType, float>) {
@@ -1549,30 +1549,30 @@ StatusOr<ColumnPtr> MathFunctions::l2_distance(FunctionContext* context, const C
                                                    base->has_null() ? "base" : "target"));
     }
     if (base->is_constant()) {
-        auto* const_column = down_cast<const ConstColumn*>(base);
+        auto* const_column = static_cast<const ConstColumn*>(base);
         const_column->data_column()->as_mutable_raw_ptr()->assign(base->size(), 0);
         base = const_column->data_column().get();
     }
     if (target->is_constant()) {
-        auto* const_column = down_cast<const ConstColumn*>(target);
+        auto* const_column = static_cast<const ConstColumn*>(target);
         const_column->data_column()->as_mutable_raw_ptr()->assign(target->size(), 0);
         target = const_column->data_column().get();
     }
     if (base->is_nullable()) {
-        base = down_cast<const NullableColumn*>(base)->data_column().get();
+        base = static_cast<const NullableColumn*>(base)->data_column().get();
     }
     if (target->is_nullable()) {
-        target = down_cast<const NullableColumn*>(target)->data_column().get();
+        target = static_cast<const NullableColumn*>(target)->data_column().get();
     }
 
     // check dimension equality.
-    const Column* base_flat = down_cast<const ArrayColumn*>(base)->elements_column().get();
-    const uint32_t* base_offset = down_cast<const ArrayColumn*>(base)->offsets().immutable_data().data();
+    const Column* base_flat = static_cast<const ArrayColumn*>(base)->elements_column().get();
+    const uint32_t* base_offset = static_cast<const ArrayColumn*>(base)->offsets().immutable_data().data();
     size_t base_flat_size = base_flat->size();
 
-    const Column* target_flat = down_cast<const ArrayColumn*>(target)->elements_column().get();
+    const Column* target_flat = static_cast<const ArrayColumn*>(target)->elements_column().get();
     size_t target_flat_size = target_flat->size();
-    const uint32_t* target_offset = down_cast<const ArrayColumn*>(target)->offsets().immutable_data().data();
+    const uint32_t* target_offset = static_cast<const ArrayColumn*>(target)->offsets().immutable_data().data();
 
     if (base_flat_size != target_flat_size) {
         return Status::InvalidArgument("l2_distance requires equal length arrays");
@@ -1582,21 +1582,21 @@ StatusOr<ColumnPtr> MathFunctions::l2_distance(FunctionContext* context, const C
         return Status::InvalidArgument("l2_distance does not support null values");
     }
     if (base_flat->is_nullable()) {
-        base_flat = down_cast<const NullableColumn*>(base_flat)->data_column().get();
+        base_flat = static_cast<const NullableColumn*>(base_flat)->data_column().get();
     }
     if (target_flat->is_nullable()) {
-        target_flat = down_cast<const NullableColumn*>(target_flat)->data_column().get();
+        target_flat = static_cast<const NullableColumn*>(target_flat)->data_column().get();
     }
 
     using CppType = RunTimeCppType<TYPE>;
     using ColumnType = RunTimeColumnType<TYPE>;
 
-    const CppType* base_data_head = down_cast<const ColumnType*>(base_flat)->immutable_data().data();
-    const CppType* target_data_head = down_cast<const ColumnType*>(target_flat)->immutable_data().data();
+    const CppType* base_data_head = static_cast<const ColumnType*>(base_flat)->immutable_data().data();
+    const CppType* target_data_head = static_cast<const ColumnType*>(target_flat)->immutable_data().data();
 
     // prepare result with nullable value.
     MutableColumnPtr result = ColumnHelper::create_column(TypeDescriptor{TYPE}, false, false, target_size);
-    ColumnType* data_result = down_cast<ColumnType*>(result.get());
+    ColumnType* data_result = static_cast<ColumnType*>(result.get());
     CppType* result_data = data_result->get_data().data();
 
     for (size_t i = 0; i < target_size; i++) {

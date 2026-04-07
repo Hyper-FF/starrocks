@@ -740,7 +740,7 @@ void Analytor::_append_column(size_t chunk_size, Column* dst_column, ColumnPtr& 
         static_cast<void>(dst_column->append_nulls(chunk_size));
     } else if (src_column->is_constant() && !dst_column->is_constant()) {
         // Unpack const column, then append it to dst.
-        auto* const_column = down_cast<ConstColumn*>(src_column->as_mutable_raw_ptr());
+        auto* const_column = static_cast<ConstColumn*>(src_column->as_mutable_raw_ptr());
         auto* data_column = const_column->data_column_raw_ptr();
         data_column->assign(chunk_size, 0);
         dst_column->append(*data_column, 0, chunk_size);

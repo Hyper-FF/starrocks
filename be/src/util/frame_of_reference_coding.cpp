@@ -90,7 +90,7 @@ void ForEncoder<T>::put_batch(const T* in_data, size_t count) {
 // param[out] out: the packed result
 
 // For example:
-// The input is int32 list: 1, 2, 4, 8 and bit_width is 4
+// The input is int32_t list: 1, 2, 4, 8 and bit_width is 4
 // The output will be: 0001 0010 0100 1000
 template <typename T>
 void ForEncoder<T>::bit_pack(const T* input, uint8_t in_num, int bit_width, uint8_t* output) {

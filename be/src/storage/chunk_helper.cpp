@@ -30,7 +30,7 @@
 #include "column/struct_column.h"
 #include "column/vectorized_fwd.h"
 #include "exprs/expr_context.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
 #include "storage/olap_type_infra.h"
@@ -257,7 +257,7 @@ std::vector<size_t> ChunkHelper::get_char_field_indexes(const Schema& schema) {
 void ChunkHelper::padding_char_column(const starrocks::TabletSchemaCSPtr& tschema, const Field& field, Column* column) {
     size_t num_rows = column->size();
     Column* data_column = ColumnHelper::get_data_column(column);
-    auto* binary = down_cast<BinaryColumn*>(data_column);
+    auto* binary = static_cast<BinaryColumn*>(data_column);
 
     Offsets& offset = binary->get_offset();
     Bytes& bytes = binary->get_bytes();
@@ -286,7 +286,7 @@ void ChunkHelper::padding_char_column(const starrocks::TabletSchemaCSPtr& tschem
     }
 
     if (field.is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(column);
+        auto* nullable_column = static_cast<NullableColumn*>(column);
         auto null_column = NullColumn::static_pointer_cast(std::move(*nullable_column->null_column()).mutate());
         auto new_column = NullableColumn::create(std::move(new_binary), std::move(null_column));
         new_column->swap_column(*column);
@@ -515,7 +515,7 @@ bool check_json_schema_compatibility(const Chunk* one, const Chunk* two) {
         const auto* a2 = ColumnHelper::get_data_column(c2.get());
 
         if (a1->is_json() && a2->is_json()) {
-            auto json1 = down_cast<const JsonColumn*>(a1);
+            auto json1 = static_cast<const JsonColumn*>(a1);
             if (!json1->is_equallity_schema(a2)) {
                 return false;
             }
@@ -676,7 +676,7 @@ public:
         using ImmContainerT = typename ColumnT::ImmContainer;
 
         _result = column.clone_empty();
-        auto* output = down_cast<ColumnT*>(_result->as_mutable_raw_ptr());
+        auto* output = static_cast<ColumnT*>(_result->as_mutable_raw_ptr());
         const size_t segment_size = _segment_column->segment_size();
 
         std::vector<ImmContainerT> imm_containers;
@@ -710,7 +710,7 @@ public:
         using Offsets = typename ColumnT::Offsets;
 
         _result = column.clone_empty();
-        auto* output = down_cast<ColumnT*>(_result->as_mutable_raw_ptr());
+        auto* output = static_cast<ColumnT*>(_result->as_mutable_raw_ptr());
         auto& output_offsets = output->get_offset();
         auto& output_bytes = output->get_bytes();
         const size_t segment_size = _segment_column->segment_size();
@@ -773,7 +773,7 @@ public:
     template <class ColumnT>
     typename std::enable_if_t<is_object<ColumnT>, Status> do_visit(const ColumnT& column) {
         _result = column.clone_empty();
-        auto* output = down_cast<ColumnT*>(_result->as_mutable_raw_ptr());
+        auto* output = static_cast<ColumnT*>(_result->as_mutable_raw_ptr());
         const size_t segment_size = _segment_column->segment_size();
         output->reserve(_size);
 

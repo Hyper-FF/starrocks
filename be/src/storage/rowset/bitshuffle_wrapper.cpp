@@ -38,7 +38,7 @@
 // symbols.
 #include <bitshuffle/bitshuffle.h>
 
-#include "gutil/cpu.h"
+#include "base/gutil/cpu.h"
 
 // Include the bitshuffle header again, but this time importing the
 // AVX2-compiled symbols by defining some macros.

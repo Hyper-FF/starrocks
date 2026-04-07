@@ -29,7 +29,6 @@
 #include "exprs/function_context.h"
 #include "gen_cpp/Data_types.h"
 #include "glog/logging.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 #include "thrift/protocol/TJSONProtocol.h"
 #include "types/datum.h"
@@ -42,8 +41,8 @@ struct RetentionState {
 
         size_t array_size = 0;
         if (ele_col.is_nullable()) {
-            const auto& null_column = down_cast<const NullableColumn&>(ele_col);
-            auto data_column = down_cast<const BooleanColumn*>(null_column.data_column().get());
+            const auto& null_column = static_cast<const NullableColumn&>(ele_col);
+            auto data_column = static_cast<const BooleanColumn*>(null_column.data_column().get());
             const auto imm_data = data_column->immutable_data();
             size_t offset = offsets[row_num];
             array_size = offsets[row_num + 1] - offset;
@@ -61,7 +60,7 @@ struct RetentionState {
                 }
             }
         } else {
-            const auto& data_column = down_cast<const BooleanColumn&>(ele_col);
+            const auto& data_column = static_cast<const BooleanColumn&>(ele_col);
             const auto imm_data = data_column.immutable_data();
 
             size_t offset = offsets[row_num];
@@ -142,30 +141,30 @@ class RetentionAggregateFunction final
 public:
     void update(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state,
                 size_t row_num) const override {
-        auto column = down_cast<const ArrayColumn*>(columns[0]);
+        auto column = static_cast<const ArrayColumn*>(columns[0]);
         this->data(state).udpate(column, row_num);
     }
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
-        const auto* input_column = down_cast<const Int64Column*>(column);
+        const auto* input_column = static_cast<const Int64Column*>(column);
         this->data(state).boolean_value |= input_column->immutable_data()[row_num];
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        down_cast<Int64Column*>(to)->append(this->data(state).boolean_value);
+        static_cast<Int64Column*>(to)->append(this->data(state).boolean_value);
     }
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        auto* array_column = down_cast<ArrayColumn*>(to);
+        auto* array_column = static_cast<ArrayColumn*>(to);
         this->data(state).finalize_to_array_column(array_column);
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* dst_column = down_cast<Int64Column*>(dst.get());
+        auto* dst_column = static_cast<Int64Column*>(dst.get());
         dst_column->reserve(chunk_size);
 
-        const auto* src_column = down_cast<const ArrayColumn*>(src[0].get());
+        const auto* src_column = static_cast<const ArrayColumn*>(src[0].get());
         for (size_t i = 0; i < chunk_size; ++i) {
             uint64_t boolean_value = 0;
             RetentionState::udpate(&boolean_value, src_column, i);

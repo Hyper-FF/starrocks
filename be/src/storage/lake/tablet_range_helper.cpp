@@ -166,7 +166,7 @@ StatusOr<SstSeekRange> TabletRangeHelper::create_sst_seek_range_from(const Table
         RETURN_IF_ERROR(PrimaryKeyEncoder::create_column(pkey_schema, &pk_column, pk_encoding_type));
         PrimaryKeyEncoder::encode(pkey_schema, *chunk, 0, 1, pk_column.get(), pk_encoding_type);
         if (pk_column->is_binary()) {
-            return down_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
+            return static_cast<BinaryColumn*>(pk_column.get())->get_slice(0).to_string();
         } else {
             return std::string(reinterpret_cast<const char*>(pk_column->raw_data()), pk_column->type_size());
         }

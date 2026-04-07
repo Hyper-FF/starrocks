@@ -53,7 +53,6 @@
 #include "exprs/decimal_cast_expr.h"
 #include "exprs/expr_context.h"
 #include "exprs/unary_function.h"
-#include "gutil/casts.h"
 #include "runtime/exception.h"
 #include "runtime/runtime_state.h"
 #include "types/datetime_value.h"
@@ -198,7 +197,7 @@ static ColumnPtr cast_to_json_fn(ColumnPtr& column) {
             value = JsonValue::from_string(str);
         } else if constexpr (lt_is_variant<FromType>) {
             const auto* variant_data_column =
-                    down_cast<const VariantColumn*>(ColumnHelper::get_data_column(column.get()));
+                    static_cast<const VariantColumn*>(ColumnHelper::get_data_column(column.get()));
             const size_t variant_row = column->is_constant() ? 0 : row;
             VariantRowRef row_ref;
             if (!variant_data_column->try_get_row_ref(variant_row, &row_ref)) {
@@ -276,7 +275,7 @@ template <LogicalType FromType, LogicalType ToType, bool AllowThrowException>
 static ColumnPtr cast_from_variant_fn(ColumnPtr& column) {
     ColumnViewer<TYPE_VARIANT> viewer(column);
     ColumnBuilder<ToType> builder(viewer.size());
-    const auto* variant_data_column = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(column.get()));
+    const auto* variant_data_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(column.get()));
 
     for (int row = 0; row < viewer.size(); ++row) {
         if (viewer.is_null(row)) {
@@ -529,10 +528,10 @@ ColumnPtr cast_int_from_string_fn(ColumnPtr& column) {
     res_data_column->resize(sz);
     auto& res_data = res_data_column->get_data();
     if (column->is_nullable()) {
-        const auto* input_column = down_cast<const NullableColumn*>(column.get());
+        const auto* input_column = static_cast<const NullableColumn*>(column.get());
         auto null_column_ptr = input_column->null_column()->clone();
-        auto* null_column = down_cast<NullColumn*>(null_column_ptr.get());
-        const auto* data_column = down_cast<const BinaryColumn*>(input_column->data_column_raw_ptr());
+        auto* null_column = static_cast<NullColumn*>(null_column_ptr.get());
+        const auto* data_column = static_cast<const BinaryColumn*>(input_column->data_column_raw_ptr());
         auto& null_data = null_column->get_data();
         for (int i = 0; i < sz; ++i) {
             if (!null_data[i]) {
@@ -550,7 +549,7 @@ ColumnPtr cast_int_from_string_fn(ColumnPtr& column) {
     } else {
         NullColumn::MutablePtr null_column = NullColumn::create(sz);
         auto& null_data = null_column->get_data();
-        const auto* data_column = down_cast<const BinaryColumn*>(column.get());
+        const auto* data_column = static_cast<const BinaryColumn*>(column.get());
 
         bool has_null = false;
         for (int i = 0; i < sz; ++i) {
@@ -1005,11 +1004,11 @@ static ColumnPtr cast_from_string_to_datetime_fn(ColumnPtr& column) {
     auto& res_data = res_data_column->get_data();
 
     if (column->is_nullable()) {
-        const auto* input_column = down_cast<const NullableColumn*>(column.get());
-        const auto* data_column = down_cast<const BinaryColumn*>(input_column->data_column_raw_ptr());
+        const auto* input_column = static_cast<const NullableColumn*>(column.get());
+        const auto* data_column = static_cast<const BinaryColumn*>(input_column->data_column_raw_ptr());
 
         auto null_column_ptr = input_column->null_column()->clone();
-        auto* null_column = down_cast<NullColumn*>(null_column_ptr.get());
+        auto* null_column = static_cast<NullColumn*>(null_column_ptr.get());
         auto& null_data = null_column->get_data();
 
         for (int i = 0; i < num_rows; ++i) {
@@ -1027,7 +1026,7 @@ static ColumnPtr cast_from_string_to_datetime_fn(ColumnPtr& column) {
         }
         return NullableColumn::create(std::move(res_data_column), std::move(null_column));
     } else {
-        const auto* data_column = down_cast<const BinaryColumn*>(column.get());
+        const auto* data_column = static_cast<const BinaryColumn*>(column.get());
         NullColumn::MutablePtr null_column = NullColumn::create(num_rows);
         auto& null_data = null_column->get_data();
 

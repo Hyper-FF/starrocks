@@ -16,8 +16,7 @@
 
 #include "base/hash/unaligned_access.h"
 #include "base/utility/guard.h"
-#include "gutil/casts.h"
-#include "gutil/compiler_util.h"
+#include "base/gutil/compiler_util.h"
 #include "types/datum.h"
 #include "types/decimalv3.h"
 #include "types/storage_type_traits.h"
@@ -213,19 +212,19 @@ TypeInfoPtr get_decimal_type_info(LogicalType type, int precision, int scale) {
 std::string get_decimal_zone_map_string(TypeInfo* type_info, const void* value) {
     switch (type_info->type()) {
     case TYPE_DECIMAL32: {
-        auto* decimal_type_info = down_cast<DecimalTypeInfo<TYPE_DECIMAL32>*>(type_info);
+        auto* decimal_type_info = static_cast<DecimalTypeInfo<TYPE_DECIMAL32>*>(type_info);
         return decimal_type_info->to_zone_map_string(value);
     }
     case TYPE_DECIMAL64: {
-        auto* decimal_type_info = down_cast<DecimalTypeInfo<TYPE_DECIMAL64>*>(type_info);
+        auto* decimal_type_info = static_cast<DecimalTypeInfo<TYPE_DECIMAL64>*>(type_info);
         return decimal_type_info->to_zone_map_string(value);
     }
     case TYPE_DECIMAL128: {
-        auto* decimal_type_info = down_cast<DecimalTypeInfo<TYPE_DECIMAL128>*>(type_info);
+        auto* decimal_type_info = static_cast<DecimalTypeInfo<TYPE_DECIMAL128>*>(type_info);
         return decimal_type_info->to_zone_map_string(value);
     }
     case TYPE_DECIMAL256: {
-        auto* decimal_type_info = down_cast<DecimalTypeInfo<TYPE_DECIMAL256>*>(type_info);
+        auto* decimal_type_info = static_cast<DecimalTypeInfo<TYPE_DECIMAL256>*>(type_info);
         return decimal_type_info->to_zone_map_string(value);
     }
     default:

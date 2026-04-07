@@ -153,7 +153,7 @@ TEST_F(ArrayFunctionsTest, array_length) {
         EXPECT_EQ(result->get(4), Datum(2));
 
         // array_length should not mutate input nullable null bitmap.
-        auto* nullable = down_cast<NullableColumn*>(c.get());
+        auto* nullable = static_cast<NullableColumn*>(c.get());
         EXPECT_EQ(nullable->data_column()->size(), nullable->null_column()->size());
     }
 
@@ -5508,7 +5508,7 @@ TEST_F(ArrayFunctionsTest, array_match_only_null) {
     // test const
     {
         auto src_column = ColumnHelper::create_column(TYPE_ARRAY_BOOLEAN, false);
-        src_column->append_datum(DatumArray{(uint8) false, (uint8) true});
+        src_column->append_datum(DatumArray{(uint8_t) false, (uint8_t) true});
         src_column = ConstColumn::create(std::move(src_column), 3);
         auto dest_column = ArrayMatch<false>::process(nullptr, {src_column});
         ASSERT_EQ(dest_column->size(), 3);

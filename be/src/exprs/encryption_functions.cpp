@@ -829,7 +829,7 @@ struct EncodeColumnToDigest {
                        std::vector<SHA256Digest>& digests) {
         if constexpr (lt_is_string<LT> || lt_is_binary<LT>) {
             // String/Binary types
-            auto* col = data_col ? down_cast<const ColumnType*>(data_col) : nullptr;
+            auto* col = data_col ? static_cast<const ColumnType*>(data_col) : nullptr;
             const uint8_t* null_data = null_col ? null_col->immutable_data().data() : nullptr;
             for (size_t row = 0; row < chunk_size; row++) {
                 if (null_data && null_data[row]) {
@@ -887,7 +887,7 @@ struct EncodeColumnToDigest {
         } else {
             // Fallback for unsupported types (JSON, HLL, OBJECT, STRUCT, ARRAY, MAP, etc.)
             // Cast to string representation and encode
-            auto* col = data_col ? down_cast<const ColumnType*>(data_col) : nullptr;
+            auto* col = data_col ? static_cast<const ColumnType*>(data_col) : nullptr;
             const auto* null_data = null_col ? null_col->immutable_data().data() : nullptr;
             for (size_t row = 0; row < chunk_size; row++) {
                 if (null_data && null_data[row]) {

@@ -46,7 +46,7 @@ static VariantReadResult drill_down_column(const Column* col, size_t row, const 
     }
     // Unwrap const wrapper (row stays 0 — caller already normalised const rows).
     if (col->is_constant()) {
-        col = down_cast<const ConstColumn*>(col)->data_column().get();
+        col = static_cast<const ConstColumn*>(col)->data_column().get();
         row = 0;
     }
 
@@ -56,7 +56,7 @@ static VariantReadResult drill_down_column(const Column* col, size_t row, const 
     // columns of this sub-VariantColumn are used properly (kTypedNoSuffix, kTypedRowSeek,
     // kRemainSeek, kFullMaterialize), rather than forcing a full merge via get_row_value().
     if (type_desc.type == TYPE_VARIANT) {
-        const auto* variant_col = down_cast<const VariantColumn*>(col);
+        const auto* variant_col = static_cast<const VariantColumn*>(col);
         if (suffix_empty) {
             // No further navigation needed — return the whole sub-variant value.
             VariantRowRef row_ref;
@@ -77,7 +77,7 @@ static VariantReadResult drill_down_column(const Column* col, size_t row, const 
 
     // ARRAY: drill down without encoding the whole array.
     if (!suffix_empty && suffix->segments[seg_offset].is_array() && type_desc.type == TYPE_ARRAY) {
-        const auto* array_col = down_cast<const ArrayColumn*>(col);
+        const auto* array_col = static_cast<const ArrayColumn*>(col);
         const auto& offsets = array_col->offsets().get_data();
         const size_t start = offsets[row];
         const size_t end = offsets[row + 1];

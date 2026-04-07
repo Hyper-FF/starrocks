@@ -17,7 +17,6 @@
 
 #include "column/column.h"
 #include "column/nullable_column.h"
-#include "gutil/casts.h"
 #include "storage/column_predicate.h"
 #include "storage/rowset/bitmap_index_reader.h"
 #include "util/bloom_filter.h"
@@ -30,7 +29,7 @@ public:
 
     Status evaluate(const Column* column, uint8_t* selection, uint16_t from, uint16_t to) const override {
         if (column->has_null()) {
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             memcpy(&selection[from], &is_null[from], to - from);
         } else {
             memset(selection + from, 0, to - from);
@@ -41,7 +40,7 @@ public:
     Status evaluate_and(const Column* column, uint8_t* selection, uint16_t from, uint16_t to) const override {
         if (column->has_null()) {
             /* must use const uint8_t* to make vectorized effect, vector<uint8_t> not work */
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = from; i < to; i++) {
                 selection[i] &= is_null[i];
             }
@@ -54,7 +53,7 @@ public:
     Status evaluate_or(const Column* column, uint8_t* selection, uint16_t from, uint16_t to) const override {
         if (column->has_null()) {
             /* must use const uint8_t* to make vectorized effect, vector<uint8_t> not work */
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = from; i < to; i++) {
                 selection[i] |= is_null[i];
             }
@@ -115,7 +114,7 @@ public:
     Status evaluate(const Column* column, uint8_t* selection, uint16_t from, uint16_t to) const override {
         if (column->has_null()) {
             /* must use const uint8_t* to make vectorized effect, vector<uint8_t> not work */
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = from; i < to; i++) {
                 selection[i] = !is_null[i];
             }
@@ -128,7 +127,7 @@ public:
     Status evaluate_and(const Column* column, uint8_t* selection, uint16_t from, uint16_t to) const override {
         if (column->has_null()) {
             /* must use const uint8_t* to make vectorized effect, vector<uint8_t> not work */
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = from; i < to; i++) {
                 selection[i] &= !is_null[i];
             }
@@ -141,7 +140,7 @@ public:
     Status evaluate_or(const Column* column, uint8_t* selection, uint16_t from, uint16_t to) const override {
         if (column->has_null()) {
             /* must use const uint8_t* to make vectorized effect, vector<uint8_t> not work */
-            const uint8_t* is_null = down_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
+            const uint8_t* is_null = static_cast<const NullableColumn*>(column)->immutable_null_column_data().data();
             for (uint16_t i = from; i < to; i++) {
                 selection[i] |= !is_null[i];
             }

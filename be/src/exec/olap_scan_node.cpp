@@ -37,7 +37,6 @@
 #include "exprs/expr_factory.h"
 #include "gen_cpp/RuntimeProfile_types.h"
 #include "glog/logging.h"
-#include "gutil/casts.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
@@ -425,8 +424,8 @@ StatusOr<pipeline::MorselQueuePtr> OlapScanNode::convert_scan_range_to_morsel_qu
     if (partition_order_hint().has_value()) {
         bool asc = partition_order_hint().value();
         std::stable_sort(morsels.begin(), morsels.end(), [asc](auto& l, auto& r) {
-            auto l_partition_id = down_cast<pipeline::ScanMorsel*>(l.get())->partition_id();
-            auto r_partition_id = down_cast<pipeline::ScanMorsel*>(r.get())->partition_id();
+            auto l_partition_id = static_cast<pipeline::ScanMorsel*>(l.get())->partition_id();
+            auto r_partition_id = static_cast<pipeline::ScanMorsel*>(r.get())->partition_id();
             if (asc) {
                 return std::less()(l_partition_id, r_partition_id);
             } else {
@@ -437,8 +436,8 @@ StatusOr<pipeline::MorselQueuePtr> OlapScanNode::convert_scan_range_to_morsel_qu
 
     if (output_chunk_by_bucket()) {
         std::stable_sort(morsels.begin(), morsels.end(), [](auto& l, auto& r) {
-            return down_cast<pipeline::ScanMorsel*>(l.get())->owner_id() <
-                   down_cast<pipeline::ScanMorsel*>(r.get())->owner_id();
+            return static_cast<pipeline::ScanMorsel*>(l.get())->owner_id() <
+                   static_cast<pipeline::ScanMorsel*>(r.get())->owner_id();
         });
     }
 

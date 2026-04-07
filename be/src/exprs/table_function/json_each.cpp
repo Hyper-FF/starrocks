@@ -27,7 +27,7 @@ std::pair<Columns, UInt32Column::Ptr> JsonEach::process(RuntimeState* runtime_st
     if (!state->get_columns().empty()) {
         auto& arg0 = state->get_columns()[0];
         num_input_rows = arg0->size();
-        json_column = down_cast<JsonColumn*>(ColumnHelper::get_data_column(arg0->as_mutable_raw_ptr()));
+        json_column = static_cast<JsonColumn*>(ColumnHelper::get_data_column(arg0->as_mutable_raw_ptr()));
     }
     state->set_processed_rows(num_input_rows);
 

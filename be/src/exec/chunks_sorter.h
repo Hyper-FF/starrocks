@@ -195,7 +195,7 @@ struct SortRuntimeFilterBuilder {
         }
 
         auto data_column = ColumnHelper::get_data_column(column.get());
-        auto runtime_data_column = down_cast<const RunTimeColumnType<ltype>*>(data_column);
+        auto runtime_data_column = static_cast<const RunTimeColumnType<ltype>*>(data_column);
         auto data = GetContainer<ltype>::get_data(runtime_data_column)[rid];
         if (asc) {
             return MinMaxRuntimeFilter<ltype>::template create_with_range<false>(pool, data, is_close_interval,
@@ -215,10 +215,10 @@ struct SortRuntimeFilterUpdater {
             if (column->is_null(rid)) {
                 if (is_close_interval) {
                     // all values is null, only need to read null.
-                    down_cast<MinMaxRuntimeFilter<ltype>*>(filter)->update_to_all_null();
+                    static_cast<MinMaxRuntimeFilter<ltype>*>(filter)->update_to_all_null();
                 } else {
                     // all values is null, no need to read any value.
-                    down_cast<MinMaxRuntimeFilter<ltype>*>(filter)->update_to_empty_and_not_null();
+                    static_cast<MinMaxRuntimeFilter<ltype>*>(filter)->update_to_empty_and_not_null();
                 }
                 return nullptr;
             }
@@ -231,12 +231,12 @@ struct SortRuntimeFilterUpdater {
         }
 
         const auto* data_column = ColumnHelper::get_data_column(column.get());
-        const auto* runtime_data_column = down_cast<const RunTimeColumnType<ltype>*>(data_column);
+        const auto* runtime_data_column = static_cast<const RunTimeColumnType<ltype>*>(data_column);
         auto data = GetContainer<ltype>::get_data(runtime_data_column)[rid];
         if (asc) {
-            down_cast<MinMaxRuntimeFilter<ltype>*>(filter)->template update_min_max<false>(data);
+            static_cast<MinMaxRuntimeFilter<ltype>*>(filter)->template update_min_max<false>(data);
         } else {
-            down_cast<MinMaxRuntimeFilter<ltype>*>(filter)->template update_min_max<true>(data);
+            static_cast<MinMaxRuntimeFilter<ltype>*>(filter)->template update_min_max<true>(data);
         }
         return nullptr;
     }

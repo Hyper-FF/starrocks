@@ -121,7 +121,7 @@ StatusOr<const uint8_t*> ChunkExtraColumnsData::deserialize(const uint8_t* buff,
 }
 
 ChunkExtraColumnsData* ChunkExtraColumnsData::as_raw(const ChunkExtraDataPtr& extra_data) {
-    return extra_data ? down_cast<ChunkExtraColumnsData*>(extra_data.get()) : nullptr;
+    return extra_data ? static_cast<ChunkExtraColumnsData*>(extra_data.get()) : nullptr;
 }
 
 } // namespace starrocks

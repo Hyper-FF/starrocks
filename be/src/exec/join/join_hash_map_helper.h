@@ -119,7 +119,7 @@ public:
         using CppType = typename RunTimeTypeTraits<LT>::CppType;
         using ColumnType = typename RunTimeTypeTraits<LT>::ColumnType;
 
-        auto& data = down_cast<ColumnType*>(fixed_size_key_column)->get_data();
+        auto& data = static_cast<ColumnType*>(fixed_size_key_column)->get_data();
         auto* buf = reinterpret_cast<uint8_t*>(&data[start]);
 
         constexpr size_t byte_interval = sizeof(CppType);

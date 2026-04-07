@@ -37,7 +37,7 @@
 #include "common/util/debug_util.h"
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
-#include "gutil/strings/escaping.h"
+#include "base/gutil/strings/escaping.h"
 #include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
@@ -2125,7 +2125,7 @@ Status ShardByLengthMutableIndex::pk_dump(PrimaryKeyDump* dump, PrimaryIndexDump
     return Status::OK();
 }
 
-static Status checksum_of_file(RandomAccessFile* file, uint64_t offset, uint32_t size, uint32* checksum) {
+static Status checksum_of_file(RandomAccessFile* file, uint64_t offset, uint32_t size, uint32_t* checksum) {
     std::string buff;
     raw::stl_string_resize_uninitialized(&buff, size);
     RETURN_IF_ERROR(file->read_at_fully(offset, buff.data(), buff.size()));

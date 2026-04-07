@@ -34,7 +34,6 @@
 #include "common/logging.h"
 #include "exprs/agg/aggregate.h"
 #include "gen_cpp/Data_types.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 #include "runtime/memory/memory_resource.h"
 #include "thrift/protocol/TJSONProtocol.h"
@@ -446,7 +445,7 @@ public:
         // get timestamp
         TimeType tv;
         if (!columns[1]->is_constant()) {
-            const auto timestamp_column = down_cast<const TimeTypeColumn*>(columns[1]);
+            const auto timestamp_column = static_cast<const TimeTypeColumn*>(columns[1]);
             DCHECK(LT == TYPE_DATETIME || LT == TYPE_DATE || LT == TYPE_INT || LT == TYPE_BIGINT);
             tv = timestamp_column->immutable_data()[row_num];
         } else {
@@ -462,14 +461,14 @@ public:
         DCHECK(!columns[3]->only_null());
         if (columns[3]->is_constant()) {
             event_column =
-                    down_cast<const ArrayColumn*>(down_cast<const ConstColumn*>(columns[3])->data_column().get());
+                    static_cast<const ArrayColumn*>(static_cast<const ConstColumn*>(columns[3])->data_column().get());
             const UInt32Column& offsets = event_column->offsets();
             const auto offsets_ptr = offsets.immutable_data().data();
             offset = offsets_ptr[0];
             array_size = offsets_ptr[1] - offsets_ptr[0];
         } else {
             DCHECK(columns[3]->is_array());
-            event_column = down_cast<const ArrayColumn*>(columns[3]);
+            event_column = static_cast<const ArrayColumn*>(columns[3]);
             const UInt32Column& offsets = event_column->offsets();
             const auto offsets_ptr = offsets.immutable_data().data();
             offset = offsets_ptr[row_num];
@@ -478,8 +477,8 @@ public:
 
         const Column& elements = event_column->elements();
         if (elements.is_nullable()) {
-            const auto& null_column = down_cast<const NullableColumn&>(elements);
-            auto data_column = down_cast<const BooleanColumn*>(null_column.data_column().get());
+            const auto& null_column = static_cast<const NullableColumn&>(elements);
+            auto data_column = static_cast<const BooleanColumn*>(null_column.data_column().get());
             const auto data_vector = data_column->immutable_data();
             const auto null_vector = null_column.immutable_null_column_data();
             for (int i = 0; i < array_size; ++i) {
@@ -496,7 +495,7 @@ public:
                 }
             }
         } else {
-            const auto& data_column = down_cast<const BooleanColumn&>(elements);
+            const auto& data_column = static_cast<const BooleanColumn&>(elements);
             const auto data_vector = data_column.immutable_data();
 
             for (int i = 0; i < array_size; ++i) {
@@ -522,15 +521,15 @@ public:
 
         this->data(state).init_once(ctx);
 
-        const auto* input_column = down_cast<const ArrayColumn*>(column);
+        const auto* input_column = static_cast<const ArrayColumn*>(column);
         const auto offsets = input_column->offsets().immutable_data();
         const auto& elements = input_column->elements();
         const int64_t* raw_data;
         if (elements.is_nullable()) {
-            auto data_elements = down_cast<const NullableColumn*>(&elements)->data_column().get();
-            raw_data = down_cast<const Int64Column*>(data_elements)->immutable_data().data();
+            auto data_elements = static_cast<const NullableColumn*>(&elements)->data_column().get();
+            raw_data = static_cast<const Int64Column*>(data_elements)->immutable_data().data();
         } else {
-            raw_data = down_cast<const Int64Column*>(&elements)->immutable_data().data();
+            raw_data = static_cast<const Int64Column*>(&elements)->immutable_data().data();
         }
 
         size_t offset = offsets[row_num];
@@ -540,21 +539,21 @@ public:
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        auto* array_column = down_cast<ArrayColumn*>(to);
+        auto* array_column = static_cast<ArrayColumn*>(to);
         this->data(state).serialize_to_array_column(array_column);
     }
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
-        down_cast<Int32Column*>(to)->append(this->data(state).get_event_level());
+        static_cast<Int32Column*>(to)->append(this->data(state).get_event_level());
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* dst_column = down_cast<ArrayColumn*>(dst.get());
+        auto* dst_column = static_cast<ArrayColumn*>(dst.get());
         dst_column->reserve(chunk_size);
 
-        const auto timestamp_column = down_cast<const TimeTypeColumn*>(src[1].get());
-        const auto* bool_array_column = down_cast<const ArrayColumn*>(src[3].get());
+        const auto timestamp_column = static_cast<const TimeTypeColumn*>(src[1].get());
+        const auto* bool_array_column = static_cast<const ArrayColumn*>(src[3].get());
         for (int i = 0; i < chunk_size; i++) {
             TimestampType tv;
             if constexpr (LT == TYPE_DATETIME) {

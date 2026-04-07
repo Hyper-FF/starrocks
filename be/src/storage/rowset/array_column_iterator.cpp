@@ -56,11 +56,11 @@ static inline std::tuple<ArrayColumn*, NullColumn*> unpack_array_column(Column* 
     ArrayColumn* array_col = nullptr;
 
     if (col->is_nullable()) {
-        auto nullable = down_cast<NullableColumn*>(col);
-        array_col = down_cast<ArrayColumn*>(nullable->data_column_raw_ptr());
-        array_null = down_cast<NullColumn*>(nullable->null_column_raw_ptr());
+        auto nullable = static_cast<NullableColumn*>(col);
+        array_col = static_cast<ArrayColumn*>(nullable->data_column_raw_ptr());
+        array_null = static_cast<NullColumn*>(nullable->null_column_raw_ptr());
     } else {
-        array_col = down_cast<ArrayColumn*>(col);
+        array_col = static_cast<ArrayColumn*>(col);
     }
     return {array_col, array_null};
 }
@@ -98,7 +98,7 @@ Status ArrayColumnIterator::next_batch(size_t* n, Column* dst) {
     RETURN_IF_ERROR(next_batch_null_offsets(n, array_column->offsets_column_raw_ptr(), nulls, &num_to_read));
 
     if (_null_iterator != nullptr) {
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     // 3. Read elements
@@ -176,7 +176,7 @@ Status ArrayColumnIterator::next_batch(const SparseRange<>& range, Column* dst) 
                                             &element_read_range, &read_rows));
 
     if (_null_iterator != nullptr) {
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     if (_access_values) {
@@ -200,7 +200,7 @@ Status ArrayColumnIterator::fetch_values_by_rowid(const rowid_t* rowids, size_t 
     // 1. Read null column
     if (_null_iterator != nullptr) {
         RETURN_IF_ERROR(_null_iterator->fetch_values_by_rowid(rowids, size, null_column));
-        down_cast<NullableColumn*>(values)->update_has_null();
+        static_cast<NullableColumn*>(values)->update_has_null();
     }
 
     // 2. Read offset column
@@ -284,7 +284,7 @@ Status ArrayColumnIterator::next_dict_codes(size_t* n, Column* dst) {
     RETURN_IF_ERROR(next_batch_null_offsets(n, array_column->offsets_column_raw_ptr(), nulls, &num_to_read));
 
     if (_null_iterator != nullptr) {
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     RETURN_IF_ERROR(_element_iterator->next_dict_codes(&num_to_read, array_column->elements_column_raw_ptr()));
@@ -302,7 +302,7 @@ Status ArrayColumnIterator::next_dict_codes(const SparseRange<>& range, Column* 
                                             &element_read_range, &read_rows));
 
     if (_null_iterator != nullptr) {
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     // if array column is nullable, element_read_range may be empty
@@ -317,7 +317,7 @@ Status ArrayColumnIterator::fetch_dict_codes_by_rowid(const rowid_t* rowids, siz
     // 1. Read null column
     if (_null_iterator != nullptr) {
         RETURN_IF_ERROR(_null_iterator->fetch_values_by_rowid(rowids, size, null_column));
-        down_cast<NullableColumn*>(values)->update_has_null();
+        static_cast<NullableColumn*>(values)->update_has_null();
     }
 
     // 2. Read offset column

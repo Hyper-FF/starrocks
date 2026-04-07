@@ -946,8 +946,8 @@ TEST_F(SegmentIteratorTest, testCharToVarcharZoneMapFilter) {
 
         // Should return two rows: c0=1,2 with c1="def","ghi"
         ASSERT_EQ(res_chunk->num_rows(), 2);
-        auto int_col = down_cast<const Int32Column*>(res_chunk->get_column_raw_ptr_by_index(0));
-        auto varchar_col = down_cast<const BinaryColumn*>(res_chunk->get_column_raw_ptr_by_index(1));
+        auto int_col = static_cast<const Int32Column*>(res_chunk->get_column_raw_ptr_by_index(0));
+        auto varchar_col = static_cast<const BinaryColumn*>(res_chunk->get_column_raw_ptr_by_index(1));
         ASSERT_EQ(int_col->get_data()[0], 1);
         ASSERT_EQ(int_col->get_data()[1], 2);
         ASSERT_EQ(varchar_col->get_slice(0), Slice("def"));

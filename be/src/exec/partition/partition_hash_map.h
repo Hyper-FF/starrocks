@@ -23,7 +23,7 @@
 #include "column/hash_set.h"
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {
@@ -379,7 +379,7 @@ struct PartitionHashMapWithOneNumberKey : public PartitionHashMapBase<false, fal
     bool append_chunk(const ChunkPtr& chunk, const Columns& key_columns, MemPool* mem_pool, ObjectPool* obj_pool,
                       NewPartitionCallback&& new_partition_cb, PartitionChunkConsumer&& partition_chunk_consumer) {
         DCHECK(!key_columns[0]->is_nullable());
-        const auto* key_column = down_cast<const ColumnType*>(key_columns[0].get());
+        const auto* key_column = static_cast<const ColumnType*>(key_columns[0].get());
         const auto key_column_data = key_column->immutable_data();
         append_chunk_for_one_key<EnablePassthrough>(
                 hash_map, chunk, [&](uint32_t offset) { return key_column_data[offset]; },
@@ -406,7 +406,7 @@ struct PartitionHashMapWithOneNullableNumberKey : public PartitionHashMapBase<tr
         DCHECK(key_columns[0]->is_nullable());
         const auto* nullable_key_column = ColumnHelper::as_raw_column<const NullableColumn>(key_columns[0].get());
         const auto key_column_data =
-                down_cast<const ColumnType*>(nullable_key_column->data_column().get())->immutable_data();
+                static_cast<const ColumnType*>(nullable_key_column->data_column().get())->immutable_data();
         append_chunk_for_one_nullable_key<EnablePassthrough>(
                 hash_map, null_key_value, chunk, nullable_key_column,
                 [&](uint32_t offset) { return key_column_data[offset]; }, [](const FieldType& key) { return key; },
@@ -427,7 +427,7 @@ struct PartitionHashMapWithOneStringKey : public PartitionHashMapBase<false, fal
     bool append_chunk(const ChunkPtr& chunk, const Columns& key_columns, MemPool* mem_pool, ObjectPool* obj_pool,
                       NewPartitionCallback&& new_partition_cb, PartitionChunkConsumer&& partition_chunk_consumer) {
         DCHECK(!key_columns[0]->is_nullable());
-        const auto* key_column = down_cast<const BinaryColumn*>(key_columns[0].get());
+        const auto* key_column = static_cast<const BinaryColumn*>(key_columns[0].get());
         append_chunk_for_one_key<EnablePassthrough>(
                 hash_map, chunk, [&](uint32_t offset) { return key_column->get_slice(offset); },
                 [&](const Slice& key) {
@@ -454,7 +454,7 @@ struct PartitionHashMapWithOneNullableStringKey : public PartitionHashMapBase<tr
                       NewPartitionCallback&& new_partition_cb, PartitionChunkConsumer&& partition_chunk_consumer) {
         DCHECK(key_columns[0]->is_nullable());
         const auto* nullable_key_column = ColumnHelper::as_raw_column<NullableColumn>(key_columns[0].get());
-        const auto* key_column = down_cast<const BinaryColumn*>(nullable_key_column->data_column().get());
+        const auto* key_column = static_cast<const BinaryColumn*>(nullable_key_column->data_column().get());
         append_chunk_for_one_nullable_key<EnablePassthrough>(
                 hash_map, null_key_value, chunk, nullable_key_column,
                 [&](uint32_t offset) { return key_column->get_slice(offset); },

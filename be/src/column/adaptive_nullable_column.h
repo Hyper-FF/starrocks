@@ -96,7 +96,7 @@ public:
     ~AdaptiveNullableColumn() override = default;
 
     void swap_column(Column& rhs) override {
-        auto& r = down_cast<AdaptiveNullableColumn&>(rhs);
+        auto& r = static_cast<AdaptiveNullableColumn&>(rhs);
         NullableColumn::swap_column(r);
         std::swap(_state, r._state);
         std::swap(_size, r._size);
@@ -443,7 +443,7 @@ public:
     NullColumn* null_column_raw_ptr() {
         DCHECK(false);
         materialized_nullable();
-        return down_cast<NullColumn*>(_null_column->as_mutable_raw_ptr());
+        return static_cast<NullColumn*>(_null_column->as_mutable_raw_ptr());
     }
 
     const Column& data_column_ref() const {
@@ -579,7 +579,7 @@ public:
 
 private:
     NullData& null_column_data() const {
-        auto* mutable_data_col = down_cast<NullColumn*>(_null_column->as_mutable_raw_ptr());
+        auto* mutable_data_col = static_cast<NullColumn*>(_null_column->as_mutable_raw_ptr());
         return mutable_data_col->get_data();
     }
 

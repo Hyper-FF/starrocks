@@ -40,7 +40,7 @@ struct SIMDGather {
         int i = 0;
 #ifdef __AVX2__
         if (buckets < max_process_size) {
-            // gather will collect data of size sizeof(int32)
+            // gather will collect data of size sizeof(int32_t)
             // we only need the lower 16 bits
             // eg:
             // a = [0x12 0x34 0x56 0x78 0x9a 0x...]

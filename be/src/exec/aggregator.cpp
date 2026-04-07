@@ -433,8 +433,8 @@ Status Aggregator::prepare(RuntimeState* state, RuntimeProfile* runtime_profile)
     if (_group_by_min_max.size() == _group_by_expr_ctxs.size() * 2) {
         for (size_t i = 0; i < _group_by_expr_ctxs.size(); ++i) {
             std::pair<VectorizedLiteral*, VectorizedLiteral*> range;
-            range.first = down_cast<VectorizedLiteral*>(_group_by_min_max[i * 2]->root());
-            range.second = down_cast<VectorizedLiteral*>(_group_by_min_max[i * 2 + 1]->root());
+            range.first = static_cast<VectorizedLiteral*>(_group_by_min_max[i * 2]->root());
+            range.second = static_cast<VectorizedLiteral*>(_group_by_min_max[i * 2 + 1]->root());
             _ranges[i] = range;
         }
     }
@@ -1436,7 +1436,7 @@ bool could_apply_bitcompress_opt(
             return 6;
     };
     // If they are at the same level, grouping by compressed key will not optimize performance, so we disable it.
-    // eg: For example, two int32 values both have a threshold of 0-2^32, so they need to use group by int64.
+    // eg: For example, two int32_t values both have a threshold of 0-2^32, so they need to use group by int64_t.
     // In this case, there will be no optimization effect. We disable this situation.
     if (get_level(accumulated_fixed_length_bits) > get_level(accumulated)) {
         *max_size = accumulated;

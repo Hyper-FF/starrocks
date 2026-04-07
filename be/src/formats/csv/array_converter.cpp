@@ -21,7 +21,7 @@ namespace starrocks::csv {
 
 Status ArrayConverter::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                     const Options& options) const {
-    const auto* array = down_cast<const ArrayColumn*>(&column);
+    const auto* array = static_cast<const ArrayColumn*>(&column);
     const auto& offsets = array->offsets();
     const auto& elements = array->elements();
     const auto offset_datas = offsets.immutable_data();
@@ -72,7 +72,7 @@ bool ArrayConverter::read_string(Column* column, const Slice& s, const Options& 
         return false;
     }
 
-    auto* array = down_cast<ArrayColumn*>(column);
+    auto* array = static_cast<ArrayColumn*>(column);
     auto* offsets = array->offsets_column_raw_ptr();
     auto* elements = array->elements_column_raw_ptr();
 

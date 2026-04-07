@@ -46,7 +46,7 @@
 #include "exec/exec_factory.h"
 #include "exec/exec_node.h"
 #include "exec/scan_node.h"
-#include "gutil/map_util.h"
+#include "base/gutil/map_util.h"
 #include "runtime/current_thread.h"
 #include "runtime/data_stream_mgr.h"
 #include "runtime/descriptors.h"
@@ -157,7 +157,7 @@ Status PlanFragmentExecutor::prepare(const TExecPlanFragmentParams& request) {
     _plan->collect_scan_nodes(&scan_nodes);
 
     for (auto& i : scan_nodes) {
-        auto* scan_node = down_cast<ScanNode*>(i);
+        auto* scan_node = static_cast<ScanNode*>(i);
         const std::vector<TScanRangeParams>& scan_ranges =
                 FindWithDefault(params.per_node_scan_ranges, scan_node->id(), no_scan_ranges);
         (void)scan_node->set_scan_ranges(scan_ranges);

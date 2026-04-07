@@ -29,8 +29,8 @@
 #include "common/logging.h"
 #include "common/runtime_profile.h"
 #include "common/status.h"
-#include "gutil/basictypes.h"
-#include "gutil/ref_counted.h"
+#include "base/gutil/basictypes.h"
+#include "base/gutil/ref_counted.h"
 
 using std::string;
 

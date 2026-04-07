@@ -29,7 +29,6 @@
 #include "exprs/column_ref.h"
 #include "exprs/expr_context.h"
 #include "exprs/in_const_predicate.hpp"
-#include "gutil/casts.h"
 #include "runtime/global_dict/config.h"
 #include "runtime/global_dict/miscs.h"
 #include "runtime/runtime_state.h"
@@ -351,7 +350,7 @@ Status ColumnPredicateRewriter::_load_segment_dict(std::vector<std::pair<std::st
     if (dynamic_cast<ScalarColumnIterator*>(iter) == nullptr) {
         return Status::NotSupported("not support dict predicate for non-string column");
     }
-    auto column_iterator = down_cast<ScalarColumnIterator*>(iter);
+    auto column_iterator = static_cast<ScalarColumnIterator*>(iter);
     auto dict_size = column_iterator->dict_size();
     int dict_codes[dict_size];
     std::iota(dict_codes, dict_codes + dict_size, 0);
@@ -387,7 +386,7 @@ Status ColumnPredicateRewriter::_load_segment_dict_vec(ColumnIterator* iter, Col
     if (dynamic_cast<ScalarColumnIterator*>(iter) == nullptr) {
         return Status::NotSupported("not support dict predicate for non-string column");
     }
-    auto column_iterator = down_cast<ScalarColumnIterator*>(iter);
+    auto column_iterator = static_cast<ScalarColumnIterator*>(iter);
     auto dict_size = column_iterator->dict_size();
     int dict_codes[dict_size];
     std::iota(dict_codes, dict_codes + dict_size, 0);
@@ -423,7 +422,7 @@ StatusOr<ColumnPredicateRewriter::RewriteStatus> ColumnPredicateRewriter::_rewri
     *dest_pred = nullptr;
     size_t value_size = raw_dict_column->size();
     std::vector<uint8_t> selection(value_size);
-    const auto* pred = down_cast<const ColumnExprPredicate*>(src_pred);
+    const auto* pred = static_cast<const ColumnExprPredicate*>(src_pred);
     size_t chunk_size = std::min<size_t>(pred->runtime_state()->chunk_size(), std::numeric_limits<uint16_t>::max());
 
     if (value_size <= chunk_size) {
@@ -641,7 +640,7 @@ Status ZonemapPredicatesRewriter::_rewrite_predicate(ObjectPool* pool, const Col
 Status ZonemapPredicatesRewriter::_rewrite_column_expr_predicate(ObjectPool* pool, const ColumnPredicate* src_pred,
                                                                  std::vector<const ColumnExprPredicate*>& dst_preds) {
     DCHECK(src_pred != nullptr);
-    const auto* column_expr_pred = down_cast<const ColumnExprPredicate*>(src_pred);
+    const auto* column_expr_pred = static_cast<const ColumnExprPredicate*>(src_pred);
     return column_expr_pred->try_to_rewrite_for_zone_map_filter(pool, &dst_preds);
 }
 

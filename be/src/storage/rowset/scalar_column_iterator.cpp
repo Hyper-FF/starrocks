@@ -405,7 +405,7 @@ Status ScalarColumnIterator::_load_dict_page() {
 template <LogicalType Type>
 Status ScalarColumnIterator::_do_init_dict_decoder() {
     if constexpr (Type == TYPE_CHAR || Type == TYPE_VARCHAR || Type == TYPE_JSON) {
-        auto dict_page_decoder = down_cast<BinaryDictPageDecoder<Type>*>(_page->data_decoder());
+        auto dict_page_decoder = static_cast<BinaryDictPageDecoder<Type>*>(_page->data_decoder());
         if (dict_page_decoder->encoding_type() == DICT_ENCODING) {
             if (_dict_decoder == nullptr) {
                 RETURN_IF_ERROR(_load_dict_page<Type>());
@@ -413,7 +413,7 @@ Status ScalarColumnIterator::_do_init_dict_decoder() {
             dict_page_decoder->set_dict_decoder(_dict_decoder.get());
         }
     } else {
-        auto dict_page_decoder = down_cast<DictPageDecoder<Type>*>(_page->data_decoder());
+        auto dict_page_decoder = static_cast<DictPageDecoder<Type>*>(_page->data_decoder());
         if (dict_page_decoder->encoding_type() == DICT_ENCODING) {
             if (_dict_decoder == nullptr) {
                 RETURN_IF_ERROR(_load_dict_page<Type>());
@@ -534,7 +534,7 @@ Status ScalarColumnIterator::fetch_all_dict_words(std::vector<Slice>* words) con
 
 template <LogicalType Type>
 Status ScalarColumnIterator::_fetch_all_dict_words(std::vector<Slice>* words) const {
-    auto dict = down_cast<BinaryPlainPageDecoder<Type>*>(_dict_decoder.get());
+    auto dict = static_cast<BinaryPlainPageDecoder<Type>*>(_dict_decoder.get());
     uint32_t words_count = dict->count();
     words->reserve(words_count);
     for (uint32_t i = 0; i < words_count; i++) {
@@ -551,7 +551,7 @@ Status ScalarColumnIterator::_fetch_all_dict_words(std::vector<Slice>* words) co
 
 template <LogicalType Type>
 int ScalarColumnIterator::_do_dict_lookup(const Slice& word) {
-    auto dict = down_cast<BinaryPlainPageDecoder<Type>*>(_dict_decoder.get());
+    auto dict = static_cast<BinaryPlainPageDecoder<Type>*>(_dict_decoder.get());
     return dict->find(word);
 }
 
@@ -632,7 +632,7 @@ Status ScalarColumnIterator::_do_next_batch_dict_codes(const SparseRange<>& rang
 
 template <LogicalType Type>
 Status ScalarColumnIterator::_do_decode_dict_codes(const int32_t* codes, size_t size, Column* words) {
-    auto dict = down_cast<BinaryPlainPageDecoder<Type>*>(_dict_decoder.get());
+    auto dict = static_cast<BinaryPlainPageDecoder<Type>*>(_dict_decoder.get());
     std::vector<Slice> slices;
     slices.reserve(size);
     for (size_t i = 0; i < size; i++) {
@@ -666,7 +666,7 @@ Status ScalarColumnIterator::_fetch_by_rowid_helper(const rowid_t* rowids, size_
     while (cursor != end) {
         RETURN_IF_ERROR(seek_to_ordinal(*cursor));
         contain_deleted_row = contain_deleted_row || _contains_deleted_row(_page->page_index());
-        auto last_rowid = implicit_cast<rowid_t>(_page->first_ordinal() + _page->num_rows());
+        auto last_rowid = static_cast<rowid_t>(_page->first_ordinal() + _page->num_rows());
         const rowid_t* next_page_rowid = std::lower_bound(cursor, end, last_rowid);
         if (_page->supports_read_by_rowids()) {
             size_t nread = next_page_rowid - cursor;
@@ -676,7 +676,7 @@ Status ScalarColumnIterator::_fetch_by_rowid_helper(const rowid_t* rowids, size_
             while (cursor != next_page_rowid) {
                 DCHECK_EQ(_current_ordinal, _page->first_ordinal() + _page->offset());
                 rowid_t curr = *cursor;
-                _current_ordinal = implicit_cast<ordinal_t>(curr);
+                _current_ordinal = static_cast<ordinal_t>(curr);
                 RETURN_IF_ERROR(_page->seek(curr - _page->first_ordinal()));
                 const rowid_t* contiguous = cursor + 1;
                 while ((contiguous != next_page_rowid) && (*contiguous == curr + 1)) {
@@ -715,13 +715,13 @@ Status ScalarColumnIterator::fetch_dict_codes_by_rowid(const rowid_t* rowids, si
 
 int ScalarColumnIterator::dict_size() {
     if (_reader->column_type() == TYPE_CHAR) {
-        auto dict = down_cast<BinaryPlainPageDecoder<TYPE_CHAR>*>(_dict_decoder.get());
+        auto dict = static_cast<BinaryPlainPageDecoder<TYPE_CHAR>*>(_dict_decoder.get());
         return static_cast<int>(dict->dict_size());
     } else if (_reader->column_type() == TYPE_JSON) {
-        auto dict = down_cast<BinaryPlainPageDecoder<TYPE_JSON>*>(_dict_decoder.get());
+        auto dict = static_cast<BinaryPlainPageDecoder<TYPE_JSON>*>(_dict_decoder.get());
         return static_cast<int>(dict->dict_size());
     } else if (_reader->column_type() == TYPE_VARCHAR) {
-        auto dict = down_cast<BinaryPlainPageDecoder<TYPE_VARCHAR>*>(_dict_decoder.get());
+        auto dict = static_cast<BinaryPlainPageDecoder<TYPE_VARCHAR>*>(_dict_decoder.get());
         return static_cast<int>(dict->dict_size());
     }
     __builtin_unreachable();

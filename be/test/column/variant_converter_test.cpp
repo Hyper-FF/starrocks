@@ -23,7 +23,6 @@
 
 #include "column/column_helper.h"
 #include "column/nullable_column.h"
-#include "gutil/casts.h"
 #include "types/date_value.h"
 #include "types/time_types.h"
 #include "types/timestamp_value.h"
@@ -148,7 +147,7 @@ TEST(VariantRowConverterTest, ThrowAndNullOnInvalidBooleanString) {
     ASSERT_TRUE(null_status.ok()) << null_status;
     auto null_column = null_builder.build(false);
     ASSERT_TRUE(null_column->is_nullable());
-    auto* nullable = down_cast<NullableColumn*>(null_column.get());
+    auto* nullable = static_cast<NullableColumn*>(null_column.get());
     EXPECT_TRUE(nullable->is_null(0));
 }
 

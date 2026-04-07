@@ -16,7 +16,6 @@
 
 #include "column/runtime_type_traits.h"
 #include "exprs/agg/aggregate.h"
-#include "gutil/casts.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -58,7 +57,7 @@ public:
     void update(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state,
                 size_t row_num) const override {
         DCHECK(columns[0]->is_numeric() || columns[0]->is_decimal());
-        const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+        const auto& column = static_cast<const InputColumnType&>(*columns[0]);
         this->data(state).sum += column.immutable_data()[row_num];
     }
 
@@ -67,13 +66,13 @@ public:
     void retract(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state,
                  size_t row_num) const override {
         DCHECK(columns[0]->is_numeric() || columns[0]->is_decimal());
-        const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+        const auto& column = static_cast<const InputColumnType&>(*columns[0]);
         this->data(state).sum -= column.immutable_data()[row_num];
     }
 
     void update_batch_single_state(FunctionContext* ctx, size_t chunk_size, const Column** columns,
                                    AggDataPtr __restrict state) const override {
-        const auto* column = down_cast<const InputColumnType*>(columns[0]);
+        const auto* column = static_cast<const InputColumnType*>(columns[0]);
         const auto* data = column->immutable_data().data();
         for (size_t i = 0; i < chunk_size; ++i) {
             this->data(state).sum += data[i];
@@ -83,7 +82,7 @@ public:
     void update_batch_single_state_with_frame(FunctionContext* ctx, AggDataPtr __restrict state, const Column** columns,
                                               int64_t peer_group_start, int64_t peer_group_end, int64_t frame_start,
                                               int64_t frame_end) const override {
-        const auto* column = down_cast<const InputColumnType*>(columns[0]);
+        const auto* column = static_cast<const InputColumnType*>(columns[0]);
         const auto* data = column->immutable_data().data();
         for (size_t i = frame_start; i < frame_end; ++i) {
             this->data(state).sum += data[i];
@@ -95,7 +94,7 @@ public:
                                              int64_t partition_end, int64_t rows_start_offset, int64_t rows_end_offset,
                                              bool ignore_subtraction, bool ignore_addition,
                                              [[maybe_unused]] bool has_null) const override {
-        const auto* column = down_cast<const InputColumnType*>(columns[0]);
+        const auto* column = static_cast<const InputColumnType*>(columns[0]);
         const auto* data = column->immutable_data().data();
 
         const int64_t previous_frame_first_position = current_row_position - 1 + rows_start_offset;
@@ -112,7 +111,7 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_numeric() || column->is_decimal());
-        const auto* input_column = down_cast<const ResultColumnType*>(column);
+        const auto* input_column = static_cast<const ResultColumnType*>(column);
         this->data(state).sum += input_column->immutable_data()[row_num];
     }
 
@@ -120,7 +119,7 @@ public:
                     size_t end) const override {
         DCHECK_GT(end, start);
         ResultType result = this->data(state).sum;
-        auto* column = down_cast<ResultColumnType*>(dst);
+        auto* column = static_cast<ResultColumnType*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = result;
         }
@@ -129,12 +128,12 @@ public:
     void serialize_to_column([[maybe_unused]] FunctionContext* ctx, ConstAggDataPtr __restrict state,
                              Column* to) const override {
         DCHECK(to->is_numeric() || to->is_decimal());
-        down_cast<ResultColumnType*>(to)->append(this->data(state).sum);
+        static_cast<ResultColumnType*>(to)->append(this->data(state).sum);
     }
 
     void batch_serialize(FunctionContext* ctx, size_t chunk_size, const Buffer<AggDataPtr>& agg_states,
                          size_t state_offset, Column* to) const override {
-        auto* column = down_cast<ResultColumnType*>(to);
+        auto* column = static_cast<ResultColumnType*>(to);
         auto& result_data = column->get_data();
         for (size_t i = 0; i < chunk_size; i++) {
             result_data.emplace_back(this->data(agg_states[i] + state_offset).sum);
@@ -144,13 +143,13 @@ public:
     void finalize_to_column([[maybe_unused]] FunctionContext* ctx, ConstAggDataPtr __restrict state,
                             Column* to) const override {
         DCHECK(to->is_numeric() || to->is_decimal());
-        down_cast<ResultColumnType*>(to)->append(this->data(state).sum);
+        static_cast<ResultColumnType*>(to)->append(this->data(state).sum);
     }
 
     void convert_to_serialize_format([[maybe_unused]] FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto& dst_data = down_cast<ResultColumnType*>(dst.get())->get_data();
-        const auto* src_data = down_cast<const InputColumnType*>(src[0].get())->immutable_data().data();
+        auto& dst_data = static_cast<ResultColumnType*>(dst.get())->get_data();
+        const auto* src_data = static_cast<const InputColumnType*>(src[0].get())->immutable_data().data();
 
         dst_data.resize(chunk_size);
         for (size_t i = 0; i < chunk_size; ++i) {

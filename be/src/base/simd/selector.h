@@ -26,8 +26,8 @@
 #include <type_traits>
 
 #include "base/simd/simd_utils.h"
-#include "gutil/port.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/port.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 
@@ -120,7 +120,7 @@ constexpr bool could_use_common_select_if() {
     return sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8;
 }
 
-// implentment int16/int32/float/int64/double SIMD select_if
+// implentment int16_t/int32_t/float/int64_t/double SIMD select_if
 template <typename T, bool left_const = false, bool right_const = false>
 inline void avx2_select_if_common_implement(uint8_t*& selector, T*& dst, const T*& a, const T*& b, int size) {
     constexpr int batch_width = 32;
@@ -173,8 +173,8 @@ inline void avx2_select_if_common_implement(uint8_t*& selector, T*& dst, const T
             }
 
             // Each loop can handle the size of the selection vector,
-            // using int16 as an example,
-            // because each mask outer loop has to handle 32 int16, but since m256 can only handle 16 int16,
+            // using int16_t as an example,
+            // because each mask outer loop has to handle 32 int16_t, but since m256 can only handle 16 int16_t,
             // we need to use two loops to handle 16 each, so each loop needs to use 0xFFFF to get 16 bits to process.
 
             // In addition, since data_size is constexpr, the loop here will be expanded by the compiler
@@ -206,7 +206,7 @@ inline void avx2_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                     select_vector = ~select_vector;
                 } else if constexpr (data_size == 4) {
                     select_vector = _mm256_set1_epi8(select_mask);
-                    // the same method as int16
+                    // the same method as int16_t
                     // expand 8 bits into m256
                     // each bit expand to 4 bytes
                     // clang-format off
@@ -225,7 +225,7 @@ inline void avx2_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                     select_vector = ~select_vector;
                 } else if constexpr (data_size == 8) {
                     select_vector = _mm256_set1_epi8(select_mask);
-                    // the same method as int16
+                    // the same method as int16_t
                     // each bit expand to 8 bytes
                     // clang-format off
                 const __m256i data_mask = _mm256_setr_epi8(
@@ -294,7 +294,7 @@ inline void neon_select_if_common_implement(uint8_t*& selector, T*& dst, const T
         // select_lhs_mask[i] = select_lhs_mask[i] != 0 ? 0xFF : 0x00
         select_lhs_mask = vtstq_u8(select_lhs_mask, select_lhs_mask);
 
-        if constexpr (data_size == 1) {            // int8/uint8/bool
+        if constexpr (data_size == 1) {            // int8_t/uint8_t/bool
             if (vmaxvq_u8(select_lhs_mask) == 0) { // Select all the rhs.
                 if constexpr (right_const) {
                     vst1q_u8(reinterpret_cast<uint8_t*>(dst), vec_b);
@@ -322,7 +322,7 @@ inline void neon_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                 // Store result
                 vst1q_u8(reinterpret_cast<uint8_t*>(dst), result);
             }
-        } else if constexpr (data_size == 2) {     // int16
+        } else if constexpr (data_size == 2) {     // int16_t
             if (vmaxvq_u8(select_lhs_mask) == 0) { // Select all the rhs.
                 if constexpr (right_const) {
                     for (int i = 0; i < 2; i++) {
@@ -340,7 +340,7 @@ inline void neon_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                     strings::memcpy_inlined(dst, a, neon_width * data_size);
                 }
             } else {
-                // Process 2 groups, each handling 8 int16
+                // Process 2 groups, each handling 8 int16_t
                 for (int i = 0; i < 2; i++) {
                     if constexpr (!left_const) {
                         // vld1q_u16: Load 8 consecutive 16-bit values into NEON register
@@ -351,7 +351,7 @@ inline void neon_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                         vec_b = vld1q_u16(reinterpret_cast<const uint16_t*>(b) + i * 8);
                     }
 
-                    // Convert first 8 uint8 masks to uint16 masks using lookup table, effectively duplicating each uint8
+                    // Convert first 8 uint8_t masks to uint16_t masks using lookup table, effectively duplicating each uint8_t
                     uint8x16_t index = {0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7};
                     uint8x16_t mask = vqtbl1q_u8(select_lhs_mask, index);
 
@@ -362,7 +362,7 @@ inline void neon_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                     select_lhs_mask = vextq_u8(select_lhs_mask, select_lhs_mask, 8);
                 }
             }
-        } else if constexpr (data_size == 4) {     // int32/float
+        } else if constexpr (data_size == 4) {     // int32_t/float
             if (vmaxvq_u8(select_lhs_mask) == 0) { // Select all the rhs.
                 if constexpr (right_const) {
                     for (int i = 0; i < 4; i++) {
@@ -380,7 +380,7 @@ inline void neon_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                     strings::memcpy_inlined(dst, a, neon_width * data_size);
                 }
             } else {
-                // Process 4 groups, each handling 4 int32
+                // Process 4 groups, each handling 4 int32_t
                 for (int i = 0; i < 4; i++) {
                     if constexpr (!left_const) {
                         vec_a = vld1q_u32(reinterpret_cast<const uint32_t*>(a) + i * 4);
@@ -399,7 +399,7 @@ inline void neon_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                     select_lhs_mask = vextq_u8(select_lhs_mask, select_lhs_mask, 4);
                 }
             }
-        } else if constexpr (data_size == 8) {     // int64/double
+        } else if constexpr (data_size == 8) {     // int64_t/double
             if (vmaxvq_u8(select_lhs_mask) == 0) { // Select all the rhs.
                 if constexpr (right_const) {
                     for (int i = 0; i < 8; i++) {
@@ -417,7 +417,7 @@ inline void neon_select_if_common_implement(uint8_t*& selector, T*& dst, const T
                     strings::memcpy_inlined(dst, a, neon_width * data_size);
                 }
             } else {
-                // Process 8 groups, each handling 2 int64
+                // Process 8 groups, each handling 2 int64_t
                 for (int i = 0; i < 8; i++) {
                     if constexpr (!left_const) {
                         vec_a = vld1q_u64(reinterpret_cast<const uint64_t*>(a) + i * 2);

@@ -37,16 +37,16 @@ bool AggStateUtils::is_count_function(const std::string& func_name) noexcept {
 // Get the aggregate state descriptor from the aggregate function.
 const AggStateDesc* AggStateUtils::get_agg_state_desc(const AggregateFunction* agg_func) {
     if (dynamic_cast<const AggStateUnion*>(agg_func)) {
-        auto* agg_state_union = down_cast<const AggStateUnion*>(agg_func);
+        auto* agg_state_union = static_cast<const AggStateUnion*>(agg_func);
         return agg_state_union->get_agg_state_desc();
     } else if (dynamic_cast<const AggStateMerge*>(agg_func)) {
-        auto* agg_state_merge = down_cast<const AggStateMerge*>(agg_func);
+        auto* agg_state_merge = static_cast<const AggStateMerge*>(agg_func);
         return agg_state_merge->get_agg_state_desc();
     } else if (dynamic_cast<const AggStateCombine*>(agg_func)) {
-        auto* agg_state_merge = down_cast<const AggStateCombine*>(agg_func);
+        auto* agg_state_merge = static_cast<const AggStateCombine*>(agg_func);
         return agg_state_merge->get_agg_state_desc();
     } else if (dynamic_cast<const AggStateIf*>(agg_func)) {
-        auto* agg_state_if = down_cast<const AggStateIf*>(agg_func);
+        auto* agg_state_if = static_cast<const AggStateIf*>(agg_func);
         return agg_state_if->get_agg_state_desc();
     }
     return nullptr;

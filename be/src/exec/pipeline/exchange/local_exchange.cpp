@@ -25,7 +25,7 @@
 #include "exec/pipeline/exchange/shuffler.h"
 #include "exprs/expr_context.h"
 #include "exprs/expr_executor.h"
-#include "gutil/hash/hash.h"
+#include "base/gutil/hash/hash.h"
 
 namespace starrocks::pipeline {
 Status Partitioner::partition_chunk(const ChunkPtr& chunk, int32_t num_partitions,

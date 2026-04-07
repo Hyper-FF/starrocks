@@ -46,7 +46,7 @@
 #include "common/compiler_util.h"
 #include "common/logging.h"
 #include "common/mem_chunk.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "types/constexpr.h"
 
 namespace starrocks {

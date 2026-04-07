@@ -233,7 +233,7 @@ public:
     }
 
     void swap_column(Column& rhs) override {
-        auto& r = down_cast<ConstColumn&>(rhs);
+        auto& r = static_cast<ConstColumn&>(rhs);
         _data->swap_column(*r._data);
         std::swap(_delete_state, r._delete_state);
         std::swap(_size, r._size);

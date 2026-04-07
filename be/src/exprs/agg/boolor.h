@@ -22,7 +22,6 @@
 #include "column/runtime_type_traits.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/agg/aggregate_traits.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -51,12 +50,12 @@ public:
 
     void empty_result(FunctionContext* ctx, Column* to) const {
         if (to->is_nullable()) {
-            auto* nullable = down_cast<NullableColumn*>(to);
-            auto* output = down_cast<BooleanColumn*>(nullable->data_column_raw_ptr());
+            auto* nullable = static_cast<NullableColumn*>(to);
+            auto* output = static_cast<BooleanColumn*>(nullable->data_column_raw_ptr());
             output->append(false);
             nullable->null_column_data().push_back(1);
         } else {
-            auto* output = down_cast<BooleanColumn*>(to);
+            auto* output = static_cast<BooleanColumn*>(to);
             output->append(false);
         }
     }
@@ -64,16 +63,16 @@ public:
     void update(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state,
                 size_t row_num) const override {
         if (columns[0]->is_nullable()) {
-            const auto& nullable_column = down_cast<const NullableColumn&>(*columns[0]);
+            const auto& nullable_column = static_cast<const NullableColumn&>(*columns[0]);
             if (nullable_column.is_null(row_num)) {
                 return;
             }
             const auto& data_column = nullable_column.data_column();
-            const auto& column = down_cast<const InputColumnType&>(*data_column);
+            const auto& column = static_cast<const InputColumnType&>(*data_column);
             bool value = column.immutable_data()[row_num];
             BoolOrElement()(this->data(state), value);
         } else {
-            const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+            const auto& column = static_cast<const InputColumnType&>(*columns[0]);
             bool value = column.immutable_data()[row_num];
             BoolOrElement()(this->data(state), value);
         }
@@ -86,12 +85,12 @@ public:
         }
 
         if (columns[0]->is_nullable()) {
-            const auto& nullable_column = down_cast<const NullableColumn&>(*columns[0]);
+            const auto& nullable_column = static_cast<const NullableColumn&>(*columns[0]);
             const auto& data_column = nullable_column.data_column();
 
             for (size_t i = 0; i < chunk_size; ++i) {
                 if (!nullable_column.is_null(i)) {
-                    const auto& column = down_cast<const InputColumnType&>(*data_column);
+                    const auto& column = static_cast<const InputColumnType&>(*data_column);
                     bool value = column.immutable_data()[i];
                     if (value) {
                         this->data(state).result = true;
@@ -100,7 +99,7 @@ public:
                 }
             }
         } else {
-            const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+            const auto& column = static_cast<const InputColumnType&>(*columns[0]);
 
             for (size_t i = 0; i < chunk_size; ++i) {
                 bool value = column.immutable_data()[i];
@@ -120,9 +119,9 @@ public:
         }
 
         if (columns[0]->is_nullable()) {
-            const auto& nullable_column = down_cast<const NullableColumn&>(*columns[0]);
+            const auto& nullable_column = static_cast<const NullableColumn&>(*columns[0]);
             const auto& data_column = nullable_column.data_column();
-            const auto& column = down_cast<const InputColumnType&>(*data_column);
+            const auto& column = static_cast<const InputColumnType&>(*data_column);
 
             for (size_t i = frame_start; i < frame_end; ++i) {
                 if (!nullable_column.is_null(i)) {
@@ -134,7 +133,7 @@ public:
                 }
             }
         } else {
-            const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+            const auto& column = static_cast<const InputColumnType&>(*columns[0]);
 
             for (size_t i = frame_start; i < frame_end; ++i) {
                 bool value = column.immutable_data()[i];
@@ -148,16 +147,16 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         if (column->is_nullable()) {
-            const auto& nullable_column = down_cast<const NullableColumn&>(*column);
+            const auto& nullable_column = static_cast<const NullableColumn&>(*column);
             if (nullable_column.is_null(row_num)) {
                 return;
             }
             const auto& data_column = nullable_column.data_column();
-            const auto* input_column = down_cast<const InputColumnType*>(data_column.get());
+            const auto* input_column = static_cast<const InputColumnType*>(data_column.get());
             bool value = input_column->immutable_data()[row_num];
             BoolOrElement()(this->data(state), value);
         } else {
-            const auto* input_column = down_cast<const InputColumnType*>(column);
+            const auto* input_column = static_cast<const InputColumnType*>(column);
             bool value = input_column->immutable_data()[row_num];
             BoolOrElement()(this->data(state), value);
         }
@@ -165,12 +164,12 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         if (to->is_nullable()) {
-            auto* nullable = down_cast<NullableColumn*>(to);
-            auto* output = down_cast<BooleanColumn*>(nullable->data_column_raw_ptr());
+            auto* nullable = static_cast<NullableColumn*>(to);
+            auto* output = static_cast<BooleanColumn*>(nullable->data_column_raw_ptr());
             output->append(this->data(state).result);
             nullable->null_column_data().push_back(0);
         } else {
-            auto* output = down_cast<BooleanColumn*>(to);
+            auto* output = static_cast<BooleanColumn*>(to);
             output->append(this->data(state).result);
         }
     }
@@ -182,12 +181,12 @@ public:
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         if (to->is_nullable()) {
-            auto* nullable = down_cast<NullableColumn*>(to);
-            auto* output = down_cast<BooleanColumn*>(nullable->data_column_raw_ptr());
+            auto* nullable = static_cast<NullableColumn*>(to);
+            auto* output = static_cast<BooleanColumn*>(nullable->data_column_raw_ptr());
             output->append(this->data(state).result);
             nullable->null_column_data().push_back(0);
         } else {
-            auto* output = down_cast<BooleanColumn*>(to);
+            auto* output = static_cast<BooleanColumn*>(to);
             output->append(this->data(state).result);
         }
     }
@@ -198,11 +197,11 @@ public:
 
         for (size_t i = start; i < end; ++i) {
             if (dst->is_nullable()) {
-                auto* nullable = down_cast<NullableColumn*>(dst);
-                auto* output = down_cast<BooleanColumn*>(nullable->data_column_raw_ptr());
+                auto* nullable = static_cast<NullableColumn*>(dst);
+                auto* output = static_cast<BooleanColumn*>(nullable->data_column_raw_ptr());
                 output->get_data()[i] = this->data(state).result;
             } else {
-                auto* output = down_cast<BooleanColumn*>(dst);
+                auto* output = static_cast<BooleanColumn*>(dst);
                 output->get_data()[i] = this->data(state).result;
             }
         }

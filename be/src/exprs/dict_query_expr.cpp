@@ -21,7 +21,6 @@
 #include "common/system/master_info.h"
 #include "exec/tablet_info.h"
 #include "gen_cpp/FrontendService.h"
-#include "gutil/casts.h"
 #include "runtime/client_cache.h"
 #include "storage/chunk_helper.h"
 #include "storage/table_reader.h"

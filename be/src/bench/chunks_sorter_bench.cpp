@@ -75,7 +75,7 @@ public:
         for (int32_t x : elements) {
             column->append_datum(Datum((int32_t)x));
         }
-        down_cast<NullableColumn*>(column.get())->update_has_null();
+        static_cast<NullableColumn*>(column.get())->update_has_null();
 
         return {std::move(column), std::move(expr)};
     }

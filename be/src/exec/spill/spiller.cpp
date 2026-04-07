@@ -35,7 +35,7 @@
 #include "exec/spill/mem_table.h"
 #include "exec/spill/options.h"
 #include "exec/spill/spiller.hpp"
-#include "gutil/port.h"
+#include "base/gutil/port.h"
 #include "runtime/runtime_state.h"
 #include "serde/column_array_serde.h"
 
@@ -151,11 +151,11 @@ Status Spiller::prepare(RuntimeState* state) {
 
 void Spiller::set_partition(const std::vector<const SpillPartitionInfo*>& parititons) {
     DCHECK_GT(_opts.init_partition_nums, 0);
-    down_cast<PartitionedSpillerWriter*>(_writer.get())->reset_partition(parititons);
+    static_cast<PartitionedSpillerWriter*>(_writer.get())->reset_partition(parititons);
 }
 
 void Spiller::set_partition(RuntimeState* state, size_t num_partitions) {
-    down_cast<PartitionedSpillerWriter*>(_writer.get())->reset_partition(state, num_partitions);
+    static_cast<PartitionedSpillerWriter*>(_writer.get())->reset_partition(state, num_partitions);
 }
 
 void Spiller::update_spilled_task_status(Status&& st) {

@@ -53,7 +53,7 @@ static void test_array_column_view_helper(bool nullable, bool append_default, lo
     auto opt_array_column_view =
             ColumnViewHelper::create_column_view(type_desc, nullable, concat_row_limit, concat_bytes_limit);
     DCHECK(opt_array_column_view.has_value());
-    auto array_column_view = down_cast<ColumnView*>(opt_array_column_view.value().get());
+    auto array_column_view = static_cast<ColumnView*>(opt_array_column_view.value().get());
     auto num_rows = 0;
     if (append_default) {
         array_column_view->append_default();

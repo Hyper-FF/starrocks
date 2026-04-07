@@ -17,7 +17,6 @@
 #include "column/object_column.h"
 #include "column/vectorized_fwd.h"
 #include "exprs/agg/aggregate.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -40,14 +39,14 @@ public:
 
     void update(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state,
                 size_t row_num) const override {
-        const auto* column = down_cast<const HyperLogLogColumn*>(columns[0]);
+        const auto* column = static_cast<const HyperLogLogColumn*>(columns[0]);
         update_state(ctx, state, *(column->get_object(row_num)));
     }
 
     void update_batch_single_state_with_frame(FunctionContext* ctx, AggDataPtr __restrict state, const Column** columns,
                                               int64_t peer_group_start, int64_t peer_group_end, int64_t frame_start,
                                               int64_t frame_end) const override {
-        const auto* column = down_cast<const HyperLogLogColumn*>(columns[0]);
+        const auto* column = static_cast<const HyperLogLogColumn*>(columns[0]);
         for (size_t i = frame_start; i < frame_end; ++i) {
             update_state(ctx, state, *(column->get_object(i)));
         }
@@ -56,7 +55,7 @@ public:
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_object());
 
-        const auto* hll_column = down_cast<const HyperLogLogColumn*>(column);
+        const auto* hll_column = static_cast<const HyperLogLogColumn*>(column);
         update_state(ctx, state, *(hll_column->get_object(row_num)));
     }
 
@@ -64,7 +63,7 @@ public:
                     size_t end) const override {
         DCHECK_GT(end, start);
         DCHECK(dst->is_object());
-        auto* column = down_cast<HyperLogLogColumn*>(dst);
+        auto* column = static_cast<HyperLogLogColumn*>(dst);
 
         for (size_t i = start; i < end; ++i) {
             column->append(&this->data(state));
@@ -74,7 +73,7 @@ public:
     void serialize_to_column(FunctionContext* ctx __attribute__((unused)), ConstAggDataPtr __restrict state,
                              Column* to) const override {
         DCHECK(to->is_object());
-        auto* column = down_cast<HyperLogLogColumn*>(to);
+        auto* column = static_cast<HyperLogLogColumn*>(to);
         auto& hll_value = const_cast<HyperLogLog&>(this->data(state));
         column->append(std::move(hll_value));
     }
@@ -87,7 +86,7 @@ public:
     void finalize_to_column(FunctionContext* ctx __attribute__((unused)), ConstAggDataPtr __restrict state,
                             Column* to) const override {
         DCHECK(to->is_object());
-        auto* column = down_cast<HyperLogLogColumn*>(to);
+        auto* column = static_cast<HyperLogLogColumn*>(to);
         auto& hll_value = const_cast<HyperLogLog&>(this->data(state));
         column->append(std::move(hll_value));
     }

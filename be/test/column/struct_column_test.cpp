@@ -287,7 +287,7 @@ TEST(StructColumnTest, test_copy_construtor) {
     ASSERT_EQ("{id:2,name:'cruise'}", col->debug_item(1));
 
     auto copy_ptr = col->clone();
-    auto* copy = down_cast<StructColumn*>(copy_ptr.get());
+    auto* copy = static_cast<StructColumn*>(copy_ptr.get());
     col->reset_column();
     ASSERT_EQ(0, col->size());
     ASSERT_EQ(2, copy->size());
@@ -327,8 +327,8 @@ TEST(StructColumnTest, test_clone) {
     ASSERT_EQ("{id:1,name:'smith'}", copy->debug_item(0));
     ASSERT_EQ("{id:2,name:'cruise'}", copy->debug_item(1));
 
-    ASSERT_TRUE(down_cast<StructColumn*>(copy.get())->get_column_by_idx(0)->use_count() == 1);
-    ASSERT_TRUE(down_cast<StructColumn*>(copy.get())->get_column_by_idx(1)->use_count() == 1);
+    ASSERT_TRUE(static_cast<StructColumn*>(copy.get())->get_column_by_idx(0)->use_count() == 1);
+    ASSERT_TRUE(static_cast<StructColumn*>(copy.get())->get_column_by_idx(1)->use_count() == 1);
 }
 
 TEST(StructColumnTest, test_clone_shared) {
@@ -344,8 +344,8 @@ TEST(StructColumnTest, test_clone_shared) {
     ASSERT_EQ("{id:1,name:'smith'}", copy->debug_item(0));
     ASSERT_EQ("{id:2,name:'cruise'}", copy->debug_item(1));
 
-    ASSERT_TRUE(down_cast<StructColumn*>(copy.get())->get_column_by_idx(0)->use_count() == 1);
-    ASSERT_TRUE(down_cast<StructColumn*>(copy.get())->get_column_by_idx(1)->use_count() == 1);
+    ASSERT_TRUE(static_cast<StructColumn*>(copy.get())->get_column_by_idx(0)->use_count() == 1);
+    ASSERT_TRUE(static_cast<StructColumn*>(copy.get())->get_column_by_idx(1)->use_count() == 1);
 }
 
 TEST(StructColumnTest, test_clone_empty) {
@@ -359,8 +359,8 @@ TEST(StructColumnTest, test_clone_empty) {
     col->reset_column();
     ASSERT_EQ(0, copy->size());
 
-    ASSERT_TRUE(down_cast<StructColumn*>(copy.get())->get_column_by_idx(0)->use_count() == 1);
-    ASSERT_TRUE(down_cast<StructColumn*>(copy.get())->get_column_by_idx(1)->use_count() == 1);
+    ASSERT_TRUE(static_cast<StructColumn*>(copy.get())->get_column_by_idx(0)->use_count() == 1);
+    ASSERT_TRUE(static_cast<StructColumn*>(copy.get())->get_column_by_idx(1)->use_count() == 1);
 }
 
 TEST(StructColumnTest, test_update_rows) {

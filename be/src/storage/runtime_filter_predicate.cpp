@@ -18,7 +18,7 @@
 
 #include "base/simd/simd.h"
 #include "common/config_rowset_fwd.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "runtime/mem_tracker.h"
 #include "storage/rowset/column_iterator.h"
 
@@ -64,7 +64,7 @@ Status DictColumnRuntimeFilterPredicate::evaluate(Chunk* chunk, uint8_t* selecti
     RETURN_IF_ERROR(prepare());
     auto column = chunk->get_column_by_id(_column_id).get();
     if (column->is_nullable()) {
-        const auto* nullable_column = down_cast<const NullableColumn*>(column);
+        const auto* nullable_column = static_cast<const NullableColumn*>(column);
         // dict code column must be int column
         const auto& data = GetContainer<TYPE_INT>::get_data(nullable_column->data_column());
         if (nullable_column->has_null()) {
@@ -102,7 +102,7 @@ StatusOr<uint16_t> DictColumnRuntimeFilterPredicate::evaluate(Chunk* chunk, uint
     auto column = chunk->get_column_by_id(_column_id).get();
     uint16_t new_size = 0;
     if (column->is_nullable()) {
-        const auto* nullable_column = down_cast<const NullableColumn*>(column);
+        const auto* nullable_column = static_cast<const NullableColumn*>(column);
         const auto& data = GetContainer<TYPE_INT>::get_data(nullable_column->data_column());
         if (nullable_column->has_null()) {
             const uint8_t* null_data = nullable_column->immutable_null_column_data().data();

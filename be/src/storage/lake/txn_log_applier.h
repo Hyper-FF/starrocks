@@ -17,7 +17,7 @@
 #include <memory>
 
 #include "common/status.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "storage/lake/tablet_metadata.h"
 #include "storage/lake/txn_log.h"
 

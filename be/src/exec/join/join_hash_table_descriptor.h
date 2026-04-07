@@ -255,8 +255,8 @@ struct HashTableProbeState {
     HashTableProbeState()
             : build_index_column(UInt32Column::create()),
               probe_index_column(UInt32Column::create()),
-              build_index(down_cast<UInt32Column*>(build_index_column.get())->get_data()),
-              probe_index(down_cast<UInt32Column*>(probe_index_column.get())->get_data()) {}
+              build_index(static_cast<UInt32Column*>(build_index_column.get())->get_data()),
+              probe_index(static_cast<UInt32Column*>(probe_index_column.get())->get_data()) {}
 
     struct ProbeCoroutine {
         struct ProbePromise {
@@ -298,8 +298,8 @@ struct HashTableProbeState {
               probe_index_column(rhs.probe_index_column == nullptr
                                          ? UInt32Column::create()->as_mutable_ptr() // to MutableColumnPtr
                                          : rhs.probe_index_column->clone()),
-              build_index(down_cast<UInt32Column*>(build_index_column.get())->get_data()),
-              probe_index(down_cast<UInt32Column*>(probe_index_column.get())->get_data()),
+              build_index(static_cast<UInt32Column*>(build_index_column.get())->get_data()),
+              probe_index(static_cast<UInt32Column*>(probe_index_column.get())->get_data()),
               build_match_index(rhs.build_match_index),
               probe_match_index(rhs.probe_match_index),
               probe_match_filter(rhs.probe_match_filter),

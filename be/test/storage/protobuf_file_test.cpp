@@ -25,7 +25,7 @@
 #include "common/status.h"
 #include "fs/fs.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "gutil/strings/util.h"
+#include "base/gutil/strings/util.h"
 
 namespace starrocks {
 

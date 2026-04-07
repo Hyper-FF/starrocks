@@ -15,7 +15,7 @@
 #pragma once
 
 #include "exec/pipeline/pipeline_fwd.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 
 namespace starrocks::pipeline {
 class DriverQueue;

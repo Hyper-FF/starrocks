@@ -25,7 +25,7 @@ namespace starrocks::avrocpp {
 
 template <typename T>
 Status NumericColumnReader<T>::read_datum(const avro::GenericDatum& datum, Column* column) {
-    auto numeric_column = down_cast<FixedLengthColumn<T>*>(column);
+    auto numeric_column = static_cast<FixedLengthColumn<T>*>(column);
     switch (datum.type()) {
     case avro::AVRO_INT:
     case avro::AVRO_LONG:
@@ -149,7 +149,7 @@ template class NumericColumnReader<double>;
 // ------ boolean ------
 
 Status BooleanColumnReader::read_datum(const avro::GenericDatum& datum, Column* column) {
-    auto numeric_column = down_cast<FixedLengthColumn<uint8_t>*>(column);
+    auto numeric_column = static_cast<FixedLengthColumn<uint8_t>*>(column);
     switch (datum.type()) {
     case avro::AVRO_INT:
     case avro::AVRO_LONG:
@@ -183,13 +183,13 @@ Status BooleanColumnReader::read_numeric_value(const avro::GenericDatum& datum, 
 
     case avro::AVRO_FLOAT: {
         const auto& from = datum.value<float>();
-        column->append(implicit_cast<bool>(from));
+        column->append(static_cast<bool>(from));
         return Status::OK();
     }
 
     case avro::AVRO_DOUBLE: {
         const auto& from = datum.value<double>();
-        column->append(implicit_cast<bool>(from));
+        column->append(static_cast<bool>(from));
         return Status::OK();
     }
 
@@ -213,7 +213,7 @@ Status BooleanColumnReader::read_string_value(const avro::GenericDatum& datum, F
         column->append(v);
         return Status::OK();
     }
-    v = implicit_cast<bool>(StringParser::string_to_float<double>(from.data(), from.size(), &r));
+    v = static_cast<bool>(StringParser::string_to_float<double>(from.data(), from.size(), &r));
     if (r == StringParser::PARSE_SUCCESS) {
         column->append(v);
         return Status::OK();
@@ -227,7 +227,7 @@ Status BooleanColumnReader::read_string_value(const avro::GenericDatum& datum, F
 
 template <typename T>
 Status DecimalColumnReader<T>::read_datum(const avro::GenericDatum& datum, Column* column) {
-    auto decimal_column = down_cast<DecimalV3Column<T>*>(column);
+    auto decimal_column = static_cast<DecimalV3Column<T>*>(column);
     switch (datum.type()) {
     case avro::AVRO_INT:
     case avro::AVRO_LONG:

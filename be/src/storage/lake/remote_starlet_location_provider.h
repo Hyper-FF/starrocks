@@ -19,7 +19,7 @@
 #include <set>
 #include <string>
 
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "storage/lake/filenames.h"
 #include "storage/lake/starlet_location_provider.h"
 

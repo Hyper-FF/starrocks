@@ -26,7 +26,7 @@ namespace starrocks::pipeline {
 
 Status ExchangeParallelMergeSourceOperator::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(SourceOperator::prepare(state));
-    auto* factory = down_cast<ExchangeParallelMergeSourceOperatorFactory*>(_factory);
+    auto* factory = static_cast<ExchangeParallelMergeSourceOperatorFactory*>(_factory);
     _stream_recvr = factory->get_stream_recvr(state);
     _stream_recvr->bind_profile(_driver_sequence, _unique_metrics);
     _merger = factory->get_merge_path_merger(state);
@@ -56,7 +56,7 @@ bool ExchangeParallelMergeSourceOperator::is_finished() const {
 
 Status ExchangeParallelMergeSourceOperator::set_finishing(RuntimeState* state) {
     _is_finished = true;
-    auto* factory = down_cast<ExchangeParallelMergeSourceOperatorFactory*>(_factory);
+    auto* factory = static_cast<ExchangeParallelMergeSourceOperatorFactory*>(_factory);
     factory->close_stream_recvr();
     return Status::OK();
 }

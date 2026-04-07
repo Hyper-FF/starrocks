@@ -39,8 +39,8 @@
 #include <string>
 
 #include "base/concurrency/spinlock.h"
-#include "gutil/macros.h"
-#include "gutil/map_util.h"
+#include "base/compiler_util.h"
+#include "base/gutil/map_util.h"
 
 namespace starrocks {
 

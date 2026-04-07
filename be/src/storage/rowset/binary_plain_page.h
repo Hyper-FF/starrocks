@@ -320,14 +320,14 @@ private:
         Column* data_col;
         if (column->is_nullable()) {
             // This is NullableColumn, get its data_column
-            auto* nullable_col = down_cast<NullableColumn*>(column);
+            auto* nullable_col = static_cast<NullableColumn*>(column);
             data_col = nullable_col->data_column_raw_ptr();
         } else {
             data_col = column;
         }
 
         if (data_col->is_binary() && data_col->capacity() == 0) {
-            BinaryColumn* binary_col = down_cast<BinaryColumn*>(data_col);
+            BinaryColumn* binary_col = static_cast<BinaryColumn*>(data_col);
             binary_col->reserve(n, n * _estimated_row_size);
         }
     }

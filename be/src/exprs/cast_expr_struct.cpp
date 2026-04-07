@@ -21,9 +21,8 @@
 #include "column/variant_column.h"
 #include "exprs/cast_expr.h"
 #include "exprs/expr_context.h"
-#include "gutil/casts.h"
 #include "absl/strings/str_split.h"
-#include "gutil/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "jsonpath.h"
 #include "runtime/memory/memory_resource.h"
@@ -138,7 +137,7 @@ StatusOr<ColumnPtr> CastVariantToStruct::evaluate_checked(ExprContext* context, 
     }
 
     ColumnViewer<TYPE_VARIANT> viewer(column);
-    const auto* variant_data_column = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(column.get()));
+    const auto* variant_data_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(column.get()));
     NullColumn::MutablePtr null_column = NullColumn::create();
 
     // 1. Cast struct fields to variant columns.

@@ -118,10 +118,10 @@ static Status valid_input_vector(const ArrayColumn& input_column, const size_t i
 
 Status TenAnnIndexBuilderProxy::add(const Column& array_column, const size_t offset) {
     DCHECK(array_column.is_array());
-    const auto& array_col = down_cast<const ArrayColumn&>(array_column);
+    const auto& array_col = static_cast<const ArrayColumn&>(array_column);
 
     DCHECK(array_col.elements_column()->is_nullable());
-    const auto& nullable_elements = down_cast<const NullableColumn&>(array_col.elements());
+    const auto& nullable_elements = static_cast<const NullableColumn&>(array_col.elements());
     const auto& is_element_nulls = nullable_elements.null_column_ref();
     const uint8_t* is_element_nulls_data = is_element_nulls.raw_data();
 

@@ -58,7 +58,7 @@ template <typename ColumnType, typename StateType>
 class ReplaceAggregator final : public ValueColumnAggregator<ColumnType, StateType> {
 public:
     void aggregate_impl(int row, const ColumnPtr& src) override {
-        const auto* data = down_cast<const ColumnType*>(src.get())->immutable_data().data();
+        const auto* data = static_cast<const ColumnType*>(src.get())->immutable_data().data();
         this->data() = data[row];
     }
 
@@ -66,14 +66,14 @@ public:
         aggregate_impl(end - 1, src);
     }
 
-    void append_data(Column* agg) override { down_cast<ColumnType*>(agg)->append(this->data()); }
+    void append_data(Column* agg) override { static_cast<ColumnType*>(agg)->append(this->data()); }
 };
 
 template <>
 class ReplaceAggregator<BitmapColumn, BitmapValue> final : public ValueColumnAggregator<BitmapColumn, BitmapValue> {
 public:
     void aggregate_impl(int row, const ColumnPtr& src) override {
-        const auto* data = down_cast<const BitmapColumn*>(src.get());
+        const auto* data = static_cast<const BitmapColumn*>(src.get());
         this->data() = *(data->get_object(row));
     }
 
@@ -82,7 +82,7 @@ public:
     }
 
     void append_data(Column* agg) override {
-        auto* col = down_cast<BitmapColumn*>(agg);
+        auto* col = static_cast<BitmapColumn*>(agg);
         auto& bitmap = const_cast<BitmapValue&>(this->data());
         col->append(std::move(bitmap));
     }
@@ -93,7 +93,7 @@ class ReplaceAggregator<HyperLogLogColumn, HyperLogLog> final
         : public ValueColumnAggregator<HyperLogLogColumn, HyperLogLog> {
 public:
     void aggregate_impl(int row, const ColumnPtr& src) override {
-        auto* data = down_cast<const HyperLogLogColumn*>(src.get());
+        auto* data = static_cast<const HyperLogLogColumn*>(src.get());
         this->data() = *(data->get_object(row));
     }
 
@@ -102,7 +102,7 @@ public:
     }
 
     void append_data(Column* agg) override {
-        auto* col = down_cast<HyperLogLogColumn*>(agg);
+        auto* col = static_cast<HyperLogLogColumn*>(agg);
         auto& hll = const_cast<HyperLogLog&>(this->data());
         col->append(std::move(hll));
     }
@@ -113,7 +113,7 @@ class ReplaceAggregator<PercentileColumn, PercentileValue> final
         : public ValueColumnAggregator<PercentileColumn, PercentileValue> {
 public:
     void aggregate_impl(int row, const ColumnPtr& src) override {
-        const auto* data = down_cast<const PercentileColumn*>(src.get());
+        const auto* data = static_cast<const PercentileColumn*>(src.get());
         this->data() = *(data->get_object(row));
     }
 
@@ -122,7 +122,7 @@ public:
     }
 
     void append_data(Column* agg) override {
-        auto* col = down_cast<PercentileColumn*>(agg);
+        auto* col = static_cast<PercentileColumn*>(agg);
         auto& per = const_cast<PercentileValue&>(this->data());
         col->append(std::move(per));
     }
@@ -134,13 +134,13 @@ public:
     void reset() override { this->data().reset(); }
 
     void aggregate_impl(int row, const ColumnPtr& src) override {
-        const auto* col = down_cast<const BinaryColumn*>(src.get());
+        const auto* col = static_cast<const BinaryColumn*>(src.get());
         Slice data = col->get_slice(row);
         this->data().update(data);
     }
 
     void aggregate_batch_impl(int start, int end, const ColumnPtr& src) override {
-        auto* col = down_cast<const BinaryColumn*>(src.get());
+        auto* col = static_cast<const BinaryColumn*>(src.get());
         Slice data = col->get_slice(end - 1);
         this->data().update(data);
     }
@@ -176,7 +176,7 @@ public:
     void aggregate_batch_impl(int start, int end, const ColumnPtr& src) override { aggregate_impl(end - 1, src); }
 
     void append_data(Column* agg) override {
-        auto* col = down_cast<ColumnType*>(agg);
+        auto* col = static_cast<ColumnType*>(agg);
         if (this->data().column) {
             col->append(*this->data().column, this->data().row, 1);
         } else {
@@ -198,7 +198,7 @@ public:
     void update_source(const ColumnPtr& src) override {
         _source_column = src;
 
-        const auto* nullable = down_cast<const NullableColumn*>(src.get());
+        const auto* nullable = static_cast<const NullableColumn*>(src.get());
         _child->update_source(nullable->data_column());
         _null_child->update_source(nullable->null_column());
     }
@@ -206,14 +206,14 @@ public:
     void update_aggregate(Column* agg) override {
         _aggregate_column = agg;
 
-        auto* n = down_cast<NullableColumn*>(agg);
+        auto* n = static_cast<NullableColumn*>(agg);
         _child->update_aggregate(n->data_column_raw_ptr());
         _null_child->update_aggregate(n->null_column_raw_ptr());
 
         reset();
     }
 
-    void aggregate_values(int start, int nums, const uint32* aggregate_loops, bool previous_neq) override {
+    void aggregate_values(int start, int nums, const uint32_t* aggregate_loops, bool previous_neq) override {
         _child->aggregate_values(start, nums, aggregate_loops, previous_neq);
         _null_child->aggregate_values(start, nums, aggregate_loops, previous_neq);
     }
@@ -222,7 +222,7 @@ public:
         _child->finalize();
         _null_child->finalize();
 
-        auto p = down_cast<NullableColumn*>(_aggregate_column);
+        auto p = static_cast<NullableColumn*>(_aggregate_column);
         p->set_has_null(SIMD::count_nonzero(p->immutable_null_column_data()));
         _aggregate_column = nullptr;
     }
@@ -304,7 +304,7 @@ public:
 
     bool need_deep_copy() const override { return false; };
 
-    void aggregate_values(int start, int nums, const uint32* aggregate_loops, bool previous_neq) override {
+    void aggregate_values(int start, int nums, const uint32_t* aggregate_loops, bool previous_neq) override {
         if (nums <= 0) {
             return;
         }

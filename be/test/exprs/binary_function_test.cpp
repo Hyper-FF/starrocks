@@ -33,8 +33,8 @@ TEST_F(VectorizedBinaryNullableTest, arg1Null) {
     columns.emplace_back(ColumnTestHelper::create_nullable_column<TYPE_DOUBLE>());
     columns.emplace_back(ColumnTestHelper::create_nullable_column<TYPE_DOUBLE>());
 
-    auto* arg1 = down_cast<NullableColumn*>(columns[0]->as_mutable_raw_ptr());
-    auto* arg2 = down_cast<NullableColumn*>(columns[1]->as_mutable_raw_ptr());
+    auto* arg1 = static_cast<NullableColumn*>(columns[0]->as_mutable_raw_ptr());
+    auto* arg2 = static_cast<NullableColumn*>(columns[1]->as_mutable_raw_ptr());
 
     arg1->append_nulls(1);
     arg2->append_datum((double)1);
@@ -49,8 +49,8 @@ TEST_F(VectorizedBinaryNullableTest, arg2Null) {
     columns.emplace_back(ColumnTestHelper::create_nullable_column<TYPE_DOUBLE>());
     columns.emplace_back(ColumnTestHelper::create_nullable_column<TYPE_DOUBLE>());
 
-    auto* arg1 = down_cast<NullableColumn*>(columns[0]->as_mutable_raw_ptr());
-    auto* arg2 = down_cast<NullableColumn*>(columns[1]->as_mutable_raw_ptr());
+    auto* arg1 = static_cast<NullableColumn*>(columns[0]->as_mutable_raw_ptr());
+    auto* arg2 = static_cast<NullableColumn*>(columns[1]->as_mutable_raw_ptr());
 
     arg1->append_datum((double)1);
     arg2->append_nulls(1);
@@ -65,8 +65,8 @@ TEST_F(VectorizedBinaryNullableTest, allArgsNull) {
     columns.emplace_back(ColumnTestHelper::create_nullable_column<TYPE_DOUBLE>());
     columns.emplace_back(ColumnTestHelper::create_nullable_column<TYPE_DOUBLE>());
 
-    auto* arg1 = down_cast<NullableColumn*>(columns[0]->as_mutable_raw_ptr());
-    auto* arg2 = down_cast<NullableColumn*>(columns[1]->as_mutable_raw_ptr());
+    auto* arg1 = static_cast<NullableColumn*>(columns[0]->as_mutable_raw_ptr());
+    auto* arg2 = static_cast<NullableColumn*>(columns[1]->as_mutable_raw_ptr());
 
     arg1->append_nulls(1);
     arg2->append_nulls(1);

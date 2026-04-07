@@ -502,11 +502,11 @@ MorselQueueFactory* PipelineBuilderContext::morsel_queue_factory_of_source_opera
 }
 
 SourceOperatorFactory* PipelineBuilderContext::source_operator(const OpFactories& ops) {
-    return down_cast<SourceOperatorFactory*>(ops[0].get());
+    return static_cast<SourceOperatorFactory*>(ops[0].get());
 }
 
 bool PipelineBuilderContext::could_local_shuffle(const OpFactories& ops) const {
-    return down_cast<SourceOperatorFactory*>(ops[0].get())->could_local_shuffle();
+    return static_cast<SourceOperatorFactory*>(ops[0].get())->could_local_shuffle();
 }
 
 bool PipelineBuilderContext::should_interpolate_cache_operator(int32_t plan_node_id, OpFactoryPtr& source_op) {
@@ -532,7 +532,7 @@ OpFactories PipelineBuilderContext::interpolate_cache_operator(
     auto source_op = downstream_pipeline.front();
     downstream_pipeline.clear();
 
-    auto dop = down_cast<SourceOperatorFactory*>(source_op.get())->degree_of_parallelism();
+    auto dop = static_cast<SourceOperatorFactory*>(source_op.get())->degree_of_parallelism();
     auto conjugate_op = std::make_shared<query_cache::ConjugateOperatorFactory>(sink_op, source_op);
     upstream_pipeline.push_back(std::move(conjugate_op));
 
@@ -555,7 +555,7 @@ OpFactories PipelineBuilderContext::interpolate_cache_operator(
     auto merge_operators = merge_operators_generator(true);
     upstream_pipeline.push_back(std::move(std::get<0>(merge_operators)));
     downstream_pipeline.push_back(std::move(std::get<1>(merge_operators)));
-    down_cast<SourceOperatorFactory*>(downstream_pipeline.front().get())->set_degree_of_parallelism(dop);
+    static_cast<SourceOperatorFactory*>(downstream_pipeline.front().get())->set_degree_of_parallelism(dop);
     return downstream_pipeline;
 }
 

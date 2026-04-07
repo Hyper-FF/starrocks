@@ -16,7 +16,7 @@
 
 #include "column/chunk.h"
 #include "column/column.h"
-#include "gutil/logging.h"
+#include "base/gutil/logging.h"
 
 namespace starrocks {
 

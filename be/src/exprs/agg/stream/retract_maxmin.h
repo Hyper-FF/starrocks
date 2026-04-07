@@ -26,7 +26,6 @@
 #include "column/runtime_type_traits.h"
 #include "exprs/agg/maxmin.h"
 #include "exprs/agg/stream/stream_detail_state.h"
-#include "gutil/casts.h"
 #include "storage/chunk_helper.h"
 
 namespace starrocks {
@@ -163,7 +162,7 @@ public:
                 ColumnHelper::append_column_value<LT>(dst, this->data(state).get_result());
             }
         } else {
-            auto* column = down_cast<InputColumnType*>(dst);
+            auto* column = static_cast<InputColumnType*>(dst);
             for (size_t i = start; i < end; ++i) {
                 column->get_data()[i] = this->data(state).get_result();
             }
@@ -244,7 +243,7 @@ public:
 
     void output_is_sync(FunctionContext* ctx, size_t chunk_size, Column* to,
                         AggDataPtr __restrict state) const override {
-        auto* sync_col = down_cast<UInt8Column*>(to);
+        auto* sync_col = static_cast<UInt8Column*>(to);
         uint8_t is_sync = this->data(state).is_sync();
         sync_col->append(is_sync);
     }
@@ -257,8 +256,8 @@ public:
             DCHECK(to[0]->is_numeric());
         }
         DCHECK(to[1]->is_numeric());
-        auto* column0 = down_cast<InputColumnType*>(to[0]->as_mutable_raw_ptr());
-        auto* column1 = down_cast<Int64Column*>(to[1]->as_mutable_raw_ptr());
+        auto* column0 = static_cast<InputColumnType*>(to[0]->as_mutable_raw_ptr());
+        auto* column1 = static_cast<Int64Column*>(to[1]->as_mutable_raw_ptr());
         auto& detail_state = this->data(state).detail_state();
         for (auto iter = detail_state.cbegin(); iter != detail_state.cend(); iter++) {
             // is it possible that count is negative?
@@ -266,7 +265,7 @@ public:
             column0->append(iter->first);
             column1->append(iter->second);
         }
-        auto* count_col = down_cast<Int64Column*>(count);
+        auto* count_col = static_cast<Int64Column*>(count);
         count_col->append(detail_state.size());
     }
     std::string get_name() const override { return "retract_maxmin"; }

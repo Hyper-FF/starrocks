@@ -22,7 +22,6 @@
 #include "common/config_cow_fwd.h"
 #include "common/logging.h"
 #include "common/stack_util.h"
-#include "gutil/casts.h"
 namespace starrocks {
 
 // A Clone-on-write base class inspired by Clickhouse and Rust.
@@ -43,12 +42,12 @@ protected:
     void add_ref() { ++_use_count; }
     void release_ref() {
         if (--_use_count == 0) {
-            delete down_cast<const Derived*>(this);
+            delete static_cast<const Derived*>(this);
         }
     }
 
-    Derived* derived() { return down_cast<Derived*>(this); }
-    const Derived* derived() const { return down_cast<const Derived*>(this); }
+    Derived* derived() { return static_cast<Derived*>(this); }
+    const Derived* derived() const { return static_cast<const Derived*>(this); }
 
     template <typename T>
     class RCPtr {
@@ -359,24 +358,24 @@ public:
     // cast base ptr to derived ptr statically, like std::static_pointer_cast; if failed, return nullptr.
     static Ptr static_pointer_cast(const BasePtr& ptr) {
         DCHECK(ptr.get() != nullptr);
-        DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
-        return Ptr(down_cast<const Derived*>(ptr.get()));
+        DCHECK(static_cast<const Derived*>(ptr.get()) != nullptr);
+        return Ptr(static_cast<const Derived*>(ptr.get()));
     }
 
     // cast base ptr to derived ptr statically, like std::static_pointer_cast; if failed, return nullptr.
     // NOTE: ptr will be released if cast success.
     static MutablePtr static_pointer_cast(BaseMutablePtr&& ptr) {
         DCHECK(ptr.get() != nullptr);
-        DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
-        return MutablePtr(down_cast<Derived*>(ptr.detach()), false);
+        DCHECK(static_cast<Derived*>(ptr.get()) != nullptr);
+        return MutablePtr(static_cast<Derived*>(ptr.detach()), false);
     }
 
     // cast base ptr to derived ptr statically, like std::static_pointer_cast; if failed, return nullptr.
     // NOTE: ptr will be released if cast success.
     static Ptr static_pointer_cast(BasePtr&& ptr) {
         DCHECK(ptr.get() != nullptr);
-        DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
-        return Ptr(down_cast<const Derived*>(ptr.detach()), false);
+        DCHECK(static_cast<const Derived*>(ptr.get()) != nullptr);
+        return Ptr(static_cast<const Derived*>(ptr.detach()), false);
     }
 
     // cast base ptr to derived ptr dynamically, like std::dynamic_pointer_cast; if failed, return nullptr.
@@ -415,8 +414,8 @@ public:
     // NOTE: ptr will be released if cast success.
     static MutablePtr static_pointer_cast(BaseMutablePtr& ptr) {
         DCHECK(ptr.get() != nullptr);
-        DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
-        return MutablePtr(down_cast<Derived*>(ptr), false);
+        DCHECK(static_cast<Derived*>(ptr.get()) != nullptr);
+        return MutablePtr(static_cast<Derived*>(ptr), false);
     }
 
     // cast base ptr to derived ptr dynamically, like std::dynamic_pointer_cast; if failed, return nullptr.
@@ -432,15 +431,15 @@ public:
     // cast base wrapped ptr to derived ptr statically
     static Ptr static_pointer_cast(const BaseWrappedPtr& ptr) {
         DCHECK(ptr.get() != nullptr);
-        DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
-        return Ptr(down_cast<const Derived*>(ptr.get()));
+        DCHECK(static_cast<const Derived*>(ptr.get()) != nullptr);
+        return Ptr(static_cast<const Derived*>(ptr.get()));
     }
 
     // cast base wrapped ptr to derived mutable ptr statically
     static MutablePtr static_pointer_cast(BaseWrappedPtr& ptr) {
         DCHECK(ptr.get() != nullptr);
-        DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
-        return MutablePtr(down_cast<Derived*>(ptr.get()));
+        DCHECK(static_cast<Derived*>(ptr.get()) != nullptr);
+        return MutablePtr(static_cast<Derived*>(ptr.get()));
     }
 
     // cast base wrapped ptr to derived ptr dynamically
@@ -464,11 +463,11 @@ public:
     }
 
 protected:
-    MutablePtr try_mutate() const { return MutablePtr(down_cast<Derived*>(Base::try_mutate().get())); }
+    MutablePtr try_mutate() const { return MutablePtr(static_cast<Derived*>(Base::try_mutate().get())); }
 
 private:
-    Derived* derived() { return down_cast<Derived*>(this); }
-    const Derived* derived() const { return down_cast<const Derived*>(this); }
+    Derived* derived() { return static_cast<Derived*>(this); }
+    const Derived* derived() const { return static_cast<const Derived*>(this); }
 };
 
 } // namespace starrocks

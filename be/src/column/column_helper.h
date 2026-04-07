@@ -23,7 +23,6 @@
 #include "column/nullable_column.h"
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 #include "types/logical_type.h"
 #include "types/logical_type_infra.h"
 #include "types/type_descriptor.h"
@@ -36,9 +35,9 @@ namespace starrocks {
 
 class ColumnHelper {
 public:
-    // The input column is nullable or non-nullable uint8 column
-    // The result column is not nullable uint8 column
-    // For nullable uint8 column, we merge it's null column and data column
+    // The input column is nullable or non-nullable uint8_t column
+    // The result column is not nullable uint8_t column
+    // For nullable uint8_t column, we merge it's null column and data column
     // Used in ChunkPredicateEvaluator::eval_conjuncts
     static Filter& merge_nullable_filter(Column* column);
 
@@ -123,7 +122,7 @@ public:
 
     static MutableColumnPtr unpack_and_duplicate_const_column(size_t chunk_size, MutableColumnPtr&& column) {
         if (column->is_constant()) {
-            auto* const_column = down_cast<ConstColumn*>(column.get());
+            auto* const_column = static_cast<ConstColumn*>(column.get());
             const_column->assign(chunk_size, 0);
             return const_column->data_column()->as_mutable_ptr();
         } else {
@@ -148,7 +147,7 @@ public:
             return col;
         } else if (column->is_constant()) {
             // use clone is not safe, because the new cloned data may be freed after the function returns.
-            auto* const_column = down_cast<ConstColumn*>(column->as_mutable_raw_ptr());
+            auto* const_column = static_cast<ConstColumn*>(column->as_mutable_raw_ptr());
             const_column->assign(size, 0);
             return const_column->data_column()->as_mutable_ptr();
         } else {
@@ -180,7 +179,7 @@ public:
 
     static std::tuple<Column*, NullColumn*> unpack_nullable_column(const MutableColumnPtr& col) {
         if (col->is_nullable()) {
-            auto nullable = down_cast<NullableColumn*>(col.get());
+            auto nullable = static_cast<NullableColumn*>(col.get());
             auto* data = nullable->data_column_raw_ptr();
             auto* nulls = nullable->null_column_raw_ptr();
             return {data, nulls};
@@ -191,7 +190,7 @@ public:
 
     static std::tuple<const Column*, const NullColumn*> unpack_nullable_column(const ColumnPtr& col) {
         if (col->is_nullable()) {
-            auto nullable = down_cast<const NullableColumn*>(col.get());
+            auto nullable = static_cast<const NullableColumn*>(col.get());
             auto* data = nullable->data_column().get();
             auto* nulls = nullable->null_column().get();
             return {data, nulls};
@@ -282,7 +281,7 @@ public:
 
     // expression trees' return column should align return type when some return columns maybe diff from the required
     // return type, as well the null flag. e.g., concat_ws returns col from create_const_null_column(), it's type is
-    // Nullable(int8), but required return type is nullable(string), so col need align return type to nullable(string).
+    // Nullable(int8_t), but required return type is nullable(string), so col need align return type to nullable(string).
     static MutableColumnPtr align_return_type(ColumnPtr&& old_col, const TypeDescriptor& type_desc, size_t num_rows,
                                               const bool is_nullable);
     static MutableColumnPtr align_return_type(MutableColumnPtr&& old_col, const TypeDescriptor& type_desc,
@@ -333,7 +332,7 @@ public:
     template <LogicalType Type>
     static inline const RunTimeColumnType<Type>* cast_to_raw(const ColumnPtr& value) {
 #ifdef NDEBUG
-        auto* raw_column_ptr = down_cast<const RunTimeColumnType<Type>*>(value.get());
+        auto* raw_column_ptr = static_cast<const RunTimeColumnType<Type>*>(value.get());
 #else
         auto* raw_column_ptr = dynamic_cast<const RunTimeColumnType<Type>*>(value.get());
         DCHECK(raw_column_ptr) << "Cast failed for column: "
@@ -347,7 +346,7 @@ public:
     template <LogicalType Type>
     static inline RunTimeColumnType<Type>* cast_to_raw(Column* value) {
 #ifdef NDEBUG
-        return down_cast<RunTimeColumnType<Type>*>(value);
+        return static_cast<RunTimeColumnType<Type>*>(value);
 #else
         auto* result = dynamic_cast<RunTimeColumnType<Type>*>(value);
         DCHECK(result) << "Cast failed for column: "
@@ -361,7 +360,7 @@ public:
     template <LogicalType Type>
     static inline const RunTimeColumnType<Type>* cast_to_raw(const Column* value) {
 #ifdef NDEBUG
-        return down_cast<const RunTimeColumnType<Type>*>(value);
+        return static_cast<const RunTimeColumnType<Type>*>(value);
 #else
         auto* result = dynamic_cast<const RunTimeColumnType<Type>*>(value);
         DCHECK(result) << "Cast failed for column: "
@@ -375,7 +374,7 @@ public:
     template <LogicalType Type>
     static inline RunTimeColumnType<Type>* cast_to_raw(const MutableColumnPtr& value) {
 #ifdef NDEBUG
-        return down_cast<RunTimeColumnType<Type>*>(value.get());
+        return static_cast<RunTimeColumnType<Type>*>(value.get());
 #else
         auto* result = dynamic_cast<RunTimeColumnType<Type>*>(value.get());
         DCHECK(result) << "Cast failed for column: "
@@ -431,7 +430,7 @@ public:
     template <typename Type>
     static inline const Type* as_raw_const_column(const ColumnPtr& value) {
 #ifdef NDEBUG
-        return down_cast<const Type*>(value.get());
+        return static_cast<const Type*>(value.get());
 #else
         auto* result = dynamic_cast<const Type*>(value.get());
         DCHECK(result) << "Cast failed for column: "
@@ -445,7 +444,7 @@ public:
     template <typename Type>
     static inline Type* as_raw_column(const MutableColumnPtr& value) {
 #ifdef NDEBUG
-        return down_cast<Type*>(value.get());
+        return static_cast<Type*>(value.get());
 #else
         auto* result = dynamic_cast<Type*>(value.get());
         DCHECK(result) << "Cast failed for column: "
@@ -459,7 +458,7 @@ public:
     template <typename Type>
     static inline const Type* as_raw_column(const Column* value) {
 #ifdef NDEBUG
-        return down_cast<const Type*>(value);
+        return static_cast<const Type*>(value);
 #else
         auto* result = dynamic_cast<const Type*>(value);
         DCHECK(result) << "Cast failed for column: "
@@ -473,7 +472,7 @@ public:
     template <typename Type>
     static inline const Type* as_raw_column(const ColumnPtr& value) {
 #ifdef NDEBUG
-        return down_cast<const Type*>(value.get());
+        return static_cast<const Type*>(value.get());
 #else
         auto* col = dynamic_cast<const Type*>(value.get());
         DCHECK(col) << "Cast failed for column: "
@@ -494,7 +493,7 @@ public:
     template <typename Type>
     static inline Type* as_raw_column(Column* value) {
 #ifdef NDEBUG
-        return down_cast<Type*>(value);
+        return static_cast<Type*>(value);
 #else
         auto* col = dynamic_cast<Type*>(value);
         DCHECK(col) << "Cast failed for column: "
@@ -523,13 +522,13 @@ public:
         DCHECK(input_column->size() == 1);
         if (input_column->has_null()) return nullptr;
         if (input_column->is_constant()) {
-            const auto* const_column = down_cast<const ConstColumn*>(input_column);
-            return down_cast<const ColumnType*>(const_column->data_column().get())->get_data().data();
+            const auto* const_column = static_cast<const ConstColumn*>(input_column);
+            return static_cast<const ColumnType*>(const_column->data_column().get())->get_data().data();
         } else if (input_column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(input_column);
-            return down_cast<const ColumnType*>(nullable_column->data_column().get())->get_data().data();
+            const auto* nullable_column = static_cast<const NullableColumn*>(input_column);
+            return static_cast<const ColumnType*>(nullable_column->data_column().get())->get_data().data();
         } else {
-            return down_cast<const ColumnType*>(input_column)->get_data().data();
+            return static_cast<const ColumnType*>(input_column)->get_data().data();
         }
     }
 
@@ -547,10 +546,10 @@ public:
 
     static Column* get_data_column(Column* column) {
         if (column->is_constant()) {
-            auto* const_column = down_cast<ConstColumn*>(column);
+            auto* const_column = static_cast<ConstColumn*>(column);
             return get_data_column(const_column->data_column_raw_ptr());
         } else if (column->is_nullable()) {
-            auto* nullable_column = down_cast<NullableColumn*>(column);
+            auto* nullable_column = static_cast<NullableColumn*>(column);
             return nullable_column->data_column_raw_ptr();
         } else {
             return column;
@@ -561,11 +560,11 @@ public:
     static const RunTimeColumnType<LT>* get_data_column_by_type(const Column* column) {
         using ColumnType = RunTimeColumnType<LT>;
         if (column->is_constant()) {
-            const auto* const_column = down_cast<const ConstColumn*>(column);
+            const auto* const_column = static_cast<const ConstColumn*>(column);
             return get_data_column_by_type<LT>(const_column->data_column().get());
         } else if (column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(column);
-            return down_cast<const ColumnType*>(&nullable_column->data_column_ref());
+            const auto* nullable_column = static_cast<const NullableColumn*>(column);
+            return static_cast<const ColumnType*>(&nullable_column->data_column_ref());
         } else {
             return reinterpret_cast<const ColumnType*>(column);
         }
@@ -577,11 +576,11 @@ public:
 
     static const NullColumn* get_null_column(const Column* column) {
         if (column->only_null()) {
-            const auto* const_column = down_cast<const ConstColumn*>(column);
-            const auto* nullable_column = down_cast<const NullableColumn*>(const_column->data_column().get());
+            const auto* const_column = static_cast<const ConstColumn*>(column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(const_column->data_column().get());
             return nullable_column->null_column_raw_ptr();
         } else if (column->is_nullable()) {
-            auto* nullable_column = down_cast<const NullableColumn*>(column);
+            auto* nullable_column = static_cast<const NullableColumn*>(column);
             return nullable_column->null_column_raw_ptr();
         } else {
             return nullptr;
@@ -590,11 +589,11 @@ public:
 
     static const uint8_t* get_null_data_ptr(const Column* column) {
         if (column->only_null()) {
-            const auto* const_column = down_cast<const ConstColumn*>(column);
-            const auto* nullable_column = down_cast<const NullableColumn*>(const_column->data_column().get());
+            const auto* const_column = static_cast<const ConstColumn*>(column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(const_column->data_column().get());
             return nullable_column->null_column_data().data();
         } else if (column->is_nullable()) {
-            auto* nullable_column = down_cast<const NullableColumn*>(column);
+            auto* nullable_column = static_cast<const NullableColumn*>(column);
             return nullable_column->null_column_data().data();
         } else {
             return nullptr;
@@ -603,10 +602,10 @@ public:
 
     static const Column* get_data_column(const Column* column) {
         if (column->is_constant()) {
-            auto* const_column = down_cast<const ConstColumn*>(column);
+            auto* const_column = static_cast<const ConstColumn*>(column);
             return get_data_column(const_column->data_column().get());
         } else if (column->is_nullable()) {
-            auto* nullable_column = down_cast<const NullableColumn*>(column);
+            auto* nullable_column = static_cast<const NullableColumn*>(column);
             return nullable_column->data_column().get();
         } else {
             return column;
@@ -614,10 +613,10 @@ public:
     }
     static const Column* get_data_column(const ColumnPtr& column) { return get_data_column(column.get()); }
 
-    static BinaryColumn* get_binary_column(Column* column) { return down_cast<BinaryColumn*>(get_data_column(column)); }
+    static BinaryColumn* get_binary_column(Column* column) { return static_cast<BinaryColumn*>(get_data_column(column)); }
 
     static const BinaryColumn* get_binary_column(const Column* column) {
-        return down_cast<const BinaryColumn*>(get_data_column(column));
+        return static_cast<const BinaryColumn*>(get_data_column(column));
     }
 
     // If column[row] is not null and is a binary column, writes the slice to *out and returns true.
@@ -630,12 +629,12 @@ public:
         if constexpr (lt_is_string_or_binary<LT>) {
             using LargeColumnType = RunTimeLargeColumnType<LT>;
             if (column->is_large_binary()) {
-                down_cast<LargeColumnType*>(column)->append(value);
+                static_cast<LargeColumnType*>(column)->append(value);
             } else {
-                down_cast<ColumnType*>(column)->append(value);
+                static_cast<ColumnType*>(column)->append(value);
             }
         } else {
-            down_cast<ColumnType*>(column)->append(value);
+            static_cast<ColumnType*>(column)->append(value);
         }
     }
 
@@ -676,7 +675,7 @@ public:
     template <class FastPath, class SlowPath>
     static auto call_nullable_func(const Column* column, FastPath&& fast_path, SlowPath&& slow_path) {
         if (column->is_nullable()) {
-            const auto* nullable_column = down_cast<const NullableColumn*>(column);
+            const auto* nullable_column = static_cast<const NullableColumn*>(column);
             const auto null_data = nullable_column->immutable_null_column_data();
             const Column* data_column = nullable_column->data_column().get();
             if (column->has_null()) {
@@ -716,9 +715,9 @@ struct GetContainer {
         if constexpr (lt_is_string_or_binary<ltype>) {
             using LargeColumnType = RunTimeLargeColumnType<ltype>;
             if (data_column->is_large_binary()) {
-                return down_cast<const LargeColumnType*>(data_column)->immutable_data();
+                return static_cast<const LargeColumnType*>(data_column)->immutable_data();
             }
-            return down_cast<const ColumnType*>(data_column)->immutable_data();
+            return static_cast<const ColumnType*>(data_column)->immutable_data();
         } else {
             return ColumnHelper::as_raw_column<ColumnType>(data_column)->immutable_data();
         }

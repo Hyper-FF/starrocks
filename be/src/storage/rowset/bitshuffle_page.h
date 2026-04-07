@@ -49,7 +49,7 @@
 #include "base/string/slice.h"
 #include "column/fixed_length_column.h"
 #include "common/logging.h"
-#include "gutil/port.h"
+#include "base/gutil/port.h"
 #include "storage/olap_common.h"
 #include "storage/rowset/bitshuffle_wrapper.h"
 #include "storage/rowset/common.h"

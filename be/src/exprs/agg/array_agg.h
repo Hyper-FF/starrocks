@@ -239,9 +239,9 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         // Array element is nullable, so we need to extract the data from nullable column first
-        const auto* input_column = down_cast<const ArrayColumn*>(column);
+        const auto* input_column = static_cast<const ArrayColumn*>(column);
         auto offset_size = input_column->get_element_offset_size(row_num);
-        auto& array_element = down_cast<const NullableColumn&>(input_column->elements());
+        auto& array_element = static_cast<const NullableColumn&>(input_column->elements());
 
         const auto* element_data_column = ColumnHelper::get_data_column(&array_element);
         size_t element_null_count = array_element.null_count(offset_size.first, offset_size.second);
@@ -259,7 +259,7 @@ public:
             return;
         }
 
-        auto* column = down_cast<ArrayColumn*>(to);
+        auto* column = static_cast<ArrayColumn*>(to);
         column->append_array_element(*(state_impl.get_data_column()), state_impl.null_count);
 
         // should check overflow after append, otherwise the result column with multi row will be overflow.
@@ -274,7 +274,7 @@ public:
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* column = down_cast<ArrayColumn*>(dst.get());
+        auto* column = static_cast<ArrayColumn*>(dst.get());
         auto* offsets_col = column->offsets_column_raw_ptr();
         auto* elements_column = column->elements_column_raw_ptr();
 
@@ -292,7 +292,7 @@ public:
                     size_t end) const override {
         auto& state_impl = this->data(const_cast<AggDataPtr>(state));
         const auto& data_column = state_impl.get_data_column();
-        auto* array_column = down_cast<ArrayColumn*>(dst);
+        auto* array_column = static_cast<ArrayColumn*>(dst);
         for (auto i = start; i < end; i++) {
             array_column->append_array_element(*data_column, state_impl.null_count);
             if (UNLIKELY(state_impl.check_overflow(*array_column, ctx))) {
@@ -427,7 +427,7 @@ public:
             auto tmp_row_num = row_num;
             if (columns[i]->is_constant()) {
                 // just copy the first const value.
-                data_col = down_cast<const ConstColumn*>(columns[i])->data_column().get();
+                data_col = static_cast<const ConstColumn*>(columns[i])->data_column().get();
                 tmp_row_num = 0;
             }
             this->data(state).update(*data_col, i, tmp_row_num, 1);
@@ -436,9 +436,9 @@ public:
 
     // struct and array elements aren't be null, as they consist from several columns
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
-        const auto input_columns = down_cast<const StructColumn*>(ColumnHelper::get_data_column(column))->fields();
+        const auto input_columns = static_cast<const StructColumn*>(ColumnHelper::get_data_column(column))->fields();
         for (auto i = 0; i < input_columns.size(); ++i) {
-            auto array_column = down_cast<const ArrayColumn*>(ColumnHelper::get_data_column(input_columns[i].get()));
+            auto array_column = static_cast<const ArrayColumn*>(ColumnHelper::get_data_column(input_columns[i].get()));
             const auto offsets = array_column->offsets().immutable_data();
             this->data(state).update(array_column->elements(), i, offsets[row_num],
                                      offsets[row_num + 1] - offsets[row_num]);
@@ -453,17 +453,17 @@ public:
             return;
         }
 
-        auto* struct_column = down_cast<StructColumn*>(ColumnHelper::get_data_column(to));
+        auto* struct_column = static_cast<StructColumn*>(ColumnHelper::get_data_column(to));
         if (to->is_nullable()) {
-            down_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
+            static_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
         }
         for (auto i = 0; i < struct_column->fields_size(); ++i) {
             auto elem_size = state_impl.data_columns[i]->size();
 
             auto* field_column = struct_column->field_column_raw_ptr(i);
-            auto array_col = down_cast<ArrayColumn*>(ColumnHelper::get_data_column(field_column));
+            auto array_col = static_cast<ArrayColumn*>(ColumnHelper::get_data_column(field_column));
             if (field_column->is_nullable()) {
-                down_cast<NullableColumn*>(field_column)->null_column_data().emplace_back(0);
+                static_cast<NullableColumn*>(field_column)->null_column_data().emplace_back(0);
             }
             auto* elements_col = array_col->elements_column_raw_ptr();
             auto* offsets_col = array_col->offsets_column_raw_ptr();
@@ -506,9 +506,9 @@ public:
         }
         auto& res = state_impl.data_columns[0];
         auto elem_size = state_impl.data_columns[0]->size();
-        auto array_col = down_cast<ArrayColumn*>(ColumnHelper::get_data_column(to));
+        auto array_col = static_cast<ArrayColumn*>(ColumnHelper::get_data_column(to));
         if (to->is_nullable()) {
-            down_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
+            static_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
         }
         DCHECK(!res->is_constant());
         Permutation perm;
@@ -601,18 +601,18 @@ public:
     // convert each cell of a row to a [nullable] array in a struct
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* struct_column = down_cast<StructColumn*>(ColumnHelper::get_data_column(dst.get()));
+        auto* struct_column = static_cast<StructColumn*>(ColumnHelper::get_data_column(dst.get()));
         if (dst->is_nullable()) {
             for (size_t i = 0; i < chunk_size; i++) {
-                down_cast<NullableColumn*>(dst.get())->null_column_data().emplace_back(0);
+                static_cast<NullableColumn*>(dst.get())->null_column_data().emplace_back(0);
             }
         }
         for (auto j = 0; j < struct_column->fields_size(); ++j) {
             auto* field_column = struct_column->field_column_raw_ptr(j);
-            auto array_col = down_cast<ArrayColumn*>(ColumnHelper::get_data_column(field_column));
+            auto array_col = static_cast<ArrayColumn*>(ColumnHelper::get_data_column(field_column));
             if (field_column->is_nullable()) {
                 for (size_t i = 0; i < chunk_size; i++) {
-                    down_cast<NullableColumn*>(field_column)->null_column_data().emplace_back(0);
+                    static_cast<NullableColumn*>(field_column)->null_column_data().emplace_back(0);
                 }
             }
             auto* element_column = array_col->elements_column_raw_ptr();

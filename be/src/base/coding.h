@@ -13,7 +13,7 @@
 
 #include "base/string/slice.h"
 #include "base/types/int128.h"
-#include "gutil/endian.h"
+#include "base/gutil/endian.h"
 
 namespace starrocks {
 

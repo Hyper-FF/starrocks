@@ -44,7 +44,7 @@
 #include <ostream>
 
 #include "base/logging.h"
-#include "gutil/strings/numbers.h"
+#include "base/gutil/strings/numbers.h"
 #include "absl/strings/str_split.h"
 
 namespace starrocks {

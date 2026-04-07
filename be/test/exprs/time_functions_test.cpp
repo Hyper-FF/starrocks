@@ -1894,7 +1894,7 @@ TEST_F(TimeFunctionsTest, date_format) {
         TimeFunctions::format_close(ctx, FunctionContext::FunctionStateScope::FRAGMENT_LOCAL);
 
         ASSERT_FALSE(result->is_constant());
-        auto binary_col = down_cast<const BinaryColumn*>(result.get());
+        auto binary_col = static_cast<const BinaryColumn*>(result.get());
         ASSERT_EQ(Slice("a"), binary_col->get_slice(0));
         ASSERT_EQ(Slice("b"), binary_col->get_slice(1));
     }

@@ -114,7 +114,7 @@ Status SchemaLoadTrackingLogsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice msg = Slice(tmp_str);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&msg);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }

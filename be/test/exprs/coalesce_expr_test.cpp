@@ -75,7 +75,7 @@ TEST_F(VectorizedCoalesceExprTest, coalesceArray) {
     {
         ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
         if (ptr->is_nullable()) {
-            ptr = down_cast<const NullableColumn*>(ptr.get())->data_column();
+            ptr = static_cast<const NullableColumn*>(ptr.get())->data_column();
         }
         ASSERT_TRUE(ptr->is_array());
         ASSERT_TRUE(array0->equals(0, *ptr, 0));
@@ -143,7 +143,7 @@ TEST_F(VectorizedCoalesceExprTest, coalesceNull) {
             Chunk chunk;
             ColumnPtr ptr = expr->evaluate(nullptr, &chunk);
             if (ptr->is_nullable()) {
-                ptr = down_cast<const NullableColumn*>(ptr.get())->data_column();
+                ptr = static_cast<const NullableColumn*>(ptr.get())->data_column();
             }
             ASSERT_TRUE(ptr->is_numeric());
 
@@ -229,7 +229,7 @@ TEST_F(VectorizedCoalesceExprTest, coalesceConst) {
             Chunk chunk;
             ColumnPtr ptr = expr->evaluate(nullptr, &chunk);
             if (ptr->is_nullable()) {
-                ptr = down_cast<const NullableColumn*>(ptr.get())->data_column();
+                ptr = static_cast<const NullableColumn*>(ptr.get())->data_column();
             }
             ASSERT_TRUE(ptr->is_numeric());
 

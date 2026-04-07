@@ -44,7 +44,7 @@
 #include "exec/filter_condition.h"
 #include "exec/olap_utils.h"
 #include "exec/scan_node.h"
-#include "gutil/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "absl/strings/substitute.h"
 #include "storage/olap_tuple.h"
 
@@ -115,7 +115,7 @@ inline std::string cast_to_string<TimestampValue>(TimestampValue value) {
     return value.to_string();
 }
 
-// for decimal32/64/128, their underlying type is int32/64/128, so the decimal point
+// for decimal32/64/128, their underlying type is int32_t/64/128, so the decimal point
 // depends on precision and scale when they are casted into strings
 template <class T>
 inline std::string cast_to_string(T value, [[maybe_unused]] LogicalType lt, [[maybe_unused]] int precision,

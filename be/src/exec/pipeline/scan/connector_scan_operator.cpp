@@ -160,13 +160,13 @@ OperatorPtr ConnectorScanOperatorFactory::do_create(int32_t dop, int32_t driver_
 }
 
 const std::vector<ExprContext*>& ConnectorScanOperatorFactory::partition_exprs() const {
-    auto* connector_scan_node = down_cast<ConnectorScanNode*>(_scan_node);
+    auto* connector_scan_node = static_cast<ConnectorScanNode*>(_scan_node);
     auto* provider = connector_scan_node->data_source_provider();
     return provider->partition_exprs();
 }
 
 const std::vector<TBucketProperty>& ConnectorScanOperatorFactory::get_bucket_properties() const {
-    auto* connector_scan_node = down_cast<ConnectorScanNode*>(_scan_node);
+    auto* connector_scan_node = static_cast<ConnectorScanNode*>(_scan_node);
     auto* provider = connector_scan_node->data_source_provider();
     return provider->get_bucket_properties();
 }
@@ -255,7 +255,7 @@ ConnectorScanOperator::ConnectorScanOperator(OperatorFactory* factory, int32_t i
         : ScanOperator(factory, id, driver_sequence, dop, scan_node) {}
 
 int64_t ConnectorScanOperator::_adjust_scan_mem_limit(int64_t old_value, int64_t new_value) {
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
     ConnectorScanOperatorIOTasksMemLimiter* L = factory->_io_tasks_mem_limiter;
     ConnectorScanOperatorMemShareArbitrator* arb = factory->_mem_share_arb;
     int64_t new_scan_mem_limit = arb->update_chunk_source_mem_bytes(old_value, new_value);
@@ -295,7 +295,7 @@ Status ConnectorScanOperator::do_prepare(RuntimeState* state) {
 
     // As the first running scan operator, it will update the scan mem limit
     {
-        auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+        auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
         ConnectorScanOperatorIOTasksMemLimiter* L = factory->_io_tasks_mem_limiter;
         int64_t c = L->update_open_scan_operator_count(1);
         if (c == 0) {
@@ -308,7 +308,7 @@ Status ConnectorScanOperator::do_prepare(RuntimeState* state) {
 
 void ConnectorScanOperator::do_close(RuntimeState* state) {
     // As the last closing scan operator, it will update the scan mem limit.
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
     ConnectorScanOperatorIOTasksMemLimiter* L = factory->_io_tasks_mem_limiter;
     int64_t c = L->update_open_scan_operator_count(-1);
     if (c == 1) {
@@ -317,8 +317,8 @@ void ConnectorScanOperator::do_close(RuntimeState* state) {
 }
 
 ChunkSourcePtr ConnectorScanOperator::create_chunk_source(MorselPtr morsel, int32_t chunk_source_index) {
-    auto* scan_node = down_cast<ConnectorScanNode*>(_scan_node);
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* scan_node = static_cast<ConnectorScanNode*>(_scan_node);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
 
     return std::make_shared<ConnectorChunkSource>(this, _chunk_source_profiles[chunk_source_index].get(),
                                                   std::move(morsel), scan_node, factory->get_chunk_buffer(),
@@ -326,23 +326,23 @@ ChunkSourcePtr ConnectorScanOperator::create_chunk_source(MorselPtr morsel, int3
 }
 
 void ConnectorScanOperator::attach_chunk_source(int32_t source_index) {
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
     factory->attach_shared_input(_driver_sequence, source_index);
 }
 
 void ConnectorScanOperator::detach_chunk_source(int32_t source_index) {
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
     factory->detach_shared_input(_driver_sequence, source_index);
 }
 
 bool ConnectorScanOperator::has_shared_chunk_source() const {
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
     auto& active_inputs = factory->get_active_inputs();
     return !active_inputs.empty();
 }
 
 connector::ConnectorType ConnectorScanOperator::connector_type() {
-    auto* scan_node = down_cast<ConnectorScanNode*>(_scan_node);
+    auto* scan_node = static_cast<ConnectorScanNode*>(_scan_node);
     return scan_node->connector_type();
 }
 
@@ -408,7 +408,7 @@ int ConnectorScanOperator::available_pickup_morsel_count() {
 
     ConnectorScanOperatorAdaptiveProcessor& P = *_adaptive_processor;
     int min_io_tasks = config::connector_io_tasks_min_size;
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
     ConnectorScanOperatorIOTasksMemLimiter* L = factory->_io_tasks_mem_limiter;
     int max_io_tasks = L->available_chunk_source_count(_plan_node_id, _driver_sequence);
     max_io_tasks = std::min(max_io_tasks, _io_tasks_per_scan_operator);
@@ -569,7 +569,7 @@ std::string ConnectorScanOperator::get_name() const {
 }
 
 bool ConnectorScanOperator::need_notify_all() {
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
     return factory->active_inputs_empty_event() || has_full_events();
 }
 
@@ -605,12 +605,12 @@ Status ConnectorScanOperator::append_morsels(std::vector<MorselPtr>&& morsels) {
 }
 
 Status ConnectorScanOperator::mark_split_source_morsel_finished() {
-    auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+    auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
     return factory->mark_split_source_morsel_finished();
 }
 
 int64_t ConnectorScanOperator::get_scan_table_id() const {
-    auto* scan_node = down_cast<ConnectorScanNode*>(_scan_node);
+    auto* scan_node = static_cast<ConnectorScanNode*>(_scan_node);
 
     if (scan_node->connector_type() != connector::ConnectorType::LAKE) {
         return -1;
@@ -681,7 +681,7 @@ const std::string ConnectorChunkSource::get_custom_coredump_msg() const {
 }
 
 ConnectorScanOperatorIOTasksMemLimiter* ConnectorChunkSource::_get_io_tasks_mem_limiter() const {
-    auto* f = down_cast<ConnectorScanOperatorFactory*>(_scan_op->get_factory());
+    auto* f = static_cast<ConnectorScanOperatorFactory*>(_scan_op->get_factory());
     return f->_io_tasks_mem_limiter;
 }
 
@@ -690,7 +690,7 @@ Status ConnectorChunkSource::_report_split_source_morsel_finished_once() {
         return Status::OK();
     }
 
-    auto* scan_op = down_cast<ConnectorScanOperator*>(_scan_op);
+    auto* scan_op = static_cast<ConnectorScanOperator*>(_scan_op);
     RETURN_IF_ERROR(scan_op->mark_split_source_morsel_finished());
     _split_source_morsel_reported = true;
     return Status::OK();
@@ -762,7 +762,7 @@ Status ConnectorChunkSource::_open_data_source(RuntimeState* state, bool* mem_al
         return Status::OK();
     }
 
-    ConnectorScanOperator* scan_op = down_cast<ConnectorScanOperator*>(_scan_op);
+    ConnectorScanOperator* scan_op = static_cast<ConnectorScanOperator*>(_scan_op);
     if (scan_op->enable_adaptive_io_tasks()) {
         ConnectorScanOperatorIOTasksMemLimiter* limiter = _get_io_tasks_mem_limiter();
         MemTracker* mem_tracker = state->query_ctx()->connector_scan_mem_tracker();
@@ -820,7 +820,7 @@ Status ConnectorChunkSource::_open_data_source(RuntimeState* state, bool* mem_al
 }
 
 Status ConnectorChunkSource::_read_chunk(RuntimeState* state, ChunkPtr* chunk) {
-    ConnectorScanOperator* scan_op = down_cast<ConnectorScanOperator*>(_scan_op);
+    ConnectorScanOperator* scan_op = static_cast<ConnectorScanOperator*>(_scan_op);
     ConnectorScanOperatorAdaptiveProcessor& P = *(scan_op->adaptive_processor());
 
     DeferOp defer_op([&]() { P.last_chunk_souce_finish_timestamp = GetCurrentTimeMicros(); });
@@ -898,7 +898,7 @@ Status ConnectorChunkSource::_read_chunk(RuntimeState* state, ChunkPtr* chunk) {
         // before returning eof, we can check if this chunk source generates splits.
         std::vector<ScanSplitContextPtr> split_tasks;
         _data_source->get_split_tasks(&split_tasks);
-        auto* current_morsel = down_cast<ScanMorsel*>(_morsel.get());
+        auto* current_morsel = static_cast<ScanMorsel*>(_morsel.get());
         if (split_tasks.size() != 0) {
             VLOG_OPERATOR << "get_split_tasks. query_id = " << print_id(state->query_id())
                           << ", op_id = " << _scan_op->get_plan_node_id() << "/" << _scan_op->get_driver_sequence()

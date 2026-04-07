@@ -177,7 +177,7 @@ public:
         auto src_value = src.get_int32();
         DateTimeValue dt;
         if (!dt.from_date_int64(src_value)) {
-            return Status::InternalError("convert int64 to date failed");
+            return Status::InternalError("convert int64_t to date failed");
         }
         uint24_t year = static_cast<uint24_t>(src_value / 10000);
         uint24_t mon = static_cast<uint24_t>((src_value % 10000) / 100);
@@ -302,10 +302,10 @@ public:
             return Status::OK();
         }
         uint32_t src_value = src.get_uint24();
-        int day = implicit_cast<int>(src_value & 31u);
-        int month = implicit_cast<int>((src_value >> 5u) & 15u);
-        int year = implicit_cast<int>(src_value >> 9u);
-        dst->set_int64(static_cast<int64>(year * 10000L + month * 100L + day) * 1000000);
+        int day = static_cast<int>(src_value & 31u);
+        int month = static_cast<int>((src_value >> 5u) & 15u);
+        int year = static_cast<int>(src_value >> 9u);
+        dst->set_int64(static_cast<int64_t>(year * 10000L + month * 100L + day) * 1000000);
         return Status::OK();
     }
 };
@@ -328,7 +328,7 @@ public:
         auto src_value = src.get_date();
         int year, mon, day;
         src_value.to_date(&year, &mon, &day);
-        dst->set_int64(static_cast<int64>(year * 10000L + mon * 100L + day) * 1000000);
+        dst->set_int64(static_cast<int64_t>(year * 10000L + mon * 100L + day) * 1000000);
         return Status::OK();
     }
 };
@@ -360,9 +360,9 @@ public:
 
     Status convert(void* dst, const void* src, MemPool* memPool) const override {
         uint32_t src_value = unaligned_load<uint24_t>(src);
-        int day = implicit_cast<int>(src_value & 31u);
-        int month = implicit_cast<int>((src_value >> 5u) & 15u);
-        int year = implicit_cast<int>(src_value >> 9u);
+        int day = static_cast<int>(src_value & 31u);
+        int month = static_cast<int>((src_value >> 5u) & 15u);
+        int year = static_cast<int>(src_value >> 9u);
         unaligned_store<TimestampValue>(dst, TimestampValue::create(year, month, day, 0, 0, 0));
         return Status::OK();
     }
@@ -374,9 +374,9 @@ public:
             return Status::OK();
         }
         uint32_t src_value = src.get_uint24();
-        int day = implicit_cast<int>(src_value & 31u);
-        int month = implicit_cast<int>((src_value >> 5u) & 15u);
-        int year = implicit_cast<int>(src_value >> 9u);
+        int day = static_cast<int>(src_value & 31u);
+        int month = static_cast<int>((src_value >> 5u) & 15u);
+        int year = static_cast<int>(src_value >> 9u);
         dst->set_timestamp(TimestampValue::create(year, month, day, 0, 0, 0));
         return Status::OK();
     }
@@ -1573,8 +1573,8 @@ public:
         dst->reserve(src.size());
         if constexpr (is_directly_copyable<SrcType, DstType>) {
             if (!src.is_nullable() && !src.is_constant()) {
-                auto* dst_column = down_cast<DstColumnType*>(dst.get());
-                auto* src_column = down_cast<SrcColumnType*>(const_cast<Column*>(&src));
+                auto* dst_column = static_cast<DstColumnType*>(dst.get());
+                auto* src_column = static_cast<SrcColumnType*>(const_cast<Column*>(&src));
                 // TODO (by satanson): unsafe abstraction leak
                 //  swap std::vector<DecimalV2Value> and std::vector<int128_t>,
                 //  raw memory copy is more sound.
@@ -1582,10 +1582,10 @@ public:
                 return dst;
             } else if (src.is_nullable() && !dst->only_null()) {
                 dst = NullableColumn::create(std::move(dst), NullColumn::create());
-                auto* nullable_dst_column = down_cast<NullableColumn*>(dst.get());
-                auto* nullable_src_column = down_cast<NullableColumn*>(const_cast<Column*>(&src));
-                auto* dst_column = down_cast<DstColumnType*>(nullable_dst_column->data_column_raw_ptr());
-                auto* src_column = down_cast<SrcColumnType*>(nullable_src_column->data_column_raw_ptr());
+                auto* nullable_dst_column = static_cast<NullableColumn*>(dst.get());
+                auto* nullable_src_column = static_cast<NullableColumn*>(const_cast<Column*>(&src));
+                auto* dst_column = static_cast<DstColumnType*>(nullable_dst_column->data_column_raw_ptr());
+                auto* src_column = static_cast<SrcColumnType*>(nullable_src_column->data_column_raw_ptr());
                 auto* null_dst_column = nullable_dst_column->null_column_raw_ptr();
                 auto* null_src_column = nullable_src_column->null_column_raw_ptr();
                 // TODO (by satanson): unsafe abstraction leak

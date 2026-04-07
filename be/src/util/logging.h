@@ -20,7 +20,7 @@
 #include <string>
 
 #include "common/logging.h"
-#include "gutil/walltime.h"
+#include "base/gutil/walltime.h"
 
 namespace starrocks {
 

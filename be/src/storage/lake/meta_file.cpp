@@ -139,7 +139,7 @@ void MetaFileBuilder::append_dcg(uint32_t rssid,
     for (int i = 0; i < dcg_ver.unique_column_ids_size(); i++) {
         auto* mcids = dcg_ver.mutable_unique_column_ids(i)->mutable_column_ids();
         mcids->erase(std::remove_if(mcids->begin(), mcids->end(),
-                                    [&](uint32 cuid) { return need_to_remove_cuids_filter.count(cuid) > 0; }),
+                                    [&](uint32_t cuid) { return need_to_remove_cuids_filter.count(cuid) > 0; }),
                      mcids->end());
         if (!mcids->empty()) {
             new_dcg_ver.add_unique_column_ids()->CopyFrom(dcg_ver.unique_column_ids(i));

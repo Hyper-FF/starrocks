@@ -78,7 +78,7 @@ private:
         if (_function->get_name() == AggStateUtils::FUNCTION_COUNT ||
             _function->get_name() == AggStateUtils::FUNCTION_COUNT_NULLABLE) {
             if (LIKELY(to->is_nullable())) {
-                auto* nullable_column = down_cast<NullableColumn*>(to);
+                auto* nullable_column = static_cast<NullableColumn*>(to);
                 _function->serialize_to_column(ctx, state, nullable_column->data_column_raw_ptr());
                 nullable_column->null_column_data().push_back(0);
             } else {

@@ -227,7 +227,7 @@ public:
     size_t reference_memory_usage(size_t, size_t) const override { return 0; }
 
     void swap_column(Column& rhs) override {
-        auto& r = down_cast<TestIntColumn&>(rhs);
+        auto& r = static_cast<TestIntColumn&>(rhs);
         _data.swap(r._data);
         std::swap(_is_array, r._is_array);
     }

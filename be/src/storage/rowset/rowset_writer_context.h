@@ -77,7 +77,7 @@ public:
     RowsetStatePB rowset_state = PREPARED;
     SegmentsOverlapPB segments_overlap = OVERLAP_UNKNOWN;
 
-    // segment file use uint32 to represent row number, therefore the maximum is UINT32_MAX.
+    // segment file use uint32_t to represent row number, therefore the maximum is UINT32_MAX.
     // the default is set to INT32_MAX to avoid overflow issue when casting from uint32_t to int.
     // test cases can change this value to control flush timing
     uint32_t max_rows_per_segment = INT32_MAX;

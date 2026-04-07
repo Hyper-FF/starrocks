@@ -24,7 +24,6 @@
 #include "exprs/agg/aggregate_traits.h"
 #include "exprs/function_context.h"
 #include "exprs/function_helper.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -82,7 +81,7 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(!to->is_nullable());
-        AggDataTypeTraits<LT>::append_value(down_cast<InputColumnType*>(to), this->data(state).result);
+        AggDataTypeTraits<LT>::append_value(static_cast<InputColumnType*>(to), this->data(state).result);
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
@@ -92,13 +91,13 @@ public:
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(!to->is_nullable());
-        AggDataTypeTraits<LT>::append_value(down_cast<InputColumnType*>(to), this->data(state).result);
+        AggDataTypeTraits<LT>::append_value(static_cast<InputColumnType*>(to), this->data(state).result);
     }
 
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<InputColumnType*>(dst);
+        auto* column = static_cast<InputColumnType*>(dst);
         for (size_t i = start; i < end; ++i) {
             AggDataTypeTraits<LT>::append_value(column, this->data(state).result);
         }

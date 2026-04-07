@@ -143,23 +143,23 @@ StatusOr<ColumnPtr> build_exact_typed_variant_projection(const VariantColumn* va
     // is null.  Outer nulls only exist for non-const variant_src (const-null was handled
     // above; const-non-null has no outer null mask to propagate).
     const bool has_outer_nulls = !variant_src->is_constant() && variant_src->is_nullable() &&
-                                 down_cast<const NullableColumn*>(variant_src.get())->has_null();
-    const bool has_typed_nulls = eff_typed->is_nullable() && down_cast<const NullableColumn*>(eff_typed)->has_null();
+                                 static_cast<const NullableColumn*>(variant_src.get())->has_null();
+    const bool has_typed_nulls = eff_typed->is_nullable() && static_cast<const NullableColumn*>(eff_typed)->has_null();
 
     auto result_null = NullColumn::create(num_rows, 0);
     NullData& result_null_data = result_null->get_data();
 
     if (has_outer_nulls && has_typed_nulls) {
-        const auto outer = down_cast<const NullableColumn*>(variant_src.get())->immutable_null_column_data();
-        const auto typed = down_cast<const NullableColumn*>(eff_typed)->immutable_null_column_data();
+        const auto outer = static_cast<const NullableColumn*>(variant_src.get())->immutable_null_column_data();
+        const auto typed = static_cast<const NullableColumn*>(eff_typed)->immutable_null_column_data();
         for (size_t i = 0; i < num_rows; ++i) {
             result_null_data[i] = outer[i] | typed[i];
         }
     } else if (has_outer_nulls) {
-        const auto outer = down_cast<const NullableColumn*>(variant_src.get())->immutable_null_column_data();
+        const auto outer = static_cast<const NullableColumn*>(variant_src.get())->immutable_null_column_data();
         std::copy(outer.begin(), outer.end(), result_null_data.begin());
     } else if (has_typed_nulls) {
-        const auto typed = down_cast<const NullableColumn*>(eff_typed)->immutable_null_column_data();
+        const auto typed = static_cast<const NullableColumn*>(eff_typed)->immutable_null_column_data();
         std::copy(typed.begin(), typed.end(), result_null_data.begin());
     }
     // else: no nulls anywhere — result_null stays all-zero.
@@ -201,7 +201,7 @@ StatusOr<ColumnPtr> build_variant_projection_column(const VariantColumn* variant
 
 StatusOr<ColumnPtr> project_variant_leaf_column(const ColumnPtr& variant_src, const VariantPath& path,
                                                 const TypeDescriptor& target_type, const cctz::time_zone& zone) {
-    auto* variant_column = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(variant_src.get()));
+    auto* variant_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(variant_src.get()));
     if (variant_column == nullptr) {
         return Status::InternalError("variant source column is invalid");
     }

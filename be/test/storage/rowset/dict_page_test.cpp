@@ -44,7 +44,7 @@ public:
         std::unique_ptr<uint8_t*[]> data_handler_ptr(new uint8_t*[data_num]);
         uint8_t** data_handler = data_handler_ptr.get();
         for (int i = 0; i < data_num; i++) {
-            data_handler[i] = (uint8*)&data[i];
+            data_handler[i] = (uint8_t*)&data[i];
         }
         DictPageBuilder<Type> page_builder(options);
         Status status;
@@ -320,7 +320,7 @@ TEST_F(DictPageTest, TestLargeDataSize) {
     std::unique_ptr<uint8_t*[]> data_handler_ptr(new uint8_t*[data_num]);
     uint8_t** data_handler = data_handler_ptr.get();
     for (int i = 0; i < data_num; i++) {
-        data_handler[i] = (uint8*)&ints[i];
+        data_handler[i] = (uint8_t*)&ints[i];
     }
     DictPageBuilder<TYPE_BIGINT> page_builder(options);
     std::vector<OwnedSlice> results;

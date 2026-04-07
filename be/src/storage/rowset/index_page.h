@@ -42,7 +42,7 @@
 #include "base/string/slice.h"
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "storage/rowset/page_pointer.h"
 
 namespace starrocks {

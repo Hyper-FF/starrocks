@@ -1680,8 +1680,8 @@ TEST_F(EncryptionFunctionsTest, aes_encrypt_decrypt_2params_mixed_null_test) {
     ASSERT_EQ(decrypted->size(), 4);
 
     // For NullableColumn, we need to access the data_column
-    auto nullable_result = down_cast<const NullableColumn*>(decrypted.get());
-    auto result = down_cast<const BinaryColumn*>(nullable_result->data_column().get());
+    auto nullable_result = static_cast<const NullableColumn*>(decrypted.get());
+    auto result = static_cast<const BinaryColumn*>(nullable_result->data_column().get());
 
     ASSERT_FALSE(decrypted->is_null(0));
     ASSERT_EQ("data1", result->get_slice(0).to_string());

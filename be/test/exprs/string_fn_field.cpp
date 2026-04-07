@@ -109,13 +109,13 @@ PARALLEL_TEST(VecFieldFunctionsTest, fieldDecTest) {
     int precision = 10;
     int scale = 3;
     auto param1 = DecimalV3Column<int64_t>::create(precision, scale, num_rows);
-    auto& data1 = down_cast<DecimalV3Column<int64_t>*>(param1.get())->get_data();
+    auto& data1 = static_cast<DecimalV3Column<int64_t>*>(param1.get())->get_data();
 
     auto param2 = DecimalV3Column<int64_t>::create(precision, scale, num_rows);
-    auto& data2 = down_cast<DecimalV3Column<int64_t>*>(param2.get())->get_data();
+    auto& data2 = static_cast<DecimalV3Column<int64_t>*>(param2.get())->get_data();
 
     auto param3 = DecimalV3Column<int64_t>::create(precision, scale, num_rows);
-    auto& data3 = down_cast<DecimalV3Column<int64_t>*>(param3.get())->get_data();
+    auto& data3 = static_cast<DecimalV3Column<int64_t>*>(param3.get())->get_data();
 
     std::string s = "";
     int i = 0;

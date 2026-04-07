@@ -15,7 +15,6 @@
 #pragma once
 
 #include "base/container/raw_container.h"
-#include "gutil/casts.h"
 #include "storage/range.h"
 #include "storage/rowset/column_iterator.h"
 #include "storage/rowset/common.h"
@@ -52,7 +51,7 @@ public:
     }
 
     Status next_batch(size_t* n, Column* dst) override {
-        Buffer<RowIdType>& v = down_cast<FixedLengthColumn<RowIdType>*>(dst)->get_data();
+        Buffer<RowIdType>& v = static_cast<FixedLengthColumn<RowIdType>*>(dst)->get_data();
         const size_t sz = v.size();
         raw::stl_vector_resize_uninitialized(&v, sz + *n);
         RowIdType* ptr = &v[sz];
@@ -81,7 +80,7 @@ public:
         while (to_read > 0) {
             _current_rowid = iter.begin();
             Range<> r = iter.next(to_read);
-            Buffer<RowIdType>& v = down_cast<FixedLengthColumn<RowIdType>*>(dst)->get_data();
+            Buffer<RowIdType>& v = static_cast<FixedLengthColumn<RowIdType>*>(dst)->get_data();
             const size_t sz = v.size();
             raw::stl_vector_resize_uninitialized(&v, sz + r.span_size());
             RowIdType* ptr = &v[sz];
@@ -96,7 +95,7 @@ public:
 
     Status fetch_values_by_rowid(const rowid_t* rowids, size_t size, Column* values) override {
         RETURN_IF(values->is_nullable(), Status::NotSupported("RowIdColumnIterator does not support nullable column"));
-        Buffer<RowIdType>& v = down_cast<FixedLengthColumn<RowIdType>*>(values)->get_data();
+        Buffer<RowIdType>& v = static_cast<FixedLengthColumn<RowIdType>*>(values)->get_data();
         size_t prev_size = v.size();
         v.resize(prev_size + size);
         auto* data = v.data() + prev_size;

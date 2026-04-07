@@ -519,7 +519,7 @@ TEST_F(TestDeleteConditionHandler2, ValidConditionValue) {
     Status res;
     std::vector<TCondition> conditions;
 
-    // k1,k2,k3,k4 type is int8, int16, int32, int64
+    // k1,k2,k3,k4 type is int8_t, int16_t, int32_t, int64_t
     TCondition condition;
     condition.column_name = "k1";
     condition.condition_op = "=";
@@ -640,7 +640,7 @@ TEST_F(TestDeleteConditionHandler2, InvalidConditionValue) {
     Status res;
     std::vector<TCondition> conditions;
 
-    // Test k1 max, k1 type is int8
+    // Test k1 max, k1 type is int8_t
     TCondition condition;
     condition.column_name = "k1";
     condition.condition_op = "=";
@@ -653,7 +653,7 @@ TEST_F(TestDeleteConditionHandler2, InvalidConditionValue) {
                                                               &del_pred_1);
     ASSERT_TRUE(res.is_invalid_argument());
 
-    // test k1 min, k1 type is int8
+    // test k1 min, k1 type is int8_t
     conditions[0].condition_values.clear();
     conditions[0].condition_values.emplace_back("-1000");
     DeletePredicatePB del_pred_2;
@@ -661,7 +661,7 @@ TEST_F(TestDeleteConditionHandler2, InvalidConditionValue) {
                                                               &del_pred_2);
     ASSERT_TRUE(res.is_invalid_argument());
 
-    // k2(int16) max value
+    // k2(int16_t) max value
     conditions[0].condition_values.clear();
     conditions[0].column_name = "k2";
     conditions[0].condition_values.emplace_back("32768");
@@ -670,7 +670,7 @@ TEST_F(TestDeleteConditionHandler2, InvalidConditionValue) {
                                                               &del_pred_3);
     ASSERT_TRUE(res.is_invalid_argument());
 
-    // k2(int16) min value
+    // k2(int16_t) min value
     conditions[0].condition_values.clear();
     conditions[0].condition_values.emplace_back("-32769");
     DeletePredicatePB del_pred_4;
@@ -678,7 +678,7 @@ TEST_F(TestDeleteConditionHandler2, InvalidConditionValue) {
                                                               &del_pred_4);
     ASSERT_TRUE(res.is_invalid_argument());
 
-    // k3(int32) max
+    // k3(int32_t) max
     conditions[0].condition_values.clear();
     conditions[0].column_name = "k3";
     conditions[0].condition_values.emplace_back("2147483648");
@@ -687,7 +687,7 @@ TEST_F(TestDeleteConditionHandler2, InvalidConditionValue) {
                                                               &del_pred_5);
     ASSERT_TRUE(res.is_invalid_argument());
 
-    // k3(int32) min value
+    // k3(int32_t) min value
     conditions[0].condition_values.clear();
     conditions[0].condition_values.emplace_back("-2147483649");
     DeletePredicatePB del_pred_6;
@@ -695,7 +695,7 @@ TEST_F(TestDeleteConditionHandler2, InvalidConditionValue) {
                                                               &del_pred_6);
     ASSERT_TRUE(res.is_invalid_argument());
 
-    // k4(int64) max
+    // k4(int64_t) max
     conditions[0].condition_values.clear();
     conditions[0].column_name = "k4";
     conditions[0].condition_values.emplace_back("9223372036854775808");
@@ -704,7 +704,7 @@ TEST_F(TestDeleteConditionHandler2, InvalidConditionValue) {
                                                               &del_pred_7);
     ASSERT_TRUE(res.is_invalid_argument());
 
-    // k4(int64) min
+    // k4(int64_t) min
     conditions[0].condition_values.clear();
     conditions[0].condition_values.emplace_back("-9223372036854775809");
     DeletePredicatePB del_pred_8;

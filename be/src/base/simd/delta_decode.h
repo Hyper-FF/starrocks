@@ -52,7 +52,7 @@ static inline void delta_decode_chain_scalar_prefetch(T* buf, int n, T min_delta
 
 // =========================
 // reference: https://en.algorithmica.org/hpc/algorithms/prefix/
-// int32 / uint32_t version
+// int32_t / uint32_t version
 MFV_AVX2(void delta_decode_chain_int32_avx2(int32_t* buf, int n, int32_t min_delta, int32_t& last_value) {
     using v4i = __m128i;
     using v8i = __m256i;

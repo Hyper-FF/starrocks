@@ -23,7 +23,6 @@
 #include "common/object_pool.h"
 #include "exprs/expr.h"
 #include "glog/logging.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 

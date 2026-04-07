@@ -38,7 +38,7 @@
 #include <cstring>
 #include <type_traits>
 
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 // Must include headers out of namespace
 #if defined(__SSE4_1__) && !defined(ADDRESS_SANITIZER)
@@ -60,7 +60,7 @@ inline int compare(T lhs, T rhs) {
 
 // memequal is used to optimize the comparison between the two strings.
 //  1. If the length is equal and larger than 16, use SSE4.1
-//  2. If the length is small than 16, convert the address to int16/int32/int64
+//  2. If the length is small than 16, convert the address to int16_t/int32_t/int64_t
 //     to comparison
 // so it does not need to consider extra padding bytes for SIMD, which is required by memequal_padded().
 // TODO: If know the size in advance, call the function by constant parameter

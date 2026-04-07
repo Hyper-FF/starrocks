@@ -37,7 +37,7 @@
 #include <cstdint>
 #include <string>
 
-#include "gutil/port.h"
+#include "base/gutil/port.h"
 
 namespace starrocks {
 

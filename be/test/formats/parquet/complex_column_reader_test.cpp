@@ -35,11 +35,11 @@ VariantRowValue parse_variant_json(std::string_view json_text) {
 }
 
 std::string nullable_variant_json_at(const Column* column, size_t row) {
-    auto* nullable = down_cast<const NullableColumn*>(column);
+    auto* nullable = static_cast<const NullableColumn*>(column);
     EXPECT_NE(nullable, nullptr);
     EXPECT_FALSE(nullable->is_null(row));
 
-    auto* variant = down_cast<const VariantColumn*>(nullable->data_column().get());
+    auto* variant = static_cast<const VariantColumn*>(nullable->data_column().get());
     VariantRowValue out;
     EXPECT_TRUE(variant->try_materialize_row(row, &out));
 
@@ -270,7 +270,7 @@ TEST(ParquetComplexColumnReaderTest, AppendVariantBindingRowNulloptResult) {
             VariantRowRef(full_row.get_metadata().raw(), full_row.get_value().raw()), dst.get());
     ASSERT_TRUE(st.ok()) << st.to_string();
     ASSERT_EQ(1, dst->size());
-    EXPECT_TRUE(down_cast<NullableColumn*>(dst.get())->is_null(0));
+    EXPECT_TRUE(static_cast<NullableColumn*>(dst.get())->is_null(0));
 }
 
 // node == nullptr, valid path, seek succeeds → value is appended  (line 1328)
@@ -287,7 +287,7 @@ TEST(ParquetComplexColumnReaderTest, AppendVariantBindingRowNoNodeValidPath) {
             VariantRowRef(full_row.get_metadata().raw(), full_row.get_value().raw()), dst.get());
     ASSERT_TRUE(st.ok()) << st.to_string();
     ASSERT_EQ(1, dst->size());
-    EXPECT_FALSE(down_cast<NullableColumn*>(dst.get())->is_null(0));
+    EXPECT_FALSE(static_cast<NullableColumn*>(dst.get())->is_null(0));
 }
 
 // node == nullptr, path string is syntactically invalid → parse error  (lines 1318-1319)

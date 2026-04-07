@@ -26,7 +26,7 @@
 #include "common/config_storage_fwd.h"
 #include "common/status.h"
 #include "absl/strings/str_split.h"
-#include "gutil/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "runtime/exec_env.h"
 
 #ifdef WITH_STARCACHE

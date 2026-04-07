@@ -165,7 +165,7 @@ public:
     size_t reference_memory_usage(size_t from, size_t size) const override { return byte_size(from, size); }
 
     void swap_column(Column& rhs) override {
-        auto& r = down_cast<ObjectColumn&>(rhs);
+        auto& r = static_cast<ObjectColumn&>(rhs);
         std::swap(this->_delete_state, r._delete_state);
         std::swap(this->_pool, r._pool);
     }

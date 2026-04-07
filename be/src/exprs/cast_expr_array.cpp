@@ -21,9 +21,8 @@
 #include "column/variant_column.h"
 #include "exprs/cast_expr.h"
 #include "exprs/expr_context.h"
-#include "gutil/casts.h"
 #include "absl/strings/str_split.h"
-#include "gutil/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "runtime/memory/memory_resource.h"
 #include "types/logical_type.h"
@@ -141,7 +140,7 @@ Status CastStringToArray::open(RuntimeState* state, ExprContext* context, Functi
 // Cast string to array<ANY>
 StatusOr<ColumnPtr> CastStringToArray::evaluate_checked(ExprContext* context, Chunk* input_chunk) {
     if (_constant_res != nullptr && _constant_res->is_constant()) {
-        const auto* input = down_cast<const ConstColumn*>(_constant_res.get());
+        const auto* input = static_cast<const ConstColumn*>(_constant_res.get());
         size_t rows = input_chunk == nullptr ? 1 : input_chunk->num_rows();
         if (input->only_null()) {
             return ColumnHelper::create_const_null_column(rows);
@@ -214,7 +213,7 @@ StatusOr<ColumnPtr> CastStringToArray::evaluate_checked(ExprContext* context, Ch
     ColumnPtr elements = slice_builder.build_nullable_column();
     if (element_type != TYPE_VARCHAR && element_type != TYPE_CHAR) {
         ChunkPtr chunk = std::make_shared<Chunk>();
-        SlotId slot_id = down_cast<ColumnRef*>(_cast_elements_expr->get_child(0))->slot_id();
+        SlotId slot_id = static_cast<ColumnRef*>(_cast_elements_expr->get_child(0))->slot_id();
         chunk->append_column(std::move(elements), slot_id);
         ASSIGN_OR_RETURN(auto cast_res, _cast_elements_expr->evaluate_checked(context, chunk.get()));
         elements = ColumnHelper::cast_to_nullable_column(std::move(cast_res));
@@ -294,7 +293,7 @@ StatusOr<ColumnPtr> CastJsonToArray::evaluate_checked(ExprContext* context, Chun
     ColumnPtr elements = json_column_builder.build_nullable_column();
     if (element_type != TYPE_JSON) {
         ChunkPtr chunk = std::make_shared<Chunk>();
-        SlotId slot_id = down_cast<ColumnRef*>(_cast_elements_expr->get_child(0))->slot_id();
+        SlotId slot_id = static_cast<ColumnRef*>(_cast_elements_expr->get_child(0))->slot_id();
         chunk->append_column(std::move(elements), slot_id);
         ASSIGN_OR_RETURN(auto cast_res, _cast_elements_expr->evaluate_checked(context, chunk.get()));
         elements = ColumnHelper::cast_to_nullable_column(std::move(cast_res));
@@ -322,7 +321,7 @@ StatusOr<ColumnPtr> CastVariantToArray::evaluate_checked(ExprContext* context, C
     DCHECK(_cast_elements_expr != nullptr);
     const LogicalType element_type = _cast_elements_expr->type().type;
     const ColumnViewer<TYPE_VARIANT> src(column);
-    const auto* variant_data_column = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(column.get()));
+    const auto* variant_data_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(column.get()));
     UInt32Column::MutablePtr offsets = UInt32Column::create();
     NullColumn::MutablePtr null_column = NullColumn::create();
 
@@ -374,7 +373,7 @@ StatusOr<ColumnPtr> CastVariantToArray::evaluate_checked(ExprContext* context, C
     ColumnPtr elements = variant_column_builder.build_nullable_column();
     if (element_type != TYPE_VARIANT) {
         const auto chunk = std::make_shared<Chunk>();
-        const SlotId slot_id = down_cast<ColumnRef*>(_cast_elements_expr->get_child(0))->slot_id();
+        const SlotId slot_id = static_cast<ColumnRef*>(_cast_elements_expr->get_child(0))->slot_id();
         chunk->append_column(elements, slot_id);
         ASSIGN_OR_RETURN(auto cast_res, _cast_elements_expr->evaluate_checked(context, chunk.get()));
         elements = ColumnHelper::cast_to_nullable_column(std::move(cast_res));

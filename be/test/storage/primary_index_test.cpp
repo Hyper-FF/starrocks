@@ -79,7 +79,7 @@ void test_integral_pk() {
 
     auto chunk = ChunkHelper::new_chunk(*schema, kSegmentSize);
 
-    auto* pk_col = down_cast<FixedLengthColumn<DatumType>*>(chunk->get_column_raw_ptr_by_index(0));
+    auto* pk_col = static_cast<FixedLengthColumn<DatumType>*>(chunk->get_column_raw_ptr_by_index(0));
     pk_col->resize(kSegmentSize);
     auto pk_data = pk_col->get_data().data();
     DatumType pk_value = 0;
@@ -221,7 +221,7 @@ void test_binary_pk(int key_size) {
     auto chunk = ChunkHelper::new_chunk(*schema, kSegmentSize);
     size_t pk_value = 0;
 
-    auto* pk_col = down_cast<BinaryColumn*>(chunk->get_column_raw_ptr_by_index(0));
+    auto* pk_col = static_cast<BinaryColumn*>(chunk->get_column_raw_ptr_by_index(0));
     pk_col->reserve(kSegmentSize);
 
     // [0, kSegmentSize)
@@ -368,8 +368,8 @@ PARALLEL_TEST(PrimaryIndexTest, test_composite_key) {
 
     auto chunk = ChunkHelper::new_chunk(*schema, kSegmentSize);
 
-    auto pk_col0 = down_cast<FixedLengthColumn<int8_t>*>(chunk->get_column_raw_ptr_by_index(0));
-    auto pk_col1 = down_cast<FixedLengthColumn<int16_t>*>(chunk->get_column_raw_ptr_by_index(1));
+    auto pk_col0 = static_cast<FixedLengthColumn<int8_t>*>(chunk->get_column_raw_ptr_by_index(0));
+    auto pk_col1 = static_cast<FixedLengthColumn<int16_t>*>(chunk->get_column_raw_ptr_by_index(1));
 
     pk_col0->resize(0);
     pk_col1->resize(0);

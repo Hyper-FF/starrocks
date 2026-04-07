@@ -92,7 +92,7 @@ static Status add_column_with_array_object_value(BinaryColumn* column, const Typ
 
 Status add_binary_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                          simdjson::ondemand::value* value) {
-    auto binary_column = down_cast<BinaryColumn*>(column);
+    auto binary_column = static_cast<BinaryColumn*>(column);
 
     try {
         simdjson::ondemand::json_type tp = value->type();
@@ -128,7 +128,7 @@ Status add_binary_column(Column* column, const TypeDescriptor& type_desc, const 
 
 Status add_native_json_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                               simdjson::ondemand::value* value) {
-    auto json_column = down_cast<JsonColumn*>(column);
+    auto json_column = static_cast<JsonColumn*>(column);
 
     auto json_value = JsonValue::from_simdjson(value);
     RETURN_IF_ERROR(json_value);
@@ -138,7 +138,7 @@ Status add_native_json_column(Column* column, const TypeDescriptor& type_desc, c
 
 Status add_native_json_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                               simdjson::ondemand::object* value) {
-    auto json_column = down_cast<JsonColumn*>(column);
+    auto json_column = static_cast<JsonColumn*>(column);
 
     auto json_value = JsonValue::from_simdjson(value);
     RETURN_IF_ERROR(json_value);
@@ -148,7 +148,7 @@ Status add_native_json_column(Column* column, const TypeDescriptor& type_desc, c
 
 Status add_binary_column_from_json_object(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                                           simdjson::ondemand::object* obj) {
-    auto binary_column = down_cast<BinaryColumn*>(column);
+    auto binary_column = static_cast<BinaryColumn*>(column);
     std::string_view json_str = simdjson::to_json_string(*obj);
     if (json_str.length() > type_desc.len) {
         auto err_msg = absl::Substitute("Value length $0 exceed the column length $1($2)", json_str.length(), name,

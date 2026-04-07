@@ -24,7 +24,7 @@ namespace starrocks::csv {
 
 Status StringConverter::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                      const Options& options) const {
-    auto* binary = down_cast<const BinaryColumn*>(&column);
+    auto* binary = static_cast<const BinaryColumn*>(&column);
     auto bytes = binary->get_immutable_bytes();
     const auto& offsets = binary->get_offset();
 
@@ -35,7 +35,7 @@ Status StringConverter::write_string(io::FormattedOutputStream* os, const Column
 
 Status StringConverter::write_quoted_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                             const Options& options) const {
-    auto* binary = down_cast<const BinaryColumn*>(&column);
+    auto* binary = static_cast<const BinaryColumn*>(&column);
     auto bytes = binary->get_immutable_bytes();
     const auto& offsets = binary->get_offset();
 
@@ -62,7 +62,7 @@ bool StringConverter::read_string(Column* column, const Slice& s, const Options&
 
     if (options.is_hive) {
         // truncate directly, support for utf-8 encoding
-        down_cast<BinaryColumn*>(column)->append(truncate_utf8(s, max_size));
+        static_cast<BinaryColumn*>(column)->append(truncate_utf8(s, max_size));
     } else {
         if (config::enable_check_string_lengths &&
             ((s.size > TypeDescriptor::MAX_VARCHAR_LENGTH) || (max_size > 0 && s.size > max_size))) {
@@ -70,7 +70,7 @@ bool StringConverter::read_string(Column* column, const Slice& s, const Options&
                                            column->get_name(), s.size, max_size);
             return false;
         }
-        down_cast<BinaryColumn*>(column)->append(s);
+        static_cast<BinaryColumn*>(column)->append(s);
     }
     return true;
 }
@@ -81,7 +81,7 @@ bool StringConverter::read_quoted_string(Column* column, const Slice& tmp_s, con
         return false;
     }
 
-    auto* binary = down_cast<BinaryColumn*>(column);
+    auto* binary = static_cast<BinaryColumn*>(column);
     auto& bytes = binary->get_bytes();
     auto& offsets = binary->get_offset();
     auto old_size = bytes.size();

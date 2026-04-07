@@ -20,7 +20,7 @@
 #include "column/column_helper.h"
 #include "column/schema.h"
 #include "fs/fs_util.h"
-#include "gutil/stringprintf.h"
+#include "base/gutil/stringprintf.h"
 #include "storage/chunk_helper.h"
 #include "storage/row_store_encoder_factory.h"
 #include "types/datum.h"
@@ -114,7 +114,7 @@ TEST(RowStoreEncoderTest, testEncodeFullRowColumn) {
     // fill chunk
     const int n = 2;
     auto pchunk = ChunkHelper::new_chunk(*schema, n);
-    auto obj_column = down_cast<ObjectColumn<BitmapValue>*>(pchunk->mutable_columns()[6].get());
+    auto obj_column = static_cast<ObjectColumn<BitmapValue>*>(pchunk->mutable_columns()[6].get());
     size_t ss = 0;
     for (int i = 0; i < n; i++) {
         Datum tmp;
@@ -127,9 +127,9 @@ TEST(RowStoreEncoderTest, testEncodeFullRowColumn) {
         pchunk->mutable_columns()[2]->append_datum(tmp);
         tmp.set_uint8(i % 2);
         pchunk->mutable_columns()[3]->append_datum(tmp);
-        down_cast<ObjectColumn<HyperLogLog>*>(pchunk->mutable_columns()[4].get())->append(HyperLogLog(1));
-        down_cast<ObjectColumn<PercentileValue>*>(pchunk->mutable_columns()[5].get())->append(PercentileValue());
-        down_cast<ObjectColumn<BitmapValue>*>(pchunk->mutable_columns()[6].get())->append(BitmapValue());
+        static_cast<ObjectColumn<HyperLogLog>*>(pchunk->mutable_columns()[4].get())->append(HyperLogLog(1));
+        static_cast<ObjectColumn<PercentileValue>*>(pchunk->mutable_columns()[5].get())->append(PercentileValue());
+        static_cast<ObjectColumn<BitmapValue>*>(pchunk->mutable_columns()[6].get())->append(BitmapValue());
         ss += obj_column->byte_size(i);
     }
     EXPECT_EQ(ss, obj_column->byte_size(0, n));

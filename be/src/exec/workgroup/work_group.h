@@ -211,10 +211,10 @@ public:
     PipelineExecutorSet* exclusive_executors() const { return _exclusive_executors.get(); }
     PipelineExecutorSet* executors() const { return _executors; }
 
-    static constexpr int64 DEFAULT_WG_ID = 0;
-    static constexpr int64 DEFAULT_MV_WG_ID = 1;
-    static constexpr int64 DEFAULT_VERSION = 0;
-    static constexpr int64 DEFAULT_MV_VERSION = 1;
+    static constexpr int64_t DEFAULT_WG_ID = 0;
+    static constexpr int64_t DEFAULT_MV_WG_ID = 1;
+    static constexpr int64_t DEFAULT_VERSION = 0;
+    static constexpr int64_t DEFAULT_MV_VERSION = 1;
     inline static std::string DEFAULT_MEM_POOL{"default_mem_pool"};
 
     // Yield scan io task when maximum time in nano-seconds has spent in current execution round.

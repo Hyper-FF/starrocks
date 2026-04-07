@@ -109,7 +109,7 @@ StatusOr<std::string> HiveUtils::iceberg_make_partition_name(
     std::stringstream ss;
     field_is_null.resize(partition_column_names.size(), false);
     if (chunk->has_extra_data()) {
-        const auto& extra_data = down_cast<ChunkExtraColumnsData*>(chunk->get_extra_data().get());
+        const auto& extra_data = static_cast<ChunkExtraColumnsData*>(chunk->get_extra_data().get());
         const auto& metadatas = extra_data->chunk_data_metas();
         const auto& columns = extra_data->columns();
         DCHECK_EQ(columns.size(), partition_column_names.size());

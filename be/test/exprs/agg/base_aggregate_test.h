@@ -39,7 +39,6 @@
 #include "exprs/function_context.h"
 #include "gen_cpp/Data_types.h"
 #include "gen_cpp/Types_types.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 #include "testutil/function_utils.h"
 #include "types/bitmap_value.h"

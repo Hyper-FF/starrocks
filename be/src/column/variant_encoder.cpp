@@ -215,7 +215,7 @@ Status encode_column_with_viewer(const ColumnPtr& column, ColumnBuilder<TYPE_VAR
     bool is_const = false;
 
     if (data_column->is_constant()) {
-        const auto* const_col = down_cast<const ConstColumn*>(data_column.get());
+        const auto* const_col = static_cast<const ConstColumn*>(data_column.get());
         if (const_col->only_null()) {
             for (size_t i = 0; i < num_rows; ++i) {
                 builder->append_null();
@@ -228,7 +228,7 @@ Status encode_column_with_viewer(const ColumnPtr& column, ColumnBuilder<TYPE_VAR
 
     const NullableColumn* nullable = nullptr;
     if (data_column->is_nullable()) {
-        nullable = down_cast<const NullableColumn*>(data_column.get());
+        nullable = static_cast<const NullableColumn*>(data_column.get());
         data_column = nullable->data_column();
     }
 
@@ -837,7 +837,7 @@ Status VariantEncoder::encode_column(const ColumnPtr& column, const TypeDescript
         bool is_const = false;
 
         if (data_column->is_constant()) {
-            const auto* const_col = down_cast<const ConstColumn*>(data_column.get());
+            const auto* const_col = static_cast<const ConstColumn*>(data_column.get());
             if (const_col->only_null()) {
                 builder->append_nulls(static_cast<int>(num_rows));
                 return Status::OK();
@@ -848,7 +848,7 @@ Status VariantEncoder::encode_column(const ColumnPtr& column, const TypeDescript
 
         const NullableColumn* nullable = nullptr;
         if (data_column->is_nullable()) {
-            nullable = down_cast<const NullableColumn*>(data_column.get());
+            nullable = static_cast<const NullableColumn*>(data_column.get());
             data_column = nullable->data_column();
         }
 

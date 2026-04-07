@@ -152,9 +152,9 @@ static bool Snappy_Compress(const char* input, size_t length, ::std::string* out
 
 void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
     // File format contains a sequence of blocks where each block has:
-    //    block_data: uint8[n]
-    //    type: uint8
-    //    crc: uint32
+    //    block_data: uint8_t[n]
+    //    type: uint8_t
+    //    crc: uint32_t
     assert(ok());
     Rep* r = rep_;
     Slice raw = block->Finish();

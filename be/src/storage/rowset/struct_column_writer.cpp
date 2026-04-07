@@ -17,7 +17,6 @@
 #include "column/nullable_column.h"
 #include "column/struct_column.h"
 #include "common/status.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -118,11 +117,11 @@ Status StructColumnWriter::append(const Column& column) {
     const StructColumn* struct_column = nullptr;
     const NullColumn* null_column = nullptr;
     if (is_nullable()) {
-        const auto& nullable_column = down_cast<const NullableColumn&>(column);
-        struct_column = down_cast<const StructColumn*>(nullable_column.data_column().get());
-        null_column = down_cast<const NullColumn*>(nullable_column.null_column().get());
+        const auto& nullable_column = static_cast<const NullableColumn&>(column);
+        struct_column = static_cast<const StructColumn*>(nullable_column.data_column().get());
+        null_column = static_cast<const NullColumn*>(nullable_column.null_column().get());
     } else {
-        struct_column = down_cast<const StructColumn*>(&column);
+        struct_column = static_cast<const StructColumn*>(&column);
     }
     // write null column when necessary
     if (is_nullable()) {

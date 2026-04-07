@@ -19,8 +19,8 @@
 #include "column/const_column.h"
 #include "column/vectorized_fwd.h"
 #include "common/statusor.h"
-#include "gutil/port.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/port.h"
+#include "base/gutil/strings/fastmem.h"
 #include "types/constexpr.h"
 
 #ifdef STARROCKS_JIT_ENABLE

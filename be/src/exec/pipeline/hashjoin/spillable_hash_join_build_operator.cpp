@@ -169,7 +169,7 @@ Status SpillableHashJoinBuildOperator::publish_runtime_filters(RuntimeState* sta
 }
 
 Status SpillableHashJoinBuildOperator::append_hash_columns(const ChunkPtr& chunk) {
-    auto factory = down_cast<SpillableHashJoinBuildOperatorFactory*>(_factory);
+    auto factory = static_cast<SpillableHashJoinBuildOperatorFactory*>(_factory);
     const auto& build_partition = factory->build_side_partition();
 
     size_t num_rows = chunk->num_rows();

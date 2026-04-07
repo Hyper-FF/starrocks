@@ -82,8 +82,8 @@ Status ORCScanner::open() {
 
     auto range = _scan_range.ranges[0];
     int num_columns_from_orc = range.__isset.num_of_columns_from_file
-                                       ? implicit_cast<int>(range.num_of_columns_from_file)
-                                       : implicit_cast<int>(_src_slot_descriptors.size());
+                                       ? static_cast<int>(range.num_of_columns_from_file)
+                                       : static_cast<int>(_src_slot_descriptors.size());
 
     // column from path
     if (range.__isset.num_of_columns_from_file) {

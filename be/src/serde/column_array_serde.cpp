@@ -409,8 +409,8 @@ public:
     }
 
     // Layout
-    // uint32: format_version (currently is hard-coded)
-    // uint32: number of datums
+    // uint32_t: format_version (currently is hard-coded)
+    // uint32_t: number of datums
     // datums: [size1[payload1][size2][payload2]
     static uint8_t* serialize(const JsonColumn& column, uint8_t* buff) {
         buff = write_little_endian_32(kJsonMetaDefaultFormatVersion, buff);

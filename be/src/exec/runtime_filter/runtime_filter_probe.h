@@ -74,7 +74,7 @@ public:
     bool is_probe_slot_ref(SlotId* slot_id) const {
         Expr* probe_expr = _probe_expr_ctx->root();
         if (!probe_expr->is_slotref()) return false;
-        auto* slot_ref = down_cast<ColumnRef*>(probe_expr);
+        auto* slot_ref = static_cast<ColumnRef*>(probe_expr);
         *slot_id = slot_ref->slot_id();
         return true;
     }

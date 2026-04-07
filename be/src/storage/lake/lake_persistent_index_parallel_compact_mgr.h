@@ -24,7 +24,7 @@
 #include "base/uid_util.h"
 #include "common/status.h"
 #include "common/thread/threadpool.h"
-#include "gutil/ref_counted.h"
+#include "base/gutil/ref_counted.h"
 #include "storage/lake/sst_seek_range.h"
 #include "storage/lake/tablet_metadata.h"
 

@@ -154,7 +154,7 @@ void fill_data_column_with_slot(Column* data_column, void* slot) {
     using ColumnType = typename RunTimeTypeTraits<SlotType>::ColumnType;
     using ValueType = typename RunTimeTypeTraits<SlotType>::CppType;
 
-    ColumnType* result = down_cast<ColumnType*>(data_column);
+    ColumnType* result = static_cast<ColumnType*>(data_column);
     if constexpr (IsDate<ValueType>) {
         auto* date_time_value = (DateTimeValue*)slot;
         DateValue date_value =
@@ -174,7 +174,7 @@ void fill_data_column_with_slot(Column* data_column, void* slot) {
 template <LogicalType SlotType>
 void fill_column_with_slot(Column* result, void* slot) {
     if (result->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(result);
+        auto* nullable_column = static_cast<NullableColumn*>(result);
         NullData& null_data = nullable_column->null_column_data();
         Column* data_column = nullable_column->data_column_raw_ptr();
         null_data.push_back(0);

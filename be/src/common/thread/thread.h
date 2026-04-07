@@ -50,7 +50,7 @@
 #include "base/concurrency/countdown_latch.h"
 #include "common/status.h"
 #include "common/thread/thread_info.h"
-#include "gutil/ref_counted.h"
+#include "base/gutil/ref_counted.h"
 
 namespace starrocks {
 

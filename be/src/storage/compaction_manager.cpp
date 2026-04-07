@@ -677,7 +677,7 @@ void CompactionManager::set_max_compaction_concurrency(int threads_num) {
 
 Status CompactionManager::update_max_threads(int max_threads) {
     if (_compaction_pool != nullptr) {
-        int32 max_thread_num = 0;
+        int32_t max_thread_num = 0;
         set_max_compaction_concurrency(max_threads);
         {
             std::lock_guard lg(_tasks_mutex);

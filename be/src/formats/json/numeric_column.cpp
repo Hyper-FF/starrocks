@@ -169,7 +169,7 @@ static Status add_column_with_string_value(FixedLengthColumn<T>* column, const T
 template <typename T>
 Status add_numeric_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                           simdjson::ondemand::value* value) {
-    auto numeric_column = down_cast<FixedLengthColumn<T>*>(column);
+    auto numeric_column = static_cast<FixedLengthColumn<T>*>(column);
 
     try {
         simdjson::ondemand::json_type tp = value->type();

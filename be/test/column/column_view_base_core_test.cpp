@@ -19,7 +19,6 @@
 #include "column/binary_column.h"
 #include "column/column_view/column_view.h"
 #include "column/nullable_column.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 namespace {
@@ -78,7 +77,7 @@ TEST(ColumnViewBaseCoreTest, AppendSelectiveToWithConcatAndNulls) {
     EXPECT_FALSE(dst->is_null(0));
     EXPECT_TRUE(dst->is_null(1));
 
-    auto* data_column = down_cast<BinaryColumn*>(dst->data_column_raw_ptr());
+    auto* data_column = static_cast<BinaryColumn*>(dst->data_column_raw_ptr());
     EXPECT_EQ("v0", slice_to_string(data_column->get_slice(0)));
 }
 

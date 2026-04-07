@@ -24,7 +24,7 @@ template <template <LogicalType> typename FilterType, bool is_skew_join>
 struct FilterIniter {
     template <LogicalType LT>
     Status operator()(const ColumnPtr& column, size_t column_offset, RuntimeFilter* expr, bool eq_null) {
-        auto* filter = down_cast<FilterType<LT>*>(expr);
+        auto* filter = static_cast<FilterType<LT>*>(expr);
 
         if (column->is_nullable()) {
             auto* nullable_column = ColumnHelper::as_raw_column<NullableColumn>(column);

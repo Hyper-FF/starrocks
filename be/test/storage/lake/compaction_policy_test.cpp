@@ -53,7 +53,7 @@ protected:
 
     void TearDown() override { remove_test_dir_ignore_error(); }
 
-    void add_data_rowset(uint32 id, bool overlap, int64_t level) {
+    void add_data_rowset(uint32_t id, bool overlap, int64_t level) {
         auto* rowset_metadata = _tablet_metadata->mutable_rowsets()->Add();
         rowset_metadata->mutable_segments()->Add("file1");
         rowset_metadata->mutable_segments()->Add("file2");
@@ -65,7 +65,7 @@ protected:
         std::cout << "data rowset: " << id << ", data size: " << rowset_metadata->data_size() << std::endl;
     }
 
-    void add_delete_rowset(uint32 id) {
+    void add_delete_rowset(uint32_t id) {
         auto* rowset_metadata = _tablet_metadata->mutable_rowsets()->Add();
         rowset_metadata->set_overlapped(false);
         rowset_metadata->set_num_rows(0);
@@ -237,7 +237,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_max_compaction_by_max_singleto
 TEST_F(LakeCompactionPolicyTest, test_size_tiered_one_delete_middle) {
     config::enable_size_tiered_compaction_strategy = true;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 2);
     add_delete_rowset(id++);
     add_data_rowset(id++, true, 2);
@@ -265,7 +265,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_one_delete_middle) {
 TEST_F(LakeCompactionPolicyTest, test_size_tiered_two_delete_middle) {
     config::enable_size_tiered_compaction_strategy = true;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 2);
     add_delete_rowset(id++);
     add_delete_rowset(id++);
@@ -294,7 +294,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_two_delete_middle) {
 TEST_F(LakeCompactionPolicyTest, test_size_tiered_two_delete_first) {
     config::enable_size_tiered_compaction_strategy = true;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_delete_rowset(id++);
     add_delete_rowset(id++);
     add_data_rowset(id++, false, 2);
@@ -324,7 +324,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_delete_limit_force_base_compac
     config::enable_size_tiered_compaction_strategy = true;
     config::tablet_max_versions = 10;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 3);
     add_data_rowset(id++, false, 3);
     add_data_rowset(id++, false, 2);
@@ -356,7 +356,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_delete_limit_force_base_compac
 TEST_F(LakeCompactionPolicyTest, test_size_tiered_descending_order_level_size) {
     config::enable_size_tiered_compaction_strategy = true;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 4);
     add_data_rowset(id++, true, 3);
     add_data_rowset(id++, true, 2);
@@ -382,7 +382,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_multi_descending_order_level_s
 
     // compaction version 2
     // rowsets: [1, 2, 3, 4, 5, 6, 7, 8]
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, true, 4);
     add_data_rowset(id++, true, 3);
     add_data_rowset(id++, false, 3);
@@ -468,7 +468,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_multi_descending_order_level_s
 TEST_F(LakeCompactionPolicyTest, test_size_tiered_order_level_size) {
     config::enable_size_tiered_compaction_strategy = true;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 2);
     add_data_rowset(id++, true, 3);
     add_data_rowset(id++, true, 4);
@@ -496,7 +496,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_order_level_size) {
 TEST_F(LakeCompactionPolicyTest, test_size_tiered_backtrace_base_compaction_delete_last) {
     config::enable_size_tiered_compaction_strategy = true;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 3);
     add_data_rowset(id++, false, 2);
     add_delete_rowset(id++);
@@ -526,7 +526,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_backtrace_base_compaction_dele
 
     // compaction version 2
     // rowsets: [1, 2, 3, 4, 5, 6, 7]
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 3);
     add_data_rowset(id++, false, 3);
     add_data_rowset(id++, false, 2);
@@ -585,7 +585,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_backtrace_base_compaction_dele
 TEST_F(LakeCompactionPolicyTest, test_size_tiered_backtrace_base_compaction_multi_delete_middle) {
     config::enable_size_tiered_compaction_strategy = true;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 3);
     add_data_rowset(id++, false, 2);
     add_delete_rowset(id++);
@@ -616,7 +616,7 @@ TEST_F(LakeCompactionPolicyTest, test_size_tiered_backtrace_base_compaction_mult
 TEST_F(LakeCompactionPolicyTest, test_size_tiered_backtrace_base_compaction_continous_delete_middle) {
     config::enable_size_tiered_compaction_strategy = true;
 
-    uint32 id = 1;
+    uint32_t id = 1;
     add_data_rowset(id++, false, 3);
     add_data_rowset(id++, false, 2);
     add_delete_rowset(id++);

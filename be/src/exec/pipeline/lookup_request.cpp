@@ -187,13 +187,13 @@ StatusOr<ChunkPtr> IcebergV3LookUpTask::_calculate_row_id_range(
     ASSIGN_OR_RETURN(auto sorted_chunk, _sort_chunk(state, request_chunk, {scan_range_id_column, row_id_column}));
 
     // Step 3: Calculate row_id ranges and replicated_offsets for duplicate handling
-    const auto& nullable_scan_range_id_column = down_cast<NullableColumn*>(
+    const auto& nullable_scan_range_id_column = static_cast<NullableColumn*>(
             sorted_chunk->get_column_by_slot_id(_ctx->fetch_ref_slot_ids[0])->as_mutable_raw_ptr());
     DCHECK(!nullable_scan_range_id_column->has_null()) << "scan_range_id column should not have null";
     auto ordered_scan_range_id_column = Int32Column::static_pointer_cast(nullable_scan_range_id_column->data_column());
     const auto ordered_scan_range_ids = ordered_scan_range_id_column->immutable_data();
 
-    const auto& nullable_row_id_column = down_cast<NullableColumn*>(
+    const auto& nullable_row_id_column = static_cast<NullableColumn*>(
             sorted_chunk->get_column_by_slot_id(_ctx->fetch_ref_slot_ids[1])->as_mutable_raw_ptr());
     DCHECK(!nullable_row_id_column->has_null()) << "row_id column should not have null";
     auto ordered_row_id_column = Int64Column::static_pointer_cast(nullable_row_id_column->data_column());
@@ -551,7 +551,7 @@ StatusOr<ChunkPtr> IcebergV3LookUpTask::_get_data_from_storage(
         RETURN_IF_ERROR(ExprExecutor::open(conjunct_ctxs, state));
 
         // Build HiveDataSource for this scan range
-        auto glm_ctx = down_cast<IcebergGlobalLateMaterilizationContext*>(
+        auto glm_ctx = static_cast<IcebergGlobalLateMaterilizationContext*>(
                 state->query_ctx()->global_late_materialization_ctx_mgr()->get_ctx(_ctx->scan_id));
         if (glm_ctx == nullptr) {
             return Status::InternalError("GlobalLateMaterilizationContext not found for scan_id: " +

@@ -186,7 +186,7 @@ void RowDescriptor::to_thrift(std::vector<TTupleId>* row_tuple_ids) {
     }
 }
 
-void RowDescriptor::to_protobuf(google::protobuf::RepeatedField<google::protobuf::int32>* row_tuple_ids) {
+void RowDescriptor::to_protobuf(google::protobuf::RepeatedField<google::protobuf::int32_t>* row_tuple_ids) {
     row_tuple_ids->Clear();
     for (auto desc : _tuple_desc_map) {
         row_tuple_ids->Add(desc->id());

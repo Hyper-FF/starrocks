@@ -21,7 +21,6 @@
 #include "fs/encrypt_file.h"
 #include "gen_cpp/FrontendService.h"
 #include "gen_cpp/Types_types.h"
-#include "gutil/casts.h"
 #include "runtime/client_cache.h"
 #include "runtime/starrocks_metrics.h"
 #include "util/global_metrics_registry.h"
@@ -87,7 +86,7 @@ public:
         if (child_key->type() != NORMAL_KEY) {
             return Status::InternalError(fmt::format("decrypt failed, type not support:{}", child_key->type()));
         }
-        auto key = down_cast<NormalKey*>(child_key);
+        auto key = static_cast<NormalKey*>(child_key);
         if (_plain_key.empty()) {
             return Status::InternalError("decrypt failed, empty plain_key");
         }

@@ -123,18 +123,18 @@ Status StructColumnIterator::next_batch(size_t* n, Column* dst) {
     StructColumn* struct_column = nullptr;
     NullColumn* null_column = nullptr;
     if (dst->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
 
-        struct_column = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
-        null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+        struct_column = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+        null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     } else {
-        struct_column = down_cast<StructColumn*>(dst);
+        struct_column = static_cast<StructColumn*>(dst);
     }
 
     // 1. Read null column
     if (_null_iter != nullptr) {
         RETURN_IF_ERROR(_null_iter->next_batch(n, null_column));
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     DCHECK_EQ(struct_column->fields_size(), _access_iters.size());
@@ -152,17 +152,17 @@ Status StructColumnIterator::next_batch(const SparseRange<>& range, Column* dst)
     StructColumn* struct_column = nullptr;
     NullColumn* null_column = nullptr;
     if (dst->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
 
-        struct_column = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
-        null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+        struct_column = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+        null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     } else {
-        struct_column = down_cast<StructColumn*>(dst);
+        struct_column = static_cast<StructColumn*>(dst);
     }
     // Read null column
     if (_null_iter != nullptr) {
         RETURN_IF_ERROR(_null_iter->next_batch(range, null_column));
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     DCHECK_EQ(struct_column->fields_size(), _access_iters.size());
@@ -196,13 +196,13 @@ Status StructColumnIterator::fetch_values_by_rowid(const rowid_t* rowids, size_t
     NullColumn* null_column = nullptr;
     // 1. Read null column
     if (_null_iter != nullptr) {
-        auto* nullable_column = down_cast<NullableColumn*>(values);
-        struct_column = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
-        null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(values);
+        struct_column = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+        null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
         RETURN_IF_ERROR(_null_iter->fetch_values_by_rowid(rowids, size, null_column));
         nullable_column->update_has_null();
     } else {
-        struct_column = down_cast<StructColumn*>(values);
+        struct_column = static_cast<StructColumn*>(values);
     }
 
     DCHECK_EQ(struct_column->fields_size(), _access_iters.size());
@@ -257,17 +257,17 @@ Status StructColumnIterator::next_batch(size_t* n, Column* dst, ColumnAccessPath
     StructColumn* struct_column = nullptr;
     NullColumn* null_column = nullptr;
     if (dst->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
-        struct_column = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
-        null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
+        struct_column = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+        null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     } else {
-        struct_column = down_cast<StructColumn*>(dst);
+        struct_column = static_cast<StructColumn*>(dst);
     }
 
     // 2. Read null column
     if (_null_iter != nullptr) {
         RETURN_IF_ERROR(_null_iter->next_batch(n, null_column));
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
 
     DCHECK_EQ(struct_column->fields_size(), _access_iters.size());
@@ -316,17 +316,17 @@ Status StructColumnIterator::next_batch(const SparseRange<>& range, Column* dst,
     StructColumn* struct_column = nullptr;
     NullColumn* null_column = nullptr;
     if (dst->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(dst);
+        auto* nullable_column = static_cast<NullableColumn*>(dst);
 
-        struct_column = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
-        null_column = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+        struct_column = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+        null_column = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
     } else {
-        struct_column = down_cast<StructColumn*>(dst);
+        struct_column = static_cast<StructColumn*>(dst);
     }
     // Read null column
     if (_null_iter != nullptr) {
         RETURN_IF_ERROR(_null_iter->next_batch(range, null_column));
-        down_cast<NullableColumn*>(dst)->update_has_null();
+        static_cast<NullableColumn*>(dst)->update_has_null();
     }
     // Read all fields
     size_t row_count = 0;
@@ -358,10 +358,10 @@ Status StructColumnIterator::fetch_subfield_by_rowid(const rowid_t* rowids, size
     StructColumn* struct_column = nullptr;
     // 1. null column was readed
     if (_null_iter != nullptr) {
-        auto* nullable_column = down_cast<NullableColumn*>(values);
-        struct_column = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+        auto* nullable_column = static_cast<NullableColumn*>(values);
+        struct_column = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
     } else {
-        struct_column = down_cast<StructColumn*>(values);
+        struct_column = static_cast<StructColumn*>(values);
     }
 
     DCHECK_EQ(struct_column->fields_size(), _access_iters.size());
@@ -370,7 +370,7 @@ Status StructColumnIterator::fetch_subfield_by_rowid(const rowid_t* rowids, size
         auto& field = struct_column->get_column_by_idx(i);
         if (field->is_constant()) {
             // doesn't meterialized
-            field = down_cast<ConstColumn*>(field->as_mutable_raw_ptr())->data_column();
+            field = static_cast<ConstColumn*>(field->as_mutable_raw_ptr())->data_column();
             field->as_mutable_raw_ptr()->resize_uninitialized(0);
             RETURN_IF_ERROR(_access_iters[i]->fetch_values_by_rowid(rowids, size, field->as_mutable_raw_ptr()));
         } else {

@@ -211,7 +211,7 @@ struct RuntimeColumnPredicateBuilder {
 
     template <class Range, LogicalType SlotType, LogicalType mapping_type>
     static void build_in_range(Range& range, const RuntimeFilter* rf, ObjectPool* pool) {
-        auto* filter = down_cast<const InRuntimeFilter<mapping_type>*>(rf->get_in_filter());
+        auto* filter = static_cast<const InRuntimeFilter<mapping_type>*>(rf->get_in_filter());
         if (filter == nullptr) return;
         auto hash_set = filter->get_set(pool);
         boost::container::flat_set<typename Range::RangeValueType> values(hash_set.begin(), hash_set.end());
@@ -223,7 +223,7 @@ struct RuntimeColumnPredicateBuilder {
     static void build_minmax_range(Range& range, const RuntimeFilter* rf, ObjectPool* pool, Args&&... args) {
         using ValueType = typename RunTimeTypeTraits<SlotType>::CppType;
 
-        auto* filter = down_cast<const MinMaxRuntimeFilter<mapping_type>*>(rf->get_min_max_filter());
+        auto* filter = static_cast<const MinMaxRuntimeFilter<mapping_type>*>(rf->get_min_max_filter());
         if (filter == nullptr) return;
         using DecoderType = Decoder<typename RunTimeTypeTraits<mapping_type>::CppType>;
         DecoderType decoder(std::forward<Args>(args)...);

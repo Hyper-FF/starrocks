@@ -264,7 +264,7 @@ Status FetchProcessor::_gen_fetch_tasks(RuntimeState* state, const ChunkPtr& req
             not_null_indices.reserve(not_null_rows);
             MutableColumnPtr null_row_positions = UInt32Column::create();
             null_row_positions->reserve(null_rows);
-            auto& null_row_positions_data = down_cast<UInt32Column*>(null_row_positions.get())->get_data();
+            auto& null_row_positions_data = static_cast<UInt32Column*>(null_row_positions.get())->get_data();
 
             const auto& null_data = nullable_column->null_column_data();
             for (size_t i = 0; i < nullable_column->size(); i++) {

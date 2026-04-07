@@ -33,7 +33,6 @@
 #include "exec/spill/common.h"
 #include "fmt/format.h"
 #include "fs/fs.h"
-#include "gutil/casts.h"
 #include "io/core/input_stream.h"
 #include "io/io_profiler.h"
 #include "runtime/exec_env.h"
@@ -283,7 +282,7 @@ StatusOr<BlockPtr> LogBlockManager::acquire_block(const AcquireBlockOptions& opt
 }
 
 Status LogBlockManager::release_block(BlockPtr block) {
-    auto log_block = down_cast<LogBlock*>(block.get());
+    auto log_block = static_cast<LogBlock*>(block.get());
     auto container = log_block->container();
     auto affinity_group = block->affinity_group();
     TRACE_SPILL_LOG << "release block: " << block->debug_string();

@@ -49,7 +49,7 @@ OperatorPtr OlapScanOperatorFactory::do_create(int32_t dop, int32_t driver_seque
 }
 
 const std::vector<ExprContext*>& OlapScanOperatorFactory::partition_exprs() const {
-    auto* olap_scan_node = down_cast<OlapScanNode*>(_scan_node);
+    auto* olap_scan_node = static_cast<OlapScanNode*>(_scan_node);
     return olap_scan_node->bucket_exprs();
 }
 
@@ -103,7 +103,7 @@ Status OlapScanOperator::do_prepare(RuntimeState* state) {
 void OlapScanOperator::do_close(RuntimeState* state) {}
 
 ChunkSourcePtr OlapScanOperator::create_chunk_source(MorselPtr morsel, int32_t chunk_source_index) {
-    auto* olap_scan_node = down_cast<OlapScanNode*>(_scan_node);
+    auto* olap_scan_node = static_cast<OlapScanNode*>(_scan_node);
     return std::make_shared<OlapChunkSource>(this, _chunk_source_profiles[chunk_source_index].get(), std::move(morsel),
                                              olap_scan_node, _ctx.get());
 }

@@ -100,7 +100,7 @@ TEST_F(VecBitmapFunctionsTest, toBitmapTest) {
 }
 
 TEST_F(VecBitmapFunctionsTest, toBitmapTest_Int) {
-    // to_bitmap(int32)
+    // to_bitmap(int32_t)
     {
         Columns columns;
 
@@ -123,7 +123,7 @@ TEST_F(VecBitmapFunctionsTest, toBitmapTest_Int) {
         ASSERT_EQ(5, p->get_object(2)->serialize_size());
     }
 
-    // to_bitmap(int64)
+    // to_bitmap(int64_t)
     {
         Columns columns;
 

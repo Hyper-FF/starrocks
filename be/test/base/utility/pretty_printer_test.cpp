@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "gutil/sysinfo.h"
+#include "base/gutil/sysinfo.h"
 
 namespace starrocks {
 namespace {

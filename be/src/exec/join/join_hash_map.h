@@ -152,7 +152,7 @@ private:
 
     void _probe_index_output(ChunkPtr* chunk) {
         _probe_state->probe_index_column->resize(_probe_state->count);
-        auto* col = down_cast<UInt32Column*>(_probe_state->probe_index_column.get());
+        auto* col = static_cast<UInt32Column*>(_probe_state->probe_index_column.get());
         std::iota(col->get_data().begin(), col->get_data().end(), 0);
         (*chunk)->append_column(_probe_state->probe_index_column, Chunk::HASH_JOIN_PROBE_INDEX_SLOT_ID);
     }

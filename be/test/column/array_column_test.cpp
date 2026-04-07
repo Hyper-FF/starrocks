@@ -425,8 +425,8 @@ PARALLEL_TEST(ArrayColumnTest, test_append_nulls) {
 
     ASSERT_TRUE(nullable_column->append_nulls(1));
 
-    auto* array_col = down_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
-    auto* null_col = down_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
+    auto* array_col = static_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
+    auto* null_col = static_cast<NullColumn*>(nullable_column->null_column_raw_ptr());
 
     // insert [1, 2, 3], [4, 5, 6]
     null_col->append(0);
@@ -574,9 +574,9 @@ PARALLEL_TEST(ArrayColumnTest, test_multi_dimension_array) {
 
     auto column = ArrayColumn::create(std::move(elements_1), std::move(offsets_1));
 
-    auto& e1_col = down_cast<NullableColumn&>(column->elements());
-    auto& inner_arr = down_cast<ArrayColumn&>(e1_col.data_column_ref());
-    auto& elements_ref = down_cast<NullableColumn&>(inner_arr.elements());
+    auto& e1_col = static_cast<NullableColumn&>(column->elements());
+    auto& inner_arr = static_cast<ArrayColumn&>(e1_col.data_column_ref());
+    auto& elements_ref = static_cast<NullableColumn&>(inner_arr.elements());
     auto& offsets_ref = inner_arr.offsets();
     auto& elements_1_ref = e1_col;
     auto& offsets_1_ref = column->offsets();
@@ -820,8 +820,8 @@ PARALLEL_TEST(ArrayColumnTest, test_clone) {
     c0->reset_column();
     ASSERT_EQ("[1,2,3]", c1->debug_item(0));
     ASSERT_EQ("[4,5,6]", c1->debug_item(1));
-    ASSERT_TRUE(down_cast<ArrayColumn*>(c1.get())->elements_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<ArrayColumn*>(c1.get())->offsets_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<ArrayColumn*>(c1.get())->elements_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<ArrayColumn*>(c1.get())->offsets_column()->use_count() == 1);
 }
 
 // NOLINTNEXTLINE
@@ -846,8 +846,8 @@ PARALLEL_TEST(ArrayColumnTest, test_clone_shared) {
     ASSERT_EQ("[1,2,3]", c1->debug_item(0));
     ASSERT_EQ("[4,5,6]", c1->debug_item(1));
     ASSERT_TRUE(c1->use_count() == 1);
-    ASSERT_TRUE(down_cast<ArrayColumn*>(c1.get())->elements_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<ArrayColumn*>(c1.get())->offsets_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<ArrayColumn*>(c1.get())->elements_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<ArrayColumn*>(c1.get())->offsets_column()->use_count() == 1);
 }
 
 // NOLINTNEXTLINE
@@ -870,8 +870,8 @@ PARALLEL_TEST(ArrayColumnTest, test_clone_column) {
     auto cloned_column = c0->clone_empty();
     ASSERT_TRUE(cloned_column->is_array());
     ASSERT_EQ(0, cloned_column->size());
-    ASSERT_EQ(0, down_cast<ArrayColumn*>(cloned_column.get())->elements_column()->size());
-    ASSERT_EQ(1, down_cast<ArrayColumn*>(cloned_column.get())->offsets_column()->size());
+    ASSERT_EQ(0, static_cast<ArrayColumn*>(cloned_column.get())->elements_column()->size());
+    ASSERT_EQ(1, static_cast<ArrayColumn*>(cloned_column.get())->offsets_column()->size());
 }
 
 PARALLEL_TEST(ArrayColumnTest, test_array_hash) {

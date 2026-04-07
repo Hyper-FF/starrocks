@@ -64,7 +64,7 @@
 #include "gen_cpp/olap_file.pb.h"
 #include "gen_cpp/segment.pb.h"
 #include "gen_cpp/types.pb.h"
-#include "gutil/strings/numbers.h"
+#include "base/gutil/strings/numbers.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "json2pb/pb_to_json.h"
@@ -1259,7 +1259,7 @@ Status SegmentDump::_output_short_key_string(const std::vector<ColItem>& cols, s
         result->append(" key");                                                                           \
         result->append(std::to_string(idx));                                                              \
         result->append("(");                                                                              \
-        result->append(std::to_string(static_cast<int32_t>(*(uint8*)(key.data + cols[idx].offset - 1)))); \
+        result->append(std::to_string(static_cast<int32_t>(*(uint8_t*)(key.data + cols[idx].offset - 1)))); \
         result->append(":");                                                                              \
         result->append(datum_to_string(cols[idx].type.get(), data));                                      \
         result->append(")");                                                                              \

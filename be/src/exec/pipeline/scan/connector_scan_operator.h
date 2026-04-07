@@ -111,7 +111,7 @@ public:
     void detach_chunk_source(int32_t source_index) override;
     bool has_shared_chunk_source() const override;
     BalancedChunkBuffer& get_chunk_buffer() const override {
-        auto* factory = down_cast<ConnectorScanOperatorFactory*>(_factory);
+        auto* factory = static_cast<ConnectorScanOperatorFactory*>(_factory);
         return factory->get_chunk_buffer();
     }
 

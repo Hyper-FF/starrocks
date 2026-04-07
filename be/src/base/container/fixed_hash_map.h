@@ -27,7 +27,7 @@
 namespace starrocks {
 
 // FixedSizeHashMap
-// Key: KeyType integer type eg: uint8 uint16
+// Key: KeyType integer type eg: uint8_t uint16_t
 // value shouldn't be nullptr
 
 template <typename KeyType, typename ValueType, PhmapSeed seed>

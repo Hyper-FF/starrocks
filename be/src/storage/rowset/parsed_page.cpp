@@ -305,7 +305,7 @@ public:
         if (_null_flags.size() == 0) {
             RETURN_IF_ERROR(_data_decoder->next_batch(count, column));
         } else {
-            auto nc = down_cast<NullableColumn*>(column);
+            auto nc = static_cast<NullableColumn*>(column);
             RETURN_IF_ERROR(_data_decoder->next_batch(count, nc->data_column_raw_ptr()));
             nc->null_column_raw_ptr()->append_numbers(_null_flags.data() + _offset_in_page, *count);
             nc->update_has_null();
@@ -321,7 +321,7 @@ public:
             RETURN_IF_ERROR(_data_decoder->next_batch(range, column));
             _offset_in_page = range.end();
         } else {
-            auto nc = down_cast<NullableColumn*>(column);
+            auto nc = static_cast<NullableColumn*>(column);
             RETURN_IF_ERROR(_data_decoder->next_batch(range, nc->data_column_raw_ptr()));
             SparseRangeIterator<> iter = range.new_iterator();
             size_t size = range.span_size();
@@ -351,7 +351,7 @@ public:
         } else {
             // For ParsedPageV2 with nulls: pass null flags to data_decoder
             // The data_decoder will handle null predicates
-            auto nc = down_cast<NullableColumn*>(column);
+            auto nc = static_cast<NullableColumn*>(column);
 
             // Pass the null flags starting from current offset
             // The data_decoder will handle appending null flags to the column
@@ -375,7 +375,7 @@ public:
         if (_null_flags.size() == 0) {
             RETURN_IF_ERROR(_data_decoder->read_by_rowids(_first_ordinal, rowids, count, column));
         } else {
-            auto nc = down_cast<NullableColumn*>(column);
+            auto nc = static_cast<NullableColumn*>(column);
             RETURN_IF_ERROR(_data_decoder->read_by_rowids(_first_ordinal, rowids, count, nc->data_column_raw_ptr()));
             std::vector<uint8_t> null_flags;
             for (size_t i = 0; i < *count; i++) {
@@ -393,7 +393,7 @@ public:
         if (_null_flags.size() == 0) {
             RETURN_IF_ERROR(_data_decoder->next_dict_codes(count, column));
         } else {
-            auto nc = down_cast<NullableColumn*>(column);
+            auto nc = static_cast<NullableColumn*>(column);
             RETURN_IF_ERROR(_data_decoder->next_dict_codes(count, nc->data_column_raw_ptr()));
             (void)nc->null_column_raw_ptr()->append_numbers(_null_flags.data() + _offset_in_page, *count);
             nc->update_has_null();
@@ -406,7 +406,7 @@ public:
         if (_null_flags.size() == 0) {
             RETURN_IF_ERROR(_data_decoder->read_dict_codes_by_rowids(_first_ordinal, rowids, count, column));
         } else {
-            auto nc = down_cast<NullableColumn*>(column);
+            auto nc = static_cast<NullableColumn*>(column);
             RETURN_IF_ERROR(
                     _data_decoder->read_dict_codes_by_rowids(_first_ordinal, rowids, count, nc->data_column_raw_ptr()));
             std::vector<uint8_t> null_flags;
@@ -429,7 +429,7 @@ public:
             RETURN_IF_ERROR(_data_decoder->next_dict_codes(range, column));
             _offset_in_page = range.end();
         } else {
-            auto nc = down_cast<NullableColumn*>(column);
+            auto nc = static_cast<NullableColumn*>(column);
             RETURN_IF_ERROR(_data_decoder->next_dict_codes(range, nc->data_column_raw_ptr()));
             SparseRangeIterator<> iter = range.new_iterator();
             size_t size = range.span_size();

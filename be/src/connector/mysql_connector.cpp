@@ -138,7 +138,7 @@ Status MySQLDataSource::open(RuntimeState* state) {
 #define READ_CONST_PREDICATE(TYPE, APPEND_TO_SQL)                                             \
     case TYPE: {                                                                              \
         if (typeid(*root_expr) == typeid(VectorizedInConstPredicate<TYPE>)) {                 \
-            const auto* pred = down_cast<const VectorizedInConstPredicate<TYPE>*>(root_expr); \
+            const auto* pred = static_cast<const VectorizedInConstPredicate<TYPE>*>(root_expr); \
             const auto& hash_set = pred->hash_set();                                          \
             if (pred->is_not_in()) {                                                          \
                 continue;                                                                     \
@@ -323,7 +323,7 @@ Status MySQLDataSource::append_text_to_column(const char* data, const int& len, 
 
     Column* data_column = column;
     if (data_column->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(data_column);
+        auto* nullable_column = static_cast<NullableColumn*>(data_column);
         data_column = nullable_column->data_column_raw_ptr();
     }
 
@@ -489,7 +489,7 @@ Status MySQLDataSource::append_text_to_column(const char* data, const int& len, 
         if (parse_success) {
             // if parse success, data_column has been appended through 'append_value_to_column'
             // and not we should append flag value into null_column
-            auto* nullable_column = down_cast<NullableColumn*>(column);
+            auto* nullable_column = static_cast<NullableColumn*>(column);
             NullData& null_data = nullable_column->null_column_data();
             null_data.push_back(0);
             return Status::OK();
@@ -513,7 +513,7 @@ template <LogicalType LT, typename CppType>
 void MySQLDataSource::append_value_to_column(Column* column, CppType& value) {
     using ColumnType = typename starrocks::RunTimeColumnType<LT>;
 
-    auto* runtime_column = down_cast<ColumnType*>(column);
+    auto* runtime_column = static_cast<ColumnType*>(column);
     runtime_column->append(value);
 }
 

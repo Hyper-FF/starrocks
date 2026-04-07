@@ -23,7 +23,7 @@ namespace starrocks {
 
 Status add_struct_column(Column* column, const TypeDescriptor& type_desc, const std::string& name,
                          simdjson::ondemand::value* value) {
-    auto struct_column = down_cast<StructColumn*>(column);
+    auto struct_column = static_cast<StructColumn*>(column);
 
     try {
         if (value->type() != simdjson::ondemand::json_type::object) {

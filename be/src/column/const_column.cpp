@@ -28,7 +28,7 @@ ConstColumn::ConstColumn(ColumnPtr data) : ConstColumn(std::move(data), 0) {}
 ConstColumn::ConstColumn(ColumnPtr data, size_t size) : _data(std::move(data)), _size(size) {
     DCHECK(!_data->is_constant());
     if (_data->is_nullable() && size > 0 && !_data->is_null(0)) {
-        _data = down_cast<NullableColumn*>(_data.get())->data_column();
+        _data = static_cast<NullableColumn*>(_data.get())->data_column();
     }
     DCHECK(_data->is_nullable() ? _size == 0 || _data->is_null(0) : true);
     if (_data->size() > 1) {
@@ -38,7 +38,7 @@ ConstColumn::ConstColumn(ColumnPtr data, size_t size) : _data(std::move(data)), 
 
 void ConstColumn::append(const Column& src, size_t offset, size_t count) {
     if (_size == 0) {
-        const auto& src_column = down_cast<const ConstColumn&>(src);
+        const auto& src_column = static_cast<const ConstColumn&>(src);
         _data->append(*src_column.data_column(), 0, 1);
     }
     _size += count;

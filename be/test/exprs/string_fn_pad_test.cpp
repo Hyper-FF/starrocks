@@ -70,9 +70,9 @@ void test_pad(int num_rows, TestCaseArray const& cases, NullColumnsType null_col
     ASSERT_TRUE(cases_size <= num_rows);
     const auto prepare_size = num_rows - cases_size;
     auto columns = prepare_data(prepare_size);
-    auto str_column = down_cast<BinaryColumn*>(columns[0].get());
-    auto len_column = down_cast<Int32Column*>(columns[1].get());
-    auto fill_column = down_cast<BinaryColumn*>(columns[2].get());
+    auto str_column = static_cast<BinaryColumn*>(columns[0].get());
+    auto len_column = static_cast<Int32Column*>(columns[1].get());
+    auto fill_column = static_cast<BinaryColumn*>(columns[2].get());
     auto result_nulls = NullColumn::create();
     for (auto i = 0; i < prepare_size; ++i) {
         result_nulls->append(0);
@@ -235,9 +235,9 @@ void test_const_pad(size_t num_rows, TestCaseType& c) {
     ASSERT_TRUE(num_rows > 0);
     MutableColumns mut_columns = prepare_data(num_rows - 1);
     auto [str, len, fill, is_null, lpad_expect, rpad_expect] = c;
-    auto str_column = down_cast<BinaryColumn*>(mut_columns[0].get());
-    auto len_column = down_cast<Int32Column*>(mut_columns[1].get());
-    auto fill_columns = down_cast<BinaryColumn*>(mut_columns[2].get());
+    auto str_column = static_cast<BinaryColumn*>(mut_columns[0].get());
+    auto len_column = static_cast<Int32Column*>(mut_columns[1].get());
+    auto fill_columns = static_cast<BinaryColumn*>(mut_columns[2].get());
     str_column->append(str);
     len_column->append(len);
     fill_columns->append(fill);
@@ -319,9 +319,9 @@ void test_const_len_and_pad(size_t num_rows, TestCaseType& c) {
     ASSERT_TRUE(num_rows > 0);
     MutableColumns mut_columns = prepare_data(num_rows - 1);
     auto [str, len, fill, is_null, lpad_expect, rpad_expect] = c;
-    auto str_column = down_cast<BinaryColumn*>(mut_columns[0].get());
-    auto len_column = down_cast<Int32Column*>(mut_columns[1].get());
-    auto fill_columns = down_cast<BinaryColumn*>(mut_columns[2].get());
+    auto str_column = static_cast<BinaryColumn*>(mut_columns[0].get());
+    auto len_column = static_cast<Int32Column*>(mut_columns[1].get());
+    auto fill_columns = static_cast<BinaryColumn*>(mut_columns[2].get());
     str_column->append(str);
     len_column->append(len);
     fill_columns->append(fill);

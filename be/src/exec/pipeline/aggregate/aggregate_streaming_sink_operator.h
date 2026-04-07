@@ -56,7 +56,7 @@ public:
 
 private:
     AggregateStreamingSinkOperatorFactory* factory() {
-        return down_cast<AggregateStreamingSinkOperatorFactory*>(_factory);
+        return static_cast<AggregateStreamingSinkOperatorFactory*>(_factory);
     }
     // Invoked by push_chunk if current mode is TStreamingPreaggregationMode::FORCE_STREAMING
     Status _push_chunk_by_force_streaming(const ChunkPtr& chunk);

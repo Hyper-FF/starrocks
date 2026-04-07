@@ -17,7 +17,6 @@
 #include <utility>
 
 #include "exprs/function_helper.h"
-#include "gutil/casts.h"
 #include "velocypack/vpack.h"
 
 namespace starrocks {
@@ -76,7 +75,7 @@ struct ArraySelectorSingle final : public ArraySelector {
         if (type != other.type) {
             return false;
         }
-        return index == down_cast<const ArraySelectorSingle*>(&other)->index;
+        return index == static_cast<const ArraySelectorSingle*>(&other)->index;
     };
 
     std::string to_string() const override { return "[" + std::to_string(index) + "]"; }
@@ -107,7 +106,7 @@ struct ArraySelectorSlice final : public ArraySelector {
         if (type != other.type) {
             return false;
         }
-        auto* ass = down_cast<const ArraySelectorSlice*>(&other);
+        auto* ass = static_cast<const ArraySelectorSlice*>(&other);
         return left == ass->left && right == ass->right;
     };
 

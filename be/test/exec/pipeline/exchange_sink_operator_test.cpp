@@ -27,7 +27,6 @@
 #include "gen_cpp/Partitions_types.h"
 #include "gen_cpp/Types_types.h"
 #include "gen_cpp/data.pb.h"
-#include "gutil/casts.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
 #include "testutil/column_test_helper.h"
@@ -131,7 +130,7 @@ TEST_F(ExchangeSinkOperatorTest, serialize_chunk_overflow_skip_enabled) {
     auto op = _factory->create(1, 0);
     ASSERT_OK(op->prepare_local_state(_runtime_state.get()));
 
-    auto* sink = down_cast<ExchangeSinkOperator*>(op.get());
+    auto* sink = static_cast<ExchangeSinkOperator*>(op.get());
     sink->set_compress_codec_for_testing(&_overflow_codec);
 
     bool prev = config::enable_rpc_compress_overflow_skip;
@@ -153,7 +152,7 @@ TEST_F(ExchangeSinkOperatorTest, serialize_chunk_overflow_skip_disabled) {
     auto op = _factory->create(1, 0);
     ASSERT_OK(op->prepare_local_state(_runtime_state.get()));
 
-    auto* sink = down_cast<ExchangeSinkOperator*>(op.get());
+    auto* sink = static_cast<ExchangeSinkOperator*>(op.get());
     sink->set_compress_codec_for_testing(&_overflow_codec);
 
     bool prev = config::enable_rpc_compress_overflow_skip;

@@ -61,7 +61,7 @@ public:
         auto res_data_col = RunTimeColumnType<TYPE_BIGINT>::create(chunk_size);
         auto res_offset_col = UInt32Column::create();
 
-        auto* unnest_bitmap_state = down_cast<UnnestBitmapState*>(state);
+        auto* unnest_bitmap_state = static_cast<UnnestBitmapState*>(state);
         auto cur_row = unnest_bitmap_state->processed_rows();
 
         const ColumnPtr& c0 = state->get_columns()[0];

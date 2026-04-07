@@ -37,9 +37,9 @@ public:
     // update output aggregate column
     virtual void update_aggregate(Column* agg) { _aggregate_column = agg; }
 
-    virtual void aggregate_keys(int start, int nums, const uint32* selective_index) {}
+    virtual void aggregate_keys(int start, int nums, const uint32_t* selective_index) {}
 
-    virtual void aggregate_values(int start, int nums, const uint32* aggregate_loops, bool previous_neq) {}
+    virtual void aggregate_values(int start, int nums, const uint32_t* aggregate_loops, bool previous_neq) {}
 
     virtual void finalize() { _aggregate_column = nullptr; }
 
@@ -50,7 +50,7 @@ public:
 
 template <typename ColumnType>
 class KeyColumnAggregator final : public ColumnAggregatorBase {
-    void aggregate_keys(int start, int nums, const uint32* selective_index) override {
+    void aggregate_keys(int start, int nums, const uint32_t* selective_index) override {
         _aggregate_column->append_selective(*_source_column, selective_index, 0, nums);
     }
 };
@@ -79,12 +79,12 @@ template <typename ColumnType, typename StateType>
 class ValueColumnAggregator : public ValueColumnAggregatorBase {
 public:
     void update_aggregate(Column* agg) override {
-        down_cast<ColumnType*>(agg);
+        static_cast<ColumnType*>(agg);
         _aggregate_column = agg;
         reset();
     }
 
-    void aggregate_values(int start, int nums, const uint32* aggregate_loops, bool previous_neq) override {
+    void aggregate_values(int start, int nums, const uint32_t* aggregate_loops, bool previous_neq) override {
         if (nums <= 0) {
             return;
         }
@@ -137,7 +137,7 @@ public:
     void update_source(const ColumnPtr& src) override {
         _source_column = src;
 
-        const auto* nullable = down_cast<const NullableColumn*>(src.get());
+        const auto* nullable = static_cast<const NullableColumn*>(src.get());
         _child->update_source(nullable->data_column());
 
         _source_nulls_data = nullable->null_column_data().data();
@@ -146,14 +146,14 @@ public:
     void update_aggregate(Column* agg) override {
         _aggregate_column = agg;
 
-        auto* n = down_cast<NullableColumn*>(agg);
+        auto* n = static_cast<NullableColumn*>(agg);
         _child->update_aggregate(n->data_column_raw_ptr());
 
-        _aggregate_nulls = down_cast<NullColumn*>(n->null_column_raw_ptr());
+        _aggregate_nulls = static_cast<NullColumn*>(n->null_column_raw_ptr());
         reset();
     }
 
-    void aggregate_values(int start, int nums, const uint32* aggregate_loops, bool previous_neq) override {
+    void aggregate_values(int start, int nums, const uint32_t* aggregate_loops, bool previous_neq) override {
         if (nums <= 0) {
             return;
         }
@@ -185,7 +185,7 @@ public:
             // all not null
             for (int i = 0; i < nums - 1; ++i) {
                 _row_is_null &= 0u;
-                _child->aggregate_batch_impl(start, start + implicit_cast<int>(aggregate_loops[i]),
+                _child->aggregate_batch_impl(start, start + static_cast<int>(aggregate_loops[i]),
                                              _child->_source_column);
                 _append_data();
                 start += aggregate_loops[i];
@@ -195,7 +195,7 @@ public:
             CHECK(nums >= 1);
 
             _row_is_null &= 0u;
-            int end = start + implicit_cast<int>(aggregate_loops[nums - 1]);
+            int end = start + static_cast<int>(aggregate_loops[nums - 1]);
             int size = end - start;
             if (_child->need_deep_copy() && end == _child->_source_column->size()) {
                 // copy the last rows of same key to prevent to be overwritten or reset by get_next in aggregate iterator.
@@ -247,7 +247,7 @@ public:
     void finalize() override {
         _child->finalize();
         _aggregate_nulls->append(_row_is_null);
-        down_cast<NullableColumn*>(_aggregate_column)->set_has_null(SIMD::count_nonzero(_aggregate_nulls->get_data()));
+        static_cast<NullableColumn*>(_aggregate_column)->set_has_null(SIMD::count_nonzero(_aggregate_nulls->get_data()));
 
         _aggregate_nulls = nullptr;
         _aggregate_column = nullptr;

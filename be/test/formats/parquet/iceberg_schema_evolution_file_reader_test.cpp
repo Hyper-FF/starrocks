@@ -52,11 +52,11 @@ protected:
     //   iceberg.schema: {"type":"struct","schema-id":0,"fields":[{"id":1,"name":"id","required":true,"type":"long"},{"id":2,"name":"col","required":true,"type":{"type":"struct","fields":[{"id":3,"name":"a","required":false,"type":"int"},{"id":4,"name":"b","required":false,"type":"int"},{"id":5,"name":"c","required":false,"type":"int"}]}}]}
     // Schema:
     // message table {
-    //   required int64 id = 1;
+    //   required int64_t id = 1;
     //   required group col = 2 {
-    //     optional int32 a = 3;
-    //     optional int32 b = 4;
-    //     optional int32 c = 5;
+    //     optional int32_t a = 3;
+    //     optional int32_t b = 4;
+    //     optional int32_t c = 5;
     //   }
     // }
     const std::string add_struct_subfield_file_path =
@@ -69,12 +69,12 @@ protected:
       iceberg.schema: {"type":"struct","schema-id":0,"fields":[{"id":1,"name":"id","required":true,"type":"int"},{"id":2,"name":"col","required":true,"type":{"type":"struct","fields":[{"id":3,"name":"age","required":true,"type":"int"},{"id":4,"name":"detail","required":true,"type":{"type":"struct","fields":[{"id":5,"name":"height","required":true,"type":"int"},{"id":6,"name":"sex","required":true,"type":"int"}]}}]}}]}
       Schema:
         message table {
-            required int32 id = 1;
+            required int32_t id = 1;
             required group col = 2 {
-                required int32 age = 3;
+                required int32_t age = 3;
                 required group detail = 4 {
-                    required int32 height = 5;
-                    required int32 sex = 6;
+                    required int32_t height = 5;
+                    required int32_t sex = 6;
                 }
             }
         }
@@ -83,8 +83,8 @@ protected:
             "./be/test/formats/parquet/test_data/iceberg_schema_evolution/struct_map_array.parquet";
 
     // message hive_schema {
-    //   optional int32 c1;
-    //   optional int64 c2;
+    //   optional int32_t c1;
+    //   optional int64_t c2;
     //   optional binary c3 (STRING);
     //   optional int96 c4;
     // }

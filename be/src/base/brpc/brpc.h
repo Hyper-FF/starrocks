@@ -39,7 +39,8 @@
 // include this file instead of include <brpc/xxx.h>
 // and this file must put the first include in soure file
 
-#include "gutil/macros.h"
+#include <cstdint>
+#include "base/compiler_util.h"
 // Macros in the guti/macros.h, use butil's define
 #ifdef DISALLOW_IMPLICIT_CONSTRUCTORS
 #undef DISALLOW_IMPLICIT_CONSTRUCTORS
@@ -49,7 +50,6 @@
 #undef FINAL
 
 // use be/src/gutil/integral_types.h override butil/basictypes.h
-#include "gutil/integral_types.h"
 #ifdef BASE_INTEGRAL_TYPES_H_
 #define BUTIL_BASICTYPES_H_
 #endif

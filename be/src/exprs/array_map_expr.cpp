@@ -46,7 +46,7 @@ Status ArrayMapExpr::prepare(RuntimeState* state, ExprContext* context) {
         RETURN_IF_ERROR(_children[i]->prepare(state, context));
     }
 
-    auto lambda_expr = down_cast<LambdaFunction*>(_children[0]);
+    auto lambda_expr = static_cast<LambdaFunction*>(_children[0]);
     LambdaFunction::ExtractContext extract_ctx;
     extract_ctx.next_slot_id = context->root()->max_used_slot_id() + 1;
     std::vector<SlotId> tmp_slots;
@@ -133,7 +133,7 @@ StatusOr<ColumnPtr> ArrayMapExpr::evaluate_lambda_expr(ExprContext* context, Chu
     // 3. prepare arguments of lambda expr, put all arguments into cur_chunk
     for (int i = 0; i < argument_num; ++i) {
         ColumnPtr data_column = FunctionHelper::get_data_column_of_const(input_elements[i]);
-        auto array_column = down_cast<const ArrayColumn*>(data_column.get());
+        auto array_column = static_cast<const ArrayColumn*>(data_column.get());
         ColumnPtr elements_column = array_column->elements_column();
         ColumnPtr offsets_column = array_column->offsets_column();
 
@@ -162,7 +162,7 @@ StatusOr<ColumnPtr> ArrayMapExpr::evaluate_lambda_expr(ExprContext* context, Chu
                 data_column->as_mutable_raw_ptr()->empty_null_in_complex_column(
                         result_null_column->immutable_data(), array_column->offsets().immutable_data());
             }
-            elements_column = down_cast<const ArrayColumn*>(data_column.get())->elements_column();
+            elements_column = static_cast<const ArrayColumn*>(data_column.get())->elements_column();
         }
 
         if (aligned_offsets == nullptr) {
@@ -313,12 +313,12 @@ StatusOr<ColumnPtr> ArrayMapExpr::evaluate_checked(ExprContext* context, Chunk* 
 
         auto data_column = child_col;
         if (is_const) {
-            auto const_column = down_cast<const ConstColumn*>(child_col.get());
+            auto const_column = static_cast<const ConstColumn*>(child_col.get());
             data_column = const_column->data_column();
         }
 
         if (is_nullable) {
-            auto nullable_column = down_cast<const NullableColumn*>(data_column.get());
+            auto nullable_column = static_cast<const NullableColumn*>(data_column.get());
             DCHECK(nullable_column);
             data_column = nullable_column->data_column();
 
@@ -395,7 +395,7 @@ StatusOr<ColumnPtr> ArrayMapExpr::evaluate_checked(ExprContext* context, Chunk* 
     }
 
     size_t total_elements_num =
-            down_cast<const ArrayColumn*>(FunctionHelper::get_data_column_of_const(input_elements[0]).get())
+            static_cast<const ArrayColumn*>(FunctionHelper::get_data_column_of_const(input_elements[0]).get())
                     ->get_total_elements_num(result_null_column);
 
     if (total_elements_num == 0) {

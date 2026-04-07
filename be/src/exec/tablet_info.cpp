@@ -409,7 +409,7 @@ Status OlapTablePartitionParam::_create_partition_keys(const std::vector<TExprNo
         case TYPE_DATE: {
             DateValue v;
             if (v.from_string(t_expr.date_literal.value.c_str(), t_expr.date_literal.value.size())) {
-                auto* column = down_cast<DateColumn*>(partition_data_column);
+                auto* column = static_cast<DateColumn*>(partition_data_column);
                 column->get_data().emplace_back(v);
             } else {
                 std::stringstream ss;
@@ -421,7 +421,7 @@ Status OlapTablePartitionParam::_create_partition_keys(const std::vector<TExprNo
         case TYPE_DATETIME: {
             TimestampValue v;
             if (v.from_string(t_expr.date_literal.value.c_str(), t_expr.date_literal.value.size())) {
-                auto* column = down_cast<TimestampColumn*>(partition_data_column);
+                auto* column = static_cast<TimestampColumn*>(partition_data_column);
                 column->get_data().emplace_back(v);
             } else {
                 std::stringstream ss;
@@ -431,22 +431,22 @@ Status OlapTablePartitionParam::_create_partition_keys(const std::vector<TExprNo
             break;
         }
         case TYPE_TINYINT: {
-            auto* column = down_cast<Int8Column*>(partition_data_column);
+            auto* column = static_cast<Int8Column*>(partition_data_column);
             column->get_data().emplace_back(t_expr.int_literal.value);
             break;
         }
         case TYPE_SMALLINT: {
-            auto* column = down_cast<Int16Column*>(partition_data_column);
+            auto* column = static_cast<Int16Column*>(partition_data_column);
             column->get_data().emplace_back(t_expr.int_literal.value);
             break;
         }
         case TYPE_INT: {
-            auto* column = down_cast<Int32Column*>(partition_data_column);
+            auto* column = static_cast<Int32Column*>(partition_data_column);
             column->get_data().emplace_back(t_expr.int_literal.value);
             break;
         }
         case TYPE_BIGINT: {
-            auto* column = down_cast<Int64Column*>(partition_data_column);
+            auto* column = static_cast<Int64Column*>(partition_data_column);
             column->get_data().emplace_back(t_expr.int_literal.value);
             break;
         }
@@ -457,7 +457,7 @@ Status OlapTablePartitionParam::_create_partition_keys(const std::vector<TExprNo
             if (parse_result != StringParser::PARSE_SUCCESS) {
                 val = MAX_INT128;
             }
-            auto* column = down_cast<Int128Column*>(partition_data_column);
+            auto* column = static_cast<Int128Column*>(partition_data_column);
             column->get_data().emplace_back(val);
             break;
         }
@@ -465,12 +465,12 @@ Status OlapTablePartitionParam::_create_partition_keys(const std::vector<TExprNo
             int len = t_expr.string_literal.value.size();
             const char* str_val = t_expr.string_literal.value.c_str();
             Slice value(str_val, len);
-            auto* column = down_cast<BinaryColumn*>(partition_data_column);
+            auto* column = static_cast<BinaryColumn*>(partition_data_column);
             column->append(value);
             break;
         }
         case TYPE_BOOLEAN: {
-            auto* column = down_cast<BooleanColumn*>(partition_data_column);
+            auto* column = static_cast<BooleanColumn*>(partition_data_column);
             column->get_data().emplace_back(t_expr.bool_literal.value);
             break;
         }

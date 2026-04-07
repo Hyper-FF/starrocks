@@ -610,7 +610,7 @@ public:
         RETURN_IF_ERROR(Decode(slice_buffer_.data(), static_cast<int>(count)));
 
         if (dst->is_nullable()) {
-            down_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
+            static_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
         }
         auto* binary_column = ColumnHelper::get_binary_column(dst);
         binary_column->append_continuous_strings(slice_buffer_.data(), count);
@@ -880,7 +880,7 @@ public:
         RETURN_IF_ERROR(GetInternal(slice_buffer_.data(), static_cast<int>(count)));
 
         if (dst->is_nullable()) {
-            down_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
+            static_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
         }
         auto* binary_column = ColumnHelper::get_binary_column(dst);
         binary_column->append_continuous_strings(slice_buffer_.data(), count);

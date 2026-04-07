@@ -22,7 +22,6 @@
 #include "column/fixed_length_column.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -64,14 +63,14 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_numeric());
-        const auto* input_column = down_cast<const Int64Column*>(column);
+        const auto* input_column = static_cast<const Int64Column*>(column);
         this->data(state).bytes += input_column->immutable_data()[row_num];
     }
 
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<Int64Column*>(dst);
+        auto* column = static_cast<Int64Column*>(dst);
         for (size_t i = start; i < end; ++i) {
             column->get_data()[i] = this->data(state).bytes;
         }
@@ -79,12 +78,12 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_numeric());
-        down_cast<Int64Column*>(to)->append(this->data(state).bytes);
+        static_cast<Int64Column*>(to)->append(this->data(state).bytes);
     }
 
     void batch_serialize(FunctionContext* ctx, size_t chunk_size, const Buffer<AggDataPtr>& agg_states,
                          size_t state_offset, Column* to) const override {
-        auto* column = down_cast<Int64Column*>(to);
+        auto* column = static_cast<Int64Column*>(to);
         auto& result_data = column->get_data();
         for (size_t i = 0; i < chunk_size; i++) {
             result_data.emplace_back(this->data(agg_states[i] + state_offset).bytes);
@@ -94,7 +93,7 @@ public:
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         if (PerfType == BYTES) {
             DCHECK(to->is_numeric());
-            down_cast<Int64Column*>(to)->append(this->data(state).bytes);
+            static_cast<Int64Column*>(to)->append(this->data(state).bytes);
         } else if (PerfType == SPEED) {
             DCHECK(to->is_binary());
             int64_t elapsed_time = MonotonicNanos() - this->data(state).start_time;
@@ -111,14 +110,14 @@ public:
             std::string res = "exchange " + std::to_string(this->data(state).bytes) + " bytes in " +
                               std::to_string(elapsed_time * 1.0 / NANOS_PER_SEC) +
                               " s, speed = " + fmt::format("{:.4f} ", speed) + unit;
-            auto* column = down_cast<BinaryColumn*>(to);
+            auto* column = static_cast<BinaryColumn*>(to);
             column->append(Slice(res));
         }
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* column = down_cast<Int64Column*>(dst.get());
+        auto* column = static_cast<Int64Column*>(dst.get());
         column->get_data().assign(chunk_size, 1);
     }
 

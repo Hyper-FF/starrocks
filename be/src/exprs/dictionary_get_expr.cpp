@@ -67,14 +67,14 @@ StatusOr<ColumnPtr> DictionaryGetExpr::evaluate_checked(ExprContext* context, Ch
 
     // merge the value chunk into a single struct column and return
     auto* nullable_mut = nullable_struct_column->as_mutable_raw_ptr();
-    auto* nullable_col = down_cast<NullableColumn*>(nullable_mut);
-    auto* struct_col = down_cast<StructColumn*>(nullable_col->data_column_raw_ptr());
+    auto* nullable_col = static_cast<NullableColumn*>(nullable_mut);
+    auto* struct_col = static_cast<StructColumn*>(nullable_col->data_column_raw_ptr());
     for (size_t i = 0; i < value_chunk->columns().size(); ++i) {
         auto* field = struct_col->field_column_raw_ptr(i);
         auto column = value_chunk->columns()[i];
         field->append(*column, 0, column->size());
     }
-    nullable_col->set_has_null(SIMD::contain_nonzero(down_cast<UInt8Column*>(null_column.get())->immutable_data(), 0));
+    nullable_col->set_has_null(SIMD::contain_nonzero(static_cast<UInt8Column*>(null_column.get())->immutable_data(), 0));
     nullable_col->null_column_raw_ptr()->swap_column(*null_column);
 
     return nullable_struct_column;

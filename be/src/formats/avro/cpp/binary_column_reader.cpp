@@ -20,7 +20,7 @@
 namespace starrocks::avrocpp {
 
 Status BinaryColumnReader::read_datum(const avro::GenericDatum& datum, Column* column) {
-    auto binary_column = down_cast<BinaryColumn*>(column);
+    auto binary_column = static_cast<BinaryColumn*>(column);
 
     switch (datum.type()) {
     case avro::AVRO_INT:

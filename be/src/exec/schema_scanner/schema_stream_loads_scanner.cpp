@@ -127,7 +127,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice error_msg = Slice(info.error_msg);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&error_msg);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -137,7 +137,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice tracking_url = Slice(info.tracking_url);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&tracking_url);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -146,7 +146,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (info.__isset.channel_num) {
                     fill_column_with_slot<TYPE_BIGINT>(column, (void*)&info.channel_num);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -155,7 +155,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (info.__isset.prepared_channel_num) {
                     fill_column_with_slot<TYPE_BIGINT>(column, (void*)&info.prepared_channel_num);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -164,7 +164,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (info.__isset.num_rows_normal) {
                     fill_column_with_slot<TYPE_BIGINT>(column, (void*)&info.num_rows_normal);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -173,7 +173,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (info.__isset.num_rows_ab_normal) {
                     fill_column_with_slot<TYPE_BIGINT>(column, (void*)&info.num_rows_ab_normal);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -182,7 +182,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (info.__isset.num_rows_unselected) {
                     fill_column_with_slot<TYPE_BIGINT>(column, (void*)&info.num_rows_unselected);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -191,7 +191,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (info.__isset.num_load_bytes) {
                     fill_column_with_slot<TYPE_BIGINT>(column, (void*)&info.num_load_bytes);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -200,7 +200,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                 if (info.__isset.timeout_second) {
                     fill_column_with_slot<TYPE_BIGINT>(column, (void*)&info.timeout_second);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -213,7 +213,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 18: {
@@ -225,7 +225,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 19: {
@@ -237,7 +237,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 20: {
@@ -249,7 +249,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 21: {
@@ -261,7 +261,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 22: {
@@ -273,7 +273,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                         break;
                     }
                 }
-                down_cast<NullableColumn*>(column)->append_nulls(1);
+                static_cast<NullableColumn*>(column)->append_nulls(1);
                 break;
             }
             case 23: {
@@ -282,7 +282,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice channel_state = Slice(info.channel_state);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&channel_state);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }
@@ -298,7 +298,7 @@ Status SchemaStreamLoadsScanner::fill_chunk(ChunkPtr* chunk) {
                     Slice tracking_sql = Slice(info.tracking_sql);
                     fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&tracking_sql);
                 } else {
-                    down_cast<NullableColumn*>(column)->append_nulls(1);
+                    static_cast<NullableColumn*>(column)->append_nulls(1);
                 }
                 break;
             }

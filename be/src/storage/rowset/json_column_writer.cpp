@@ -36,7 +36,6 @@
 #include "common/config_scan_io_fwd.h"
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/casts.h"
 #include "storage/rowset/column_writer.h"
 #include "storage/rowset/common.h"
 #include "storage/rowset/json_column_compactor.h"
@@ -72,10 +71,10 @@ Status FlatJsonColumnWriter::append(const Column& column) {
     DCHECK(_flat_writers.empty());
 
     if (column.is_nullable()) {
-        auto nullable = down_cast<const NullableColumn*>(&column);
-        DCHECK(!down_cast<const JsonColumn*>(nullable->data_column().get())->is_flat_json());
+        auto nullable = static_cast<const NullableColumn*>(&column);
+        DCHECK(!static_cast<const JsonColumn*>(nullable->data_column().get())->is_flat_json());
     } else {
-        DCHECK(!down_cast<const JsonColumn*>(&column)->is_flat_json());
+        DCHECK(!static_cast<const JsonColumn*>(&column)->is_flat_json());
     }
 
     // schema change will reuse column, must copy in there.
@@ -128,8 +127,8 @@ Status FlatJsonColumnWriter::_flat_column(MutableColumns& json_datas) {
             if (json_data->only_null()) {
                 nulls->append_value_multiple_times(&IS_NULL, json_data->size());
             } else if (json_data->is_nullable()) {
-                auto* nullable_column = down_cast<const NullableColumn*>(json_data);
-                auto* nl = down_cast<const NullColumn*>(nullable_column->null_column().get());
+                auto* nullable_column = static_cast<const NullableColumn*>(json_data);
+                auto* nl = static_cast<const NullColumn*>(nullable_column->null_column().get());
                 nulls->append(*nl, 0, nl->size());
             } else {
                 nulls->append_value_multiple_times(&NOT_NULL, json_data->size());

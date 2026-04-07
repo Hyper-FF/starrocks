@@ -495,7 +495,7 @@ protected:
         auto tablet_id = _tablets[_tablet_idx]->tablet_id();
         _ticket_checker->enter(tablet_id, is_last_split);
     }
-    ScanMorsel* _cur_scan_morsel() { return down_cast<ScanMorsel*>(_morsels[_tablet_idx].get()); }
+    ScanMorsel* _cur_scan_morsel() { return static_cast<ScanMorsel*>(_morsels[_tablet_idx].get()); }
 
     // The number of the morsels before split them to pieces.
     const int64_t _degree_of_parallelism;

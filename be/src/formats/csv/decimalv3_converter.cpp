@@ -23,7 +23,7 @@ namespace starrocks::csv {
 template <typename T>
 Status DecimalV3Converter<T>::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                            const Options& options) const {
-    auto decimalv3_column = down_cast<const DecimalV3Column<T>*>(&column);
+    auto decimalv3_column = static_cast<const DecimalV3Column<T>*>(&column);
     const auto immutable_data = decimalv3_column->immutable_data();
     // TODO(zhuming): avoid this string construction
     auto s = DecimalV3Cast::to_string<T>(immutable_data[row_num], _precision, _scale);
@@ -38,7 +38,7 @@ Status DecimalV3Converter<T>::write_quoted_string(io::FormattedOutputStream* os,
 
 template <typename T>
 bool DecimalV3Converter<T>::read_string(Column* column, const Slice& s, const Options& options) const {
-    auto decimalv3_column = down_cast<DecimalV3Column<T>*>(column);
+    auto decimalv3_column = static_cast<DecimalV3Column<T>*>(column);
     T v;
     bool fail = DecimalV3Cast::from_string<T>(&v, _precision, _scale, s.data, s.size);
     if (!fail) {

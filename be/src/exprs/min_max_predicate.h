@@ -149,7 +149,7 @@ public:
 
     template <LogicalType ltype>
     Expr* operator()() {
-        auto* minmax = down_cast<const MinMaxRuntimeFilter<ltype>*>(_filter->get_min_max_filter());
+        auto* minmax = static_cast<const MinMaxRuntimeFilter<ltype>*>(_filter->get_min_max_filter());
         return _pool->add(new MinMaxPredicate<ltype>(_slot_id, minmax->min_value(_pool), minmax->max_value(_pool),
                                                      _filter->has_null()));
     }

@@ -55,9 +55,9 @@
 
 #include "base/utility/scoped_cleanup.h"
 #include "common/logging.h"
-#include "gutil/atomicops.h"
-#include "gutil/dynamic_annotations.h"
-#include "gutil/once.h"
+#include "base/gutil/atomicops.h"
+#include "base/gutil/dynamic_annotations.h"
+#include "base/gutil/once.h"
 #include "absl/strings/substitute.h"
 
 namespace starrocks {

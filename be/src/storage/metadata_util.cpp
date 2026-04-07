@@ -513,7 +513,7 @@ StatusOr<std::string> convert_default_expr_to_json_string(const TExpr& t_expr) {
     }
 
     if (column->is_constant()) {
-        auto const_col = down_cast<const ConstColumn*>(column.get());
+        auto const_col = static_cast<const ConstColumn*>(column.get());
         column = const_col->data_column()->clone();
     }
 

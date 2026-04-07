@@ -66,7 +66,7 @@ std::vector<int32_t> detail::_build_orderby_indexes(const ChunkPtr& chunk,
     for (auto* expr_ctx : sort_exprs) {
         auto* expr = expr_ctx->root();
         if (expr->is_slotref()) {
-            const auto& slot_id = down_cast<ColumnRef*>(expr)->slot_id();
+            const auto& slot_id = static_cast<ColumnRef*>(expr)->slot_id();
             auto it = slot_id_to_index_map.find(slot_id);
             if (it != slot_id_to_index_map.end()) {
                 orderby_indexes.push_back(it->second);
@@ -627,7 +627,7 @@ ChunkPtr detail::LeafNode::_generate_ordinal(const size_t chunk_id, const size_t
     static Chunk::SlotHashMap s_slot_map = {{0, 0}};
     MutableColumnPtr ordinal_column = ColumnHelper::create_column(s_type_desc, false);
     ordinal_column->resize(num_rows);
-    auto* raw_array = down_cast<Int64Column*>(ordinal_column.get())->get_data().data();
+    auto* raw_array = static_cast<Int64Column*>(ordinal_column.get())->get_data().data();
 
     for (size_t row = 0; row < num_rows; row++) {
         // The first (64 - OFFSET_BITS) bits are used for chunk_id
@@ -822,7 +822,7 @@ size_t MergePathCascadeMerger::add_original_chunk(ChunkPtr&& chunk) {
         for (auto* expr_ctx : sort_exprs()) {
             auto* expr = expr_ctx->root();
             if (expr->is_slotref()) {
-                const auto& slot_id = down_cast<ColumnRef*>(expr)->slot_id();
+                const auto& slot_id = static_cast<ColumnRef*>(expr)->slot_id();
                 auto it = slot_id_to_index_map.find(slot_id);
                 if (it != slot_id_to_index_map.end()) {
                     _orderby_indexes.push_back(it->second);
@@ -1152,7 +1152,7 @@ void MergePathCascadeMerger::_init_late_materialization() {
     for (ExprContext* expr_ctx : _sort_exprs) {
         auto* expr = expr_ctx->root();
         if (expr->is_slotref()) {
-            early_materialized_slots.insert(down_cast<ColumnRef*>(expr)->slot_id());
+            early_materialized_slots.insert(static_cast<ColumnRef*>(expr)->slot_id());
         }
     }
     size_t non_orderby_materialized_cost_per_level = 0;
@@ -1203,7 +1203,7 @@ ChunkPtr MergePathCascadeMerger::_restore_according_to_ordinal(const int32_t par
         return nullptr;
     }
 
-    const auto& ordinals = down_cast<const Int64Column*>(chunk->get_column_raw_ptr_by_index(0))->get_data();
+    const auto& ordinals = static_cast<const Int64Column*>(chunk->get_column_raw_ptr_by_index(0))->get_data();
 
     ChunkPtr output = nullptr;
 

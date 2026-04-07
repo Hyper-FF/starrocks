@@ -34,7 +34,7 @@
 #include "gen_cpp/Types_constants.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
-#include "gutil/strings/util.h"
+#include "base/gutil/strings/util.h"
 #include "http/http_client.h"
 #include "runtime/client_cache.h"
 #include "runtime/current_thread.h"

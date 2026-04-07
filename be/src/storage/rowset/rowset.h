@@ -42,7 +42,7 @@
 
 #include "common/statusor.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "absl/strings/substitute.h"
 #include "runtime/mem_tracker.h"
 #include "storage/olap_common.h"

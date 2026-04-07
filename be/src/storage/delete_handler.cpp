@@ -188,7 +188,7 @@ Status DeleteConditionHandler::check_condition_valid(const TabletSchema& schema,
 
     // Check that the filter values specified in the delete condition
     // meet the requirements of each type itself
-    // 1. For integer types (int8,int16,in32,int64,uint8,uint16,uint32,uint64), check for overflow
+    // 1. For integer types (int8_t,int16_t,in32,int64_t,uint8_t,uint16_t,uint32_t,uint64_t), check for overflow
     // 2. For decimal type, checks whether the accuracy and scale specified
     //    when the table was created are exceeded
     // 3. For date and datetime types, checks that the specified filter value conforms to

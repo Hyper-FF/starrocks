@@ -232,7 +232,7 @@ TEST_F(UtilityFunctionsTest, encodeSortKeyBasicOrdering) {
     auto ptr = std::unique_ptr<FunctionContext>(ctx);
 
     // Prepare columns of different types
-    // int32
+    // int32_t
     auto c_int = Int32Column::create();
     c_int->append(1);
     c_int->append(2);
@@ -349,10 +349,10 @@ TEST_F(UtilityFunctionsTest, encodeSortKeyNullHandling) {
 
     // Verify that rows with null in second column also have correct null markers
     // The second column null marker should be at position after first column encoding
-    // For row 0: first column is non-null (1), so second column null marker should be after int32 encoding
-    // For row 2: first column is non-null (2), so second column null marker should be after int32 encoding
+    // For row 0: first column is non-null (1), so second column null marker should be after int32_t encoding
+    // For row 2: first column is non-null (2), so second column null marker should be after int32_t encoding
     ASSERT_EQ('\0', k0.data[5])
-            << "Second column null marker should be \\0 for row 0"; // After int32 encoding (4 bytes) + null marker (1 byte)
+            << "Second column null marker should be \\0 for row 0"; // After int32_t encoding (4 bytes) + null marker (1 byte)
     ASSERT_EQ('\0', k2.data[5]) << "Second column null marker should be \\0 for row 2";
 
     // Verify that the sort keys are deterministic and consistent

@@ -15,7 +15,6 @@
 #include "runtime/bucket_aware_partition.h"
 
 #include "column/nullable_column.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -42,7 +41,7 @@ void calc_hash_values_and_bucket_ids(const std::vector<const Column*>& partition
         }
         if (partitions_columns[i]->has_null()) {
             const auto& null_data =
-                    down_cast<const NullableColumn*>(partitions_columns[i])->immutable_null_column_data();
+                    static_cast<const NullableColumn*>(partitions_columns[i])->immutable_null_column_data();
             for (int j = 0; j < num_rows; j++) {
                 round_ids[j] = null_data[j] ? bucket_properties[i].bucket_num : round_ids[j];
             }

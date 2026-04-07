@@ -233,7 +233,7 @@ void TableFunctionOperator::_copy_result(Columns& columns, uint32_t max_output_s
                 Datum value = input_column_ptr->get(_input_index_of_first_result + _next_output_row_offset);
                 if (value.is_null()) {
                     DCHECK(columns[i]->is_nullable());
-                    down_cast<NullableColumn*>(columns[i]->as_mutable_raw_ptr())->append_nulls(copy_rows);
+                    static_cast<NullableColumn*>(columns[i]->as_mutable_raw_ptr())->append_nulls(copy_rows);
                 } else {
                     columns[i]->as_mutable_raw_ptr()->append_value_multiple_times(&value, copy_rows);
                 }

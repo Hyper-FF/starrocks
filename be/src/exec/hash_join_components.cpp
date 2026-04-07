@@ -28,7 +28,6 @@
 #include "exec/hash_joiner.h"
 #include "exec/join/join_hash_table.h"
 #include "exprs/expr_context.h"
-#include "gutil/casts.h"
 #include "runtime/descriptors.h"
 #include "runtime/mem_tracker.h"
 
@@ -408,7 +407,7 @@ std::unique_ptr<HashJoinProberImpl> SingleHashJoinBuilder::create_prober() {
 }
 
 void SingleHashJoinBuilder::clone_readable(HashJoinBuilder* builder) {
-    auto* other = down_cast<SingleHashJoinBuilder*>(builder);
+    auto* other = static_cast<SingleHashJoinBuilder*>(builder);
     other->_ht = _ht.clone_readable_table();
 }
 
@@ -983,7 +982,7 @@ std::unique_ptr<HashJoinProberImpl> AdaptivePartitionHashJoinBuilder::create_pro
         auto prober = std::make_unique<PartitionedHashJoinProberImpl>(_hash_joiner);
         sub_probers.resize(_partition_num);
         for (size_t i = 0; i < _builders.size(); ++i) {
-            sub_probers[i].reset(down_cast<SingleHashJoinProberImpl*>(_builders[i]->create_prober().release()));
+            sub_probers[i].reset(static_cast<SingleHashJoinProberImpl*>(_builders[i]->create_prober().release()));
         }
         prober->set_probers(std::move(sub_probers));
         return prober;
@@ -996,7 +995,7 @@ void AdaptivePartitionHashJoinBuilder::clone_readable(HashJoinBuilder* other_bui
     }
     DCHECK(_ready);
     DCHECK_EQ(_partition_num, _builders.size());
-    auto other = down_cast<AdaptivePartitionHashJoinBuilder*>(other_builder);
+    auto other = static_cast<AdaptivePartitionHashJoinBuilder*>(other_builder);
     other->_builders.clear();
     other->_partition_num = _partition_num;
     other->_partition_join_l2_min_rows = _partition_join_l2_min_rows;

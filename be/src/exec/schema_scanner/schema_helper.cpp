@@ -285,7 +285,7 @@ Status SchemaHelper::get_tablet_reshard_jobs_info(const SchemaScannerState& stat
 }
 
 void fill_data_column_with_null(Column* data_column) {
-    auto* nullable_column = down_cast<NullableColumn*>(data_column);
+    auto* nullable_column = static_cast<NullableColumn*>(data_column);
     nullable_column->append_nulls(1);
 }
 

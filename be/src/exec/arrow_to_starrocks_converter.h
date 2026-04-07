@@ -24,7 +24,7 @@
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "exec/arrow_type_traits.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 #include "types/type_descriptor.h"

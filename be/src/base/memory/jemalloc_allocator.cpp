@@ -20,7 +20,7 @@
 #include <cstring>
 
 #include "base/compiler_util.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks::memory {
 

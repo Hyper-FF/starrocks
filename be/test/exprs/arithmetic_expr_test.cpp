@@ -44,7 +44,7 @@ public:
 };
 
 TEST_F(VectorizedArithmeticExprTest, addExpr) {
-    // Normal int8
+    // Normal int8_t
     {
         expr_node.opcode = TExprOpcode::ADD;
         expr_node.type = gen_type_desc(TPrimitiveType::TINYINT);

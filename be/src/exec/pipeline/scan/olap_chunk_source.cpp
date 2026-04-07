@@ -39,7 +39,7 @@
 #include "exprs/jsonpath.h"
 #include "gen_cpp/Metrics_types.h"
 #include "gen_cpp/RuntimeProfile_types.h"
-#include "gutil/map_util.h"
+#include "base/gutil/map_util.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
@@ -67,7 +67,7 @@ OlapChunkSource::OlapChunkSource(ScanOperator* op, RuntimeProfile* runtime_profi
           _scan_node(scan_node),
           _scan_ctx(scan_ctx),
           _limit(scan_node->limit()),
-          _scan_range(down_cast<ScanMorsel*>(_morsel.get())->get_olap_scan_range()) {}
+          _scan_range(static_cast<ScanMorsel*>(_morsel.get())->get_olap_scan_range()) {}
 
 OlapChunkSource::~OlapChunkSource() {
     _reader.reset();

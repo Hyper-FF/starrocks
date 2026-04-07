@@ -27,7 +27,6 @@
 #include "column/mysql_row_buffer.h"
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 #include "types/json_value.h"
 #include "types/type_descriptor.h"
@@ -374,7 +373,7 @@ PARALLEL_TEST(JsonColumnTest, test_column_builder) {
             // unwrap nullable column
             Column* unwrapped = ColumnHelper::get_data_column(copy.get());
 
-            auto* json_column_ptr = down_cast<JsonColumn*>(unwrapped);
+            auto* json_column_ptr = static_cast<JsonColumn*>(unwrapped);
             ASSERT_EQ(1, json_column_ptr->size());
             ASSERT_EQ(0, json_column_ptr->compare_at(0, 0, *column, 0));
         }

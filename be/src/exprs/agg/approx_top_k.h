@@ -115,16 +115,16 @@ struct ApproxTopKState {
     }
 
     void get_values(Column* dst, size_t start, size_t end) const {
-        auto* array_column = down_cast<ArrayColumn*>(dst);
+        auto* array_column = static_cast<ArrayColumn*>(dst);
         auto* offset_column = array_column->offsets_column_raw_ptr();
 
         // Array's fields must be nullable
-        auto* nullable_struct_column = down_cast<NullableColumn*>(array_column->elements_column_raw_ptr());
+        auto* nullable_struct_column = static_cast<NullableColumn*>(array_column->elements_column_raw_ptr());
         auto* nullable_struct_null_col = nullable_struct_column->null_column_raw_ptr();
-        auto* struct_column = down_cast<StructColumn*>(nullable_struct_column->data_column_raw_ptr());
+        auto* struct_column = static_cast<StructColumn*>(nullable_struct_column->data_column_raw_ptr());
         // Struct's fields must be nullable
-        auto* value_column = down_cast<NullableColumn*>(struct_column->field_column_raw_ptr(0));
-        auto* order_column = down_cast<NullableColumn*>(struct_column->field_column_raw_ptr(1));
+        auto* value_column = static_cast<NullableColumn*>(struct_column->field_column_raw_ptr(0));
+        auto* order_column = static_cast<NullableColumn*>(struct_column->field_column_raw_ptr(1));
 
         for (size_t row = start; row < end; row++) {
             bool has_null = null_counter.count > 0;
@@ -335,18 +335,18 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_binary());
-        serialize_state(this->data(state), down_cast<BinaryColumn*>(to));
+        serialize_state(this->data(state), static_cast<BinaryColumn*>(to));
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         const auto kv = get_k_and_counter_num(ctx);
         DCHECK(dst->is_binary());
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
 
         if (src[0]->is_nullable()) {
-            auto* src_nullable_column = down_cast<const NullableColumn*>(src[0].get());
-            const auto* src_column = down_cast<const InputColumnType*>(src_nullable_column->data_column().get());
+            auto* src_nullable_column = static_cast<const NullableColumn*>(src[0].get());
+            const auto* src_column = static_cast<const InputColumnType*>(src_nullable_column->data_column().get());
             const auto src_data = GetContainer<LT>::get_data(src_column);
 
             ApproxTopKState<LT> state;
@@ -360,7 +360,7 @@ public:
                 serialize_state(state, dst_column);
             }
         } else {
-            auto* src_column = down_cast<const InputColumnType*>(src[0].get());
+            auto* src_column = static_cast<const InputColumnType*>(src[0].get());
 
             ApproxTopKState<LT> state;
             const auto imm_data = GetContainer<LT>::get_data(src_column);

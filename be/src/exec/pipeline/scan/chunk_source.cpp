@@ -76,7 +76,7 @@ Status ChunkSource::buffer_next_batch_chunks_blocking(RuntimeState* state, size_
                 chunk = std::make_shared<Chunk>();
             }
             if (chunk != nullptr && !chunk->is_empty()) {
-                auto* scan_op_factory = down_cast<ScanOperatorFactory*>(_scan_op->get_factory());
+                auto* scan_op_factory = static_cast<ScanOperatorFactory*>(_scan_op->get_factory());
                 auto& slot_ids = scan_op_factory->scan_node()->get_heavy_expr_slot_ids();
                 auto& expr_ctxs = scan_op_factory->scan_node()->get_heavy_expr_ctxs();
                 for (auto k = 0; k < slot_ids.size(); ++k) {

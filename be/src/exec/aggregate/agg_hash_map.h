@@ -32,8 +32,7 @@
 #include "exec/aggregate/agg_hash_set.h"
 #include "exec/aggregate/agg_profile.h"
 #include "exec/aggregate/compress_serializer.h"
-#include "gutil/casts.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {
@@ -258,7 +257,7 @@ struct AggHashMapWithOneNumberKeyWithNullable
                                                          Func&& allocate_func, Buffer<AggDataPtr>* agg_states,
                                                          ExtraAggParam* extra) {
         DCHECK(!key_column->is_nullable());
-        const auto column = down_cast<const ColumnType*>(key_column);
+        const auto column = static_cast<const ColumnType*>(key_column);
 
         if constexpr (is_no_prefetch_map<HashMap>) {
             this->template compute_agg_noprefetch<Func, HTBuildOp>(column, agg_states,
@@ -286,8 +285,8 @@ struct AggHashMapWithOneNumberKeyWithNullable
             }
         } else {
             DCHECK(key_column->is_nullable());
-            const auto* nullable_column = down_cast<const NullableColumn*>(key_column);
-            const auto* data_column = down_cast<const ColumnType*>(nullable_column->data_column().get());
+            const auto* nullable_column = static_cast<const NullableColumn*>(key_column);
+            const auto* data_column = static_cast<const ColumnType*>(nullable_column->data_column().get());
 
             // Shortcut: if nullable column has no nulls.
             if (!nullable_column->has_null()) {
@@ -365,7 +364,7 @@ struct AggHashMapWithOneNumberKeyWithNullable
                                                        ExtraAggParam* extra) {
         [[maybe_unused]] size_t hash_table_size = this->hash_map.size();
         auto* __restrict not_founds = extra->not_founds;
-        const auto* data_column = down_cast<const ColumnType*>(nullable_column->data_column().get());
+        const auto* data_column = static_cast<const ColumnType*>(nullable_column->data_column().get());
         const auto container = data_column->immutable_data();
         const auto& null_data = nullable_column->null_column_data();
         for (size_t i = 0; i < chunk_size; i++) {
@@ -426,13 +425,13 @@ struct AggHashMapWithOneNumberKeyWithNullable
 
     void insert_keys_to_columns(const ResultVector& keys, MutableColumns& key_columns, size_t chunk_size) {
         if constexpr (is_nullable) {
-            auto* nullable_column = down_cast<NullableColumn*>(key_columns[0].get());
-            auto* column = down_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
+            auto* nullable_column = static_cast<NullableColumn*>(key_columns[0].get());
+            auto* column = static_cast<ColumnType*>(nullable_column->data_column_raw_ptr());
             column->get_data().insert(column->get_data().end(), keys.begin(), keys.begin() + chunk_size);
             nullable_column->null_column_data().resize(chunk_size);
         } else {
             DCHECK(!null_key_data);
-            auto* column = down_cast<ColumnType*>(key_columns[0].get());
+            auto* column = static_cast<ColumnType*>(key_columns[0].get());
             column->get_data().insert(column->get_data().end(), keys.begin(), keys.begin() + chunk_size);
         }
     }
@@ -482,7 +481,7 @@ struct AggHashMapWithOneStringKeyWithNullable
                                                          Func&& allocate_func, Buffer<AggDataPtr>* agg_states,
                                                          ExtraAggParam* extra) {
         DCHECK(key_column->is_binary());
-        const auto* column = down_cast<const BinaryColumn*>(key_column);
+        const auto* column = static_cast<const BinaryColumn*>(key_column);
         if (this->hash_map.bucket_count() < prefetch_threhold) {
             this->template compute_agg_noprefetch<Func, HTBuildOp>(column, agg_states, pool,
                                                                    std::forward<Func>(allocate_func), extra);
@@ -506,8 +505,8 @@ struct AggHashMapWithOneStringKeyWithNullable
             }
         } else {
             DCHECK(key_column->is_nullable());
-            const auto* nullable_column = down_cast<const NullableColumn*>(key_column);
-            const auto* data_column = down_cast<const BinaryColumn*>(nullable_column->data_column().get());
+            const auto* nullable_column = static_cast<const NullableColumn*>(key_column);
+            const auto* data_column = static_cast<const BinaryColumn*>(nullable_column->data_column().get());
             DCHECK(data_column->is_binary());
 
             if (!nullable_column->has_null()) {
@@ -578,7 +577,7 @@ struct AggHashMapWithOneStringKeyWithNullable
                                                        Func&& allocate_func, ExtraAggParam* extra) {
         [[maybe_unused]] size_t hash_table_size = this->hash_map.size();
         auto* __restrict not_founds = extra->not_founds;
-        const auto* data_column = down_cast<const BinaryColumn*>(nullable_column->data_column().get());
+        const auto* data_column = static_cast<const BinaryColumn*>(nullable_column->data_column().get());
         const auto& null_data = nullable_column->null_column_data();
 
         for (size_t i = 0; i < chunk_size; i++) {
@@ -647,14 +646,14 @@ struct AggHashMapWithOneStringKeyWithNullable
     void insert_keys_to_columns(ResultVector& keys, MutableColumns& key_columns, size_t chunk_size) {
         if constexpr (is_nullable) {
             DCHECK(key_columns[0]->is_nullable());
-            auto* nullable_column = down_cast<NullableColumn*>(key_columns[0].get());
-            auto* column = down_cast<BinaryColumn*>(nullable_column->data_column_raw_ptr());
+            auto* nullable_column = static_cast<NullableColumn*>(key_columns[0].get());
+            auto* column = static_cast<BinaryColumn*>(nullable_column->data_column_raw_ptr());
             keys.resize(chunk_size);
             column->append_strings(keys.data(), keys.size());
             nullable_column->null_column_data().resize(chunk_size);
         } else {
             DCHECK(!null_key_data);
-            auto* column = down_cast<BinaryColumn*>(key_columns[0].get());
+            auto* column = static_cast<BinaryColumn*>(key_columns[0].get());
             keys.resize(chunk_size);
             column->append_strings(keys.data(), keys.size());
         }

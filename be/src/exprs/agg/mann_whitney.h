@@ -31,7 +31,6 @@
 #include "exprs/agg/hypothesis_testing_common.h"
 #include "exprs/function_context.h"
 #include "exprs/function_helper.h"
-#include "gutil/casts.h"
 #include "types/json_value.h"
 #include "types/logical_type.h"
 
@@ -280,7 +279,7 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_binary());
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
         size_t old_size = bytes.size();
         size_t new_size = old_size + this->data(state).serialized_size();
@@ -298,7 +297,7 @@ public:
         vpack::Builder result_builder;
         this->data(state).build_result(result_builder);
         JsonValue result_json(result_builder.slice());
-        down_cast<ResultColumn*>(to)->append(std::move(result_json));
+        static_cast<ResultColumn*>(to)->append(std::move(result_json));
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,

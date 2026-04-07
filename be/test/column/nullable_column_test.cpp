@@ -153,11 +153,11 @@ PARALLEL_TEST(NullableColumnTest, test_clone) {
     auto c1 = c0->clone();
     ASSERT_TRUE(c1->is_nullable());
     ASSERT_EQ(0, c1->size());
-    ASSERT_TRUE(down_cast<NullableColumn*>(c1.get()) != nullptr);
-    ASSERT_TRUE(down_cast<NullableColumn*>(c1.get())->data_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<NullableColumn*>(c1.get())->null_column()->use_count() == 1);
-    ASSERT_EQ(0, down_cast<NullableColumn*>(c1.get())->data_column()->size());
-    ASSERT_EQ(0, down_cast<NullableColumn*>(c1.get())->null_column()->size());
+    ASSERT_TRUE(static_cast<NullableColumn*>(c1.get()) != nullptr);
+    ASSERT_TRUE(static_cast<NullableColumn*>(c1.get())->data_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<NullableColumn*>(c1.get())->null_column()->use_count() == 1);
+    ASSERT_EQ(0, static_cast<NullableColumn*>(c1.get())->data_column()->size());
+    ASSERT_EQ(0, static_cast<NullableColumn*>(c1.get())->null_column()->size());
 
     c1->append_datum({}); // NULL
     c1->append_datum({(int32_t)1});
@@ -169,8 +169,8 @@ PARALLEL_TEST(NullableColumnTest, test_clone) {
 
     ASSERT_TRUE(c2->is_nullable());
     ASSERT_EQ(4, c2->size());
-    ASSERT_EQ(4, down_cast<NullableColumn*>(c2.get())->data_column()->size());
-    ASSERT_EQ(4, down_cast<NullableColumn*>(c2.get())->null_column()->size());
+    ASSERT_EQ(4, static_cast<NullableColumn*>(c2.get())->data_column()->size());
+    ASSERT_EQ(4, static_cast<NullableColumn*>(c2.get())->null_column()->size());
     ASSERT_TRUE(c2->get(0).is_null());
     ASSERT_EQ(1, c2->get(1).get_int32());
     ASSERT_EQ(2, c2->get(2).get_int32());
@@ -220,11 +220,11 @@ PARALLEL_TEST(NullableColumnTest, test_clone_empty) {
     auto c1 = c0->clone_empty();
     ASSERT_TRUE(c1->is_nullable());
     ASSERT_EQ(0, c1->size());
-    ASSERT_TRUE(down_cast<NullableColumn*>(c1.get()) != nullptr);
-    ASSERT_TRUE(down_cast<NullableColumn*>(c1.get())->data_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<NullableColumn*>(c1.get())->null_column()->use_count() == 1);
-    ASSERT_EQ(0, down_cast<NullableColumn*>(c1.get())->data_column()->size());
-    ASSERT_EQ(0, down_cast<NullableColumn*>(c1.get())->null_column()->size());
+    ASSERT_TRUE(static_cast<NullableColumn*>(c1.get()) != nullptr);
+    ASSERT_TRUE(static_cast<NullableColumn*>(c1.get())->data_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<NullableColumn*>(c1.get())->null_column()->use_count() == 1);
+    ASSERT_EQ(0, static_cast<NullableColumn*>(c1.get())->data_column()->size());
+    ASSERT_EQ(0, static_cast<NullableColumn*>(c1.get())->null_column()->size());
 
     c1->append_datum({}); // NULL
     c1->append_datum({(int32_t)1});
@@ -235,11 +235,11 @@ PARALLEL_TEST(NullableColumnTest, test_clone_empty) {
 
     ASSERT_TRUE(c2->is_nullable());
     ASSERT_EQ(0, c2->size());
-    ASSERT_TRUE(down_cast<NullableColumn*>(c2.get()) != nullptr);
-    ASSERT_TRUE(down_cast<NullableColumn*>(c2.get())->data_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<NullableColumn*>(c2.get())->null_column()->use_count() == 1);
-    ASSERT_EQ(0, down_cast<NullableColumn*>(c2.get())->data_column()->size());
-    ASSERT_EQ(0, down_cast<NullableColumn*>(c2.get())->null_column()->size());
+    ASSERT_TRUE(static_cast<NullableColumn*>(c2.get()) != nullptr);
+    ASSERT_TRUE(static_cast<NullableColumn*>(c2.get())->data_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<NullableColumn*>(c2.get())->null_column()->use_count() == 1);
+    ASSERT_EQ(0, static_cast<NullableColumn*>(c2.get())->data_column()->size());
+    ASSERT_EQ(0, static_cast<NullableColumn*>(c2.get())->null_column()->size());
 }
 
 PARALLEL_TEST(NullableColumnTest, test_update_rows) {

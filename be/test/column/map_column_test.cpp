@@ -923,11 +923,11 @@ PARALLEL_TEST(MapColumnTest, test_clone) {
 
     auto c1 = c0->clone();
     c0->reset_column();
-    ASSERT_EQ("{1:11,2:22,3:33}", down_cast<MapColumn*>(c1.get())->debug_item(0));
-    ASSERT_EQ("{4:44,5:55,6:66}", down_cast<MapColumn*>(c1.get())->debug_item(1));
-    ASSERT_TRUE(down_cast<MapColumn*>(c1.get())->keys_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<MapColumn*>(c1.get())->values_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<MapColumn*>(c1.get())->offsets_column()->use_count() == 1);
+    ASSERT_EQ("{1:11,2:22,3:33}", static_cast<MapColumn*>(c1.get())->debug_item(0));
+    ASSERT_EQ("{4:44,5:55,6:66}", static_cast<MapColumn*>(c1.get())->debug_item(1));
+    ASSERT_TRUE(static_cast<MapColumn*>(c1.get())->keys_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<MapColumn*>(c1.get())->values_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<MapColumn*>(c1.get())->offsets_column()->use_count() == 1);
 }
 
 // NOLINTNEXTLINE
@@ -951,12 +951,12 @@ PARALLEL_TEST(MapColumnTest, test_clone_shared) {
 
     auto c1 = c0->clone();
     c0->reset_column();
-    ASSERT_EQ("{1:11,2:22,3:33}", down_cast<MapColumn*>(c1.get())->debug_item(0));
-    ASSERT_EQ("{4:44,5:55,6:66}", down_cast<MapColumn*>(c1.get())->debug_item(1));
+    ASSERT_EQ("{1:11,2:22,3:33}", static_cast<MapColumn*>(c1.get())->debug_item(0));
+    ASSERT_EQ("{4:44,5:55,6:66}", static_cast<MapColumn*>(c1.get())->debug_item(1));
     ASSERT_TRUE(c1->use_count() == 1);
-    ASSERT_TRUE(down_cast<MapColumn*>(c1.get())->keys_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<MapColumn*>(c1.get())->values_column()->use_count() == 1);
-    ASSERT_TRUE(down_cast<MapColumn*>(c1.get())->offsets_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<MapColumn*>(c1.get())->keys_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<MapColumn*>(c1.get())->values_column()->use_count() == 1);
+    ASSERT_TRUE(static_cast<MapColumn*>(c1.get())->offsets_column()->use_count() == 1);
 }
 
 // NOLINTNEXTLINE
@@ -981,9 +981,9 @@ PARALLEL_TEST(MapColumnTest, test_clone_column) {
     auto cloned_column = c0->clone_empty();
     ASSERT_TRUE(cloned_column->is_map());
     ASSERT_EQ(0, cloned_column->size());
-    ASSERT_EQ(0, down_cast<MapColumn*>(cloned_column.get())->keys_column()->size());
-    ASSERT_EQ(0, down_cast<MapColumn*>(cloned_column.get())->values_column()->size());
-    ASSERT_EQ(1, down_cast<MapColumn*>(cloned_column.get())->offsets_column()->size());
+    ASSERT_EQ(0, static_cast<MapColumn*>(cloned_column.get())->keys_column()->size());
+    ASSERT_EQ(0, static_cast<MapColumn*>(cloned_column.get())->values_column()->size());
+    ASSERT_EQ(1, static_cast<MapColumn*>(cloned_column.get())->offsets_column()->size());
 }
 
 PARALLEL_TEST(MapColumnTest, test_update_rows) {
@@ -1098,8 +1098,8 @@ PARALLEL_TEST(MapColumnTest, test_assign) {
     ASSERT_EQ(6, c0->offsets_column()->size());
     ASSERT_EQ(5, c0->keys_column()->size());
     ASSERT_EQ(5, c0->values_column()->size());
-    ASSERT_EQ(5, down_cast<const NullableColumn*>(c0->values_column().get())->data_column()->size());
-    ASSERT_EQ(5, down_cast<const NullableColumn*>(c0->values_column().get())->null_column()->size());
+    ASSERT_EQ(5, static_cast<const NullableColumn*>(c0->values_column().get())->data_column()->size());
+    ASSERT_EQ(5, static_cast<const NullableColumn*>(c0->values_column().get())->null_column()->size());
 
     /// test assign []
     c0->reset_column();

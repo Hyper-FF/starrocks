@@ -548,7 +548,7 @@ TEST_F(MapElementExprTest, test_map_null_key) {
     map[(Slice) "c"] = (int32_t)33;
     column->append_datum(map);
 
-    MapColumn* map_column = down_cast<MapColumn*>(column.get());
+    MapColumn* map_column = static_cast<MapColumn*>(column.get());
     map_column->offsets_column_raw_ptr()->append(6);
     map_column->keys_column_raw_ptr()->append_datum(Datum(Slice("a")));
     map_column->keys_column_raw_ptr()->append_datum(Datum(Slice("b")));

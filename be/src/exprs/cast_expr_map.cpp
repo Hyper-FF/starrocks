@@ -64,14 +64,14 @@ StatusOr<ColumnPtr> CastJsonToMap::evaluate_checked(ExprContext* context, Chunk*
     // 2. Cast key and value if needed
     if (_key_cast_expr != nullptr) {
         ChunkPtr chunk = std::make_shared<Chunk>();
-        SlotId slot_id = down_cast<ColumnRef*>(_key_cast_expr->get_child(0))->slot_id();
+        SlotId slot_id = static_cast<ColumnRef*>(_key_cast_expr->get_child(0))->slot_id();
         chunk->append_column(std::move(keys_column), slot_id);
         ASSIGN_OR_RETURN(auto result, _key_cast_expr->evaluate_checked(context, chunk.get()));
         keys_column = ColumnHelper::cast_to_nullable_column(std::move(result));
     }
     if (_value_cast_expr != nullptr) {
         ChunkPtr chunk = std::make_shared<Chunk>();
-        SlotId slot_id = down_cast<ColumnRef*>(_value_cast_expr->get_child(0))->slot_id();
+        SlotId slot_id = static_cast<ColumnRef*>(_value_cast_expr->get_child(0))->slot_id();
         chunk->append_column(std::move(values_column), slot_id);
         ASSIGN_OR_RETURN(auto result, _value_cast_expr->evaluate_checked(context, chunk.get()));
         values_column = ColumnHelper::cast_to_nullable_column(std::move(result));
@@ -90,7 +90,7 @@ StatusOr<ColumnPtr> CastVariantToMap::evaluate_checked(ExprContext* context, Chu
     }
 
     ColumnViewer<TYPE_VARIANT> variant_viewer(src_column);
-    const auto* variant_data_column = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(src_column.get()));
+    const auto* variant_data_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(src_column.get()));
     NullColumn::MutablePtr null_column = NullColumn::create();
     UInt32Column::MutablePtr offsets_column = UInt32Column::create();
     ColumnBuilder<TYPE_VARCHAR> keys_builder(src_column->size());
@@ -157,7 +157,7 @@ StatusOr<ColumnPtr> CastVariantToMap::evaluate_checked(ExprContext* context, Chu
     // 2. Try to cast keys if required
     if (keys_need_cast()) {
         ChunkPtr chunk = std::make_shared<Chunk>();
-        SlotId slot_id = down_cast<ColumnRef*>(_key_cast_expr->get_child(0))->slot_id();
+        SlotId slot_id = static_cast<ColumnRef*>(_key_cast_expr->get_child(0))->slot_id();
         chunk->append_column(keys_column, slot_id);
         ASSIGN_OR_RETURN(auto result, _key_cast_expr->evaluate_checked(context, chunk.get()));
         keys_column = ColumnHelper::cast_to_nullable_column(std::move(result));
@@ -165,7 +165,7 @@ StatusOr<ColumnPtr> CastVariantToMap::evaluate_checked(ExprContext* context, Chu
     // 3. Try to cast values if required
     if (values_need_cast()) {
         ChunkPtr chunk = std::make_shared<Chunk>();
-        SlotId slot_id = down_cast<ColumnRef*>(_value_cast_expr->get_child(0))->slot_id();
+        SlotId slot_id = static_cast<ColumnRef*>(_value_cast_expr->get_child(0))->slot_id();
         chunk->append_column(values_column, slot_id);
         ASSIGN_OR_RETURN(auto result, _value_cast_expr->evaluate_checked(context, chunk.get()));
         values_column = ColumnHelper::cast_to_nullable_column(std::move(result));

@@ -230,8 +230,8 @@ INSTANTIATE_TEST_SUITE_P(
 TEST(SortingTest, materialize_by_permutation_binary) {
     auto input1 = BinaryColumn::create();
     auto input2 = BinaryColumn::create();
-    down_cast<BinaryColumn*>(input1.get())->append_string("star");
-    down_cast<BinaryColumn*>(input2.get())->append_string("rock");
+    static_cast<BinaryColumn*>(input1.get())->append_string("star");
+    static_cast<BinaryColumn*>(input2.get())->append_string("rock");
 
     auto merged = BinaryColumn::create();
     Permutation perm{{0, 0}, {1, 0}};

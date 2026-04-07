@@ -129,7 +129,7 @@ int64_t JDBCDataSource::cpu_time_spent() const {
 
 Status JDBCDataSource::_create_scanner(RuntimeState* state) {
     const TJDBCScanNode& jdbc_scan_node = _provider->_jdbc_scan_node;
-    const auto* jdbc_table = down_cast<const JDBCTableDescriptor*>(_tuple_desc->table_desc());
+    const auto* jdbc_table = static_cast<const JDBCTableDescriptor*>(_tuple_desc->table_desc());
 
     Status status;
     std::string driver_name = jdbc_table->jdbc_driver_name();

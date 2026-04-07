@@ -26,7 +26,6 @@
 #include "exec/sorting/sorting.h"
 #include "exprs/expr.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "gutil/casts.h"
 #include "runtime/runtime_state.h"
 #include "types/datum.h"
 #include "types/logical_type_infra.h"

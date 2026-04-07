@@ -72,7 +72,7 @@
 #include "common/util/thrift_util.h"
 #include "fs/encrypt_file.h"
 #include "fs/fs_util.h"
-#include "gutil/cpu.h"
+#include "base/gutil/cpu.h"
 #include "jemalloc/jemalloc.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"

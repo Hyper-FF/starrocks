@@ -17,7 +17,7 @@
 
 namespace starrocks {
 
-static inline bool try_parse_ipv4(const char* pos, size_t str_len, int64& result_value) {
+static inline bool try_parse_ipv4(const char* pos, size_t str_len, int64_t& result_value) {
     return parse_ipv4(pos, str_len, result_value);
 }
 

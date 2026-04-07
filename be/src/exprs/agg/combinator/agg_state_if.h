@@ -107,7 +107,7 @@ public:
         ColumnPtr predicate_column = ColumnHelper::unpack_and_duplicate_const_column(
                 chunk_size, columns[predicate_col_index]->as_mutable_ptr());
         if (predicate_column->is_nullable()) {
-            const NullableColumn* nullable_predicate_column = down_cast<const NullableColumn*>(predicate_column.get());
+            const NullableColumn* nullable_predicate_column = static_cast<const NullableColumn*>(predicate_column.get());
             size_t nullCount = nullable_predicate_column->null_count();
 
             if (nullCount == 0) {
@@ -123,7 +123,7 @@ public:
             } else {
                 const auto nullable_predicate_null_col_data = nullable_predicate_column->immutable_null_column_data();
                 const auto nullable_predicate_data_col_data =
-                        down_cast<const UInt8Column*>(nullable_predicate_column->data_column_raw_ptr())
+                        static_cast<const UInt8Column*>(nullable_predicate_column->data_column_raw_ptr())
                                 ->immutable_data();
                 // we treat false(0) as null(which is 1)
                 for (size_t i = 0; i < chunk_size; ++i) {
@@ -146,7 +146,7 @@ public:
         // pick the first nullable arg
         for (int i = 0; i < column_size - 1; i++) {
             if (columns[i]->is_nullable()) {
-                first_nullable_arg_col = down_cast<const NullableColumn*>(columns[i]);
+                first_nullable_arg_col = static_cast<const NullableColumn*>(columns[i]);
                 first_nullable_arg_col_index = i;
                 break;
             }
@@ -170,7 +170,7 @@ public:
         data_column = ColumnHelper::unpack_and_duplicate_const_column(chunk_size, data_column);
         if (data_column->is_nullable()) {
             NullableColumn* original_nullable_column =
-                    const_cast<NullableColumn*>(down_cast<const NullableColumn*>(data_column.get()));
+                    const_cast<NullableColumn*>(static_cast<const NullableColumn*>(data_column.get()));
             new_nullable_column = NullableColumn::create(original_nullable_column->data_column(), fake_null_column);
         } else {
             new_nullable_column = NullableColumn::create(data_column, fake_null_column);

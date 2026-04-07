@@ -100,7 +100,7 @@ bool LocalExchangeSourceOperator::has_output() const {
 }
 
 Status LocalExchangeSourceOperator::set_finished(RuntimeState* state) {
-    auto* exchanger = down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
+    auto* exchanger = static_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
     exchanger->finish_source();
     // notify local-exchange sink
     // notify-condition 1. mem-buffer full 2. all finished
@@ -124,7 +124,7 @@ Status LocalExchangeSourceOperator::set_finished(RuntimeState* state) {
 
 StatusOr<ChunkPtr> LocalExchangeSourceOperator::pull_chunk(RuntimeState* state) {
     // notify sink
-    auto* exchanger = down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
+    auto* exchanger = static_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
     auto notify = exchanger->defer_notify_sink();
     ChunkPtr chunk = _pull_passthrough_chunk(state);
     if (chunk == nullptr && _key_partition_pending_chunk_empty()) {

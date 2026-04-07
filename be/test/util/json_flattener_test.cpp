@@ -41,9 +41,7 @@
 #include "common/statusor.h"
 #include "exprs/mock_vectorized_expr.h"
 #include "gtest/gtest-param-test.h"
-#include "gutil/casts.h"
-#include "gutil/integral_types.h"
-#include "gutil/strings/strip.h"
+#include "base/gutil/strings/strip.h"
 #include "types/json_value.h"
 #include "types/logical_type.h"
 #include "util/compression/block_compression.h"
@@ -139,7 +137,7 @@ protected:
     Columns test_json(const std::vector<std::string>& inputs, const std::vector<std::string>& paths,
                       const std::vector<LogicalType>& types, bool has_remain) {
         MutableColumnPtr input_mut = JsonColumn::create();
-        JsonColumn* json_input = down_cast<JsonColumn*>(input_mut.get());
+        JsonColumn* json_input = static_cast<JsonColumn*>(input_mut.get());
         for (const auto& json : inputs) {
             ASSIGN_OR_ABORT(auto json_value, JsonValue::parse(json));
             json_input->append(&json_value);
@@ -155,7 +153,7 @@ protected:
             for (size_t i = 0; i < result.size() - 1; i++) {
                 auto& c = result[i];
                 EXPECT_TRUE(c->is_nullable());
-                auto* nullable = down_cast<NullableColumn*>(c.get());
+                auto* nullable = static_cast<NullableColumn*>(c.get());
                 EXPECT_EQ(input->size(), nullable->size());
             }
             EXPECT_FALSE(result.back()->is_nullable());
@@ -164,7 +162,7 @@ protected:
         } else {
             for (auto& c : result) {
                 EXPECT_TRUE(c->is_nullable());
-                auto* nullable = down_cast<NullableColumn*>(c.get());
+                auto* nullable = static_cast<NullableColumn*>(c.get());
                 EXPECT_EQ(input->size(), nullable->size());
             }
             EXPECT_EQ(paths.size(), result.size());
@@ -176,12 +174,12 @@ protected:
     Columns test_null_json(const std::vector<std::string>& inputs, const std::vector<std::string>& paths,
                            const std::vector<LogicalType>& types, bool has_remain) {
         MutableColumnPtr input_mut = JsonColumn::create();
-        JsonColumn* json_input = down_cast<JsonColumn*>(input_mut.get());
+        JsonColumn* json_input = static_cast<JsonColumn*>(input_mut.get());
 
         ColumnPtr input = ColumnPtr(std::move(input_mut));
 
         auto nulls_mut = NullColumn::create();
-        auto* nulls = down_cast<NullColumn*>(nulls_mut.get());
+        auto* nulls = static_cast<NullColumn*>(nulls_mut.get());
         for (const auto& json : inputs) {
             if (json == "NULL") {
                 json_input->append_default();
@@ -202,7 +200,7 @@ protected:
             for (size_t i = 0; i < result.size() - 1; i++) {
                 auto& c = result[i];
                 EXPECT_TRUE(c->is_nullable());
-                auto* nullable = down_cast<NullableColumn*>(c.get());
+                auto* nullable = static_cast<NullableColumn*>(c.get());
                 EXPECT_EQ(input->size(), nullable->size());
             }
             EXPECT_FALSE(result.back()->is_nullable());
@@ -211,7 +209,7 @@ protected:
         } else {
             for (auto& c : result) {
                 EXPECT_TRUE(c->is_nullable());
-                auto* nullable = down_cast<NullableColumn*>(c.get());
+                auto* nullable = static_cast<NullableColumn*>(c.get());
                 EXPECT_EQ(input->size(), nullable->size());
             }
             EXPECT_EQ(paths.size(), result.size());
@@ -333,7 +331,7 @@ TEST_F(JsonFlattenerTest, testSortHitNums) {
     // clang-format on
 
     MutableColumnPtr input_mut = JsonColumn::create();
-    JsonColumn* json_input = down_cast<JsonColumn*>(input_mut.get());
+    JsonColumn* json_input = static_cast<JsonColumn*>(input_mut.get());
     for (const auto& json : jsons) {
         ASSIGN_OR_ABORT(auto json_value, JsonValue::parse(json));
         json_input->append(&json_value);
@@ -415,7 +413,7 @@ TEST_F(JsonFlattenerTest, testRemainFilter) {
     // clang-format on
 
     MutableColumnPtr input_mut = JsonColumn::create();
-    JsonColumn* json_input = down_cast<JsonColumn*>(input_mut.get());
+    JsonColumn* json_input = static_cast<JsonColumn*>(input_mut.get());
     for (const auto& json : jsons) {
         ASSIGN_OR_ABORT(auto json_value, JsonValue::parse(json));
         json_input->append(&json_value);
@@ -455,7 +453,7 @@ TEST_F(JsonFlattenerTest, testPointJson) {
     // clang-format on
 
     MutableColumnPtr input_mut = JsonColumn::create();
-    JsonColumn* json_input = down_cast<JsonColumn*>(input_mut.get());
+    JsonColumn* json_input = static_cast<JsonColumn*>(input_mut.get());
     for (const auto& json : jsons) {
         ASSIGN_OR_ABORT(auto json_value, JsonValue::parse(json));
         json_input->append(&json_value);
@@ -598,7 +596,7 @@ public:
     Columns test_json(const std::vector<std::string>& inputs, const std::vector<std::string>& paths,
                       const std::vector<LogicalType>& types, bool has_remain) {
         MutableColumnPtr input_mut = JsonColumn::create();
-        JsonColumn* json_input = down_cast<JsonColumn*>(input_mut.get());
+        JsonColumn* json_input = static_cast<JsonColumn*>(input_mut.get());
         for (const auto& json : inputs) {
             ASSIGN_OR_ABORT(auto json_value, JsonValue::parse(json));
             json_input->append(&json_value);
@@ -623,14 +621,14 @@ TEST_P(JsonBoolExtractionTest, testExtractBoolNullColumnConsistency) {
     auto result_columns = test_json(inputs, paths, types, false);
     ASSERT_EQ(1, result_columns.size());
 
-    auto* result = down_cast<const NullableColumn*>(result_columns[0].get());
+    auto* result = static_cast<const NullableColumn*>(result_columns[0].get());
     result->check_or_die();
     ASSERT_EQ(1, result->size());
 
-    auto* bool_column = down_cast<const BooleanColumn*>(result->data_column().get());
+    auto* bool_column = static_cast<const BooleanColumn*>(result->data_column().get());
     EXPECT_EQ(expected_value, bool_column->get_data()[0]);
 
-    auto* null_column = down_cast<const NullColumn*>(result->null_column().get());
+    auto* null_column = static_cast<const NullColumn*>(result->null_column().get());
     EXPECT_EQ(0, null_column->get_data()[0]) << "Null column should contain 0 for non-null values";
 }
 

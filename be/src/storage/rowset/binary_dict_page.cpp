@@ -44,7 +44,6 @@
 #include "column/column_helper.h"
 #include "column/nullable_column.h"
 #include "common/logging.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h" // for Substitute
 #include "storage/chunk_helper.h"
 #include "storage/column_predicate.h"
@@ -84,7 +83,7 @@ uint32_t BinaryDictPageBuilder::add(const uint8_t* vals, uint32_t count) {
         const auto* src = reinterpret_cast<const Slice*>(vals);
         uint32_t value_code = -1;
         // Manually devirtualization.
-        auto* code_page = down_cast<BitshufflePageBuilder<TYPE_INT>*>(_data_page_builder.get());
+        auto* code_page = static_cast<BitshufflePageBuilder<TYPE_INT>*>(_data_page_builder.get());
 
         if (_data_page_builder->count() == 0) {
             auto s = unaligned_load<Slice>(src);
@@ -218,7 +217,7 @@ Status BinaryDictPageDecoder<Type>::seek_to_position_in_page(uint32_t pos) {
 
 template <LogicalType Type>
 void BinaryDictPageDecoder<Type>::set_dict_decoder(PageDecoder* dict_decoder) {
-    _dict_decoder = down_cast<BinaryPlainPageDecoder<Type>*>(dict_decoder);
+    _dict_decoder = static_cast<BinaryPlainPageDecoder<Type>*>(dict_decoder);
     _max_value_length = _dict_decoder->max_value_length();
 }
 
@@ -292,7 +291,7 @@ Status BinaryDictPageDecoder<Type>::next_batch_with_filter(
     if (null_data != nullptr) {
         // Create temporary nullable column for predicate evaluation
         auto temp_column = column->clone_empty();
-        auto temp_nullable_column = down_cast<NullableColumn*>(temp_column.get());
+        auto temp_nullable_column = static_cast<NullableColumn*>(temp_column.get());
         auto temp_data_column = temp_nullable_column->data_column_raw_ptr();
         auto& temp_null_column = temp_nullable_column->null_column_ref();
 
@@ -314,7 +313,7 @@ Status BinaryDictPageDecoder<Type>::next_batch_with_filter(
             return Status::OK();
         }
 
-        auto nullable_column = down_cast<NullableColumn*>(column);
+        auto nullable_column = static_cast<NullableColumn*>(column);
         RETURN_IF_ERROR(
                 append_with_mask</*PositiveSelect=*/true>(nullable_column, *temp_nullable_column, selection, num_rows));
 
@@ -465,14 +464,14 @@ void BinaryDictPageDecoder<Type>::reserve_col(size_t n, Column* column) {
     Column* data_col;
     if (column->is_nullable()) {
         // This is NullableColumn, get its data_column
-        auto* nullable_col = down_cast<NullableColumn*>(column);
+        auto* nullable_col = static_cast<NullableColumn*>(column);
         data_col = nullable_col->data_column_raw_ptr();
     } else {
         data_col = column;
     }
 
     if (data_col->is_binary()) {
-        BinaryColumn* binary_col = down_cast<BinaryColumn*>(data_col);
+        BinaryColumn* binary_col = static_cast<BinaryColumn*>(data_col);
         binary_col->reserve(n, estimated_row_size * n);
     }
 }

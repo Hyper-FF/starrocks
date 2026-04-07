@@ -24,7 +24,7 @@ Status BooleanConverter::write_string(io::FormattedOutputStream* os, const Colum
                                       const Options& options) const {
     const static Slice kTrue("true");
     const static Slice kFalse("false");
-    auto boolean_col = down_cast<const FixedLengthColumn<uint8_t>*>(&column);
+    auto boolean_col = static_cast<const FixedLengthColumn<uint8_t>*>(&column);
     const auto bool_data = boolean_col->immutable_data();
     if (LIKELY(options.bool_alpha)) {
         return os->write(bool_data[row_num] ? kTrue : kFalse);
@@ -42,19 +42,19 @@ bool BooleanConverter::read_string(Column* column, const Slice& s, const Options
     StringParser::ParseResult r;
     bool v = StringParser::string_to_bool(s.data, s.size, &r);
     if (r == StringParser::PARSE_SUCCESS) {
-        down_cast<FixedLengthColumn<uint8_t>*>(column)->append(v);
+        static_cast<FixedLengthColumn<uint8_t>*>(column)->append(v);
         return true;
     }
-    v = implicit_cast<bool>(StringParser::string_to_float<double>(s.data, s.size, &r));
+    v = static_cast<bool>(StringParser::string_to_float<double>(s.data, s.size, &r));
     if (r == StringParser::PARSE_SUCCESS) {
-        down_cast<FixedLengthColumn<uint8_t>*>(column)->append(v);
+        static_cast<FixedLengthColumn<uint8_t>*>(column)->append(v);
         return true;
     } else if (r == StringParser::PARSE_OVERFLOW || r == StringParser::PARSE_UNDERFLOW) {
         DecimalV2Value decimal;
         if (decimal.parse_from_str(s.data, s.size) != 0) {
             return false;
         }
-        down_cast<FixedLengthColumn<uint8_t>*>(column)->append(!decimal.is_zero());
+        static_cast<FixedLengthColumn<uint8_t>*>(column)->append(!decimal.is_zero());
         return true;
     } else {
         return false;

@@ -19,7 +19,6 @@
 #include "exprs/agg/sum.h"
 #include "exprs/arithmetic_operation.h"
 #include "exprs/function_context.h"
-#include "gutil/casts.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -85,7 +84,7 @@ public:
     template <bool is_inc>
     void do_update(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state, size_t row_num) const {
         DCHECK(!columns[0]->is_nullable());
-        [[maybe_unused]] const auto* column = down_cast<const InputColumnType*>(columns[0]);
+        [[maybe_unused]] const auto* column = static_cast<const InputColumnType*>(columns[0]);
         if constexpr (is_inc) {
             if constexpr (lt_is_datetime<LT>) {
                 this->data(state).sum += column->immutable_data()[row_num].to_unix_second();
@@ -167,7 +166,7 @@ public:
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_binary());
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         Bytes& bytes = column->get_bytes();
 
         size_t old_size = bytes.size();
@@ -183,7 +182,7 @@ public:
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
         DCHECK(dst->is_binary());
-        auto* dst_column = down_cast<BinaryColumn*>(dst.get());
+        auto* dst_column = static_cast<BinaryColumn*>(dst.get());
         Bytes& bytes = dst_column->get_bytes();
         size_t old_size = bytes.size();
 
@@ -191,7 +190,7 @@ public:
         bytes.resize(one_element_size * chunk_size);
         dst_column->get_offset().resize(chunk_size + 1);
 
-        [[maybe_unused]] const auto* src_column = down_cast<const InputColumnType*>(src[0].get());
+        [[maybe_unused]] const auto* src_column = static_cast<const InputColumnType*>(src[0].get());
         int64_t count = 1;
         ImmediateType result = {};
         for (size_t i = 0; i < chunk_size; ++i) {
@@ -217,7 +216,7 @@ public:
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(!to->is_nullable());
-        auto* column = down_cast<ResultColumnType*>(to);
+        auto* column = static_cast<ResultColumnType*>(to);
         // In fact, for StarRocks real query, we don't need this check.
         // But for robust, we add this check.
         if (this->data(state).count == 0) {
@@ -250,7 +249,7 @@ public:
                     size_t end) const override {
         DCHECK_GT(end, start);
 
-        auto* column = down_cast<ResultColumnType*>(dst);
+        auto* column = static_cast<ResultColumnType*>(dst);
         ResultType result;
 
         if constexpr (lt_is_decimalv2<LT>) {

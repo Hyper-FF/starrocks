@@ -15,7 +15,6 @@
 #include "column/map_column.h"
 #include "column/nullable_column.h"
 #include "common/status.h"
-#include "gutil/casts.h"
 #include "storage/rowset/column_writer.h"
 
 namespace starrocks {
@@ -171,11 +170,11 @@ Status MapColumnWriter::append(const Column& column) {
     const MapColumn* map_column = nullptr;
     const NullColumn* null_column = nullptr;
     if (is_nullable()) {
-        const auto& nullable_column = down_cast<const NullableColumn&>(column);
-        map_column = down_cast<const MapColumn*>(nullable_column.data_column().get());
-        null_column = down_cast<const NullColumn*>(nullable_column.null_column().get());
+        const auto& nullable_column = static_cast<const NullableColumn&>(column);
+        map_column = static_cast<const MapColumn*>(nullable_column.data_column().get());
+        null_column = static_cast<const NullColumn*>(nullable_column.null_column().get());
     } else {
-        map_column = down_cast<const MapColumn*>(&column);
+        map_column = static_cast<const MapColumn*>(&column);
     }
 
     // 1. write null column when necessary

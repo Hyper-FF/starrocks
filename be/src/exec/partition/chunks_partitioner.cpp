@@ -96,12 +96,12 @@ void ChunksPartitioner::_init_hash_map_variant() {
         type = PartitionHashMapVariant::Type::phase1_null_##VALUE; \
         break;                                                     \
     }
-                M(TYPE_BOOLEAN, uint8);
-                M(TYPE_TINYINT, int8);
-                M(TYPE_SMALLINT, int16);
-                M(TYPE_INT, int32);
+                M(TYPE_BOOLEAN, uint8_t);
+                M(TYPE_TINYINT, int8_t);
+                M(TYPE_SMALLINT, int16_t);
+                M(TYPE_INT, int32_t);
                 M(TYPE_DECIMAL32, decimal32);
-                M(TYPE_BIGINT, int64);
+                M(TYPE_BIGINT, int64_t);
                 M(TYPE_DECIMAL64, decimal64);
                 M(TYPE_DATE, date);
                 M(TYPE_DATETIME, timestamp);
@@ -129,12 +129,12 @@ void ChunksPartitioner::_init_hash_map_variant() {
         type = PartitionHashMapVariant::Type::phase1_##VALUE; \
         break;                                                \
     }
-                M(TYPE_BOOLEAN, uint8);
-                M(TYPE_TINYINT, int8);
-                M(TYPE_SMALLINT, int16);
-                M(TYPE_INT, int32);
+                M(TYPE_BOOLEAN, uint8_t);
+                M(TYPE_TINYINT, int8_t);
+                M(TYPE_SMALLINT, int16_t);
+                M(TYPE_INT, int32_t);
                 M(TYPE_DECIMAL32, decimal32);
-                M(TYPE_BIGINT, int64);
+                M(TYPE_BIGINT, int64_t);
                 M(TYPE_DECIMAL64, decimal64);
                 M(TYPE_DATE, date);
                 M(TYPE_DATETIME, timestamp);

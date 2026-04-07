@@ -43,7 +43,7 @@ public:
         // No optimization for const column now.
         arg0 = ColumnHelper::unfold_const_column(_children[0]->type(), num_rows, arg0);
         arg1 = ColumnHelper::unfold_const_column(_children[1]->type(), num_rows, arg1);
-        const auto* array_column = down_cast<const ArrayColumn*>(ColumnHelper::get_data_column(arg0.get()));
+        const auto* array_column = static_cast<const ArrayColumn*>(ColumnHelper::get_data_column(arg0.get()));
         auto* array_elements = array_column->elements_column().get();
         const auto* array_elements_data = ColumnHelper::get_data_column(array_elements);
         DCHECK_EQ(num_rows, arg0->size());
@@ -51,7 +51,7 @@ public:
         DCHECK_EQ(num_rows + 1, array_column->offsets_column()->size());
 
         const int32_t* subscripts =
-                down_cast<const Int32Column*>(ColumnHelper::get_data_column(arg1.get()))->immutable_data().data();
+                static_cast<const Int32Column*>(ColumnHelper::get_data_column(arg1.get()))->immutable_data().data();
         const uint32_t* offsets = array_column->offsets_column()->immutable_data().data();
 
         if (_check_is_out_of_bounds) {
@@ -117,7 +117,7 @@ public:
         DCHECK_EQ(num_rows, selection.size());
 
         if (array_elements->has_null()) {
-            const auto* nullable_elements = down_cast<const NullableColumn*>(array_elements);
+            const auto* nullable_elements = static_cast<const NullableColumn*>(array_elements);
             const auto& nulls = nullable_elements->immutable_null_column_data();
             for (size_t i = 0; i < num_rows; i++) {
                 null_flags[i] |= nulls[selection[i]];

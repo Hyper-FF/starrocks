@@ -21,7 +21,7 @@
 #include "column/binary_column.h"
 #include "common/config_scan_io_fwd.h"
 #include "exprs/base64.h"
-#include "gutil/strings/escaping.h"
+#include "base/gutil/strings/escaping.h"
 #include "runtime/descriptors.h"
 #include "types/type_descriptor.h"
 
@@ -29,7 +29,7 @@ namespace starrocks::csv {
 
 Status VarBinaryConverter::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                         const Options& options) const {
-    auto* binary = down_cast<const BinaryColumn*>(&column);
+    auto* binary = static_cast<const BinaryColumn*>(&column);
     auto& bytes = binary->get_immutable_bytes();
     auto& offsets = binary->get_offset();
     // TODO: support binary type config later
@@ -94,7 +94,7 @@ bool VarBinaryConverter::read_string(Column* column, const Slice& s, const Optio
         return false;
     }
 
-    down_cast<BinaryColumn*>(column)->append(Slice(data, len));
+    static_cast<BinaryColumn*>(column)->append(Slice(data, len));
     return true;
 }
 

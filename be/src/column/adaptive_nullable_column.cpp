@@ -17,8 +17,7 @@
 #include "base/simd/simd.h"
 #include "column/column_helper.h"
 #include "column/mysql_row_buffer.h"
-#include "gutil/casts.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 

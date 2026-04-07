@@ -21,7 +21,7 @@ namespace starrocks::csv {
 
 Status MapConverter::write_string(io::FormattedOutputStream* os, const Column& column, size_t row_num,
                                   const Options& options) const {
-    auto* map = down_cast<const MapColumn*>(&column);
+    auto* map = static_cast<const MapColumn*>(&column);
     auto& offsets = map->offsets();
     auto& keys = map->keys();
     auto& values = map->values();
@@ -108,7 +108,7 @@ bool MapConverter::read_string(Column* column, const Slice& s, const Options& op
     if (!validate(s)) {
         return false;
     }
-    auto* map = down_cast<MapColumn*>(column);
+    auto* map = static_cast<MapColumn*>(column);
     auto* offsets = map->offsets_column_raw_ptr();
     auto* keys = map->keys_column_raw_ptr();
     auto* values = map->values_column_raw_ptr();

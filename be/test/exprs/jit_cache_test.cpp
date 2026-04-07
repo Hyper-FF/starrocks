@@ -50,7 +50,7 @@ public:
 // into the cache, and the second run hit the cache, and at last, invalid all cache.
 TEST_F(JITCacheTest, cache) {
     for (auto i = 0; i < 10; i++) {
-        // Normal int8, shard = 2
+        // Normal int8_t, shard = 2
         {
             expr_node.opcode = TExprOpcode::ADD;
             expr_node.type = gen_type_desc(TPrimitiveType::TINYINT);

@@ -351,7 +351,7 @@ Status SchemaDescriptor::node_to_field(const std::vector<tparquet::SchemaElement
         // repeated $TYPE $FIELD_NAME
         if (is_repeated(node_schema)) {
             // One-level list encoding, e.g.
-            // a: repeated int32;
+            // a: repeated int32_t;
             // This will generate a required list<element> which element is non-null
             int16_t last_immediate_repeated_ancestor_def_level = cur_level_info.increment_repeated();
 

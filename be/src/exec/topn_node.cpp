@@ -35,7 +35,6 @@
 #include "exec/pipeline/spill_process_channel.h"
 #include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
-#include "gutil/casts.h"
 #include "runtime/current_thread.h"
 
 namespace starrocks {
@@ -108,7 +107,7 @@ Status TopNNode::init(const TPlanNode& tnode, RuntimeState* state) {
     for (ExprContext* expr_ctx : _sort_exec_exprs.lhs_ordering_expr_ctxs()) {
         auto* expr = expr_ctx->root();
         if (expr->is_slotref()) {
-            early_materialized_slots.insert(down_cast<ColumnRef*>(expr)->slot_id());
+            early_materialized_slots.insert(static_cast<ColumnRef*>(expr)->slot_id());
         } else {
             all_slot_ref = false;
         }
@@ -242,11 +241,11 @@ StatusOr<pipeline::OpFactories> TopNNode::_decompose_to_pipeline(pipeline::Pipel
 
     source_operator = std::make_shared<SourceFactory>(context->next_operator_id(), id(), context_factory);
     if constexpr (std::is_same_v<LocalParallelMergeSortSourceOperatorFactory, SourceFactory>) {
-        down_cast<LocalParallelMergeSortSourceOperatorFactory*>(source_operator.get())
+        static_cast<LocalParallelMergeSortSourceOperatorFactory*>(source_operator.get())
                 ->set_tuple_desc(_materialized_tuple_desc);
-        down_cast<LocalParallelMergeSortSourceOperatorFactory*>(source_operator.get())->set_is_gathered(need_merge);
+        static_cast<LocalParallelMergeSortSourceOperatorFactory*>(source_operator.get())->set_is_gathered(need_merge);
         if (_tnode.sort_node.__isset.parallel_merge_late_materialize_mode) {
-            down_cast<LocalParallelMergeSortSourceOperatorFactory*>(source_operator.get())
+            static_cast<LocalParallelMergeSortSourceOperatorFactory*>(source_operator.get())
                     ->set_materialized_mode(_tnode.sort_node.parallel_merge_late_materialize_mode);
         }
     }

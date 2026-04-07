@@ -24,7 +24,6 @@
 #include "column/json_column.h"
 #include "column/nullable_column.h"
 #include "gen_cpp/segment.pb.h"
-#include "gutil/casts.h"
 #include "storage/rowset/column_writer.h"
 #include "types/constexpr.h"
 #include "util/json_flattener.h"
@@ -89,11 +88,11 @@ Status FlatJsonColumnCompactor::_merge_columns(MutableColumns& json_datas) {
         const JsonColumn* json_col;
         NullColumnPtr null_col;
         if (col->is_nullable()) {
-            auto nullable_column = down_cast<const NullableColumn*>(col.get());
-            json_col = down_cast<const JsonColumn*>(nullable_column->data_column_raw_ptr());
+            auto nullable_column = static_cast<const NullableColumn*>(col.get());
+            json_col = static_cast<const JsonColumn*>(nullable_column->data_column_raw_ptr());
             null_col = nullable_column->null_column();
         } else {
-            json_col = down_cast<const JsonColumn*>(col.get());
+            json_col = static_cast<const JsonColumn*>(col.get());
         }
 
         if (!json_col->is_flat_json()) {
@@ -110,7 +109,7 @@ Status FlatJsonColumnCompactor::_merge_columns(MutableColumns& json_datas) {
 
             if (col->is_nullable()) {
                 auto n_ptr = NullableColumn::create(j, null_col)->as_mutable_raw_ptr();
-                auto* n = down_cast<NullableColumn*>(n_ptr);
+                auto* n = static_cast<NullableColumn*>(n_ptr);
                 n->set_has_null(col->has_null());
                 RETURN_IF_ERROR(_json_writer->append(*n));
             } else {
@@ -135,10 +134,10 @@ Status FlatJsonColumnCompactor::_flatten_columns(MutableColumns& json_datas) {
     for (auto& col : json_datas) {
         JsonColumn* json_col;
         if (col->is_nullable()) {
-            auto nullable_column = down_cast<NullableColumn*>(col.get());
-            json_col = down_cast<JsonColumn*>(nullable_column->data_column_raw_ptr());
+            auto nullable_column = static_cast<NullableColumn*>(col.get());
+            json_col = static_cast<JsonColumn*>(nullable_column->data_column_raw_ptr());
         } else {
-            json_col = down_cast<JsonColumn*>(col.get());
+            json_col = static_cast<JsonColumn*>(col.get());
         }
 
         if (!json_col->is_flat_json()) {
@@ -164,8 +163,8 @@ Status FlatJsonColumnCompactor::_flatten_columns(MutableColumns& json_datas) {
             if (col->only_null()) {
                 nulls->append_value_multiple_times(&IS_NULL, col->size());
             } else if (col->is_nullable()) {
-                auto* nullable_column = down_cast<NullableColumn*>(col.get());
-                const auto* nl = down_cast<const NullColumn*>(nullable_column->null_column_raw_ptr());
+                auto* nullable_column = static_cast<NullableColumn*>(col.get());
+                const auto* nl = static_cast<const NullColumn*>(nullable_column->null_column_raw_ptr());
                 nulls->append(*nl, 0, nl->size());
             } else {
                 nulls->append_value_multiple_times(&NOT_NULL, col->size());
@@ -207,11 +206,11 @@ Status JsonColumnCompactor::append(const Column& column) {
     const JsonColumn* json_col;
     NullColumnPtr nulls = nullptr;
     if (column.is_nullable()) {
-        auto nullable_column = down_cast<const NullableColumn*>(&column);
+        auto nullable_column = static_cast<const NullableColumn*>(&column);
         nulls = nullable_column->null_column();
-        json_col = down_cast<const JsonColumn*>(nullable_column->data_column_raw_ptr());
+        json_col = static_cast<const JsonColumn*>(nullable_column->data_column_raw_ptr());
     } else {
-        json_col = down_cast<const JsonColumn*>(&column);
+        json_col = static_cast<const JsonColumn*>(&column);
     }
 
     if (!json_col->is_flat_json()) {

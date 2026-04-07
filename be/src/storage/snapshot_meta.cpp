@@ -18,7 +18,7 @@
 #include "base/container/raw_container.h"
 #include "fmt/format.h"
 #include "fs/output_stream_wrapper.h"
-#include "gutil/endian.h"
+#include "base/gutil/endian.h"
 
 namespace starrocks {
 

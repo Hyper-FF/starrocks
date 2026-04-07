@@ -910,8 +910,8 @@ TEST_F(RowsetTest, SegmentWriteTest) {
         auto rfile = std::move(fs->new_random_access_file(seg_path).value());
 
         butil::IOBuf data;
-        auto buf = new uint8[seg_info->data_size()];
-        data.append_user_data(buf, seg_info->data_size(), [](void* buf) { delete[](uint8*) buf; });
+        auto buf = new uint8_t[seg_info->data_size()];
+        data.append_user_data(buf, seg_info->data_size(), [](void* buf) { delete[](uint8_t*) buf; });
 
         ASSERT_TRUE(rfile->read_fully(buf, seg_info->data_size()).ok());
         auto st = segment_rowset_writer->flush_segment(*seg_info, data);
@@ -1074,13 +1074,13 @@ TEST_F(RowsetTest, SegmentDeleteWriteTest) {
     auto dfile = std::move(fs->new_random_access_file(seg_del_path).value());
 
     butil::IOBuf data;
-    auto buf = new uint8[seg_info->data_size()];
+    auto buf = new uint8_t[seg_info->data_size()];
     ASSERT_TRUE(rfile->read_fully(buf, seg_info->data_size()).ok());
-    data.append_user_data(buf, seg_info->data_size(), [](void* buf) { delete[](uint8*) buf; });
+    data.append_user_data(buf, seg_info->data_size(), [](void* buf) { delete[](uint8_t*) buf; });
 
-    auto del_buf = new uint8[seg_info->delete_data_size()];
+    auto del_buf = new uint8_t[seg_info->delete_data_size()];
     ASSERT_TRUE(dfile->read_fully(del_buf, seg_info->delete_data_size()).ok());
-    data.append_user_data(del_buf, seg_info->delete_data_size(), [](void* buf) { delete[](uint8*) buf; });
+    data.append_user_data(del_buf, seg_info->delete_data_size(), [](void* buf) { delete[](uint8_t*) buf; });
 
     auto st = segment_rowset_writer->flush_segment(*seg_info, data);
     LOG(INFO) << st;

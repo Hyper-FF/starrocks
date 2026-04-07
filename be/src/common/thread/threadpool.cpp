@@ -44,10 +44,10 @@
 #include "common/stack_util.h"
 #include "common/system/cpu_info.h"
 #include "common/thread/thread.h"
-#include "gutil/macros.h"
-#include "gutil/map_util.h"
+#include "base/compiler_util.h"
+#include "base/gutil/map_util.h"
 #include "absl/strings/substitute.h"
-#include "gutil/sysinfo.h"
+#include "base/gutil/sysinfo.h"
 
 namespace starrocks {
 

@@ -127,7 +127,7 @@ BM_memequal_no_padded_notequal/iterations:100000       8272 ns         8286 ns  
 */
 
 /* if we fix the string's length as 8, the result is as below,
- * it makes sense that memequal_no_padded compare uint64 and
+ * it makes sense that memequal_no_padded compare uint64_t and
  * memequal compare __m128i
 -------------------------------------------------------------------------------------------
 Benchmark                                                 Time             CPU   Iterations

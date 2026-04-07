@@ -50,7 +50,7 @@ Status FetchSourceOperator::set_finishing(RuntimeState* state) {
     VLOG_ROW << "[GLM] FetchSourceOperator::set_finishing, processor: " << (void*)_processor.get() << ", "
              << (void*)this;
     _processor->set_source_finishing();
-    down_cast<FetchSourceOperatorFactory*>(_factory)->close_processor();
+    static_cast<FetchSourceOperatorFactory*>(_factory)->close_processor();
     return Status::OK();
 }
 

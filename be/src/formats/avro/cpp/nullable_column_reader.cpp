@@ -29,7 +29,7 @@ Status NullableColumnReader::read_datum_for_adaptive_column(const avro::GenericD
         return read_datum_for_adaptive_column(union_value.datum(), column);
     }
 
-    auto nullable_column = down_cast<AdaptiveNullableColumn*>(column);
+    auto nullable_column = static_cast<AdaptiveNullableColumn*>(column);
     auto* data_column = nullable_column->begin_append_not_default_value();
     auto st = _base_reader->read_datum(datum, data_column);
     if (st.ok()) {
@@ -51,7 +51,7 @@ Status NullableColumnReader::read_datum(const avro::GenericDatum& datum, Column*
         return read_datum(union_value.datum(), column);
     }
 
-    auto nullable_column = down_cast<NullableColumn*>(column);
+    auto nullable_column = static_cast<NullableColumn*>(column);
     auto* data_column = nullable_column->data_column_raw_ptr();
     auto st = _base_reader->read_datum(datum, data_column);
     if (st.ok()) {

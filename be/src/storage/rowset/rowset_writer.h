@@ -41,7 +41,7 @@
 #include "gen_cpp/data.pb.h"
 #include "gen_cpp/olap_file.pb.h"
 #include "gen_cpp/types.pb.h"
-#include "gutil/macros.h"
+#include "base/compiler_util.h"
 #include "runtime/global_dict/types.h"
 #include "runtime/global_dict/types_fwd_decl.h"
 #include "storage/column_mapping.h"
@@ -197,7 +197,7 @@ protected:
     int _num_delfile = 0;
     int _num_uptfile = 0;
     int _num_indexfile = 0;
-    vector<uint32> _delfile_idxes;
+    vector<uint32_t> _delfile_idxes;
     vector<std::string> _tmp_segment_files;
     std::vector<string> _segment_encryption_metas;
     std::vector<string> _delfile_encryption_metas;

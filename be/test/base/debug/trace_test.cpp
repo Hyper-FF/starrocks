@@ -37,10 +37,10 @@
 #include "base/debug/trace_metrics.h"
 #include "base/time/monotime.h"
 #include "base/utility/scoped_cleanup.h"
-#include "gutil/macros.h"
-#include "gutil/port.h"
-#include "gutil/ref_counted.h"
-#include "gutil/walltime.h"
+#include "base/compiler_util.h"
+#include "base/gutil/port.h"
+#include "base/gutil/ref_counted.h"
+#include "base/gutil/walltime.h"
 
 using rapidjson::Document;
 using rapidjson::Value;

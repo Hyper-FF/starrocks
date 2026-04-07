@@ -92,7 +92,7 @@ ColumnPtr make_int_column(std::initializer_list<std::optional<int32_t>> values) 
 
 void assert_int_column(const ColumnPtr& result, std::initializer_list<std::optional<int32_t>> expected) {
     ASSERT_EQ(expected.size(), result->size());
-    const auto* values = down_cast<const Int32Column*>(ColumnHelper::get_data_column(result.get()));
+    const auto* values = static_cast<const Int32Column*>(ColumnHelper::get_data_column(result.get()));
     size_t idx = 0;
     for (const auto& expected_value : expected) {
         if (!expected_value.has_value()) {

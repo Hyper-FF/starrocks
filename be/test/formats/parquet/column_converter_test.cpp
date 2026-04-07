@@ -220,25 +220,25 @@ TEST_F(ColumnConverterTest, TestByteArrayTest) {
 }
 
 TEST_F(ColumnConverterTest, Int32Test) {
-    const std::string file_path = "./be/test/formats/parquet/test_data/column_converter/int32.parquet";
+    const std::string file_path = "./be/test/formats/parquet/test_data/column_converter/int32_t.parquet";
     const size_t expected_rows = 5;
 
     {
-        const std::string col_name = "int8";
+        const std::string col_name = "int8_t";
         {
             const TypeDescriptor col_type = TypeDescriptor::from_logical_type(LogicalType::TYPE_TINYINT);
             check(file_path, col_type, col_name, "[-5]", expected_rows);
         }
     }
     {
-        const std::string col_name = "int16";
+        const std::string col_name = "int16_t";
         {
             const TypeDescriptor col_type = TypeDescriptor::from_logical_type(LogicalType::TYPE_SMALLINT);
             check(file_path, col_type, col_name, "[-998]", expected_rows);
         }
     }
     {
-        const std::string col_name = "int32";
+        const std::string col_name = "int32_t";
         {
             const TypeDescriptor col_type = TypeDescriptor::from_logical_type(LogicalType::TYPE_INT);
             check(file_path, col_type, col_name, "[-99998]", expected_rows);
@@ -260,21 +260,21 @@ TEST_F(ColumnConverterTest, Int32Test) {
         }
     }
     {
-        const std::string col_name = "uint8";
+        const std::string col_name = "uint8_t";
         {
             const TypeDescriptor col_type = TypeDescriptor::from_logical_type(LogicalType::TYPE_TINYINT);
             check(file_path, col_type, col_name, "[5]", expected_rows);
         }
     }
     {
-        const std::string col_name = "uint16";
+        const std::string col_name = "uint16_t";
         {
             const TypeDescriptor col_type = TypeDescriptor::from_logical_type(LogicalType::TYPE_SMALLINT);
             check(file_path, col_type, col_name, "[6767]", expected_rows);
         }
     }
     {
-        const std::string col_name = "uint32";
+        const std::string col_name = "uint32_t";
         {
             const TypeDescriptor col_type = TypeDescriptor::from_logical_type(LogicalType::TYPE_INT);
             check(file_path, col_type, col_name, "[67676767]", expected_rows);
@@ -329,11 +329,11 @@ TEST_F(ColumnConverterTest, Int32Test) {
 }
 
 TEST_F(ColumnConverterTest, Int64Test) {
-    const std::string file_path = "./be/test/formats/parquet/test_data/column_converter/int64.parquet";
+    const std::string file_path = "./be/test/formats/parquet/test_data/column_converter/int64_t.parquet";
     const size_t expected_rows = 5;
 
     {
-        const std::string col_name = "int64";
+        const std::string col_name = "int64_t";
         {
             const TypeDescriptor col_type = TypeDescriptor::from_logical_type(LogicalType::TYPE_TINYINT);
             check(file_path, col_type, col_name, "[78]", expected_rows);
@@ -352,7 +352,7 @@ TEST_F(ColumnConverterTest, Int64Test) {
         }
     }
     {
-        const std::string col_name = "uint64";
+        const std::string col_name = "uint64_t";
         {
             const TypeDescriptor col_type = TypeDescriptor::from_logical_type(LogicalType::TYPE_BIGINT);
             check(file_path, col_type, col_name, "[7758258]", expected_rows);

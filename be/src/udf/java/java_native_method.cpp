@@ -24,7 +24,6 @@
 #include "column/map_column.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -134,9 +133,9 @@ jlong JavaNativeMethods::resizeStringData(JNIEnv* env, jclass clazz, jlong colum
     BinaryColumn* binary_column = nullptr;
     if (column->is_nullable()) {
         binary_column =
-                ColumnHelper::cast_to_raw<TYPE_VARCHAR>(down_cast<NullableColumn*>(column)->data_column_raw_ptr());
+                ColumnHelper::cast_to_raw<TYPE_VARCHAR>(static_cast<NullableColumn*>(column)->data_column_raw_ptr());
     } else {
-        binary_column = down_cast<BinaryColumn*>(column);
+        binary_column = static_cast<BinaryColumn*>(column);
     }
 
     try {

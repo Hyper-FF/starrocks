@@ -183,7 +183,7 @@ TEST_F(ORCScannerTest, get_schema) {
     ASSERT_GT(counter.file_read_ns, 0);
 }
 
-TEST_F(ORCScannerTest, implicit_cast) {
+TEST_F(ORCScannerTest, static_cast) {
     std::vector<TypeDescriptor> types;
     types.emplace_back(TypeDescriptor::create_varchar_type(32));
     types.emplace_back(TypeDescriptor::create_varchar_type(32));

@@ -15,7 +15,6 @@
 #include "parquet_schema_builder.h"
 
 #include "fmt/format.h"
-#include "gutil/casts.h"
 #include "types/type_descriptor.h"
 
 namespace starrocks {
@@ -42,7 +41,7 @@ Status get_parquet_type(const ::parquet::schema::NodePtr& node, TypeDescriptor* 
 
 static Status get_parquet_type_from_primitive(const ::parquet::schema::NodePtr& node, TypeDescriptor* type_desc) {
     DCHECK(node->is_primitive());
-    auto primitive_node = down_cast<const ::parquet::schema::PrimitiveNode*>(node.get());
+    auto primitive_node = static_cast<const ::parquet::schema::PrimitiveNode*>(node.get());
 
     auto logical_type = node->logical_type();
     auto physical_type = primitive_node->physical_type();
@@ -213,21 +212,21 @@ The element field encodes the list's element type and repetition. Element repeti
 Support legacy encodings:
 1. List<Integer> (nullable list, non-null elements)
   optional group my_list (LIST) {
-    repeated int32 element;
+    repeated int32_t element;
   }
 
 2. List<Tuple<String, Integer>> (nullable list, non-null elements)
   optional group my_list (LIST) {
     repeated group element {
       required binary str (STRING);
-      required int32 num;
+      required int32_t num;
     }
   }
 
 3. List<List<Integer>> (nullable outer list, non-null elements)
   optional group my_list (LIST) {
     repeated group array (LIST) {
-      repeated int32 array;
+      repeated int32_t array;
     }
   }
 */
@@ -259,7 +258,7 @@ static Status get_parquet_type_from_list(const ::parquet::schema::NodePtr& node,
             // optional group my_list (LIST) {
             //   repeated group element {
             //     required binary str (STRING);
-            //     required int32 num;
+            //     required int32_t num;
             //   }
             // }
             TypeDescriptor child_type_desc;
@@ -274,7 +273,7 @@ static Status get_parquet_type_from_list(const ::parquet::schema::NodePtr& node,
                 // List<List<Integer>> (nullable outer list, non-null elements)
                 // optional group my_list (LIST) {
                 //   repeated group array (LIST) {
-                //     repeated int32 array;
+                //     repeated int32_t array;
                 //   }
                 // }
                 TypeDescriptor child_type_desc;
@@ -306,7 +305,7 @@ static Status get_parquet_type_from_list(const ::parquet::schema::NodePtr& node,
         //
         // List<Integer> (nullable list, non-null elements)
         // optional group my_list (LIST) {
-        //   repeated int32 element;
+        //   repeated int32_t element;
         // }
         TypeDescriptor child_type_desc;
         RETURN_IF_ERROR(get_parquet_type(list_node, &child_type_desc));

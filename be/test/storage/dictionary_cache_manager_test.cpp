@@ -96,10 +96,10 @@ public:
         for (size_t i = 0; i < chunk->num_columns(); ++i) {
             chunk->set_slot_id_to_index(i + 1, i);
             if (i < 3) {
-                down_cast<Int64Column*>(chunk->get_column_raw_ptr_by_index(i))->append(i);
+                static_cast<Int64Column*>(chunk->get_column_raw_ptr_by_index(i))->append(i);
             } else {
                 std::string s(60000, 'a');
-                down_cast<BinaryColumnBase<uint32_t>*>(chunk->get_column_raw_ptr_by_index(i))->append_string(s);
+                static_cast<BinaryColumnBase<uint32_t>*>(chunk->get_column_raw_ptr_by_index(i))->append_string(s);
             }
         }
 
@@ -203,10 +203,10 @@ public:
         for (size_t i = 0; i < chunk->num_columns(); ++i) {
             chunk->set_slot_id_to_index(i + 1, i);
             if (i < 3) {
-                down_cast<Int64Column*>(chunk->get_column_raw_ptr_by_index(i))->append(i);
+                static_cast<Int64Column*>(chunk->get_column_raw_ptr_by_index(i))->append(i);
             } else {
                 std::string s(60000, 'a');
-                down_cast<BinaryColumnBase<uint32_t>*>(chunk->get_column_raw_ptr_by_index(i))->append_string(s);
+                static_cast<BinaryColumnBase<uint32_t>*>(chunk->get_column_raw_ptr_by_index(i))->append_string(s);
             }
         }
         std::vector<ColumnId> kids{0};
@@ -334,7 +334,7 @@ TEST_F(DictionaryCacheManagerTest, dictionary_get_expr_test) {
     auto res_column = std::move(res.value());
     ASSERT_TRUE(res_column->size() == 1);
     auto struct_column =
-            down_cast<const StructColumn*>(down_cast<const NullableColumn*>(res_column.get())->data_column().get());
+            static_cast<const StructColumn*>(static_cast<const NullableColumn*>(res_column.get())->data_column().get());
     ASSERT_TRUE(struct_column->fields().size() == 2);
 }
 

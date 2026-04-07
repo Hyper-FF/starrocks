@@ -26,11 +26,11 @@
 
 #include "base/concurrency/spinlock.h"
 #include "base/debug/trace_metrics.h"
-#include "gutil/macros.h"
-#include "gutil/ref_counted.h"
+#include "base/compiler_util.h"
+#include "base/gutil/ref_counted.h"
 #include "absl/strings/substitute.h"
-#include "gutil/threading/thread_collision_warner.h"
-#include "gutil/walltime.h"
+#include "base/gutil/threading/thread_collision_warner.h"
+#include "base/gutil/walltime.h"
 
 namespace starrocks {
 class Trace;

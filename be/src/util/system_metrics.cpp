@@ -52,7 +52,7 @@
 #include "common/config_cache_fwd.h"
 #include "exec/query_cache/cache_manager.h"
 #include "absl/strings/str_split.h" // for string split
-#include "gutil/strtoint.h"      //  for atoi64
+#include "base/gutil/strtoint.h"      //  for atoi64
 #include "io/io_profiler.h"
 #include "jemalloc/jemalloc.h"
 #include "runtime/runtime_filter_worker.h"

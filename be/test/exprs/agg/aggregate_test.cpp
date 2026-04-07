@@ -945,7 +945,7 @@ TEST_F(AggregateTest, test_dict_merge) {
 
     std::set<std::string> origin_data;
     std::set<int> ids;
-    auto binary_column = down_cast<const BinaryColumn*>(data_col->data_column().get());
+    auto binary_column = static_cast<const BinaryColumn*>(data_col->data_column().get());
     for (int i = 0; i < binary_column->size(); ++i) {
         auto slice = binary_column->get_slice(i);
         origin_data.emplace(slice.data, slice.size);
@@ -1671,7 +1671,7 @@ void test_non_deterministic_agg_function(FunctionContext* ctx, const AggregateFu
     func->update_batch_single_state(ctx, row_column->size(), &row_column, state->state());
     func->finalize_to_column(ctx, state->state(), result_column1.get());
 
-    const auto& expected_column1 = down_cast<const ExpeactedResultColumnType&>(row_column[0]);
+    const auto& expected_column1 = static_cast<const ExpeactedResultColumnType&>(row_column[0]);
     ASSERT_EQ(expected_column1.immutable_data()[0], result_column1->immutable_data()[0]);
 
     // update input column 2
@@ -1682,7 +1682,7 @@ void test_non_deterministic_agg_function(FunctionContext* ctx, const AggregateFu
     func->update_batch_single_state(ctx, row_column->size(), &row_column, state2->state());
     func->finalize_to_column(ctx, state2->state(), result_column2.get());
 
-    const auto& expected_column2 = down_cast<const ExpeactedResultColumnType&>(row_column[0]);
+    const auto& expected_column2 = static_cast<const ExpeactedResultColumnType&>(row_column[0]);
     ASSERT_EQ(expected_column2.immutable_data()[0], result_column2->immutable_data()[0]);
 
     // merge column 1 and column 2
@@ -2734,8 +2734,8 @@ TEST_F(AggregateTest, test_array_agg) {
 
     // Access the element column through the ArrayColumn's elements, which is a NullableColumn
     const auto& elements_column = result_column->elements();
-    const auto& nullable_elements = down_cast<const NullableColumn&>(elements_column);
-    const auto& result_data_column = down_cast<const BinaryColumn&>(*nullable_elements.data_column());
+    const auto& nullable_elements = static_cast<const NullableColumn&>(elements_column);
+    const auto& result_data_column = static_cast<const BinaryColumn&>(*nullable_elements.data_column());
     for (int i = 0; i < 6; i++) {
         std::string val("starrocks");
         val.append(std::to_string(i));
@@ -2769,8 +2769,8 @@ TEST_F(AggregateTest, test_array_agg_distinct) {
 
     // Access the element column through the ArrayColumn's elements, which is a NullableColumn
     const auto& elements_column = result_column->elements();
-    const auto& nullable_elements = down_cast<const NullableColumn&>(elements_column);
-    const auto& result_data_column = down_cast<const BinaryColumn&>(*nullable_elements.data_column());
+    const auto& nullable_elements = static_cast<const NullableColumn&>(elements_column);
+    const auto& result_data_column = static_cast<const BinaryColumn&>(*nullable_elements.data_column());
 
     ASSERT_EQ(6, result_data_column.size());
 }

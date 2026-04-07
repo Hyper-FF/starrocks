@@ -24,7 +24,6 @@
 #include "column/const_column.h"
 #include "column/nullable_column.h"
 #include "formats/parquet/schema.h"
-#include "gutil/casts.h"
 
 namespace starrocks::parquet {
 
@@ -318,11 +317,11 @@ bool ParquetUtils::get_non_null_data_column_and_row(const Column* column, size_t
         return false;
     }
     if (column->is_constant()) {
-        column = down_cast<const ConstColumn*>(column)->data_column().get();
+        column = static_cast<const ConstColumn*>(column)->data_column().get();
         row = 0;
     }
     if (column->is_nullable()) {
-        const auto* nullable = down_cast<const NullableColumn*>(column);
+        const auto* nullable = static_cast<const NullableColumn*>(column);
         if (nullable->is_null(row)) {
             return false;
         }
@@ -341,10 +340,10 @@ bool ParquetUtils::has_non_null_value(const Column* input_column, size_t num_row
     bool is_const = false;
     if (column->is_constant()) {
         is_const = true;
-        column = down_cast<const ConstColumn*>(column)->data_column().get();
+        column = static_cast<const ConstColumn*>(column)->data_column().get();
     }
     if (column->is_nullable()) {
-        const auto* nullable = down_cast<const NullableColumn*>(column);
+        const auto* nullable = static_cast<const NullableColumn*>(column);
         const auto& nulls = nullable->null_column_data();
         if (is_const) {
             return nulls[0] == 0;
@@ -362,10 +361,10 @@ bool ParquetUtils::has_non_null_binary_value(const Column* input_column, size_t 
     bool is_const = false;
     if (column->is_constant()) {
         is_const = true;
-        column = down_cast<const ConstColumn*>(column)->data_column().get();
+        column = static_cast<const ConstColumn*>(column)->data_column().get();
     }
     if (column->is_nullable()) {
-        const auto* nullable = down_cast<const NullableColumn*>(column);
+        const auto* nullable = static_cast<const NullableColumn*>(column);
         const Column* data = nullable->data_column().get();
         if (!data->is_binary()) {
             return false;

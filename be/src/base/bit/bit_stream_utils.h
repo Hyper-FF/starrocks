@@ -77,12 +77,12 @@ public:
     // Writes an int zigzag encoded.
     void PutZigZagVlqInt(int32_t v);
 
-    // Write a Vlq encoded int64 to the buffer.  Returns false if there was not enough room.
+    // Write a Vlq encoded int64_t to the buffer.  Returns false if there was not enough room.
     // The value is written byte aligned.
     // For more details on vlq: en.wikipedia.org/wiki/Variable-length_quantity
     void PutVlqInt(uint64_t v);
 
-    // Writes an int64 zigzag encoded.
+    // Writes an int64_t zigzag encoded.
     void PutZigZagVlqInt(int64_t v);
 
     // Get the index to the next aligned byte and advance the underlying buffer by num_bytes.
@@ -144,12 +144,12 @@ public:
     // Reads a zigzag encoded int `into` v.
     bool GetZigZagVlqInt(int32_t* v);
 
-    // Reads a vlq encoded int64 from the stream.  The encoded int must start at
+    // Reads a vlq encoded int64_t from the stream.  The encoded int must start at
     // the beginning of a byte. Return false if there were not enough bytes in
     // the buffer.
     bool GetVlqInt(uint64_t* v);
 
-    // Reads a zigzag encoded int64 `into` v.
+    // Reads a zigzag encoded int64_t `into` v.
     bool GetZigZagVlqInt(int64_t* v);
 
     // Returns the number of bytes left in the stream, not including the current byte (i.e.,

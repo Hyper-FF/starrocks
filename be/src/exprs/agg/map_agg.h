@@ -26,7 +26,6 @@
 #include "exprs/agg/aggregate.h"
 #include "exprs/function_context.h"
 #include "exprs/function_helper.h"
-#include "gutil/casts.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {
@@ -85,27 +84,27 @@ public:
         if ((columns[0]->is_nullable() && columns[0]->is_null(row_num)) || columns[0]->only_null()) {
             return;
         }
-        const auto& key_column = down_cast<const KeyColumnType&>(*ColumnHelper::get_data_column(columns[0]));
+        const auto& key_column = static_cast<const KeyColumnType&>(*ColumnHelper::get_data_column(columns[0]));
         this->data(state).update(ctx->mem_pool(), key_column, *columns[1], row_num, 1);
     }
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
-        auto map_column = down_cast<const MapColumn*>(ColumnHelper::get_data_column(column));
+        auto map_column = static_cast<const MapColumn*>(ColumnHelper::get_data_column(column));
         auto& offsets = map_column->offsets().immutable_data();
         if (offsets[row_num + 1] > offsets[row_num]) {
             this->data(state).update(
                     ctx->mem_pool(),
-                    *down_cast<const KeyColumnType*>(ColumnHelper::get_data_column(map_column->keys_column().get())),
+                    *static_cast<const KeyColumnType*>(ColumnHelper::get_data_column(map_column->keys_column().get())),
                     map_column->values(), offsets[row_num], offsets[row_num + 1] - offsets[row_num]);
         }
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         auto& state_impl = this->data(state);
-        auto* map_column = down_cast<MapColumn*>(ColumnHelper::get_data_column(to));
+        auto* map_column = static_cast<MapColumn*>(ColumnHelper::get_data_column(to));
 
         auto elem_size = state_impl.hash_map.size();
-        auto* key_column = down_cast<KeyColumnType*>(ColumnHelper::get_data_column(map_column->keys_column_raw_ptr()));
+        auto* key_column = static_cast<KeyColumnType*>(ColumnHelper::get_data_column(map_column->keys_column_raw_ptr()));
         if constexpr (lt_is_string<KT>) {
             for (const auto& entry : state_impl.hash_map) {
                 key_column->append(Slice(entry.first.data, entry.first.size));
@@ -119,11 +118,11 @@ public:
         }
 
         if (to->is_nullable()) {
-            down_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
+            static_cast<NullableColumn*>(to)->null_column_data().emplace_back(0);
         }
         if (map_column->keys_column()->is_nullable()) {
             // Key could not be NULL.
-            auto* nullable_column = down_cast<NullableColumn*>(map_column->keys_column_raw_ptr());
+            auto* nullable_column = static_cast<NullableColumn*>(map_column->keys_column_raw_ptr());
             nullable_column->null_column_data().resize(nullable_column->null_column_data().size() + elem_size);
         }
 
@@ -137,7 +136,7 @@ public:
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
                                      MutableColumnPtr& dst) const override {
-        auto* column = down_cast<MapColumn*>(ColumnHelper::get_data_column(dst.get()));
+        auto* column = static_cast<MapColumn*>(ColumnHelper::get_data_column(dst.get()));
         auto* key_column = column->keys_column_raw_ptr();
         auto* value_column = column->values_column_raw_ptr();
         auto* offsets_col = column->offsets_column_raw_ptr();
@@ -151,7 +150,7 @@ public:
             offsets_col->append(offsets_col->immutable_data().back() + 1);
         }
         if (dst->is_nullable()) {
-            down_cast<NullableColumn*>(dst.get())->null_column_data().resize(column->size());
+            static_cast<NullableColumn*>(dst.get())->null_column_data().resize(column->size());
         }
     }
 

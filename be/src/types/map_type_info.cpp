@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "common/logging.h"
-#include "gutil/casts.h"
 #include "types/type_info.h"
 
 namespace starrocks {
@@ -64,12 +63,12 @@ TypeInfoPtr get_map_type_info(const TypeInfoPtr& key_type, const TypeInfoPtr& va
 }
 
 const TypeInfoPtr& get_key_type_info(const TypeInfo* type_info) {
-    auto map_type = down_cast<const MapTypeInfo*>(type_info);
+    auto map_type = static_cast<const MapTypeInfo*>(type_info);
     return map_type->key_type();
 }
 
 const TypeInfoPtr& get_value_type_info(const TypeInfo* type_info) {
-    auto map_type = down_cast<const MapTypeInfo*>(type_info);
+    auto map_type = static_cast<const MapTypeInfo*>(type_info);
     return map_type->value_type();
 }
 

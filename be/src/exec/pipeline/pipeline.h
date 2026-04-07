@@ -53,11 +53,11 @@ public:
 
     SourceOperatorFactory* source_operator_factory() {
         DCHECK(!_op_factories.empty());
-        return down_cast<SourceOperatorFactory*>(_op_factories[0].get());
+        return static_cast<SourceOperatorFactory*>(_op_factories[0].get());
     }
     const SourceOperatorFactory* source_operator_factory() const {
         DCHECK(!_op_factories.empty());
-        return down_cast<SourceOperatorFactory*>(_op_factories[0].get());
+        return static_cast<SourceOperatorFactory*>(_op_factories[0].get());
     }
     OperatorFactory* sink_operator_factory() {
         DCHECK(!_op_factories.empty());

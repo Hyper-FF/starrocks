@@ -17,8 +17,7 @@
 #include "base/simd/simd.h"
 #include "column/mysql_row_buffer.h"
 #include "column/vectorized_fwd.h"
-#include "gutil/casts.h"
-#include "gutil/strings/fastmem.h"
+#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 
@@ -68,7 +67,7 @@ void NullableColumn::append(const Column& src, size_t offset, size_t count) {
     if (src.only_null()) {
         append_nulls(count);
     } else if (src.is_nullable()) {
-        const auto& src_column = down_cast<const NullableColumn&>(src);
+        const auto& src_column = static_cast<const NullableColumn&>(src);
         DCHECK_EQ(src_column._null_column->size(), src_column._data_column->size());
         const auto null_data = src_column._null_column->immutable_data();
 
@@ -98,7 +97,7 @@ void NullableColumn::append_selective(const Column& src, const uint32_t* indexes
     if (src.only_null()) {
         append_nulls(size);
     } else if (src.is_nullable()) {
-        const auto& src_column = down_cast<const NullableColumn&>(src);
+        const auto& src_column = static_cast<const NullableColumn&>(src);
         DCHECK_EQ(src_column._null_column->size(), src_column._data_column->size());
 
         if (!src_column.has_null()) {
@@ -122,7 +121,7 @@ void NullableColumn::append_value_multiple_times(const Column& src, uint32_t ind
     if (src.only_null()) {
         append_nulls(size);
     } else if (src.is_nullable()) {
-        const auto& src_column = down_cast<const NullableColumn&>(src);
+        const auto& src_column = static_cast<const NullableColumn&>(src);
 
         DCHECK_EQ(src_column._null_column->size(), src_column._data_column->size());
 
@@ -221,7 +220,7 @@ void NullableColumn::update_rows(const Column& src, const uint32_t* indexes) {
     DCHECK_EQ(_null_column->size(), _data_column->size());
     size_t replace_num = src.size();
     if (src.is_nullable()) {
-        const auto& c = down_cast<const NullableColumn&>(src);
+        const auto& c = static_cast<const NullableColumn&>(src);
         _null_column->update_rows(*c._null_column, indexes);
         _data_column->update_rows(*c._data_column, indexes);
         // update rows may convert between null and not null, so we need count every times
@@ -251,7 +250,7 @@ int NullableColumn::compare_at(size_t left, size_t right, const Column& rhs, int
         return rhs.is_null(right) ? 0 : nan_direction_hint;
     }
     if (rhs.is_nullable()) {
-        const auto& nullable_rhs = down_cast<const NullableColumn&>(rhs);
+        const auto& nullable_rhs = static_cast<const NullableColumn&>(rhs);
         if (nullable_rhs.immutable_null_column_data()[right]) {
             return -nan_direction_hint;
         }
@@ -269,7 +268,7 @@ int NullableColumn::equals(size_t left, const Column& rhs, size_t right, bool sa
 
     // left not null
     if (rhs.is_nullable()) {
-        const auto& nullable_rhs = down_cast<const NullableColumn&>(rhs);
+        const auto& nullable_rhs = static_cast<const NullableColumn&>(rhs);
         if (nullable_rhs.immutable_null_column_data()[right]) {
             return safe_eq ? EQUALS_FALSE : EQUALS_NULL;
         }

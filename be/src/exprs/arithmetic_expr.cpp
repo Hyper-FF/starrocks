@@ -29,7 +29,6 @@
 #include "exprs/decimal_cast_expr.h"
 #include "exprs/overflow.h"
 #include "exprs/unary_function.h"
-#include "gutil/casts.h"
 #include "runtime/runtime_state.h"
 #include "types/decimalv2_value.h"
 #include "types/logical_type.h"

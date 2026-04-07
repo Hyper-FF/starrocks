@@ -79,8 +79,8 @@ TEST(MapColumnCoreTest, SerializeUsesNullFirstThenAscendingKeys) {
 
     ASSERT_EQ(1, restored->size());
 
-    auto* keys = down_cast<NullableColumn*>(restored->keys_column_raw_ptr());
-    auto* key_data = down_cast<Int32Column*>(keys->data_column_raw_ptr());
+    auto* keys = static_cast<NullableColumn*>(restored->keys_column_raw_ptr());
+    auto* key_data = static_cast<Int32Column*>(keys->data_column_raw_ptr());
     const auto& nulls = keys->immutable_null_column_data();
 
     ASSERT_EQ(3, nulls.size());

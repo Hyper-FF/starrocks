@@ -114,8 +114,8 @@ public:
                       size_t row_num) const {
         // Array element is nullable, so we need to extract the data from nullable column first
         auto offset_size = input_column->get_element_offset_size(row_num);
-        auto& array_element = down_cast<const NullableColumn&>(input_column->elements());
-        auto* element_data_column = down_cast<const InputColumnType*>(ColumnHelper::get_data_column(&array_element));
+        auto& array_element = static_cast<const NullableColumn&>(input_column->elements());
+        auto* element_data_column = static_cast<const InputColumnType*>(ColumnHelper::get_data_column(&array_element));
         size_t element_null_count = array_element.null_count(offset_size.first, offset_size.second);
         DCHECK_LE(element_null_count, offset_size.second);
 
@@ -134,7 +134,7 @@ public:
 
     void update(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state,
                 size_t row_num) const override {
-        const auto* input_column = down_cast<const ArrayColumn*>(columns[0]);
+        const auto* input_column = static_cast<const ArrayColumn*>(columns[0]);
         update_state(ctx, input_column, state, row_num);
     }
 
@@ -143,13 +143,13 @@ public:
     }
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
-        const auto* input_column = down_cast<const ArrayColumn*>(column);
+        const auto* input_column = static_cast<const ArrayColumn*>(column);
         update_state(ctx, input_column, state, row_num);
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         auto& state_impl = this->data(const_cast<AggDataPtr>(state));
-        auto* column = down_cast<ArrayColumn*>(to);
+        auto* column = static_cast<ArrayColumn*>(to);
         column->append_array_element(*(state_impl.get_data_column()), state_impl.null_count);
     }
 

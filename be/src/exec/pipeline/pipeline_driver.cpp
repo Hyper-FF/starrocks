@@ -38,7 +38,6 @@
 #include "exec/query_cache/ticket_checker.h"
 #include "exec/workgroup/work_group.h"
 #include "gen_cpp/InternalService_types.h"
-#include "gutil/casts.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"

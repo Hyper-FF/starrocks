@@ -30,7 +30,6 @@
 #include "column/variant_encoder.h"
 #include "column/variant_merger.h"
 #include "column/variant_path_parser.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "types/variant_value.h"
 
@@ -68,7 +67,7 @@ StatusOr<VariantColumn::EncodedVariantResult> VariantColumn::encode_typed_row_as
     }
 
     if (type_desc.type == TYPE_VARIANT) {
-        const auto* typed_variant_column = down_cast<const VariantColumn*>(ColumnHelper::get_data_column(typed_column));
+        const auto* typed_variant_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(typed_column));
         if (typed_variant_column == nullptr) {
             return Status::InvalidArgument("typed variant column is null");
         }
@@ -209,7 +208,7 @@ MutableColumnPtr VariantColumn::deep_copy_shredded(const VariantColumn& src) {
 
 MutableColumnPtr VariantColumn::clone() const {
     auto cloned = BaseClass::clone();
-    auto* variant_cloned = down_cast<VariantColumn*>(cloned.get());
+    auto* variant_cloned = static_cast<VariantColumn*>(cloned.get());
     // BaseClass::clone() may preserve derived schema members in some clone paths.
     // Reset first to avoid duplicating schema/typed columns.
     variant_cloned->clear_shredded_columns();
@@ -366,7 +365,7 @@ const VariantColumn* VariantColumn::_prepare_append_source(const VariantColumn& 
     const VariantColumn* append_src = &src;
     if (!is_equal_schema(&src)) {
         *src_working_copy = deep_copy_shredded(src);
-        auto* src_cloned = down_cast<VariantColumn*>(src_working_copy->get());
+        auto* src_cloned = static_cast<VariantColumn*>(src_working_copy->get());
         Status arbitrate_st = VariantColumnMerger::arbitrate_type_conflicts(this, src_cloned);
         DCHECK(arbitrate_st.ok()) << "append type arbitration failed: " << arbitrate_st;
         if (!arbitrate_st.ok()) {
@@ -388,7 +387,7 @@ const VariantColumn* VariantColumn::_prepare_append_source(const VariantColumn& 
 
 void VariantColumn::append(const Column& src, size_t offset, size_t count) {
     size_t before_size = size();
-    const auto* other = down_cast<const VariantColumn*>(&src);
+    const auto* other = static_cast<const VariantColumn*>(&src);
     MutableColumnPtr src_working_copy;
     const VariantColumn* append_src = _prepare_append_source(*other, &src_working_copy);
     if (append_src == nullptr) {
@@ -409,7 +408,7 @@ void VariantColumn::append_value_multiple_times(const void* value, size_t count)
 }
 
 void VariantColumn::append_selective(const Column& src, const uint32_t* indexes, uint32_t from, uint32_t count) {
-    const auto* other = down_cast<const VariantColumn*>(&src);
+    const auto* other = static_cast<const VariantColumn*>(&src);
     MutableColumnPtr src_working_copy;
     const VariantColumn* append_src = _prepare_append_source(*other, &src_working_copy);
     if (append_src == nullptr) {
@@ -422,7 +421,7 @@ void VariantColumn::append_selective(const Column& src, const uint32_t* indexes,
 }
 
 void VariantColumn::append_value_multiple_times(const Column& src, uint32_t index, uint32_t count) {
-    const auto* other = down_cast<const VariantColumn*>(&src);
+    const auto* other = static_cast<const VariantColumn*>(&src);
     MutableColumnPtr src_working_copy;
     const VariantColumn* append_src = _prepare_append_source(*other, &src_working_copy);
     if (append_src == nullptr) {
@@ -583,7 +582,7 @@ size_t VariantColumn::filter_range(const Filter& filter, size_t from, size_t to)
 }
 
 int VariantColumn::compare_at(size_t left, size_t right, const Column& rhs, int nan_direction_hint) const {
-    const auto& rhs_variant = down_cast<const VariantColumn&>(rhs);
+    const auto& rhs_variant = static_cast<const VariantColumn&>(rhs);
 
     VariantRowRef left_ref;
     VariantRowRef right_ref;
@@ -622,7 +621,7 @@ int VariantColumn::compare_at(size_t left, size_t right, const Column& rhs, int 
 }
 
 int VariantColumn::equals(size_t left, const Column& rhs, size_t right, bool safe_eq) const {
-    const auto& rhs_variant = down_cast<const VariantColumn&>(rhs);
+    const auto& rhs_variant = static_cast<const VariantColumn&>(rhs);
 
     VariantRowRef left_ref;
     VariantRowRef right_ref;
@@ -662,7 +661,7 @@ int VariantColumn::equals(size_t left, const Column& rhs, size_t right, bool saf
 }
 
 void VariantColumn::swap_column(Column& rhs) {
-    auto& other = down_cast<VariantColumn&>(rhs);
+    auto& other = static_cast<VariantColumn&>(rhs);
     BaseClass::swap_column(other);
     std::swap(_shredded_paths, other._shredded_paths);
     std::swap(_path_index, other._path_index);

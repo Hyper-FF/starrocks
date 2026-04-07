@@ -24,7 +24,6 @@
 #include "column/runtime_type_traits.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/agg/aggregate_traits.h"
-#include "gutil/casts.h"
 
 namespace starrocks {
 
@@ -178,7 +177,7 @@ public:
     void update(FunctionContext* ctx, const Column** columns, AggDataPtr __restrict state,
                 size_t row_num) const override {
         DCHECK(!columns[0]->is_nullable() && !columns[0]->is_binary());
-        const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+        const auto& column = static_cast<const InputColumnType&>(*columns[0]);
         T value = column.immutable_data()[row_num];
         OP()(this->data(state), value);
     }
@@ -196,7 +195,7 @@ public:
                                              int64_t partition_end, int64_t rows_start_offset, int64_t rows_end_offset,
                                              bool ignore_subtraction, bool ignore_addition,
                                              [[maybe_unused]] bool has_null) const override {
-        [[maybe_unused]] const auto& column = down_cast<const InputColumnType&>(*columns[0]);
+        [[maybe_unused]] const auto& column = static_cast<const InputColumnType&>(*columns[0]);
 
         const int64_t previous_frame_first_position = current_row_position - 1 + rows_start_offset;
         int64_t current_frame_last_position = current_row_position + rows_end_offset;
@@ -208,7 +207,7 @@ public:
                 int64_t frame_start = previous_frame_first_position + 1;
                 int64_t frame_end = current_frame_last_position + 1;
                 if (has_null) {
-                    const auto null_column = down_cast<const NullColumn*>(columns[1]);
+                    const auto null_column = static_cast<const NullColumn*>(columns[1]);
                     const auto& f_data = null_column->immutable_data();
                     for (size_t i = frame_start; i < frame_end; ++i) {
                         if (f_data[i] == 0) {
@@ -231,14 +230,14 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(!column->is_nullable() && !column->is_binary());
-        const auto* input_column = down_cast<const InputColumnType*>(column);
+        const auto* input_column = static_cast<const InputColumnType*>(column);
         T value = input_column->immutable_data()[row_num];
         OP()(this->data(state), value);
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(!to->is_nullable() && !to->is_binary());
-        AggDataTypeTraits<LT>::append_value(down_cast<InputColumnType*>(to), this->data(state).result);
+        AggDataTypeTraits<LT>::append_value(static_cast<InputColumnType*>(to), this->data(state).result);
     }
 
     void convert_to_serialize_format(FunctionContext* ctx, const Columns& src, size_t chunk_size,
@@ -248,13 +247,13 @@ public:
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(!to->is_nullable() && !to->is_binary());
-        AggDataTypeTraits<LT>::append_value(down_cast<InputColumnType*>(to), this->data(state).result);
+        AggDataTypeTraits<LT>::append_value(static_cast<InputColumnType*>(to), this->data(state).result);
     }
 
     void get_values(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* dst, size_t start,
                     size_t end) const override {
         DCHECK_GT(end, start);
-        auto* column = down_cast<InputColumnType*>(dst);
+        auto* column = static_cast<InputColumnType*>(dst);
         for (size_t i = start; i < end; ++i) {
             AggDataTypeTraits<LT>::assign_value(column, i, this->data(state).result);
         }
@@ -302,7 +301,7 @@ public:
                 int64_t frame_start = previous_frame_first_position + 1;
                 int64_t frame_end = current_frame_last_position + 1;
                 if (has_null) {
-                    const auto null_column = down_cast<const NullColumn*>(columns[1]);
+                    const auto null_column = static_cast<const NullColumn*>(columns[1]);
                     const auto& f_data = null_column->immutable_data();
                     for (size_t i = frame_start; i < frame_end; ++i) {
                         if (f_data[i] == 0) {
@@ -325,14 +324,14 @@ public:
 
     void merge(FunctionContext* ctx, const Column* column, AggDataPtr __restrict state, size_t row_num) const override {
         DCHECK(column->is_binary());
-        auto* binary_column = down_cast<const BinaryColumn*>(column);
+        auto* binary_column = static_cast<const BinaryColumn*>(column);
         auto value = binary_column->get_slice(row_num);
         OP()(this->data(state), value);
     }
 
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_binary());
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         column->append(this->data(state).get_result());
     }
 
@@ -343,7 +342,7 @@ public:
 
     void finalize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         DCHECK(to->is_binary());
-        auto* column = down_cast<BinaryColumn*>(to);
+        auto* column = static_cast<BinaryColumn*>(to);
         column->append(this->data(state).get_result());
     }
 

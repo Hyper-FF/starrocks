@@ -24,7 +24,6 @@
 #include "column/vectorized_fwd.h"
 #include "common/compiler_util.h"
 #include "glog/logging.h"
-#include "gutil/casts.h"
 #include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
@@ -259,7 +258,7 @@ void JsonColumn::append_selective(const Column& src, const uint32_t* indexes, ui
         src.append_selective_to(*this, indexes, from, size);
         return;
     }
-    const auto* other_json = down_cast<const JsonColumn*>(&src);
+    const auto* other_json = static_cast<const JsonColumn*>(&src);
     if (other_json->is_flat_json() && !is_flat_json()) {
         // only hit in AggregateIterator (Aggregate mode in storage)
         DCHECK_EQ(0, this->size());
@@ -341,7 +340,7 @@ void JsonColumn::append(const JsonValue& object) {
 }
 
 void JsonColumn::append(const Column& src, size_t offset, size_t count) {
-    const auto* other_json = down_cast<const JsonColumn*>(&src);
+    const auto* other_json = static_cast<const JsonColumn*>(&src);
     if (other_json->is_flat_json() && !is_flat_json()) {
         // only hit in AggregateIterator (Aggregate mode in storage)
         DCHECK_EQ(0, this->size());
@@ -412,7 +411,7 @@ size_t JsonColumn::reference_memory_usage(size_t from, size_t size) const {
 
 void JsonColumn::swap_column(Column& rhs) {
     SuperClass::swap_column(rhs);
-    JsonColumn& json_column = down_cast<JsonColumn&>(rhs);
+    JsonColumn& json_column = static_cast<JsonColumn&>(rhs);
     std::swap(_flat_column_paths, json_column._flat_column_paths);
     std::swap(_flat_column_types, json_column._flat_column_types);
     std::swap(_path_to_index, json_column._path_to_index);
@@ -469,7 +468,7 @@ bool JsonColumn::is_equallity_schema(const Column* other) const {
     if (!other->is_json()) {
         return false;
     }
-    auto* other_json = down_cast<const JsonColumn*>(other);
+    auto* other_json = static_cast<const JsonColumn*>(other);
     if (this->is_flat_json() && other_json->is_flat_json()) {
         if (this->_flat_column_paths.size() != other_json->_flat_column_paths.size()) {
             return false;

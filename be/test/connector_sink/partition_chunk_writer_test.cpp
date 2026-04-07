@@ -408,8 +408,8 @@ TEST_F(PartitionChunkWriterTest, spill_writer_for_complex_types) {
 
             // Fill ARRAY<INT>
             {
-                auto* nullable_column = down_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_index(0));
-                auto* col = down_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
+                auto* nullable_column = static_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_index(0));
+                auto* col = static_cast<ArrayColumn*>(nullable_column->data_column_raw_ptr());
                 auto* elements = col->elements_column_raw_ptr();
                 auto* offsets = col->offsets_column_raw_ptr();
 
@@ -435,8 +435,8 @@ TEST_F(PartitionChunkWriterTest, spill_writer_for_complex_types) {
 
             // Fill MAP<VARCHAR, INT>
             {
-                auto* nullable_column = down_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_index(1));
-                auto* col = down_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
+                auto* nullable_column = static_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_index(1));
+                auto* col = static_cast<MapColumn*>(nullable_column->data_column_raw_ptr());
                 auto* keys = col->keys_column_raw_ptr();
                 auto* values = col->values_column_raw_ptr();
                 auto* offsets = col->offsets_column_raw_ptr();
@@ -465,8 +465,8 @@ TEST_F(PartitionChunkWriterTest, spill_writer_for_complex_types) {
 
             // Fill STRUCT\<c1:VARCHAR,c2:INT\>
             {
-                auto* nullable_column = down_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_index(2));
-                auto* col = down_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
+                auto* nullable_column = static_cast<NullableColumn*>(chunk->get_column_raw_ptr_by_index(2));
+                auto* col = static_cast<StructColumn*>(nullable_column->data_column_raw_ptr());
 
                 auto* f0 = col->field_column_raw_ptr(0);
                 auto* f1 = col->field_column_raw_ptr(1);

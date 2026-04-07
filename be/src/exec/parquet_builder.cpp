@@ -25,7 +25,7 @@
 #include "common/logging.h"
 #include "exprs/column_ref.h"
 #include "exprs/expr.h"
-#include "gutil/endian.h"
+#include "base/gutil/endian.h"
 #include "runtime/exec_env.h"
 
 namespace starrocks {

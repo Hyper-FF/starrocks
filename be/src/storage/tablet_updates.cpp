@@ -36,7 +36,7 @@
 #include "fs/fs_factory.h"
 #include "gen_cpp/MasterService_types.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "gutil/stl_util.h"
+#include "base/gutil/stl_util.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
