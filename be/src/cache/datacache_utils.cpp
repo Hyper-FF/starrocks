@@ -20,6 +20,7 @@
 #include <filesystem>
 
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_split.h"
 #include "base/string/parse_util.h"
 #include "cache/mem_cache/local_mem_cache_engine.h"
@@ -93,7 +94,7 @@ Status DataCacheUtils::parse_conf_datacache_disk_paths(const std::string& config
     size_t duplicated_count = 0;
     std::vector<std::string> path_vec = absl::StrSplit(config_path, ";", absl::SkipWhitespace());
     for (auto& item : path_vec) {
-        StripWhiteSpace(&item);
+        item = std::string(absl::StripAsciiWhitespace(item));
         item.erase(item.find_last_not_of('/') + 1);
         if (item.empty() || item[0] != '/') {
             LOG(WARNING) << "invalid datacache path. path: " << item;

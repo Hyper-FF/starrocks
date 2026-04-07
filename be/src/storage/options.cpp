@@ -37,6 +37,7 @@
 #include <algorithm>
 #include <filesystem>
 
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "base/path/path_util.h"
@@ -69,7 +70,7 @@ Status parse_root_path(const string& root_path, StorePath* path) {
     std::vector<string> tmp_vec = absl::StrSplit(root_path, ",", absl::SkipWhitespace());
 
     // parse root path name
-    StripWhiteSpace(&tmp_vec[0]);
+    tmp_vec[0] = std::string(absl::StripAsciiWhitespace(tmp_vec[0]));
     tmp_vec[0].erase(tmp_vec[0].find_last_not_of('/') + 1);
     if (tmp_vec[0].empty() || tmp_vec[0][0] != '/') {
         LOG(WARNING) << "invalid store path. path=" << tmp_vec[0];
@@ -112,8 +113,8 @@ Status parse_root_path(const string& root_path, StorePath* path) {
             value = pair.second;
         }
 
-        StripWhiteSpace(&property);
-        StripWhiteSpace(&value);
+        property = std::string(absl::StripAsciiWhitespace(property));
+        value = std::string(absl::StripAsciiWhitespace(value));
         if (property == CAPACITY_UC) {
             // deprecated, do nothing
             // keep this logic to prevent users who use the old config from failing to start after upgrading

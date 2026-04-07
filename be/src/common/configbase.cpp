@@ -26,6 +26,7 @@
 #include <set>
 #include <string>
 
+#include "absl/strings/ascii.h"
 #include "common/configbase_impl.h"
 #include "common/status.h"
 #include "fmt/format.h"
@@ -133,7 +134,7 @@ inline bool parse_key_value_pairs(std::istream& input) {
         std::getline(input, line);
 
         // Remove left and right spaces.
-        StripWhiteSpace(&line);
+        line = std::string(absl::StripAsciiWhitespace(line));
 
         // Ignore comments.
         if (line.empty() || line[0] == '#') {
@@ -142,7 +143,7 @@ inline bool parse_key_value_pairs(std::istream& input) {
 
         // Read key and value.
         std::pair<std::string, std::string> kv = absl::StrSplit(line, absl::MaxSplits("=", 1));
-        StripWhiteSpace(&kv.first);
+        kv.first = std::string(absl::StripAsciiWhitespace(kv.first));
 
         // compatible with doris_config
         kv.first = std::regex_replace(kv.first, doris_start, "");
@@ -184,7 +185,7 @@ bool Field::set_value(std::string value) {
     if (auto st = replaceenv(value); !st.ok()) {
         return false;
     }
-    StripWhiteSpace(&value);
+    value = std::string(absl::StripAsciiWhitespace(value));
     bool success = parse_value(value);
     if (success) {
         _last_set_val.swap(_current_set_val);

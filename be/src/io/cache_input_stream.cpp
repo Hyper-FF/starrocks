@@ -18,6 +18,7 @@
 
 #include <utility>
 
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_split.h"
 #include "base/hash/hash_std.hpp"
 #include "common/config_network_fwd.h"
@@ -539,8 +540,8 @@ void CacheInputStream::set_peer_cache_node(const std::string& peer_node) {
         return;
     }
 
-    StripWhiteSpace(&parts[0]);
-    StripWhiteSpace(&parts[1]);
+    parts[0] = std::string(absl::StripAsciiWhitespace(parts[0]));
+    parts[1] = std::string(absl::StripAsciiWhitespace(parts[1]));
     if (parts[0] == BackendOptions::get_localhost() && std::stoi(parts[1]) == config::brpc_port) {
         return;
     }
