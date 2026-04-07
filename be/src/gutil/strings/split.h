@@ -43,7 +43,6 @@ using std::vector;
 #include "gutil/logging.h"
 #include "gutil/strings/charset.h"
 #include "gutil/strings/stringpiece.h"
-#include "gutil/strings/strip.h"
 
 namespace strings {
 
