@@ -38,8 +38,6 @@
 // symbols.
 #include <bitshuffle/bitshuffle.h>
 
-#include "base/cpu.h"
-
 // Include the bitshuffle header again, but this time importing the
 // AVX2-compiled symbols by defining some macros.
 // See `build_bitshuffle` in `build-thirdparty.sh` for detail.
@@ -69,8 +67,6 @@
 #undef bshuf_compress_lz4_bound
 #undef bshuf_compress_lz4
 #undef bshuf_decompress_lz4
-
-using base::CPU;
 
 namespace starrocks::bitshuffle {
 

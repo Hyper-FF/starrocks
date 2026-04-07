@@ -71,7 +71,7 @@ public:
     ~ScopedFdCloser() {
         int err;
         RETRY_ON_EINTR(err, ::close(fd_));
-        if (PREDICT_FALSE(err != 0)) {
+        if (UNLIKELY(err != 0)) {
             LOG(WARNING) << "Failed to close fd " << fd_;
         }
     }
@@ -165,13 +165,13 @@ static Status do_writev_at(int fd, const string& filename, uint64_t offset, cons
         size_t iov_count = std::min(data_cnt - completed_iov, static_cast<size_t>(IOV_MAX));
         ssize_t w;
         RETRY_ON_EINTR(w, pwritev(fd, iov + completed_iov, iov_count, cur_offset));
-        if (PREDICT_FALSE(w < 0)) {
+        if (UNLIKELY(w < 0)) {
             perror("TRACE pwritev");
             // An error: return a non-ok status.
             return io_error(filename, errno);
         }
 
-        if (PREDICT_TRUE(w == rem)) {
+        if (LIKELY(w == rem)) {
             // All requested bytes were read. This is almost always the case.
             rem = 0;
             break;
