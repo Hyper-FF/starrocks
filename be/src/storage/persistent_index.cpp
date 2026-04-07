@@ -37,6 +37,7 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "gutil/strings/escaping.h"
+#include "gutil/strings/stringpiece.h"
 #include "gutil/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
