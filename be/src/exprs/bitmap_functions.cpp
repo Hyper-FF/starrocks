@@ -28,6 +28,7 @@
 #include "exprs/function_context.h"
 #include "exprs/unary_function.h"
 #include "gutil/casts.h"
+#include "gutil/strings/numbers.h"
 #include "gutil/strings/split.h"
 
 namespace starrocks {

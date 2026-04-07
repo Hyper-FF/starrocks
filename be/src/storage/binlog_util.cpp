@@ -16,6 +16,7 @@
 
 #include <re2/re2.h>
 
+#include "absl/strings/numbers.h"
 #include "fmt/format.h"
 #include "fs/fs_util.h"
 
@@ -58,7 +59,7 @@ bool BinlogUtil::get_file_id_from_name(const std::string& file_name, int64_t* fi
         return false;
     }
 
-    ret = safe_strto64(fild_id_str, file_id);
+    ret = absl::SimpleAtoi(fild_id_str, file_id);
     if (!ret) {
         LOG(WARNING) << "Invalid binlog file name, file_name: " << file_name << ", file_id_str: " << fild_id_str;
         return false;

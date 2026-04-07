@@ -47,6 +47,7 @@
 #include "common/config_diagnostic_fwd.h"
 #include "common/config_path_fwd.h"
 #include "common/configbase.h"
+#include "gutil/strings/numbers.h"
 #include "http/action/profile_utils.h"
 #include "http/web_page_handler.h"
 #include "jemalloc/jemalloc.h"

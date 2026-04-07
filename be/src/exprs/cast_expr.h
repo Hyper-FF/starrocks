@@ -420,7 +420,7 @@ struct CastToString {
             return v.to_string();
         } else {
             // int8_t ~ int64_t, boolean
-            return SimpleItoa(v);
+            return std::to_string(v);
         }
     }
 
