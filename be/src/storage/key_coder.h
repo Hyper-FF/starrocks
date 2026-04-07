@@ -196,7 +196,7 @@ public:
     static void full_encode_ascending(const void* value, std::string* buf) {
         UnsignedCppType unsigned_val;
         memcpy(&unsigned_val, value, sizeof(unsigned_val));
-        unsigned_val = starrocks::endian_compat::BigEndian::FromHost24(unsigned_val);
+        unsigned_val = BigEndian::FromHost24(unsigned_val);
         buf->append((char*)&unsigned_val, sizeof(unsigned_val));
     }
 
@@ -222,7 +222,7 @@ public:
         }
         UnsignedCppType unsigned_val;
         memcpy(&unsigned_val, encoded_key->data, sizeof(UnsignedCppType));
-        unsigned_val = starrocks::endian_compat::BigEndian::ToHost24(unsigned_val);
+        unsigned_val = BigEndian::ToHost24(unsigned_val);
         memcpy(cell_ptr, &unsigned_val, sizeof(UnsignedCppType));
         encoded_key->remove_prefix(sizeof(UnsignedCppType));
         return Status::OK();

@@ -39,22 +39,22 @@ inline uint8_t to_bigendian(uint8_t v) {
 
 template <>
 inline uint16_t to_bigendian(uint16_t v) {
-    return absl::big_endian::FromHost16(v);
+    return BigEndian::FromHost16(v);
 }
 
 template <>
 inline uint32_t to_bigendian(uint32_t v) {
-    return absl::big_endian::FromHost32(v);
+    return BigEndian::FromHost32(v);
 }
 
 template <>
 inline uint64_t to_bigendian(uint64_t v) {
-    return absl::big_endian::FromHost64(v);
+    return BigEndian::FromHost64(v);
 }
 
 template <>
 inline uint128_t to_bigendian(uint128_t v) {
-    return starrocks::endian_compat::BigEndian::FromHost128(v);
+    return BigEndian::FromHost128(v);
 }
 
 // Integral encoding with order-preserving transformation

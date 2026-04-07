@@ -14,7 +14,7 @@
 
 #include "storage/snapshot_meta.h"
 
-#include "absl/base/internal/endian.h"
+#include "base/endian.h"
 #include "base/coding.h"
 #include "base/container/raw_container.h"
 #include "fmt/format.h"
@@ -103,8 +103,8 @@ Status SnapshotMeta::serialize_to_file(WritableFile* file) {
     }
     std::string s;
     s.reserve(16);
-    put_fixed64_le(&s, absl::big_endian::FromHost64(footer_offset));
-    put_fixed64_le(&s, absl::big_endian::FromHost64(stream.size() + 16));
+    put_fixed64_le(&s, BigEndian::FromHost64(footer_offset));
+    put_fixed64_le(&s, BigEndian::FromHost64(stream.size() + 16));
     DCHECK_EQ(16, s.size());
     RETURN_IF_ERROR(stream.append(s));
     return Status::OK();
@@ -184,8 +184,8 @@ Status SnapshotMeta::parse_from_file(RandomAccessFile* file) {
     RETURN_IF_ERROR(file->read_at_fully(file_length - 16, buff.data(), buff.size()));
     // Parse SnapshotMetaFooterPB
     auto footer_limit = static_cast<int64_t>(file_length) - 16;
-    auto footer_offset = static_cast<int64_t>(absl::big_endian::ToHost64(UNALIGNED_LOAD64(buff.data())));
-    auto saved_length = static_cast<int64_t>(absl::big_endian::ToHost64(UNALIGNED_LOAD64(buff.data() + 8)));
+    auto footer_offset = static_cast<int64_t>(BigEndian::ToHost64(UNALIGNED_LOAD64(buff.data())));
+    auto saved_length = static_cast<int64_t>(BigEndian::ToHost64(UNALIGNED_LOAD64(buff.data() + 8)));
     if (saved_length != file_length) {
         return Status::Corruption("invalid saved file length");
     }

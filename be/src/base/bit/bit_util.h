@@ -160,21 +160,21 @@ public:
     template <typename T>
     static T big_endian(T value) {
         if constexpr (std::is_same_v<T, __int128>) {
-            return starrocks::endian_compat::BigEndian::FromHost128(value);
+            return BigEndian::FromHost128(value);
         } else if constexpr (std::is_same_v<T, unsigned __int128>) {
-            return starrocks::endian_compat::BigEndian::FromHost128(value);
+            return BigEndian::FromHost128(value);
         } else if constexpr (std::is_same_v<T, int64_t>) {
-            return absl::big_endian::FromHost64(value);
+            return BigEndian::FromHost64(value);
         } else if constexpr (std::is_same_v<T, uint64_t>) {
-            return absl::big_endian::FromHost64(value);
+            return BigEndian::FromHost64(value);
         } else if constexpr (std::is_same_v<T, int32_t>) {
-            return absl::big_endian::FromHost32(value);
+            return BigEndian::FromHost32(value);
         } else if constexpr (std::is_same_v<T, uint32_t>) {
-            return absl::big_endian::FromHost32(value);
+            return BigEndian::FromHost32(value);
         } else if constexpr (std::is_same_v<T, int16_t>) {
-            return absl::big_endian::FromHost16(value);
+            return BigEndian::FromHost16(value);
         } else if constexpr (std::is_same_v<T, uint16_t>) {
-            return absl::big_endian::FromHost16(value);
+            return BigEndian::FromHost16(value);
         } else if constexpr (std::is_same_v<T, int8_t>) {
             return value;
         } else if constexpr (std::is_same_v<T, uint8_t>) {
@@ -188,21 +188,21 @@ public:
     template <typename T>
     static T big_endian_to_host(T value) {
         if constexpr (std::is_same_v<T, __int128>) {
-            return starrocks::endian_compat::BigEndian::ToHost128(value);
+            return BigEndian::ToHost128(value);
         } else if constexpr (std::is_same_v<T, unsigned __int128>) {
-            return starrocks::endian_compat::BigEndian::ToHost128(value);
+            return BigEndian::ToHost128(value);
         } else if constexpr (std::is_same_v<T, int64_t>) {
-            return absl::big_endian::ToHost64(value);
+            return BigEndian::ToHost64(value);
         } else if constexpr (std::is_same_v<T, uint64_t>) {
-            return absl::big_endian::ToHost64(value);
+            return BigEndian::ToHost64(value);
         } else if constexpr (std::is_same_v<T, int32_t>) {
-            return absl::big_endian::ToHost32(value);
+            return BigEndian::ToHost32(value);
         } else if constexpr (std::is_same_v<T, uint32_t>) {
-            return absl::big_endian::ToHost32(value);
+            return BigEndian::ToHost32(value);
         } else if constexpr (std::is_same_v<T, int16_t>) {
-            return absl::big_endian::ToHost16(value);
+            return BigEndian::ToHost16(value);
         } else if constexpr (std::is_same_v<T, uint16_t>) {
-            return absl::big_endian::ToHost16(value);
+            return BigEndian::ToHost16(value);
         } else if constexpr (std::is_same_v<T, int8_t>) {
             return value;
         } else if constexpr (std::is_same_v<T, uint8_t>) {

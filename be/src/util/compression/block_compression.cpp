@@ -41,7 +41,7 @@
 #endif
 #include <zlib.h>
 
-#include "absl/base/internal/endian.h"
+#include "base/endian.h"
 #include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/string/faststring.h"
@@ -248,7 +248,7 @@ public:
 
             // Prepend compressed size in bytes to be compatible with Hadoop
             // Lz4Codec
-            absl::big_endian::Store32(output_ptr, static_cast<uint32_t>(raw_output.size));
+            BigEndian::Store32(output_ptr, static_cast<uint32_t>(raw_output.size));
 
             output_ptr += raw_output.size + kHadoopLz4InnerBlockPrefixLength;
             remaining_output_size -= raw_output.size + kHadoopLz4InnerBlockPrefixLength;
@@ -257,7 +257,7 @@ public:
 
         // Prepend decompressed size in bytes to be compatible with Hadoop
         // Lz4Codec
-        absl::big_endian::Store32(output->data, decompressed_block_len);
+        BigEndian::Store32(output->data, decompressed_block_len);
 
         output->size = output->size - remaining_output_size;
 
@@ -306,7 +306,7 @@ private:
                 return Status::InvalidArgument(
                         absl::Substitute("fail to do hadoop-lz4 decompress, input_len=$0", input_len));
             }
-            uint32_t decompressed_block_len = absl::big_endian::Load32(input_ptr);
+            uint32_t decompressed_block_len = BigEndian::Load32(input_ptr);
             input_ptr += sizeof(uint32_t);
             input_len -= sizeof(uint32_t);
             std::size_t remaining_output_size = buffer_size - decompressed_total_len;
@@ -329,7 +329,7 @@ private:
                                              decompressed_total_len, input_len));
                 }
                 // Read the length of the next lz4 compressed block.
-                size_t compressed_len = absl::big_endian::Load32(input_ptr);
+                size_t compressed_len = BigEndian::Load32(input_ptr);
                 input_ptr += sizeof(uint32_t);
                 input_len -= sizeof(uint32_t);
 

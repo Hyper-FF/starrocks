@@ -16,7 +16,7 @@
 
 #include <roaring/roaring64.h>
 
-#include "absl/base/internal/endian.h"
+#include "base/endian.h"
 #include "base/string/base85.h"
 #include "base/uuid/uuid_generator.h"
 #include "common/config_scan_io_fwd.h"
@@ -48,7 +48,7 @@ Status DeletionVector::fill_row_indexes(const SkipRowsContextPtr& skip_rows_ctx)
         RETURN_IF_ERROR(dv_file->read_at_fully(offset, &size_from_deletion_vector_file, DV_SIZE_LENGTH));
         offset += DV_SIZE_LENGTH;
         // the size_from_deletion_vector_file is big endian byte order
-        size_from_deletion_vector_file = absl::big_endian::ToHost32(size_from_deletion_vector_file);
+        size_from_deletion_vector_file = BigEndian::ToHost32(size_from_deletion_vector_file);
 
         if (size_from_deletion_vector_file != length) {
             std::stringstream ss;
@@ -60,7 +60,7 @@ Status DeletionVector::fill_row_indexes(const SkipRowsContextPtr& skip_rows_ctx)
         uint32_t magic_number_from_deletion_vector_file;
         RETURN_IF_ERROR(dv_file->read_at_fully(offset, &magic_number_from_deletion_vector_file, MAGIC_NUMBER_LENGTH));
         // magic_number_from_deletion_vector_file is little endian byte order
-        magic_number_from_deletion_vector_file = absl::little_endian::ToHost32(magic_number_from_deletion_vector_file);
+        magic_number_from_deletion_vector_file = LittleEndian::ToHost32(magic_number_from_deletion_vector_file);
         offset += MAGIC_NUMBER_LENGTH;
 
         int64_t serialized_bitmap_length = length - MAGIC_NUMBER_LENGTH;

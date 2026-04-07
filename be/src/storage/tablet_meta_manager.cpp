@@ -45,7 +45,7 @@
 #include <string>
 #include <vector>
 
-#include "absl/base/internal/endian.h"
+#include "base/endian.h"
 #include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/failpoint/fail_point.h"
@@ -161,7 +161,7 @@ Status TabletMetaManager::get_primary_meta(KVStore* meta, TTabletId tablet_id, T
     prefix.clear();
     prefix.reserve(TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t));
     prefix.append(TABLET_META_ROWSET_PREFIX);
-    put_fixed64_le(&prefix, absl::big_endian::FromHost64(tablet_id));
+    put_fixed64_le(&prefix, BigEndian::FromHost64(tablet_id));
     auto ret = meta->iterate(META_COLUMN_FAMILY_INDEX, prefix, traverse_rst_func);
     if (!ret.ok()) {
         return Status::InternalError("scan meta error");
@@ -209,7 +209,7 @@ Status TabletMetaManager::get_primary_meta(KVStore* meta, TTabletId tablet_id, T
     prefix.clear();
     prefix.reserve(TABLET_META_PENDING_ROWSET_PREFIX.length() + sizeof(uint64_t));
     prefix.append(TABLET_META_PENDING_ROWSET_PREFIX);
-    put_fixed64_le(&prefix, absl::big_endian::FromHost64(tablet_id));
+    put_fixed64_le(&prefix, BigEndian::FromHost64(tablet_id));
     ret = meta->iterate(META_COLUMN_FAMILY_INDEX, prefix, traverse_pending_rst_func);
     if (!ret.ok()) {
         return Status::InternalError("scan meta error");
@@ -257,7 +257,7 @@ Status TabletMetaManager::get_primary_meta(KVStore* meta, TTabletId tablet_id, T
     prefix.clear();
     prefix.reserve(TABLET_META_LOG_PREFIX.length() + sizeof(uint64_t));
     prefix.append(TABLET_META_LOG_PREFIX);
-    put_fixed64_le(&prefix, absl::big_endian::FromHost64(tablet_id));
+    put_fixed64_le(&prefix, BigEndian::FromHost64(tablet_id));
     ret = meta->iterate(META_COLUMN_FAMILY_INDEX, prefix, traverse_log_func);
     if (!ret.ok()) {
         return Status::InternalError("scan meta error");
@@ -308,7 +308,7 @@ Status TabletMetaManager::get_primary_meta(KVStore* meta, TTabletId tablet_id, T
     prefix.clear();
     prefix.reserve(24);
     prefix.append(TABLET_DELVEC_PREFIX);
-    put_fixed64_le(&prefix, absl::big_endian::FromHost64(tablet_id));
+    put_fixed64_le(&prefix, BigEndian::FromHost64(tablet_id));
     ret = meta->iterate(META_COLUMN_FAMILY_INDEX, prefix, traverse_dlv_func);
     if (!ret.ok()) {
         return Status::InternalError("scan meta error");
@@ -639,8 +639,8 @@ static string encode_meta_log_key(TTabletId id, uint64_t logid) {
     string ret;
     ret.reserve(TABLET_META_LOG_PREFIX.length() + sizeof(uint64_t) * 2);
     ret.append(TABLET_META_LOG_PREFIX);
-    put_fixed64_le(&ret, absl::big_endian::FromHost64(id));
-    put_fixed64_le(&ret, absl::big_endian::FromHost64(logid));
+    put_fixed64_le(&ret, BigEndian::FromHost64(id));
+    put_fixed64_le(&ret, BigEndian::FromHost64(logid));
     return ret;
 }
 
@@ -648,8 +648,8 @@ static bool decode_meta_log_key(std::string_view key, TTabletId* id, uint64_t* l
     if (key.length() != TABLET_META_LOG_PREFIX.length() + sizeof(uint64_t) * 2) {
         return false;
     }
-    *id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length()));
-    *logid = absl::big_endian::ToHost64(
+    *id = BigEndian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length()));
+    *logid = BigEndian::ToHost64(
             UNALIGNED_LOAD64(key.data() + TABLET_META_LOG_PREFIX.length() + sizeof(uint64_t)));
     return true;
 }
@@ -658,8 +658,8 @@ static string encode_meta_rowset_key(TTabletId id, uint32_t rowsetid) {
     string ret;
     ret.reserve(TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t) + sizeof(uint32_t));
     ret.append(TABLET_META_ROWSET_PREFIX);
-    put_fixed64_le(&ret, absl::big_endian::FromHost64(id));
-    put_fixed32_le(&ret, absl::big_endian::FromHost32(rowsetid));
+    put_fixed64_le(&ret, BigEndian::FromHost64(id));
+    put_fixed32_le(&ret, BigEndian::FromHost32(rowsetid));
     return ret;
 }
 
@@ -667,8 +667,8 @@ static string encode_meta_rowset_key(TTabletId id, uint32_t rowsetid) {
     if (key.length() != TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t) + sizeof(uint32_t)) {
         return false;
     }
-    *id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_ROWSET_PREFIX.length()));
-    *rowsetid = absl::big_endian::ToHost32(
+    *id = BigEndian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_ROWSET_PREFIX.length()));
+    *rowsetid = BigEndian::ToHost32(
             UNALIGNED_LOAD32(key.data() + TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t)));
     return true;
 }
@@ -677,8 +677,8 @@ static string encode_meta_pending_rowset_key(TTabletId id, int64_t version) {
     string ret;
     ret.reserve(TABLET_META_PENDING_ROWSET_PREFIX.length() + sizeof(uint64_t) + sizeof(uint64_t));
     ret.append(TABLET_META_PENDING_ROWSET_PREFIX);
-    put_fixed64_le(&ret, absl::big_endian::FromHost64(id));
-    put_fixed64_le(&ret, absl::big_endian::FromHost64(version));
+    put_fixed64_le(&ret, BigEndian::FromHost64(id));
+    put_fixed64_le(&ret, BigEndian::FromHost64(version));
     return ret;
 }
 
@@ -686,8 +686,8 @@ static string encode_meta_pending_rowset_key(TTabletId id, int64_t version) {
     if (key.length() != TABLET_META_PENDING_ROWSET_PREFIX.length() + sizeof(uint64_t) + sizeof(uint64_t)) {
         return false;
     }
-    *id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_PENDING_ROWSET_PREFIX.length()));
-    *version = absl::big_endian::ToHost64(
+    *id = BigEndian::ToHost64(UNALIGNED_LOAD64(key.data() + TABLET_META_PENDING_ROWSET_PREFIX.length()));
+    *version = BigEndian::ToHost64(
             UNALIGNED_LOAD64(key.data() + TABLET_META_PENDING_ROWSET_PREFIX.length() + sizeof(uint64_t)));
     return true;
 }
@@ -696,51 +696,51 @@ std::string encode_del_vector_key(TTabletId tablet_id, uint32_t segment_id, int6
     std::string key;
     key.reserve(24);
     key.append(TABLET_DELVEC_PREFIX);
-    put_fixed64_le(&key, absl::big_endian::FromHost64(tablet_id));
-    put_fixed32_le(&key, absl::big_endian::FromHost32(segment_id));
+    put_fixed64_le(&key, BigEndian::FromHost64(tablet_id));
+    put_fixed32_le(&key, BigEndian::FromHost32(segment_id));
     // If a segment attached with multiple del-vectors, make them
     // sorted by version in reverse order in RocksDB.
     int64_t v = std::numeric_limits<int64_t>::max() - version;
-    put_fixed64_le(&key, absl::big_endian::FromHost64(v));
+    put_fixed64_le(&key, BigEndian::FromHost64(v));
     return key;
 }
 
 void decode_del_vector_key(std::string_view enc_key, TTabletId* tablet_id, uint32_t* segment_id, int64_t* version) {
     DCHECK_EQ(4 + sizeof(TTabletId) + sizeof(uint32_t) + sizeof(int64_t), enc_key.size());
-    *tablet_id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 4));
-    *segment_id = absl::big_endian::ToHost32(UNALIGNED_LOAD32(enc_key.data() + 12));
-    *version = INT64_MAX - absl::big_endian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 16));
+    *tablet_id = BigEndian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 4));
+    *segment_id = BigEndian::ToHost32(UNALIGNED_LOAD32(enc_key.data() + 12));
+    *version = INT64_MAX - BigEndian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 16));
 }
 
 std::string encode_persistent_index_key(TTabletId tablet_id) {
     std::string key;
     key.reserve(TABLET_PERSISTENT_INDEX_META_PREFIX.length() + sizeof(uint64_t));
     key.append(TABLET_PERSISTENT_INDEX_META_PREFIX);
-    put_fixed64_le(&key, absl::big_endian::FromHost64(tablet_id));
+    put_fixed64_le(&key, BigEndian::FromHost64(tablet_id));
     return key;
 }
 
 void decode_persistent_index_key(std::string_view enc_key, TTabletId* tablet_id) {
     DCHECK_EQ(4 + sizeof(uint64_t), enc_key.size());
-    *tablet_id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 4));
+    *tablet_id = BigEndian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 4));
 }
 
 int64_t decode_del_vector_key_version(std::string_view key) {
     DCHECK_GT(key.size(), sizeof(int64_t));
     auto v = UNALIGNED_LOAD64(key.data() + key.size() - sizeof(int64_t));
-    return std::numeric_limits<int64_t>::max() - absl::big_endian::ToHost64(v);
+    return std::numeric_limits<int64_t>::max() - BigEndian::ToHost64(v);
 }
 
 std::string encode_delta_column_group_key(TTabletId tablet_id, uint32_t segment_id, int64_t version) {
     std::string key;
     key.reserve(24);
     key.append(TABLET_DELTA_COLUMN_GROUP_PREFIX);
-    put_fixed64_le(&key, absl::big_endian::FromHost64(tablet_id));
-    put_fixed32_le(&key, absl::big_endian::FromHost32(segment_id));
+    put_fixed64_le(&key, BigEndian::FromHost64(tablet_id));
+    put_fixed32_le(&key, BigEndian::FromHost32(segment_id));
     // If a segment attached with multiple delta column group, make them
     // sorted by version in reverse order in RocksDB.
     int64_t v = std::numeric_limits<int64_t>::max() - version;
-    put_fixed64_le(&key, absl::big_endian::FromHost64(v));
+    put_fixed64_le(&key, BigEndian::FromHost64(v));
     return key;
 }
 
@@ -758,36 +758,36 @@ std::string encode_delta_column_group_key(TTabletId tablet_id, std::string rowse
     key.append(TABLET_DELTA_COLUMN_GROUP_PREFIX);
     for (size_t i = 0; i < 8; ++i) {
         uint64_t* partial = reinterpret_cast<uint64_t*>(rowsetid.data() + i * 8);
-        put_fixed64_le(&key, absl::big_endian::FromHost64(*partial));
+        put_fixed64_le(&key, BigEndian::FromHost64(*partial));
     }
-    put_fixed64_le(&key, absl::big_endian::FromHost64(tablet_id));
-    put_fixed32_le(&key, absl::big_endian::FromHost32(segment_id));
+    put_fixed64_le(&key, BigEndian::FromHost64(tablet_id));
+    put_fixed32_le(&key, BigEndian::FromHost32(segment_id));
     // If a segment attached with multiple delta column group, make them
     // sorted by version in reverse order in RocksDB.
     int64_t v = std::numeric_limits<int64_t>::max() - version;
-    put_fixed64_le(&key, absl::big_endian::FromHost64(v));
+    put_fixed64_le(&key, BigEndian::FromHost64(v));
     return key;
 }
 
 void decode_delta_column_group_key(std::string_view enc_key, TTabletId* tablet_id, uint32_t* segment_id,
                                    int64_t* version) {
     DCHECK_EQ(4 + sizeof(TTabletId) + sizeof(uint32_t) + sizeof(int64_t), enc_key.size());
-    *tablet_id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 4));
-    *segment_id = absl::big_endian::ToHost32(UNALIGNED_LOAD32(enc_key.data() + 12));
-    *version = INT64_MAX - absl::big_endian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 16));
+    *tablet_id = BigEndian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 4));
+    *segment_id = BigEndian::ToHost32(UNALIGNED_LOAD32(enc_key.data() + 12));
+    *version = INT64_MAX - BigEndian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 16));
 }
 
 void decode_delta_column_group_key(std::string_view enc_key, TTabletId* tablet_id, std::string* rowsetid,
                                    uint32_t* segment_id, int64_t* version) {
     DCHECK_EQ(4 + 64 + sizeof(TTabletId) + sizeof(uint32_t) + sizeof(int64_t), enc_key.size());
     for (size_t i = 0; i < 8; ++i) {
-        uint64_t partial = absl::big_endian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 4 + i * 8));
+        uint64_t partial = BigEndian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 4 + i * 8));
         const char* str = reinterpret_cast<char*>(&partial);
         rowsetid->append(str, 8);
     }
-    *tablet_id = absl::big_endian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 68));
-    *segment_id = absl::big_endian::ToHost32(UNALIGNED_LOAD32(enc_key.data() + 76));
-    *version = INT64_MAX - absl::big_endian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 80));
+    *tablet_id = BigEndian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 68));
+    *segment_id = BigEndian::ToHost32(UNALIGNED_LOAD32(enc_key.data() + 76));
+    *version = INT64_MAX - BigEndian::ToHost64(UNALIGNED_LOAD64(enc_key.data() + 80));
 }
 
 DEFINE_FAIL_POINT(tablet_meta_manager_rowset_commit_internal_error);
@@ -865,7 +865,7 @@ Status TabletMetaManager::rowset_iterate(DataDir* store, TTabletId tablet_id, co
     string prefix;
     prefix.reserve(TABLET_META_ROWSET_PREFIX.length() + sizeof(uint64_t));
     prefix.append(TABLET_META_ROWSET_PREFIX);
-    put_fixed64_le(&prefix, absl::big_endian::FromHost64(tablet_id));
+    put_fixed64_le(&prefix, BigEndian::FromHost64(tablet_id));
 
     return store->get_meta()->iterate(META_COLUMN_FAMILY_INDEX, prefix,
                                       [&](std::string_view key, std::string_view value) -> StatusOr<bool> {
@@ -1805,7 +1805,7 @@ Status TabletMetaManager::pending_rowset_iterate(DataDir* store, TTabletId table
     string prefix;
     prefix.reserve(TABLET_META_PENDING_ROWSET_PREFIX.length() + sizeof(uint64_t));
     prefix.append(TABLET_META_PENDING_ROWSET_PREFIX);
-    put_fixed64_le(&prefix, absl::big_endian::FromHost64(tablet_id));
+    put_fixed64_le(&prefix, BigEndian::FromHost64(tablet_id));
 
     return store->get_meta()->iterate(
             META_COLUMN_FAMILY_INDEX, prefix, [&](std::string_view key, std::string_view value) -> StatusOr<bool> {
