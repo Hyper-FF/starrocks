@@ -3,6 +3,7 @@
 //
 // This file contains functions that remove a defined part from the string,
 // i.e., strip the string.
+// Key functions delegate to absl (see strip.h inline definitions).
 
 #include "gutil/strings/strip.h"
 
@@ -18,37 +19,11 @@ using std::swap;
 #include <string>
 using std::string;
 
-#include "gutil/strings/ascii_ctype.h"
+#include "absl/strings/ascii.h"
 #include "gutil/strings/stringpiece.h"
-
-string StripPrefixString(StringPiece str, const StringPiece& prefix) {
-    if (str.starts_with(prefix)) str.remove_prefix(prefix.length());
-    return str.as_string();
-}
-
-bool TryStripPrefixString(StringPiece str, const StringPiece& prefix, string* result) {
-    const bool has_prefix = str.starts_with(prefix);
-    if (has_prefix) str.remove_prefix(prefix.length());
-    str.as_string().swap(*result);
-    return has_prefix;
-}
-
-string StripSuffixString(StringPiece str, const StringPiece& suffix) {
-    if (str.ends_with(suffix)) str.remove_suffix(suffix.length());
-    return str.as_string();
-}
-
-bool TryStripSuffixString(StringPiece str, const StringPiece& suffix, string* result) {
-    const bool has_suffix = str.ends_with(suffix);
-    if (has_suffix) str.remove_suffix(suffix.length());
-    str.as_string().swap(*result);
-    return has_suffix;
-}
 
 // ----------------------------------------------------------------------
 // StripString
-//    Replaces any occurrence of the character 'remove' (or the characters
-//    in 'remove') with the character 'replacewith'.
 // ----------------------------------------------------------------------
 void StripString(char* str, StringPiece remove, char replacewith) {
     for (; *str != '\0'; ++str) {
@@ -76,16 +51,15 @@ void StripString(string* s, StringPiece remove, char replacewith) {
 }
 
 // ----------------------------------------------------------------------
-// StripWhiteSpace
+// StripWhiteSpace (const char**, int*)
 // ----------------------------------------------------------------------
 void StripWhiteSpace(const char** str, int* len) {
     // strip off trailing whitespace
-    while ((*len) > 0 && ascii_isspace((*str)[(*len) - 1])) {
+    while ((*len) > 0 && absl::ascii_isspace(static_cast<unsigned char>((*str)[(*len) - 1]))) {
         (*len)--;
     }
-
     // strip off leading whitespace
-    while ((*len) > 0 && ascii_isspace((*str)[0])) {
+    while ((*len) > 0 && absl::ascii_isspace(static_cast<unsigned char>((*str)[0]))) {
         (*len)--;
         (*str)++;
     }
@@ -100,34 +74,6 @@ bool StripTrailingNewline(string* s) {
         return true;
     }
     return false;
-}
-
-void StripWhiteSpace(string* str) {
-    int str_length = str->length();
-
-    // Strip off leading whitespace.
-    int first = 0;
-    while (first < str_length && ascii_isspace(str->at(first))) {
-        ++first;
-    }
-    // If entire string is white space.
-    if (first == str_length) {
-        str->clear();
-        return;
-    }
-    if (first > 0) {
-        str->erase(0, first);
-        str_length -= first;
-    }
-
-    // Strip off trailing whitespace.
-    int last = str_length - 1;
-    while (last >= 0 && ascii_isspace(str->at(last))) {
-        --last;
-    }
-    if (last != (str_length - 1) && last >= 0) {
-        str->erase(last + 1, string::npos);
-    }
 }
 
 // ----------------------------------------------------------------------
@@ -155,7 +101,6 @@ void StripMarkupTags(string* s) {
             s->erase(openbracket, closebracket);
             return;
         }
-
         openbracket = s->erase(openbracket, closebracket + 1);
         openbracket = find(openbracket, s->end(), '<');
     }
@@ -238,29 +183,19 @@ int strrmm(string* str, const string& chars) {
     return out_index;
 }
 
-// ----------------------------------------------------------------------
-// StripDupCharacters
-//    Replaces any repeated occurrence of the character 'repeat_char'
-//    with single occurrence.  e.g.,
-//       StripDupCharacters("a//b/c//d", '/', 0) => "a/b/c/d"
-//    Return the number of characters removed
-// ----------------------------------------------------------------------
 int StripDupCharacters(string* s, char dup_char, int start_pos) {
     if (start_pos < 0) start_pos = 0;
 
-    // remove dups by compaction in-place
-    int input_pos = start_pos;  // current reader position
-    int output_pos = start_pos; // current writer position
+    int input_pos = start_pos;
+    int output_pos = start_pos;
     const int input_end = s->size();
     while (input_pos < input_end) {
-        // keep current character
         const char curr_char = (*s)[input_pos];
-        if (output_pos != input_pos) // must copy
-            (*s)[output_pos] = curr_char;
+        if (output_pos != input_pos) (*s)[output_pos] = curr_char;
         ++input_pos;
         ++output_pos;
 
-        if (curr_char == dup_char) { // skip subsequent dups
+        if (curr_char == dup_char) {
             while ((input_pos < input_end) && ((*s)[input_pos] == dup_char)) ++input_pos;
         }
     }
@@ -269,75 +204,34 @@ int StripDupCharacters(string* s, char dup_char, int start_pos) {
     return num_deleted;
 }
 
-// ----------------------------------------------------------------------
-// RemoveExtraWhitespace()
-//   Remove leading, trailing, and duplicate internal whitespace.
-// ----------------------------------------------------------------------
 void RemoveExtraWhitespace(string* s) {
     assert(s != nullptr);
-    // Empty strings clearly have no whitespace, and this code assumes that
-    // string length is greater than 0
     if (s->empty()) return;
 
-    int input_pos = 0;  // current reader position
-    int output_pos = 0; // current writer position
+    int input_pos = 0;
+    int output_pos = 0;
     const int input_end = s->size();
     // Strip off leading space
-    while (input_pos < input_end && ascii_isspace((*s)[input_pos])) input_pos++;
+    while (input_pos < input_end && absl::ascii_isspace(static_cast<unsigned char>((*s)[input_pos]))) input_pos++;
 
     while (input_pos < input_end - 1) {
         char c = (*s)[input_pos];
         char next = (*s)[input_pos + 1];
-        // Copy each non-whitespace character to the right position.
-        // For a block of whitespace, print the last one.
-        if (!ascii_isspace(c) || !ascii_isspace(next)) {
-            if (output_pos != input_pos) { // only copy if needed
+        if (!absl::ascii_isspace(static_cast<unsigned char>(c)) ||
+            !absl::ascii_isspace(static_cast<unsigned char>(next))) {
+            if (output_pos != input_pos) {
                 (*s)[output_pos] = c;
             }
             output_pos++;
         }
         input_pos++;
     }
-    // Pick up the last character if needed.
     char c = (*s)[input_end - 1];
-    if (!ascii_isspace(c)) (*s)[output_pos++] = c;
+    if (!absl::ascii_isspace(static_cast<unsigned char>(c))) (*s)[output_pos++] = c;
 
     s->resize(output_pos);
 }
 
-//------------------------------------------------------------------------
-// See comment in header file for a complete description.
-//------------------------------------------------------------------------
-void StripLeadingWhiteSpace(string* str) {
-    char const* const leading = StripLeadingWhiteSpace(const_cast<char*>(str->c_str()));
-    if (leading != nullptr) {
-        string const tmp(leading);
-        str->assign(tmp);
-    } else {
-        str->assign("");
-    }
-}
-
-void StripTrailingWhitespace(string* const s) {
-    string::size_type i;
-    for (i = s->size(); i > 0 && ascii_isspace((*s)[i - 1]); --i) {
-    }
-
-    s->resize(i);
-}
-
-// ----------------------------------------------------------------------
-// TrimRunsInString
-//    Removes leading and trailing runs, and collapses middle
-//    runs of a set of characters into a single character (the
-//    first one specified in 'remove').  Useful for collapsing
-//    runs of repeated delimiters, whitespace, etc.  E.g.,
-//    TrimRunsInString(&s, " :,()") removes leading and trailing
-//    delimiter chars and collapses and converts internal runs
-//    of delimiters to single ' ' characters, so, for example,
-//    "  a:(b):c  " -> "a b c"
-//    "first,last::(area)phone, ::zip" -> "first last area phone zip"
-// ----------------------------------------------------------------------
 void TrimRunsInString(string* s, StringPiece remove) {
     string::iterator dest = s->begin();
     string::iterator src_end = s->end();
@@ -345,11 +239,9 @@ void TrimRunsInString(string* s, StringPiece remove) {
         if (remove.find(*src) == StringPiece::npos) {
             *(dest++) = *(src++);
         } else {
-            // Skip to the end of this run of chars that are in 'remove'.
             for (++src; src != src_end; ++src) {
                 if (remove.find(*src) == StringPiece::npos) {
                     if (dest != s->begin()) {
-                        // This is an internal run; collapse it.
                         *(dest++) = remove[0];
                     }
                     *(dest++) = *(src++);
@@ -361,10 +253,6 @@ void TrimRunsInString(string* s, StringPiece remove) {
     s->erase(dest, src_end);
 }
 
-// ----------------------------------------------------------------------
-// RemoveNullsInString
-//    Removes any internal \0 characters from the string.
-// ----------------------------------------------------------------------
 void RemoveNullsInString(string* s) {
     s->erase(remove(s->begin(), s->end(), '\0'), s->end());
 }

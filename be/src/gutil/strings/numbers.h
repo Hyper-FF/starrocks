@@ -19,11 +19,11 @@ using std::string;
 #include <vector>
 using std::vector;
 
+#include "absl/strings/numbers.h"
 #include "gutil/int128.h"
 #include "gutil/integral_types.h"
 #include "gutil/macros.h"
 #include "gutil/port.h"
-#include "gutil/stringprintf.h"
 
 // START DOXYGEN NumbersFunctions grouping
 /* @defgroup NumbersFunctions
@@ -384,34 +384,17 @@ inline string SimpleItoa(uint64 i) {
 }
 
 // SimpleAtoi converts a string to an integer.
-// Uses safe_strto?() for actual parsing, so strict checking is
-// applied, which is to say, the string must be a base-10 integer, optionally
-// followed or preceded by whitespace, and value has to be in the range of
-// the corresponding integer type.
-//
+// Delegates to absl::SimpleAtoi for the actual parsing.
 // Returns true if parsing was successful.
 template <typename int_type>
 bool MUST_USE_RESULT SimpleAtoi(const char* s, int_type* out) {
-    // Must be of integer type (not pointer type), with more than 16-bitwidth.
-    COMPILE_ASSERT(sizeof(*out) == 4 || sizeof(*out) == 8, SimpleAtoiWorksWith32Or64BitInts);
-    if (std::numeric_limits<int_type>::is_signed) { // Signed
-        if (sizeof(*out) == 64 / 8) {               // 64-bit
-            return safe_strto64(s, reinterpret_cast<int64*>(out));
-        } else { // 32-bit
-            return safe_strto32(s, reinterpret_cast<int32*>(out));
-        }
-    } else {                          // Unsigned
-        if (sizeof(*out) == 64 / 8) { // 64-bit
-            return safe_strtou64(s, reinterpret_cast<uint64*>(out));
-        } else { // 32-bit
-            return safe_strtou32(s, reinterpret_cast<uint32*>(out));
-        }
-    }
+    static_assert(sizeof(*out) == 4 || sizeof(*out) == 8, "SimpleAtoi works with 32 or 64 bit ints");
+    return absl::SimpleAtoi(absl::string_view(s), out);
 }
 
 template <typename int_type>
 bool MUST_USE_RESULT SimpleAtoi(const string& s, int_type* out) {
-    return SimpleAtoi(s.c_str(), out);
+    return absl::SimpleAtoi(s, out);
 }
 
 // ----------------------------------------------------------------------
