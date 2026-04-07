@@ -16,13 +16,13 @@
 
 #include <filesystem>
 
+#include "base/gutil/strings/fastmem.h"
 #include "base/path/filesystem_util.h"
 #include "cache/cache_metrics.h"
 #include "cache/disk_space_monitor.h"
 #include "cache/status.h"
 #include "common/logging.h"
 #include "common/statusor.h"
-#include "base/gutil/strings/fastmem.h"
 #include "runtime/current_thread.h"
 
 namespace starrocks {

@@ -14,6 +14,8 @@
 
 #include "column/fixed_length_column_base.h"
 
+#include "absl/strings/substitute.h"
+#include "base/gutil/strings/fastmem.h"
 #include "base/hash/hash_util.hpp"
 #include "base/simd/gather.h"
 #include "base/types/decimal12.h"
@@ -25,8 +27,6 @@
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
 #include "common/config_local_io_fwd.h"
-#include "base/gutil/strings/fastmem.h"
-#include "absl/strings/substitute.h"
 #include "types/value_generator.h"
 
 namespace starrocks {
@@ -387,7 +387,7 @@ template <typename T>
 Status FixedLengthColumnBase<T>::capacity_limit_reached() const {
     if (_data.size() > Column::MAX_CAPACITY_LIMIT) {
         return Status::CapacityLimitExceed(absl::Substitute("row count of fixed length column exceend the limit: $0",
-                                                               std::to_string(Column::MAX_CAPACITY_LIMIT)));
+                                                            std::to_string(Column::MAX_CAPACITY_LIMIT)));
     }
     return Status::OK();
 }

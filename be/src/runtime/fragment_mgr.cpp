@@ -41,6 +41,7 @@
 #include <memory>
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "base/network/network_util.h"
 #include "base/uid_util.h"
@@ -60,7 +61,6 @@
 #include "gen_cpp/FrontendService.h"
 #include "gen_cpp/HeartbeatService.h"
 #include "gen_cpp/QueryPlanExtra_types.h"
-#include "absl/strings/substitute.h"
 #include "runtime/client_cache.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
@@ -216,8 +216,7 @@ Status FragmentExecState::execute() {
     int64_t duration_ns = 0;
     {
         SCOPED_RAW_TIMER(&duration_ns);
-        WARN_IF_ERROR(_executor.open(),
-                      absl::Substitute("Fail to open fragment $0", print_id(_fragment_instance_id)));
+        WARN_IF_ERROR(_executor.open(), absl::Substitute("Fail to open fragment $0", print_id(_fragment_instance_id)));
         _executor.close();
     }
     StarRocksMetrics::instance()->fragment_requests_total.increment(1);
@@ -465,7 +464,7 @@ Status FragmentMgr::exec_plan_fragment(const TExecPlanFragmentParams& params, co
     if (!st.ok()) {
         exec_state->cancel(PPlanFragmentCancelReason::INTERNAL_ERROR);
         std::string error_msg = absl::Substitute("Put planfragment $0 to thread pool failed. err = $1",
-                                                    print_id(fragment_instance_id), st.message());
+                                                 print_id(fragment_instance_id), st.message());
         LOG(WARNING) << error_msg;
         {
             // Remove the exec state added

@@ -14,13 +14,13 @@
 
 #include "storage/lake/transactions.h"
 
+#include "absl/strings/str_join.h"
 #include "base/container/lru_cache.h"
 #include "base/utility/defer_op.h"
 #include "common/config_lake_fwd.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "gen_cpp/lake_types.pb.h"
-#include "absl/strings/str_join.h"
 #include "runtime/exec_env.h"
 #include "storage/lake/metacache.h"
 #include "storage/lake/replication_txn_manager.h"

@@ -38,6 +38,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/str_split.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "base/uid_util.h"
 #include "base/utility/defer_op.h"
@@ -46,7 +47,6 @@
 #include "common/status.h"
 #include "common/system/backend_options.h"
 #include "fmt/format.h"
-#include "absl/strings/str_split.h"
 #include "runtime/exec_env.h"
 #include "runtime/small_file_mgr.h"
 

@@ -22,6 +22,7 @@
 
 #include <fstream>
 
+#include "absl/strings/str_join.h"
 #include "base/testutil/assert.h"
 #include "base/uid_util.h"
 #include "common/config_object_storage_fwd.h"
@@ -30,7 +31,6 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_options_helper.h"
 #include "fs/fs_s3.h"
-#include "absl/strings/str_join.h"
 
 namespace starrocks {
 

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "storage/index/inverted/clucene/clucene_inverted_writer.h"
-#include "absl/strings/substitute.h"
 
 #include <CLucene/analysis/LanguageBasedAnalyzer.h>
 #include <CLucene/util/Misc.h>
@@ -21,6 +20,7 @@
 
 #include <boost/locale/encoding_utf.hpp>
 
+#include "absl/strings/substitute.h"
 #include "base/string/faststring.h"
 #include "common/status.h"
 #include "storage/index/index_descriptor.h"

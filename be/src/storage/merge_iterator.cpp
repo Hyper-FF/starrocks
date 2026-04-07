@@ -18,9 +18,9 @@
 #include <queue>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "column/chunk.h"
 #include "exec/sorting/sorting.h"
-#include "absl/strings/substitute.h"
 #include "storage/chunk_helper.h"
 
 namespace starrocks {

@@ -20,6 +20,7 @@
 #include <random>
 #include <utility>
 
+#include "base/gutil/map_util.h"
 #include "base/testutil/assert.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
@@ -41,7 +42,6 @@
 #include "exec/pipeline/scan/connector_scan_operator.h"
 #include "gen_cpp/InternalService_types.h"
 #include "gtest/gtest.h"
-#include "base/gutil/map_util.h"
 #include "pipeline_test_base.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"

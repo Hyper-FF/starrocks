@@ -17,6 +17,7 @@
 #include <arrow/buffer.h>
 #include <parquet/arrow/writer.h>
 
+#include "base/gutil/endian.h"
 #include "column/array_column.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
@@ -25,7 +26,6 @@
 #include "common/logging.h"
 #include "exprs/column_ref.h"
 #include "exprs/expr.h"
-#include "base/gutil/endian.h"
 #include "runtime/exec_env.h"
 
 namespace starrocks {

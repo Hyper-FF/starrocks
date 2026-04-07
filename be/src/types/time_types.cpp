@@ -20,8 +20,8 @@
 #include <smmintrin.h> // SSE4.1 intrinsics
 #endif
 
-#include "base/container/raw_container.h"
 #include "absl/strings/substitute.h"
+#include "base/container/raw_container.h"
 
 namespace starrocks {
 

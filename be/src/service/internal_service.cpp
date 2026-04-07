@@ -43,6 +43,7 @@
 #include <sstream>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "agent/agent_server.h"
 #include "agent/publish_version.h"
 #include "agent/task_worker_pool.h"
@@ -74,7 +75,6 @@
 #include "gen_cpp/InternalService_types.h"
 #include "gen_cpp/MVMaintenance_types.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "absl/strings/substitute.h"
 #include "runtime/batch_write/batch_write_mgr.h"
 #include "runtime/buffer_control_block.h"
 #include "runtime/closure_guard.h"
@@ -697,7 +697,7 @@ void PInternalServiceImplBase<T>::_cancel_plan_fragment(google::protobuf::RpcCon
         auto query_ctx = _exec_env->query_context_mgr()->get(query_id);
         if (!query_ctx) {
             VLOG(1) << absl::Substitute("QueryContext already destroyed: query_id=$0, fragment_instance_id=$1",
-                                           print_id(query_id), print_id(tid));
+                                        print_id(query_id), print_id(tid));
             st.to_protobuf(result->mutable_status());
             return;
         }
@@ -708,9 +708,8 @@ void PInternalServiceImplBase<T>::_cancel_plan_fragment(google::protobuf::RpcCon
             // cancel fragment
             auto&& fragment_ctx = query_ctx->fragment_mgr()->get(tid);
             if (!fragment_ctx) {
-                LOG(INFO) << absl::Substitute(
-                        "FragmentContext already destroyed: query_id=$0, fragment_instance_id=$1", print_id(query_id),
-                        print_id(tid));
+                LOG(INFO) << absl::Substitute("FragmentContext already destroyed: query_id=$0, fragment_instance_id=$1",
+                                              print_id(query_id), print_id(tid));
             } else {
                 fragment_ctx->cancel(Status::Cancelled(reason_string), true);
             }

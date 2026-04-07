@@ -36,6 +36,7 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/time/date_func.h"
 #include "base/uid_util.h"
 #include "column/chunk.h"
@@ -46,7 +47,6 @@
 #include "formats/csv/converter.h"
 #include "fs/fs_broker.h"
 #include "fs/fs_factory.h"
-#include "absl/strings/substitute.h"
 #include "io/formatted_output_stream.h"
 #include "runtime/runtime_state.h"
 

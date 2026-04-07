@@ -19,11 +19,11 @@
 
 #include <memory>
 
+#include "base/compiler_util.h"
 #include "base/concurrency/blocking_queue.hpp"
 #include "common/status.h"
 #include "common/util/stack_trace_mutex.h"
 #include "compaction_task_context.h"
-#include "base/compiler_util.h"
 
 namespace google::protobuf {
 class RpcController;

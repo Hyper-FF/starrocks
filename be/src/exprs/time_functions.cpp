@@ -22,9 +22,9 @@
 #include <string_view>
 #include <unordered_map>
 
+#include "base/gutil/port.h"
 #include "column/column_helper.h"
 #include "column/column_viewer.h"
-#include "base/gutil/port.h"
 
 // Fix for ulong type on macOS
 #ifdef __APPLE__

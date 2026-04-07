@@ -43,13 +43,13 @@
 #include <utility>
 #include <variant>
 
+#include "absl/strings/substitute.h"
+#include "base/gutil/stl_util.h"
 #include "base/string/slice.h"
 #include "column/runtime_type_traits.h"
 #include "exec/olap_utils.h"
 #include "exec/scan_node.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "base/gutil/stl_util.h"
-#include "absl/strings/substitute.h"
 #include "storage/olap_tuple.h"
 #include "types/date_value.h"
 #include "types/datetime_value.h"

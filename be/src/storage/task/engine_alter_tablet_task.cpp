@@ -33,8 +33,8 @@
 // under the License.
 
 #include "storage/task/engine_alter_tablet_task.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "common/config_storage_fwd.h"
 #include "io/io_profiler.h"
@@ -63,8 +63,8 @@ Status EngineAlterTabletTask::execute() {
     auto scope = IOProfiler::scope(IOProfiler::TAG_ALTER, _alter_tablet_req.new_tablet_id);
 
     Status res;
-    std::string alter_msg_header = absl::Substitute("[Alter Job:$0, tablet:$1]: ", _alter_tablet_req.job_id,
-                                                       _alter_tablet_req.base_tablet_id);
+    std::string alter_msg_header =
+            absl::Substitute("[Alter Job:$0, tablet:$1]: ", _alter_tablet_req.job_id, _alter_tablet_req.base_tablet_id);
     std::string task_detail_msg = "";
     if (_alter_tablet_req.tablet_type == TTabletType::TABLET_TYPE_LAKE) {
         lake::SchemaChangeHandler handler(ExecEnv::GetInstance()->lake_tablet_manager());

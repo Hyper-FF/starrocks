@@ -34,13 +34,12 @@
 
 #include "exec/es/es_predicate.h"
 
-#include "absl/strings/substitute.h"
-
 #include <map>
 #include <sstream>
 #include <type_traits>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/types/int128.h"
 #include "column/column.h"
 #include "column/column_viewer.h"

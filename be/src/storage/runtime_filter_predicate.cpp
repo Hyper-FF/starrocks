@@ -16,9 +16,9 @@
 
 #include <cstring>
 
+#include "base/gutil/strings/fastmem.h"
 #include "base/simd/simd.h"
 #include "common/config_rowset_fwd.h"
-#include "base/gutil/strings/fastmem.h"
 #include "runtime/mem_tracker.h"
 #include "storage/rowset/column_iterator.h"
 

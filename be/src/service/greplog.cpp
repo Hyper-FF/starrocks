@@ -20,10 +20,10 @@
 #include <deque>
 #include <filesystem>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "common/config_path_fwd.h"
 #include "common/system/backend_options.h"
-#include "absl/strings/substitute.h"
 #include "hs/hs_compile.h"
 #include "hs/hs_runtime.h"
 
@@ -225,8 +225,7 @@ Status grep_log(int64_t start_ts, int64_t end_ts, char level, const std::string&
     if (database != nullptr) {
         if (hs_alloc_scratch(database, &scratch) != HS_SUCCESS) {
             hs_free_database(database);
-            return Status::InternalError(
-                    absl::Substitute("grep log failed alloc scratch failed pattern:$0", pattern));
+            return Status::InternalError(absl::Substitute("grep log failed alloc scratch failed pattern:$0", pattern));
         }
     }
     DeferOp free_scratch_defer([&scratch]() {
@@ -265,7 +264,7 @@ std::string grep_log_as_string(int64_t start_ts, int64_t end_ts, const std::stri
     auto st = grep_log(start_ts, end_ts, level[0], pattern, limit, entries);
     if (!st.ok()) {
         ss << absl::Substitute("grep log failed $0 start_ts:$1 end_ts:$2 level:$3 pattern:$4 limit:$5\n",
-                                  st.to_string(), start_ts, end_ts, level, pattern, limit);
+                               st.to_string(), start_ts, end_ts, level, pattern, limit);
         return ss.str();
     }
     for (auto& entry : entries) {

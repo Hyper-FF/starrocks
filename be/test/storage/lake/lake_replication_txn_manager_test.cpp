@@ -34,6 +34,7 @@
 #include <fslib/file_system.h>
 #include <fslib/stat.h>
 #endif
+#include "absl/strings/str_join.h"
 #include "column/chunk.h"
 #include "column/datum_tuple.h"
 #include "column/fixed_length_column.h"
@@ -47,7 +48,6 @@
 #include "fs/fs_starlet.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "absl/strings/str_join.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
 #include "service/staros_worker.h"

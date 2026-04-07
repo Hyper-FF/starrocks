@@ -39,9 +39,9 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/str_split.h"
 #include "common/logging.h"
 #include "common/status.h"
-#include "absl/strings/str_split.h"
 #include "storage/kv_store.h"
 
 namespace starrocks {

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/assert.h"
 #include "column/nullable_column.h"
 #include "column/object_column.h"

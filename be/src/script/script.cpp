@@ -18,13 +18,13 @@
 
 #include <regex>
 
+#include "absl/strings/substitute.h"
 #include "base/url_coding.h"
 #include "common/logging.h"
 #include "common/vlog_cntl.h"
 #include "exec/schema_scanner/schema_be_tablets_scanner.h"
 #include "fs/key_cache.h"
 #include "gen_cpp/olap_file.pb.h"
-#include "absl/strings/substitute.h"
 #include "http/action/compaction_action.h"
 #include "io/io_profiler.h"
 #include "runtime/exec_env.h"

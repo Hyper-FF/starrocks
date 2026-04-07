@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "storage/lake/tablet_manager.h"
-#include "absl/strings/substitute.h"
 
 #include <butil/time.h>
 #include <bvar/bvar.h>
@@ -21,9 +20,11 @@
 #include <atomic>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/container/raw_container.h"
 #include "base/debug/trace.h"
 #include "base/failpoint/fail_point.h"
+#include "base/gutil/strings/util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/compiler_util.h"
@@ -34,7 +35,6 @@
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "base/gutil/strings/util.h"
 #include "storage/lake/cloud_native_index_compaction_task.h"
 #include "storage/lake/compaction_policy.h"
 #include "storage/lake/compaction_scheduler.h"
@@ -253,8 +253,7 @@ Status TabletManager::create_tablet(const TCreateTabletReq& req) {
             tablet_metadata_pb->set_compaction_strategy(CompactionStrategyPB::REAL_TIME);
             break;
         default:
-            return Status::InternalError(
-                    absl::Substitute("Unknown compaction strategy, tabletId:$0", req.tablet_id));
+            return Status::InternalError(absl::Substitute("Unknown compaction strategy, tabletId:$0", req.tablet_id));
         }
     } else {
         tablet_metadata_pb->set_compaction_strategy(CompactionStrategyPB::DEFAULT);
@@ -695,7 +694,7 @@ StatusOr<TabletMetadataPtr> TabletManager::get_single_tablet_metadata(int64_t ta
     if (file_size < offset + size) {
         return Status::Corruption(
                 absl::Substitute("deserialized shared metadata($0) failed, file_size($1) too small($2/$3)", path,
-                                    file_size, offset, size));
+                                 file_size, offset, size));
     }
 
     auto metadata = std::make_shared<TabletMetadataPB>();
@@ -716,7 +715,7 @@ StatusOr<TabletMetadataPtr> TabletManager::get_single_tablet_metadata(int64_t ta
     auto schema_it = bundle_metadata->schemas().find(schema_id->second);
     if (schema_it == bundle_metadata->schemas().end()) {
         return Status::Corruption(absl::Substitute("tablet $0 metadata can not find schema($1) in shared metadata",
-                                                      tablet_id, schema_id->second));
+                                                   tablet_id, schema_id->second));
     } else {
         metadata->mutable_schema()->CopyFrom(schema_it->second);
         auto& item = (*metadata->mutable_historical_schemas())[schema_id->second];
@@ -726,8 +725,8 @@ StatusOr<TabletMetadataPtr> TabletManager::get_single_tablet_metadata(int64_t ta
     for (auto& [_, schema_id] : metadata->rowset_to_schema()) {
         schema_it = bundle_metadata->schemas().find(schema_id);
         if (schema_it == bundle_metadata->schemas().end()) {
-            return Status::Corruption(absl::Substitute(
-                    "tablet $0 metadata can not find schema($1) in shared metadata", tablet_id, schema_id));
+            return Status::Corruption(absl::Substitute("tablet $0 metadata can not find schema($1) in shared metadata",
+                                                       tablet_id, schema_id));
         } else {
             auto& item = (*metadata->mutable_historical_schemas())[schema_id];
             item.CopyFrom(schema_it->second);

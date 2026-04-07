@@ -13,13 +13,14 @@
 // limitations under the License.
 
 #include "segment_iterator.h"
-#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <memory>
 #include <unordered_map>
 #include <utility>
 
+#include "absl/strings/substitute.h"
+#include "base/gutil/stl_util.h"
 #include "base/simd/simd.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
@@ -33,7 +34,6 @@
 #include "common/status.h"
 #include "fs/fs.h"
 #include "glog/logging.h"
-#include "base/gutil/stl_util.h"
 #include "io/shared_buffered_input_stream.h"
 #include "runtime/starrocks_metrics.h"
 #include "segment_options.h"

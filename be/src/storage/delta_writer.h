@@ -14,11 +14,11 @@
 
 #pragma once
 
+#include "base/compiler_util.h"
 #include "column/vectorized_fwd.h"
 #include "common/tracer_fwd.h"
 #include "gen_cpp/internal_service.pb.h"
 #include "gen_cpp/olap_common.pb.h"
-#include "base/compiler_util.h"
 #include "storage/memtable_flush_executor.h"
 #include "storage/rowset/rowset_writer.h"
 #include "storage/segment_flush_executor.h"

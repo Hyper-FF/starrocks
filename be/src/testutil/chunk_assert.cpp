@@ -14,9 +14,9 @@
 
 #include "testutil/chunk_assert.h"
 
+#include "base/gutil/logging.h"
 #include "column/chunk.h"
 #include "column/column.h"
-#include "base/gutil/logging.h"
 
 namespace starrocks {
 

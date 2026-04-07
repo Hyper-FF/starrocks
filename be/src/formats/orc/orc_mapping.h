@@ -21,9 +21,9 @@
 #include <unordered_map>
 #include <variant>
 
+#include "absl/strings/substitute.h"
 #include "common/status.h"
 #include "formats/utils.h"
-#include "absl/strings/substitute.h"
 #include "runtime/descriptors.h"
 #include "types/type_descriptor.h"
 

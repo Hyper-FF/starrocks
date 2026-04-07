@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "runtime/runtime_filter_worker.h"
-#include "absl/strings/substitute.h"
 
 #include <exec/pipeline/hashjoin/hash_joiner_fwd.h>
 
@@ -21,6 +20,7 @@
 #include <random>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/time/time.h"
 #include "common/config_exec_flow_fwd.h"
 #include "common/config_network_fwd.h"
@@ -925,8 +925,8 @@ static inline void receive_total_runtime_filter_pipeline(PTransmitRuntimeFilterP
         ExecEnv::GetInstance()->runtime_filter_cache()->add_rf_event(
                 {params.query_id(), params.filter_id(), BackendOptions::get_localhost(),
                  absl::Substitute("INSTALL_GRF(num_waiters=$0, instance_id=$1)",
-                                     fragment_ctx->runtime_filter_port()->listeners(params.filter_id()),
-                                     print_id(finst_id))});
+                                  fragment_ctx->runtime_filter_port()->listeners(params.filter_id()),
+                                  print_id(finst_id))});
     }
 }
 

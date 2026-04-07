@@ -14,13 +14,13 @@
 
 #include "exprs/literal.h"
 
+#include "base/gutil/port.h"
+#include "base/gutil/strings/fastmem.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "column/const_column.h"
 #include "column/vectorized_fwd.h"
 #include "common/statusor.h"
-#include "base/gutil/port.h"
-#include "base/gutil/strings/fastmem.h"
 #include "types/constexpr.h"
 
 #ifdef STARROCKS_JIT_ENABLE

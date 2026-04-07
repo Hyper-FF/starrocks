@@ -34,8 +34,8 @@
 
 #include "base/string/string_util.h"
 
-#include "base/hash/hash_util.hpp"
 #include "absl/strings/str_split.h"
+#include "base/hash/hash_util.hpp"
 
 namespace starrocks {
 

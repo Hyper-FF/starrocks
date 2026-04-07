@@ -32,6 +32,7 @@
 #include <ctime>
 #include <limits>
 
+#include "base/gutil/strings/util.h"
 #include "common/config_object_storage_fwd.h"
 #include "common/http/content_type.h"
 #include "common/s3_uri.h"
@@ -39,7 +40,6 @@
 #include "fs/encrypt_file.h"
 #include "fs/fs_options_helper.h"
 #include "fs/output_stream_adapter.h"
-#include "base/gutil/strings/util.h"
 #include "io/direct_s3_output_stream.h"
 #include "io/s3_input_stream.h"
 #include "io/s3_output_stream.h"

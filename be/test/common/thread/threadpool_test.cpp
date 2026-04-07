@@ -35,9 +35,15 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/await.h"
 #include "base/concurrency/countdown_latch.h"
 #include "base/concurrency/spinlock.h"
+#include "base/gutil/atomicops.h"
+#include "base/gutil/port.h"
+#include "base/gutil/ref_counted.h"
+#include "base/gutil/sysinfo.h"
+#include "base/gutil/walltime.h"
 #include "base/metrics.h"
 #include "base/random/random.h"
 #include "base/testutil/assert.h"
@@ -46,12 +52,6 @@
 #include "common/logging.h"
 #include "common/status.h"
 #include "common/system/cpu_info.h"
-#include "base/gutil/atomicops.h"
-#include "base/gutil/port.h"
-#include "base/gutil/ref_counted.h"
-#include "absl/strings/substitute.h"
-#include "base/gutil/sysinfo.h"
-#include "base/gutil/walltime.h"
 
 using std::atomic;
 using std::shared_ptr;
@@ -826,10 +826,10 @@ TEST_F(ThreadPoolTest, TestTokenConcurrency) {
 
     LOG(INFO) << absl::Substitute("Tokens cycled ($0 threads): $1", kCycleThreads, total_num_tokens_cycled.load());
     LOG(INFO) << absl::Substitute("Tokens shutdown ($0 threads): $1", kShutdownThreads,
-                                     total_num_tokens_shutdown.load());
+                                  total_num_tokens_shutdown.load());
     LOG(INFO) << absl::Substitute("Tokens waited ($0 threads): $1", kWaitThreads, total_num_tokens_waited.load());
     LOG(INFO) << absl::Substitute("Tokens submitted ($0 threads): $1", kSubmitThreads,
-                                     total_num_tokens_submitted.load());
+                                  total_num_tokens_submitted.load());
 }
 
 TEST_F(ThreadPoolTest, TestCancellableRunnable) {

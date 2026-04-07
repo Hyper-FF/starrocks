@@ -14,13 +14,12 @@
 
 #pragma once
 
-#include "absl/strings/substitute.h"
-
 #include <cstdint>
 #include <map>
 #include <unordered_map>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/blocking_queue.hpp"
 #include "gen_cpp/AgentService_types.h"
 #include "gen_cpp/binlog.pb.h"
@@ -65,9 +64,8 @@ struct BinlogConfig {
     }
 
     std::string to_string() const {
-        return absl::Substitute(
-                "BinlogConfig={version=$0, binlog_enable=$1, binlog_ttl_second=$2, binlog_max_size=$3}", version,
-                binlog_enable, binlog_ttl_second, binlog_max_size);
+        return absl::Substitute("BinlogConfig={version=$0, binlog_enable=$1, binlog_ttl_second=$2, binlog_max_size=$3}",
+                                version, binlog_enable, binlog_ttl_second, binlog_max_size);
     }
 };
 

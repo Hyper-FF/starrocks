@@ -37,9 +37,9 @@
 #include <cstdint>
 #include <vector>
 
+#include "base/compiler_util.h"
 #include "base/string/faststring.h"
 #include "common/status.h"
-#include "base/compiler_util.h"
 #include "runtime/global_dict/types.h"
 #include "storage/rowset/common.h"
 

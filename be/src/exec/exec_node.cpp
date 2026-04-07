@@ -39,6 +39,7 @@
 
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "column/vectorized_fwd.h"
 #include "common/compiler_util.h"
 #include "common/object_pool.h"
@@ -52,7 +53,6 @@
 #include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"

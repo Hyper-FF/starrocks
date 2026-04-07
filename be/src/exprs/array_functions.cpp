@@ -59,8 +59,9 @@ StatusOr<ColumnPtr> ArrayFunctions::array_length([[maybe_unused]] FunctionContex
 
         if (arg0->has_null()) {
             // Copy null flags.
-            return NullableColumn::create(std::move(col_result),
-                                          std::move(*(static_cast<const NullableColumn*>(arg0)->null_column())).mutate());
+            return NullableColumn::create(
+                    std::move(col_result),
+                    std::move(*(static_cast<const NullableColumn*>(arg0)->null_column())).mutate());
         } else {
             return col_result;
         }
@@ -280,13 +281,13 @@ private:
             null_map_targets = nullable.immutable_null_column_data();
         }
 
-#define HANDLE_ELEMENT_TYPE(ElementType)                                                                          \
-    do {                                                                                                          \
-        if (typeid(*elements_ptr) == typeid(ElementType)) {                                                       \
-            return _process<NullableElement, NullableTarget, ConstTarget>(                                        \
+#define HANDLE_ELEMENT_TYPE(ElementType)                                                                            \
+    do {                                                                                                            \
+        if (typeid(*elements_ptr) == typeid(ElementType)) {                                                         \
+            return _process<NullableElement, NullableTarget, ConstTarget>(                                          \
                     *static_cast<const ElementType*>(elements_ptr), array_offsets, *targets_ptr, null_map_elements, \
-                    null_map_targets);                                                                            \
-        }                                                                                                         \
+                    null_map_targets);                                                                              \
+        }                                                                                                           \
     } while (0)
 
         HANDLE_ELEMENT_TYPE(BooleanColumn);
@@ -621,13 +622,13 @@ private:
         }
 
         // Using typeid instead of dynamic_cast, typeid will be much much faster than dynamic_cast
-#define HANDLE_ELEMENT_TYPE(ElementType)                                                                          \
-    do {                                                                                                          \
-        if (typeid(*elements_ptr) == typeid(ElementType)) {                                                       \
-            return _process<NullableElement, NullableTarget, ConstElement, ConstTarget>(                          \
+#define HANDLE_ELEMENT_TYPE(ElementType)                                                                            \
+    do {                                                                                                            \
+        if (typeid(*elements_ptr) == typeid(ElementType)) {                                                         \
+            return _process<NullableElement, NullableTarget, ConstElement, ConstTarget>(                            \
                     *static_cast<const ElementType*>(elements_ptr), array_offsets, *targets_ptr, null_map_elements, \
-                    null_map_targets);                                                                            \
-        }                                                                                                         \
+                    null_map_targets);                                                                              \
+        }                                                                                                           \
     } while (0)
 
         HANDLE_ELEMENT_TYPE(ArrayColumn);
@@ -733,9 +734,9 @@ public:
 private:
     template <bool NullableElement, bool NullableTarget, typename ElementColumn>
     static uint8_t __process(const ElementColumn& elements, uint32_t element_start, uint32_t element_end,
-                           const ElementColumn& targets, uint32_t target_start, uint32_t target_end,
-                           const NullColumn::ImmContainer& null_map_elements,
-                           const NullColumn::ImmContainer& null_map_targets) {
+                             const ElementColumn& targets, uint32_t target_start, uint32_t target_end,
+                             const NullColumn::ImmContainer& null_map_elements,
+                             const NullColumn::ImmContainer& null_map_targets) {
         using ValueType = std::conditional_t<std::is_same_v<ArrayColumn, ElementColumn> ||
                                                      std::is_same_v<MapColumn, ElementColumn> ||
                                                      std::is_same_v<StructColumn, ElementColumn>,
@@ -810,9 +811,9 @@ private:
 
     template <bool NullableElement, bool NullableTarget, typename ElementColumn>
     static uint8_t __process_seq(const ElementColumn& elements, uint32_t element_start, uint32_t element_end,
-                               const ElementColumn& targets, uint32_t target_start, uint32_t target_end,
-                               const NullColumn::ImmContainer& null_map_elements,
-                               const NullColumn::ImmContainer& null_map_targets) {
+                                 const ElementColumn& targets, uint32_t target_start, uint32_t target_end,
+                                 const NullColumn::ImmContainer& null_map_elements,
+                                 const NullColumn::ImmContainer& null_map_targets) {
         using ValueType = std::conditional_t<std::is_same_v<ArrayColumn, ElementColumn> ||
                                                      std::is_same_v<MapColumn, ElementColumn> ||
                                                      std::is_same_v<StructColumn, ElementColumn>,
@@ -939,13 +940,14 @@ private:
         }
 
         // Using typeid instead of dynamic_cast, typeid will be much much faster than dynamic_cast
-#define HANDLE_HAS_TYPE(ElementType)                                                                                   \
-    do {                                                                                                               \
-        if (typeid(*elements_ptr) == typeid(ElementType)) {                                                            \
-            return _process<NullableElement, NullableTarget, ConstTarget>(                                             \
-                    *static_cast<const ElementType*>(elements_ptr), array_offsets,                                       \
-                    *static_cast<const ElementType*>(targets_ptr), target_offsets, null_map_elements, null_map_targets); \
-        }                                                                                                              \
+#define HANDLE_HAS_TYPE(ElementType)                                                                  \
+    do {                                                                                              \
+        if (typeid(*elements_ptr) == typeid(ElementType)) {                                           \
+            return _process<NullableElement, NullableTarget, ConstTarget>(                            \
+                    *static_cast<const ElementType*>(elements_ptr), array_offsets,                    \
+                    *static_cast<const ElementType*>(targets_ptr), target_offsets, null_map_elements, \
+                    null_map_targets);                                                                \
+        }                                                                                             \
     } while (0)
 
         HANDLE_HAS_TYPE(ArrayColumn);

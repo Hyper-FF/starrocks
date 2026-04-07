@@ -15,8 +15,8 @@
 #include <base/testutil/assert.h>
 #include <benchmark/benchmark.h>
 #include <fmt/format.h>
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/random/random.h"
 #include "column/binary_column.h"
 #include "column/column_builder.h"

@@ -20,12 +20,12 @@
 #include <cstdint>
 #include <random>
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/parallel_test.h"
 #include "column/binary_column.h"
 #include "column/fixed_length_column.h"
 #include "column/schema.h"
 #include "fs/fs_util.h"
-#include "absl/strings/substitute.h"
 #include "storage/chunk_helper.h"
 #include "storage/primary_key_dump.h"
 #include "storage/primary_key_encoder.h"

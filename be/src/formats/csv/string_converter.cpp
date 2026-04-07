@@ -14,10 +14,10 @@
 
 #include "formats/csv/string_converter.h"
 
+#include "absl/strings/substitute.h"
 #include "base/string/utf8.h"
 #include "column/binary_column.h"
 #include "common/config_scan_io_fwd.h"
-#include "absl/strings/substitute.h"
 #include "types/type_descriptor.h"
 
 namespace starrocks::csv {
@@ -67,7 +67,7 @@ bool StringConverter::read_string(Column* column, const Slice& s, const Options&
         if (config::enable_check_string_lengths &&
             ((s.size > TypeDescriptor::MAX_VARCHAR_LENGTH) || (max_size > 0 && s.size > max_size))) {
             VLOG(3) << absl::Substitute("Column [$0]'s length exceed max varchar length. str_size($1), max_size($2)",
-                                           column->get_name(), s.size, max_size);
+                                        column->get_name(), s.size, max_size);
             return false;
         }
         static_cast<BinaryColumn*>(column)->append(s);

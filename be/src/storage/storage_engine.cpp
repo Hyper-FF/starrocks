@@ -33,7 +33,6 @@
 // under the License.
 
 #include "storage/storage_engine.h"
-#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
@@ -46,6 +45,7 @@
 #include <random>
 #include <set>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "base/container/lru_cache.h"
 #include "base/debug/trace.h"
@@ -450,8 +450,8 @@ Status StorageEngine::_check_all_root_path_cluster_id() {
             cluster_id = tmp_cluster_id;
         } else {
             RETURN_IF_ERROR_WITH_WARN(
-                    Status::Corruption(absl::Substitute(
-                            "multiple cluster ids is not equal. one=$0, other=", cluster_id, tmp_cluster_id)),
+                    Status::Corruption(absl::Substitute("multiple cluster ids is not equal. one=$0, other=", cluster_id,
+                                                        tmp_cluster_id)),
                     "cluster id not equal");
         }
     }

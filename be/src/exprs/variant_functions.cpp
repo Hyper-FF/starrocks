@@ -208,7 +208,8 @@ StatusOr<ColumnPtr> VariantFunctions::_do_variant_query(FunctionContext* context
 
     auto variant_viewer = ColumnViewer<TYPE_VARIANT>(columns[0]);
     auto path_viewer = ColumnViewer<TYPE_VARCHAR>(columns[1]);
-    const auto* variant_data_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(columns[0].get()));
+    const auto* variant_data_column =
+            static_cast<const VariantColumn*>(ColumnHelper::get_data_column(columns[0].get()));
 
     // For const paths, the parsed VariantPath is cached in FunctionContext.
     // Prepare a local reader once per batch; for non-const paths, re-prepare per row.

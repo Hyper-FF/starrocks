@@ -18,6 +18,7 @@
 #include <optional>
 #include <stdexcept>
 
+#include "base/gutil/port.h"
 #include "base/hash/unaligned_access.h"
 #include "base/string/slice.h"
 #include "column/column_helper.h"
@@ -25,7 +26,6 @@
 #include "column/nullable_column.h"
 #include "column/runtime_type_traits.h"
 #include "common/object_pool.h"
-#include "base/gutil/port.h"
 #include "runtime/mem_pool.h"
 #include "runtime/runtime_filter.h"
 

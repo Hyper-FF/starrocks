@@ -33,10 +33,10 @@
 // under the License.
 
 #include <gtest/gtest.h>
-#include "absl/strings/substitute.h"
 
 #include <iostream>
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/assert.h"
 #include "base/types/decimal12.h"
 #include "column/array_column.h"
@@ -117,7 +117,7 @@ protected:
         ASSERT_TRUE(fs->create_dir(TEST_DIR).ok());
 
         const std::string fname = absl::Substitute("$0/test-$1-$2-$3-$4-$5.data", TEST_DIR, type, encoding, version,
-                                                      null_encoding, null_ratio);
+                                                   null_encoding, null_ratio);
         auto segment = create_dummy_segment(fs, fname);
         // write data
         {

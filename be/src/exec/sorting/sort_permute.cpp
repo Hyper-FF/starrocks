@@ -16,6 +16,7 @@
 
 #include <span>
 
+#include "base/gutil/strings/fastmem.h"
 #include "column/adaptive_nullable_column.h"
 #include "column/array_column.h"
 #include "column/binary_column.h"
@@ -32,7 +33,6 @@
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "exec/sorting/sorting.h"
-#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 
@@ -131,7 +131,8 @@ public:
         data.resize(output + _perm.size());
 
         for (auto& p : _perm) {
-            const Container& container = static_cast<const ColumnType*>(_columns[PermTraits::chunk(p)])->immutable_data();
+            const Container& container =
+                    static_cast<const ColumnType*>(_columns[PermTraits::chunk(p)])->immutable_data();
             data[output++] = container[PermTraits::index(p)];
         }
 
@@ -148,7 +149,8 @@ public:
         data.resize(output + _perm.size());
 
         for (auto& p : _perm) {
-            const Container& container = static_cast<const ColumnType*>(_columns[PermTraits::chunk(p)])->immutable_data();
+            const Container& container =
+                    static_cast<const ColumnType*>(_columns[PermTraits::chunk(p)])->immutable_data();
             data[output++] = container[PermTraits::index(p)];
         }
 

@@ -16,9 +16,9 @@
 
 #include <optional>
 
+#include "base/gutil/port.h"
 #include "base/types/int128.h"
 #include "gtest/gtest.h"
-#include "base/gutil/port.h"
 #include "types/constexpr.h"
 
 namespace starrocks {

@@ -18,13 +18,13 @@
 #include <memory>
 #include <string>
 
+#include "absl/strings/substitute.h"
 #include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "column/json_column.h"
 #include "common/statusor.h"
-#include "absl/strings/substitute.h"
 #include "types/json_value.h"
 
 namespace starrocks {
@@ -147,7 +147,7 @@ static Status convert_multi_arrow_primitive(const Array* array, JsonColumn* outp
     case type: {                                                                 \
         using TypeClass = TypeIdTraits<type>::Type;                              \
         using ArrayType = TypeTraits<TypeClass>::ArrayType;                      \
-        auto real_array = static_cast<const ArrayType*>(array);                    \
+        auto real_array = static_cast<const ArrayType*>(array);                  \
         for (int i = array_start_idx; i < array_start_idx + num_elements; i++) { \
             vpack::Builder builder;                                              \
             if (is_physical_signed(type)) {                                      \
@@ -223,13 +223,13 @@ static StatusOr<std::string> convert_array_element_to_string(const Array* array,
         auto key_array = static_cast<const StringArray*>(array);
         return key_array->GetString(offset);
     }
-#define M(type)                                                          \
-    case type: {                                                         \
-        using TypeClass = TypeIdTraits<type>::Type;                      \
-        using ArrayType = TypeTraits<TypeClass>::ArrayType;              \
-        using CType = TypeTraits<TypeClass>::CType;                      \
+#define M(type)                                                            \
+    case type: {                                                           \
+        using TypeClass = TypeIdTraits<type>::Type;                        \
+        using ArrayType = TypeTraits<TypeClass>::ArrayType;                \
+        using CType = TypeTraits<TypeClass>::CType;                        \
         CType value = static_cast<const ArrayType*>(array)->Value(offset); \
-        return std::to_string(value);                                    \
+        return std::to_string(value);                                      \
     }
 
         APPLY_FOR_ALL_NUMERIC(M)
@@ -256,14 +256,14 @@ static Status convert_single_arrow_map(const MapArray* array, int offset, vpack:
 
 static Status convert_arrow_to_json_element(const Array* array, Type::type type_id, int offset,
                                             const std::string& field_name, vpack::Builder* builder) {
-#define M(type)                                                          \
-    case type: {                                                         \
-        using TypeClass = TypeIdTraits<type>::Type;                      \
-        using ArrayType = TypeTraits<TypeClass>::ArrayType;              \
-        using CType = TypeTraits<TypeClass>::CType;                      \
+#define M(type)                                                            \
+    case type: {                                                           \
+        using TypeClass = TypeIdTraits<type>::Type;                        \
+        using ArrayType = TypeTraits<TypeClass>::ArrayType;                \
+        using CType = TypeTraits<TypeClass>::CType;                        \
         CType value = static_cast<const ArrayType*>(array)->Value(offset); \
-        builder->add(field_name, vpack::Value(value));                   \
-        break;                                                           \
+        builder->add(field_name, vpack::Value(value));                     \
+        break;                                                             \
     }
 
     switch (type_id) {
@@ -309,10 +309,10 @@ static Status convert_arrow_to_json_element(const Array* array, Type::type type_
 // Convert a generic array to json array
 static Status convert_arrow_to_json_array(const Array* array, Type::type value_type, vpack::Builder* builder) {
     switch (value_type) {
-#define M(t)                                                                             \
-    case t: {                                                                            \
-        using TypeClass = TypeIdTraits<t>::Type;                                         \
-        using ArrayType = TypeTraits<TypeClass>::ArrayType;                              \
+#define M(t)                                                                               \
+    case t: {                                                                              \
+        using TypeClass = TypeIdTraits<t>::Type;                                           \
+        using ArrayType = TypeTraits<TypeClass>::ArrayType;                                \
         return convert_arrow_to_json_array(static_cast<const ArrayType*>(array), builder); \
     }
         APPLY_FOR_ALL_NUMERIC(M)
@@ -385,7 +385,8 @@ Status convert_arrow_to_json(const Array* array, JsonColumn* output, size_t arra
     case Type::LIST:
         return convert_multi_arrow_list(static_cast<const ListArray*>(array), output, array_start_idx, num_elements);
     case Type::STRUCT:
-        return convert_multi_arrow_struct(static_cast<const StructArray*>(array), output, array_start_idx, num_elements);
+        return convert_multi_arrow_struct(static_cast<const StructArray*>(array), output, array_start_idx,
+                                          num_elements);
     case Type::MAP:
         return convert_multi_arrow_map(static_cast<const MapArray*>(array), output, array_start_idx, num_elements);
 

@@ -14,10 +14,10 @@
 
 #pragma once
 
+#include "base/compiler_util.h"
 #include "common/status.h"
 #include "fs/encryption.h"
 #include "gen_cpp/AgentService_types.h"
-#include "base/compiler_util.h"
 #include "lake_replication_txn_manager.h"
 #include "storage/delta_column_group.h"
 #include "storage/lake/tablet_metadata.h"

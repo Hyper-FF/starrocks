@@ -41,6 +41,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "base/compiler_util.h"
 #include "base/uid_util.h"
 #include "column/vectorized_fwd.h"
 #include "common/compiler_util.h"
@@ -49,7 +50,6 @@
 #include "gen_cpp/InternalService_types.h"
 #include "gen_cpp/Types_types.h"
 #include "gen_cpp/internal_service.pb.h"
-#include "base/compiler_util.h"
 #include "runtime/mem_tracker.h"
 #include "runtime/tablets_channel.h"
 #include "serde/protobuf_serde.h"

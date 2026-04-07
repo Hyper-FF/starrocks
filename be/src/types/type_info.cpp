@@ -46,6 +46,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/gutil/strings/numbers.h"
 #include "base/hash/unaligned_access.h"
 #include "base/string/slice.h"
 #include "base/types/decimal12.h"
@@ -54,7 +55,6 @@
 #include "base/utility/mem_util.hpp"
 #include "base/utility/mysql_global.h"
 #include "common/config_scan_io_fwd.h"
-#include "base/gutil/strings/numbers.h"
 #include "types/date_value.h"
 #include "types/datetime_value.h"
 #include "types/datum.h"

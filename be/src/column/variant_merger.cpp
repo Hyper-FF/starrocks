@@ -18,12 +18,12 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "absl/strings/substitute.h"
 #include "column/column_builder.h"
 #include "column/column_helper.h"
 #include "column/variant_column.h"
 #include "column/variant_converter.h"
 #include "column/variant_encoder.h"
-#include "absl/strings/substitute.h"
 #include "types/datum.h"
 #include "types/logical_type.h"
 
@@ -345,7 +345,7 @@ StatusOr<MutableColumnPtr> VariantColumnMerger::cast_typed_column(const Column& 
         return cast_numeric_column(src_col, src_type_desc.type, dst_type_desc.type);
     }
     return Status::NotSupported(absl::Substitute("unsupported typed column cast for variant merge: $0 -> $1",
-                                                    src_type_desc.debug_string(), dst_type_desc.debug_string()));
+                                                 src_type_desc.debug_string(), dst_type_desc.debug_string()));
 }
 
 static Status build_path_index(const VariantColumn& column, std::unordered_map<std::string_view, size_t>* out) {
@@ -488,8 +488,8 @@ Status VariantColumnMerger::arbitrate_type_conflicts(VariantColumn* dst, Variant
             if (!casted_dst_st.ok()) {
                 return Status::NotSupported(
                         absl::Substitute("failed to widen dst typed column on path=$0 from $1 to $2, err=$3", path,
-                                            logical_type_to_string(dst_type), logical_type_to_string(common_type),
-                                            casted_dst_st.status().to_string()));
+                                         logical_type_to_string(dst_type), logical_type_to_string(common_type),
+                                         casted_dst_st.status().to_string()));
             }
             new_dst_col = std::move(casted_dst_st).value();
         }
@@ -499,8 +499,8 @@ Status VariantColumnMerger::arbitrate_type_conflicts(VariantColumn* dst, Variant
             if (!casted_src_st.ok()) {
                 return Status::NotSupported(
                         absl::Substitute("failed to widen src typed column on path=$0 from $1 to $2, err=$3", path,
-                                            logical_type_to_string(src_type), logical_type_to_string(common_type),
-                                            casted_src_st.status().to_string()));
+                                         logical_type_to_string(src_type), logical_type_to_string(common_type),
+                                         casted_src_st.status().to_string()));
             }
             new_src_col = std::move(casted_src_st).value();
         }

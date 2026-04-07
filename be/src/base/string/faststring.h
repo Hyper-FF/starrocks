@@ -38,10 +38,10 @@
 #include <cstring>
 #include <string>
 
-#include "base/string/posion.h"
-#include "base/string/slice.h"
 #include "base/gutil/port.h"
 #include "base/gutil/strings/fastmem.h"
+#include "base/string/posion.h"
+#include "base/string/slice.h"
 
 namespace starrocks {
 

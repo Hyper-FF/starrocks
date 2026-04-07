@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "storage/schema_change.h"
-#include "absl/strings/substitute.h"
 
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "base/testutil/assert.h"
 #include "column/datum_convert.h"

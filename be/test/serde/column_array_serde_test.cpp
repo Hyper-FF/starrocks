@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/failpoint/fail_point.h"
 #include "base/hash/hash_std.hpp"
@@ -30,7 +31,6 @@
 #include "column/nullable_column.h"
 #include "column/variant_column.h"
 #include "common/statusor.h"
-#include "absl/strings/substitute.h"
 #include "types/hll.h"
 #include "types/json_value.h"
 #include "types/variant.h"

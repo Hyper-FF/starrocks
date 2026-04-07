@@ -14,9 +14,9 @@
 
 #include "types/decimal_type_info.h"
 
+#include "base/gutil/compiler_util.h"
 #include "base/hash/unaligned_access.h"
 #include "base/utility/guard.h"
-#include "base/gutil/compiler_util.h"
 #include "types/datum.h"
 #include "types/decimalv3.h"
 #include "types/storage_type_traits.h"

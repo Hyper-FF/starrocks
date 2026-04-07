@@ -613,7 +613,9 @@ public:
     }
     static const Column* get_data_column(const ColumnPtr& column) { return get_data_column(column.get()); }
 
-    static BinaryColumn* get_binary_column(Column* column) { return static_cast<BinaryColumn*>(get_data_column(column)); }
+    static BinaryColumn* get_binary_column(Column* column) {
+        return static_cast<BinaryColumn*>(get_data_column(column));
+    }
 
     static const BinaryColumn* get_binary_column(const Column* column) {
         return static_cast<const BinaryColumn*>(get_data_column(column));

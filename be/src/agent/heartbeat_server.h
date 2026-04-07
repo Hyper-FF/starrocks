@@ -38,10 +38,10 @@
 #include <mutex>
 
 #include "agent/status.h"
+#include "base/compiler_util.h"
 #include "common/statusor.h"
 #include "gen_cpp/HeartbeatService.h"
 #include "gen_cpp/Status_types.h"
-#include "base/compiler_util.h"
 #include "runtime/runtime_fwd.h"
 #include "storage/olap_define.h"
 #include "thrift/transport/TTransportUtils.h"

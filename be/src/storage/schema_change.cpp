@@ -39,6 +39,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "common/config_compaction_fwd.h"
 #include "common/config_exec_fwd.h"
@@ -48,7 +49,6 @@
 #include "exprs/expr_context.h"
 #include "exprs/expr_factory.h"
 #include "fs/fs_factory.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
@@ -461,7 +461,7 @@ Status SchemaChangeDirectly::process(TabletReader* reader, RowsetWriter* new_row
 
         if (!_chunk_changer->change_chunk_v2(base_chunk, new_chunk, base_schema, new_schema, mem_pool.get())) {
             std::string err_msg = absl::Substitute("failed to convert chunk data. base tablet:$0, new tablet:$1",
-                                                      base_tablet->tablet_id(), new_tablet->tablet_id());
+                                                   base_tablet->tablet_id(), new_tablet->tablet_id());
             LOG(WARNING) << alter_msg_header() + err_msg;
             return Status::InternalError(alter_msg_header() + err_msg);
         }
@@ -580,7 +580,7 @@ Status SchemaChangeWithSorting::process(TabletReader* reader, RowsetWriter* new_
 
         if (!_chunk_changer->change_chunk_v2(base_chunk, new_chunk, base_schema, new_schema, mem_pool.get())) {
             std::string err_msg = absl::Substitute("failed to convert chunk data. base tablet:$0, new tablet:$1",
-                                                      base_tablet->tablet_id(), new_tablet->tablet_id());
+                                                   base_tablet->tablet_id(), new_tablet->tablet_id());
             LOG(WARNING) << alter_msg_header() << err_msg;
             return Status::InternalError(alter_msg_header() + err_msg);
         }
@@ -593,8 +593,8 @@ Status SchemaChangeWithSorting::process(TabletReader* reader, RowsetWriter* new_
 
         auto res = mem_table->insert(*new_chunk, selective->data(), 0, new_chunk->num_rows());
         if (!res.ok()) {
-            std::string msg = absl::Substitute("$0 failed to insert mem table: $1", alter_msg_header(),
-                                                  res.status().to_string());
+            std::string msg =
+                    absl::Substitute("$0 failed to insert mem table: $1", alter_msg_header(), res.status().to_string());
             LOG(WARNING) << msg;
             return res.status();
         }

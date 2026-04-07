@@ -53,12 +53,12 @@
 #include <mutex>
 #include <string>
 
-#include "base/utility/scoped_cleanup.h"
-#include "common/logging.h"
+#include "absl/strings/substitute.h"
 #include "base/gutil/atomicops.h"
 #include "base/gutil/dynamic_annotations.h"
 #include "base/gutil/once.h"
-#include "absl/strings/substitute.h"
+#include "base/utility/scoped_cleanup.h"
+#include "common/logging.h"
 
 namespace starrocks {
 
@@ -470,7 +470,7 @@ Status ThreadJoiner::join() {
     while (keep_trying) {
         if (waited_ms >= _warn_after_ms) {
             LOG(WARNING) << absl::Substitute("Waited for $0ms trying to join with $1 (tid $2)", waited_ms,
-                                                _thread->_name, _thread->_tid);
+                                             _thread->_name, _thread->_tid);
         }
 
         int remaining_before_giveup = std::numeric_limits<int>::max();

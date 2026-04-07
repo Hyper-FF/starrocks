@@ -16,11 +16,11 @@
 
 #include <arrow/array.h>
 #include <arrow/status.h>
-#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "common/config_scan_io_fwd.h"
 #include "common/logging.h"
 #include "common/runtime_profile.h"

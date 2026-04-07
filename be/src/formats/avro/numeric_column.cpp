@@ -14,10 +14,10 @@
 
 #include "numeric_column.h"
 
+#include "absl/strings/substitute.h"
 #include "base/string/string_parser.hpp"
 #include "base/types/numeric_types.h"
 #include "column/fixed_length_column.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -172,7 +172,7 @@ static Status add_column_with_string_value_numeric(FixedLengthColumn<T>* column,
         }
 
         std::string err_msg = absl::Substitute("Unable to cast string value to BIGINT. value=$0, column=$1",
-                                                  std::string(in, size), name);
+                                               std::string(in, size), name);
         return Status::InvalidArgument(err_msg);
     }
 }

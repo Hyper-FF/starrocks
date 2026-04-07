@@ -58,6 +58,7 @@
 #include <cstring>
 #include <filesystem>
 
+#include "base/gutil/cpu.h"
 #include "base/network/network_util.h"
 #include "base/time/monotime.h"
 #include "base/time/time.h"
@@ -72,7 +73,6 @@
 #include "common/util/thrift_util.h"
 #include "fs/encrypt_file.h"
 #include "fs/fs_util.h"
-#include "base/gutil/cpu.h"
 #include "jemalloc/jemalloc.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"

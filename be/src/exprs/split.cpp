@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/strings/str_split.h"
-
 #include <algorithm>
 
+#include "absl/strings/str_split.h"
 #include "base/string/utf8.h"
 #include "column/array_column.h"
 #include "column/binary_column.h"
@@ -64,9 +63,8 @@ Status StringFunctions::split_prepare(FunctionContext* context, FunctionContext:
         if (delimiter.empty() && !validate_ascii_fast(haystack.data, haystack.size)) {
             state->const_split_strings = split_utf8_characters(haystack);
         } else {
-            state->const_split_strings = absl::StrSplit(
-                    std::string_view(haystack.get_data(), haystack.get_size()),
-                    std::string_view(delimiter.get_data(), delimiter.get_size()));
+            state->const_split_strings = absl::StrSplit(std::string_view(haystack.get_data(), haystack.get_size()),
+                                                        std::string_view(delimiter.get_data(), delimiter.get_size()));
         }
     } else if (context->is_notnull_constant_column(1)) {
         Slice delimiter = ColumnHelper::get_const_value<TYPE_VARCHAR>(context->get_constant_column(1));

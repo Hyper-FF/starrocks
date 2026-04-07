@@ -22,6 +22,8 @@
 #include "agent/agent_server.h"
 #endif
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/network/network_util.h"
 #include "base/string/string_parser.hpp"
@@ -30,8 +32,6 @@
 #include "fs/fs_util.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/Types_constants.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 #include "http/http_client.h"
 #include "runtime/client_cache.h"
 #include "runtime/exec_env.h"
@@ -250,9 +250,9 @@ Status ReplicationUtils::download_remote_snapshot(const std::string& host, int32
     return Status::OK();
 #else
 
-    std::string remote_url_prefix = absl::Substitute(
-            "http://$0$1?token=$2&type=V2&file=$3/$4/$5/", get_host_port(host, http_port), HTTP_REQUEST_PREFIX,
-            remote_token, remote_snapshot_path, remote_tablet_id, remote_schema_hash);
+    std::string remote_url_prefix = absl::Substitute("http://$0$1?token=$2&type=V2&file=$3/$4/$5/",
+                                                     get_host_port(host, http_port), HTTP_REQUEST_PREFIX, remote_token,
+                                                     remote_snapshot_path, remote_tablet_id, remote_schema_hash);
 
     std::vector<string> file_name_list;
     std::vector<int64_t> file_size_list;

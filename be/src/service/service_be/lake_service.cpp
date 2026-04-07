@@ -19,6 +19,7 @@
 #include <bthread/mutex.h>
 #include <butil/time.h> // NOLINT
 
+#include "absl/strings/str_join.h"
 #include "agent/agent_server.h"
 #include "base/brpc/brpc.h"
 #include "base/concurrency/countdown_latch.h"
@@ -34,7 +35,6 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "gen_cpp/tablet_schema.pb.h"
-#include "absl/strings/str_join.h"
 #include "runtime/exec_env.h"
 #include "runtime/lake_snapshot_loader.h"
 #include "runtime/load_channel_mgr.h"
@@ -369,12 +369,20 @@ void LakeServiceImpl::publish_version(::google::protobuf::RpcController* control
                     } else {
                         if (res.status().is_resource_busy()) {
                             VLOG(2) << "Fail to publish version: " << res.status() << ". tablet_info=" << tablet_info
-                                    << " txns=" << absl::StrJoin(txns, ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); }) << " version=" << new_version;
+                                    << " txns="
+                                    << absl::StrJoin(txns, ",",
+                                                     [](std::string* out, const auto& elem) {
+                                                         out->append(txn_info_string(elem));
+                                                     })
+                                    << " version=" << new_version;
                         } else {
                             g_publish_version_failed_tasks << 1;
                             LOG(WARNING) << "Fail to publish version: " << res.status()
-                                         << ". tablet_info=" << tablet_info
-                                         << " txn_ids=" << absl::StrJoin(txns, ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); })
+                                         << ". tablet_info=" << tablet_info << " txn_ids="
+                                         << absl::StrJoin(txns, ",",
+                                                          [](std::string* out, const auto& elem) {
+                                                              out->append(txn_info_string(elem));
+                                                          })
                                          << " version=" << new_version;
                         }
 
@@ -493,8 +501,10 @@ void LakeServiceImpl::publish_version(::google::protobuf::RpcController* control
             if (!st.ok()) {
                 g_publish_version_failed_tasks << 1;
                 LOG(WARNING) << "Failed to submit publish splitting tablet task: " << st
-                             << ". resharding_tablet_info=" << resharding_tablet_info.DebugString()
-                             << " txn_infos=" << absl::StrJoin(request->txn_infos(), ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); })
+                             << ". resharding_tablet_info=" << resharding_tablet_info.DebugString() << " txn_infos="
+                             << absl::StrJoin(
+                                        request->txn_infos(), ",",
+                                        [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); })
                              << " version=" << request->new_version();
                 std::lock_guard l(response_mtx);
                 add_failed_tablets(response, resharding_tablet_info);
@@ -699,9 +709,12 @@ void LakeServiceImpl::_submit_publish_log_version_task(const int64_t* tablet_ids
                     auto st = lake::publish_log_version(_tablet_mgr, tablet_id, txn_infos, log_versions);
                     if (!st.ok()) {
                         g_publish_version_failed_tasks << 1;
-                        LOG(WARNING) << "Fail to publish log version: " << st << " tablet_id=" << tablet_id
-                                     << " txns=" << absl::StrJoin(txn_infos, ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); }) << " versions="
-                                     << absl::StrJoin(log_versions, log_versions + txn_size, ",");
+                        LOG(WARNING) << "Fail to publish log version: " << st << " tablet_id=" << tablet_id << " txns="
+                                     << absl::StrJoin(txn_infos, ",",
+                                                      [](std::string* out, const auto& elem) {
+                                                          out->append(txn_info_string(elem));
+                                                      })
+                                     << " versions=" << absl::StrJoin(log_versions, log_versions + txn_size, ",");
                         std::lock_guard l(response_mtx);
                         response->add_failed_tablets(tablet_id);
                     }
@@ -718,8 +731,10 @@ void LakeServiceImpl::_submit_publish_log_version_task(const int64_t* tablet_ids
         auto st = thread_pool->submit(std::move(task));
         if (!st.ok()) {
             g_publish_version_failed_tasks << 1;
-            LOG(WARNING) << "Fail to submit publish log version task: " << st << " tablet_id=" << tablet_id
-                         << " txns=" << absl::StrJoin(txn_infos, ",", [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); })
+            LOG(WARNING) << "Fail to submit publish log version task: " << st << " tablet_id=" << tablet_id << " txns="
+                         << absl::StrJoin(
+                                    txn_infos, ",",
+                                    [](std::string* out, const auto& elem) { out->append(txn_info_string(elem)); })
                          << " versions=" << absl::StrJoin(log_versions, log_versions + txn_size, ",");
             std::lock_guard l(response_mtx);
             response->add_failed_tablets(tablet_id);

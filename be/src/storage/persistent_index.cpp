@@ -19,11 +19,13 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/bit/bit_util.h"
 #include "base/coding.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "base/container/raw_container.h"
 #include "base/failpoint/fail_point.h"
+#include "base/gutil/strings/escaping.h"
 #include "base/hash/crc32c.h"
 #include "base/hash/xxh3.h"
 #include "base/path/filesystem_util.h"
@@ -37,8 +39,6 @@
 #include "common/util/debug_util.h"
 #include "fs/fs.h"
 #include "fs/fs_factory.h"
-#include "base/gutil/strings/escaping.h"
-#include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "storage/chunk_helper.h"
@@ -766,7 +766,7 @@ Status ImmutableIndexWriter::write_bf() {
     if (pos_before != _idx_wb->size()) {
         std::string err_msg =
                 absl::Substitute("immmutable index file size inconsistent. file: $0, expect: $1, actual: $2",
-                                    _idx_wb->filename(), pos_before, _idx_wb->size());
+                                 _idx_wb->filename(), pos_before, _idx_wb->size());
         LOG(ERROR) << err_msg;
         return Status::InternalError(err_msg);
     }
@@ -2238,7 +2238,7 @@ Status ShardByLengthMutableIndex::load(const MutableIndexMetaPB& meta) {
         format_version != PERSISTENT_INDEX_VERSION_4 && format_version != PERSISTENT_INDEX_VERSION_5 &&
         format_version != PERSISTENT_INDEX_VERSION_6 && format_version != PERSISTENT_INDEX_VERSION_7) {
         std::string msg = absl::Substitute("different l0 format, should rebuid index. actual:$0, expect:$1",
-                                              format_version, PERSISTENT_INDEX_VERSION_5);
+                                           format_version, PERSISTENT_INDEX_VERSION_5);
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     }
@@ -3117,8 +3117,7 @@ StatusOr<std::unique_ptr<ImmutableIndex>> ImmutableIndex::load(std::unique_ptr<R
     uint32_t checksum = UNALIGNED_LOAD32(buff.data() + footer_read_size - 8);
     uint32_t magic = UNALIGNED_LOAD32(buff.data() + footer_read_size - 4);
     if (magic != UNALIGNED_LOAD32(kIndexFileMagic)) {
-        return Status::Corruption(
-                absl::Substitute("load immutable index failed $0 illegal magic", file->filename()));
+        return Status::Corruption(absl::Substitute("load immutable index failed $0 illegal magic", file->filename()));
     }
     std::string_view meta_str;
     if (footer_length <= footer_read_size - 12) {
@@ -3145,7 +3144,7 @@ StatusOr<std::unique_ptr<ImmutableIndex>> ImmutableIndex::load(std::unique_ptr<R
         format_version != PERSISTENT_INDEX_VERSION_6 && format_version != PERSISTENT_INDEX_VERSION_7) {
         std::string msg =
                 absl::Substitute("different immutable index format, should rebuid index. actual:$0, expect:$1",
-                                    format_version, PERSISTENT_INDEX_VERSION_7);
+                                 format_version, PERSISTENT_INDEX_VERSION_7);
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     }
@@ -3729,7 +3728,7 @@ Status PersistentIndex::commit(PersistentIndexMetaPB* index_meta, IOStat* stat) 
     _calc_memory_usage();
 
     VLOG(2) << absl::Substitute("commit persistent index successfully, version: [$0,$1]", _version.major_number(),
-                                   _version.minor_number());
+                                _version.minor_number());
     return Status::OK();
 }
 
@@ -3830,7 +3829,7 @@ Status PersistentIndex::get_from_one_immutable_index(ImmutableIndex* immu_index,
         st = immu_index->get(n, keys, keys_info, values, found_keys_info, key_size, nullptr);
         if (!st.ok()) {
             std::string msg = absl::Substitute("get from one immutableindex failed, file: $0, status: $1",
-                                                  immu_index->filename(), st.to_string());
+                                               immu_index->filename(), st.to_string());
             LOG(ERROR) << msg;
             _set_error(true, msg);
             break;
@@ -3960,8 +3959,7 @@ Status PersistentIndex::_update_usage_and_size_by_key_length(
         auto iter = _usage_and_size_by_key_length.find(_key_size);
         DCHECK(iter != _usage_and_size_by_key_length.end());
         if (iter == _usage_and_size_by_key_length.end()) {
-            std::string msg =
-                    absl::Substitute("update pindex info failed, no key_size: $0 in usage info", _key_size);
+            std::string msg = absl::Substitute("update pindex info failed, no key_size: $0 in usage info", _key_size);
             LOG(WARNING) << msg;
             return Status::InternalError(msg);
         } else {
@@ -3991,8 +3989,7 @@ Status PersistentIndex::_update_usage_and_size_by_key_length(
         DCHECK(_key_size == 0);
         auto iter = _usage_and_size_by_key_length.find(_key_size);
         if (iter == _usage_and_size_by_key_length.end()) {
-            std::string msg =
-                    absl::Substitute("update pindex info failed, no key_size: $0 in usage info", _key_size);
+            std::string msg = absl::Substitute("update pindex info failed, no key_size: $0 in usage info", _key_size);
             LOG(WARNING) << msg;
             return Status::InternalError(msg);
         }
@@ -4151,8 +4148,8 @@ Status PersistentIndex::try_replace(size_t n, const Slice* keys, const IndexValu
 Status PersistentIndex::flush_advance() {
     // flush l0 into _l1_vec
     int idx = _l1_vec.size();
-    std::string l1_tmp_file = absl::Substitute("$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(),
-                                                  _version.minor_number(), idx);
+    std::string l1_tmp_file =
+            absl::Substitute("$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(), _version.minor_number(), idx);
     RETURN_IF_ERROR(_l0->flush_to_immutable_index(l1_tmp_file, _version, true, true));
 
     VLOG(2) << "flush tmp l1, idx: " << idx << ", file_path: " << l1_tmp_file << " success";
@@ -4247,10 +4244,8 @@ static StatusOr<EditVersionWithMerge> parse_l2_filename(const std::string& filen
 
 Status PersistentIndex::_delete_expired_index_file(const EditVersion& l0_version, const EditVersion& l1_version,
                                                    const EditVersionWithMerge& min_l2_version) {
-    std::string l0_file_name =
-            absl::Substitute("index.l0.$0.$1", l0_version.major_number(), l0_version.minor_number());
-    std::string l1_file_name =
-            absl::Substitute("index.l1.$0.$1", l1_version.major_number(), l1_version.minor_number());
+    std::string l0_file_name = absl::Substitute("index.l0.$0.$1", l0_version.major_number(), l0_version.minor_number());
+    std::string l1_file_name = absl::Substitute("index.l1.$0.$1", l1_version.major_number(), l1_version.minor_number());
     std::string l0_prefix("index.l0");
     std::string l1_prefix("index.l1");
     std::string l2_prefix("index.l2");
@@ -4819,7 +4814,7 @@ Status PersistentIndex::_merge_compaction() {
     if (_l2_vec.size() == 0 && _size != writer->total_kv_num()) {
         std::string msg =
                 absl::Substitute("inconsistent kv num after merge compaction, actual:$0, expect:$1, index_file:$2",
-                                    writer->total_kv_num(), _size, writer->index_file());
+                                 writer->total_kv_num(), _size, writer->index_file());
         LOG(ERROR) << msg;
         return Status::InternalError(msg);
     }
@@ -4829,13 +4824,13 @@ Status PersistentIndex::_merge_compaction() {
 Status PersistentIndex::_merge_compaction_advance() {
     DCHECK(_l1_vec.size() >= config::max_tmp_l1_num);
     auto writer = std::make_unique<ImmutableIndexWriter>();
-    const std::string idx_file_path_tmp = absl::Substitute(
-            "$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(), _version.minor_number(), _l1_vec.size());
+    const std::string idx_file_path_tmp = absl::Substitute("$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(),
+                                                           _version.minor_number(), _l1_vec.size());
     RETURN_IF_ERROR(writer->init(idx_file_path_tmp, _version, false));
     int merge_l1_start_idx = _l1_vec.size() - config::max_tmp_l1_num;
     int merge_l1_end_idx = _l1_vec.size();
     VLOG(2) << absl::Substitute("merge compaction advance, path: $0, start_idx: $1, end_idx: $2", _path,
-                                   merge_l1_start_idx, merge_l1_end_idx);
+                                merge_l1_start_idx, merge_l1_end_idx);
     // keep delete flag when older l1 or l2 exist
     bool keep_delete = (merge_l1_start_idx != 0) || !_l2_vec.empty();
 
@@ -4888,7 +4883,7 @@ Status PersistentIndex::_merge_compaction_advance() {
     }
 
     const std::string idx_file_path = absl::Substitute("$0/index.l1.$1.$2.$3.tmp", _path, _version.major_number(),
-                                                          _version.minor_number(), new_l1_vec.size());
+                                                       _version.minor_number(), new_l1_vec.size());
     RETURN_IF_ERROR(FileSystem::Default()->rename_file(idx_file_path_tmp, idx_file_path));
     std::unique_ptr<RandomAccessFile> l1_rfile;
     ASSIGN_OR_RETURN(l1_rfile, _fs->new_random_access_file(idx_file_path));
@@ -4938,7 +4933,7 @@ StatusOr<EditVersion> PersistentIndex::_major_compaction_impl(
     // use latest l2 edit version as new l2 edit version
     EditVersion new_l2_version = l2_versions.back();
     const std::string idx_file_path = absl::Substitute("$0/index.l2.$1.$2$3", _path, new_l2_version.major_number(),
-                                                          new_l2_version.minor_number(), MergeSuffix);
+                                                       new_l2_version.minor_number(), MergeSuffix);
     RETURN_IF_ERROR(writer->init(idx_file_path, new_l2_version, true));
     std::map<uint32_t, std::pair<int64_t, int64_t>> usage_and_size_stat;
     _get_l2_stat(l2_vec, usage_and_size_stat);
@@ -5066,8 +5061,8 @@ Status PersistentIndex::TEST_major_compaction(PersistentIndexMetaPB& index_meta)
     for (int i = 0; i < index_meta.l2_versions_size(); i++) {
         l2_versions.emplace_back(index_meta.l2_versions(i));
         auto l2_block_path = absl::Substitute("$0/index.l2.$1.$2$3", _path, index_meta.l2_versions(i).major_number(),
-                                                 index_meta.l2_versions(i).minor_number(),
-                                                 index_meta.l2_version_merged(i) ? MergeSuffix : "");
+                                              index_meta.l2_versions(i).minor_number(),
+                                              index_meta.l2_version_merged(i) ? MergeSuffix : "");
         ASSIGN_OR_RETURN(auto l2_rfile, _fs->new_random_access_file(l2_block_path));
         ASSIGN_OR_RETURN(auto l2_index, ImmutableIndex::load(std::move(l2_rfile), load_bf_or_not()));
         l2_vec.emplace_back(std::move(l2_index));
@@ -5346,9 +5341,9 @@ Status PersistentIndex::_load_by_loader(TabletLoader* loader) {
                     DCHECK(index_meta.l2_versions_size() == index_meta.l2_version_merged_size());
                     for (int i = 0; i < index_meta.l2_versions_size(); i++) {
                         EditVersion l2_version = index_meta.l2_versions(i);
-                        std::string l2_file_name = absl::Substitute(
-                                "index.l2.$0.$1$2", l2_version.major_number(), l2_version.minor_number(),
-                                index_meta.l2_version_merged(i) ? MergeSuffix : "");
+                        std::string l2_file_name = absl::Substitute("index.l2.$0.$1$2", l2_version.major_number(),
+                                                                    l2_version.minor_number(),
+                                                                    index_meta.l2_version_merged(i) ? MergeSuffix : "");
                         Status st = FileSystem::Default()->delete_file(l2_file_name);
                         LOG_IF(WARNING, !st.ok())
                                 << "delete error l2 index file: " << l2_file_name << ", status: " << st;

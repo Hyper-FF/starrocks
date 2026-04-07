@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "storage/binlog_file_reader.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/container/raw_container.h"
 #include "base/hash/crc32c.h"
@@ -101,9 +101,9 @@ Status BinlogFileReader::_seek_to_page(int64_t version, int64_t seq_id) {
         if (_next_page_index >= _file_meta->num_pages()) {
             return Status::NotFound(
                     absl::Substitute("Can't find version $0, changelog_id $1 "
-                                        "in file $2, largest version $3, seq_id $4, and changelog_id $5",
-                                        version, seq_id, _file_path, _file_meta->end_version(),
-                                        _file_meta->end_seq_id(), _file_meta->end_seq_id()));
+                                     "in file $2, largest version $3, seq_id $4, and changelog_id $5",
+                                     version, seq_id, _file_path, _file_meta->end_version(), _file_meta->end_seq_id(),
+                                     _file_meta->end_seq_id()));
         }
     } while (true);
     _next_page_index++;
@@ -138,7 +138,7 @@ Status BinlogFileReader::_seek_to_log_entry(int64_t seq_id) {
     }
 
     return Status::NotFound(absl::Substitute("Can't find log entry containing the change event <$0, $1>",
-                                                _current_page_context->page_header.version(), seq_id));
+                                             _current_page_context->page_header.version(), seq_id));
 }
 
 void BinlogFileReader::_advance_log_entry() {
@@ -234,10 +234,10 @@ Status BinlogFileReader::_read_page_content(int page_index, PageHeaderPB* page_h
         Slice decompress_page_slice(decompressed_page.get(), uncompressed_size);
         RETURN_IF_ERROR(compress_codec->decompress(page_slice, &decompress_page_slice));
         if (decompress_page_slice.get_size() != uncompressed_size) {
-            return Status::Corruption(absl::Substitute(
-                    "Bad binlog file $0: page content decompress failed, expect uncompressed size=$1"
-                    " vs real decompressed size=$2, page index $3",
-                    _file_path, uncompressed_size, decompress_page_slice.get_size(), page_index));
+            return Status::Corruption(
+                    absl::Substitute("Bad binlog file $0: page content decompress failed, expect uncompressed size=$1"
+                                     " vs real decompressed size=$2, page index $3",
+                                     _file_path, uncompressed_size, decompress_page_slice.get_size(), page_index));
         }
         page = std::move(decompressed_page);
         page_slice = Slice(page.get(), uncompressed_size);

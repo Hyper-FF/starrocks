@@ -36,8 +36,8 @@
 #include <functional>
 #include <memory>
 
-#include "gen_cpp/segment.pb.h"
 #include "absl/strings/substitute.h"
+#include "gen_cpp/segment.pb.h"
 #include "storage/utils.h"
 #include "util/block_split_bloom_filter.h"
 

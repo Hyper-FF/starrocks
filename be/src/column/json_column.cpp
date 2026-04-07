@@ -18,13 +18,13 @@
 
 #include <sstream>
 
+#include "absl/strings/substitute.h"
 #include "base/hash/hash_util.hpp"
 #include "column/mysql_row_buffer.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
 #include "common/compiler_util.h"
 #include "glog/logging.h"
-#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -429,7 +429,7 @@ void JsonColumn::reset_column() {
 Status JsonColumn::capacity_limit_reached() const {
     if (size() > Column::MAX_CAPACITY_LIMIT) {
         return Status::CapacityLimitExceed(absl::Substitute("row count of object column exceed the limit: $0",
-                                                               std::to_string(Column::MAX_CAPACITY_LIMIT)));
+                                                            std::to_string(Column::MAX_CAPACITY_LIMIT)));
     }
     return Status::OK();
 }

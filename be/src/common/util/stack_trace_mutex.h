@@ -25,11 +25,11 @@
 #include <string>
 #include <vector>
 
+#include "base/compiler_util.h"
 #include "base/time/time.h"
 #include "common/compiler_util.h"
 #include "common/logging.h"
 #include "common/stack_util.h"
-#include "base/compiler_util.h"
 
 namespace starrocks {
 

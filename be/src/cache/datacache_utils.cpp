@@ -24,7 +24,6 @@
 #include "base/string/parse_util.h"
 #include "cache/mem_cache/local_mem_cache_engine.h"
 #include "fs/fs.h"
-#include "absl/strings/str_split.h"
 
 namespace starrocks {
 

@@ -14,6 +14,8 @@
 
 #include "exprs/bitmap_functions.h"
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "base/phmap/phmap.h"
 #include "base/string/string_parser.hpp"
 #include "column/array_column.h"
@@ -26,8 +28,6 @@
 #include "exprs/binary_function.h"
 #include "exprs/function_context.h"
 #include "exprs/unary_function.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -49,9 +49,9 @@ StatusOr<ColumnPtr> BitmapFunctions::to_bitmap(FunctionContext* context, const s
             // To be compatible with varchar type, set it null if raw value is less than 0 and less than uint64_t::max.
             if (UNLIKELY(raw_value < 0 || raw_value > std::numeric_limits<uint64_t>::max())) {
                 context->set_error(absl::Substitute("The input: {0} is not valid, to_bitmap only "
-                                                       "support bigint value from 0 to "
-                                                       "18446744073709551615 currently",
-                                                       raw_value)
+                                                    "support bigint value from 0 to "
+                                                    "18446744073709551615 currently",
+                                                    raw_value)
                                            .c_str());
 
                 builder.append_null();
@@ -64,9 +64,9 @@ StatusOr<ColumnPtr> BitmapFunctions::to_bitmap(FunctionContext* context, const s
             value = StringParser::string_to_unsigned_int<uint64_t>(slice.data, slice.size, &parse_result);
             if (parse_result != StringParser::PARSE_SUCCESS) {
                 context->set_error(absl::Substitute("The input: {0} is not valid, to_bitmap only "
-                                                       "support bigint value from 0 to "
-                                                       "18446744073709551615 currently",
-                                                       slice.to_string())
+                                                    "support bigint value from 0 to "
+                                                    "18446744073709551615 currently",
+                                                    slice.to_string())
                                            .c_str());
 
                 builder.append_null();
@@ -233,8 +233,8 @@ StatusOr<ColumnPtr> BitmapFunctions::bitmap_from_string(FunctionContext* context
         bits.clear();
         bool parse_ok = (slice.size <= INT32_MAX);
         if (parse_ok) {
-            for (auto piece : absl::StrSplit(std::string_view(slice.data, slice.size),
-                                              absl::ByAnyChar(","), absl::SkipEmpty())) {
+            for (auto piece :
+                 absl::StrSplit(std::string_view(slice.data, slice.size), absl::ByAnyChar(","), absl::SkipEmpty())) {
                 uint64_t val;
                 if (safe_strtou64(std::string(piece), &val)) {
                     bits.push_back(val);
@@ -438,20 +438,22 @@ StatusOr<ColumnPtr> BitmapFunctions::array_to_bitmap(FunctionContext* context, c
                                    : nullptr;
     const auto* array_column = static_cast<const ArrayColumn*>(data_column);
 
-    auto element_container = array_column->elements_column()->is_nullable()
-                                     ? static_cast<const RunTimeColumnType<TYPE>*>(
-                                               static_cast<const NullableColumn*>(array_column->elements_column().get())
-                                                       ->data_column()
-                                                       .get())
-                                               ->immutable_data()
-                                     : static_cast<const RunTimeColumnType<TYPE>*>(array_column->elements_column().get())
-                                               ->immutable_data();
+    auto element_container =
+            array_column->elements_column()->is_nullable()
+                    ? static_cast<const RunTimeColumnType<TYPE>*>(
+                              static_cast<const NullableColumn*>(array_column->elements_column().get())
+                                      ->data_column()
+                                      .get())
+                              ->immutable_data()
+                    : static_cast<const RunTimeColumnType<TYPE>*>(array_column->elements_column().get())
+                              ->immutable_data();
     const auto offsets = array_column->offsets_column()->immutable_data();
 
-    auto element_null_data =
-            array_column->elements_column()->is_nullable()
-                    ? static_cast<const NullableColumn*>(array_column->elements_column().get())->null_column_data().data()
-                    : nullptr;
+    auto element_null_data = array_column->elements_column()->is_nullable()
+                                     ? static_cast<const NullableColumn*>(array_column->elements_column().get())
+                                               ->null_column_data()
+                                               .data()
+                                     : nullptr;
 
     for (int row = 0; row < size; ++row) {
         uint32_t offset = offsets[row];

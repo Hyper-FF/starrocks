@@ -39,6 +39,7 @@
 #include <cstddef>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/bit/rle_encoding.h"
 #include "base/simd/simd.h"
 #include "base/string/faststring.h"
@@ -46,7 +47,6 @@
 #include "column/nullable_column.h"
 #include "common/config_rowset_fwd.h"
 #include "common/status.h"
-#include "absl/strings/substitute.h"
 #include "storage/column_predicate.h"
 #include "storage/rowset/binary_dict_page.h"
 #include "storage/rowset/bitshuffle_page.h"

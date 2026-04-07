@@ -39,7 +39,10 @@
 
 #include <filesystem>
 #include <set>
+#include <string_view>
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "agent/agent_common.h"
 #include "agent/finish_task.h"
 #include "agent/task_signatures_manager.h"
@@ -56,10 +59,6 @@
 #include "fs/fs.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/Types_constants.h"
-#include <string_view>
-
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 #include "http/http_client.h"
 #include "runtime/client_cache.h"
 #include "runtime/current_thread.h"
@@ -420,9 +419,9 @@ Status EngineCloneTask::_clone_copy(DataDir& data_dir, const string& local_data_
             continue;
         }
 
-        std::string download_url = absl::Substitute(
-                "http://$0$1?token=$2&type=V2&file=$3/$4/$5/", get_host_port(src.host, src.http_port),
-                HTTP_REQUEST_PREFIX, token, snapshot_path, _clone_req.tablet_id, _clone_req.schema_hash);
+        std::string download_url = absl::Substitute("http://$0$1?token=$2&type=V2&file=$3/$4/$5/",
+                                                    get_host_port(src.host, src.http_port), HTTP_REQUEST_PREFIX, token,
+                                                    snapshot_path, _clone_req.tablet_id, _clone_req.schema_hash);
 
         st = _download_files(&data_dir, download_url, local_path);
         (void)_release_snapshot(src.host, src.be_port, snapshot_path);

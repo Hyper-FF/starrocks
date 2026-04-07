@@ -14,11 +14,11 @@
 
 #include "formats/orc/orc_input_stream.h"
 
+#include "absl/strings/substitute.h"
 #include "common/config_scan_io_fwd.h"
 #include "exprs/cast_expr.h"
 #include "formats/orc/orc_mapping.h"
 #include "fs/fs.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

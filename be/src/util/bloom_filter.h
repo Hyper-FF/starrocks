@@ -38,12 +38,12 @@
 #include <functional>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/hash/hash_std.hpp"
 #include "base/hash/murmur_hash3.h"
 #include "common/ngram_bloom_filter_state.h"
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "absl/strings/substitute.h"
 #include "storage/utils.h"
 
 namespace starrocks {

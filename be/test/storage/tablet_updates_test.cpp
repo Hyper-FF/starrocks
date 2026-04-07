@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "storage/tablet_updates_test.h"
-#include "absl/strings/substitute.h"
 
 #include <random>
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "base/testutil/sync_point.h"
 #include "common/config_compaction_fwd.h"
@@ -2405,8 +2405,7 @@ void TabletUpdatesTest::load_snapshot(const std::string& meta_dir, const TabletS
     int64_t num_segments = last_rowset->num_segments();
     ASSERT_EQ(1, num_segments);
     std::string rowset_path = last_rowset->rowset_path();
-    std::string segment_path =
-            absl::Substitute("$0/$1_$2.dat", rowset_path, last_rowset->rowset_id().to_string(), 0);
+    std::string segment_path = absl::Substitute("$0/$1_$2.dat", rowset_path, last_rowset->rowset_id().to_string(), 0);
     ASSIGN_OR_ABORT(auto fs, FileSystemFactory::CreateSharedFromString("posix://"));
     ASSIGN_OR_ABORT(auto read_file, fs->new_random_access_file(segment_path));
 

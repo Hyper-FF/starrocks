@@ -40,6 +40,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "agent/agent_task.h"
 #include "agent/task_signatures_manager.h"
 #include "agent/task_worker_pool.h"
@@ -53,7 +54,6 @@
 #include "common/system/cpu_info.h"
 #include "common/system/master_info.h"
 #include "common/thread/threadpool.h"
-#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "storage/snapshot_manager.h"
 #include "util/global_metrics_registry.h"
@@ -379,14 +379,14 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
         TTaskType::type task_type = task.task_type;
         int64_t signature = task.signature;
 
-#define HANDLE_TYPE(t_task_type, req_member)                                                        \
-    case t_task_type:                                                                               \
-        if (task.__isset.req_member) {                                                              \
-            task_divider[t_task_type].push_back(&task);                                             \
-        } else {                                                                                    \
-            ret_st = Status::InvalidArgument(                                                       \
+#define HANDLE_TYPE(t_task_type, req_member)                                                     \
+    case t_task_type:                                                                            \
+        if (task.__isset.req_member) {                                                           \
+            task_divider[t_task_type].push_back(&task);                                          \
+        } else {                                                                                 \
+            ret_st = Status::InvalidArgument(                                                    \
                     absl::Substitute("task(signature=$0) has wrong request member", signature)); \
-        }                                                                                           \
+        }                                                                                        \
         break;
 
         // TODO(lingbin): It still too long, divided these task types into several categories
@@ -423,7 +423,7 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
             } else {
                 ret_st = Status::InvalidArgument(
                         absl::Substitute("task(signature=$0, type=$1, push_type=$2) has wrong push_type", signature,
-                                            task_type, task.push_req.push_type));
+                                         task_type, task.push_req.push_type));
             }
             break;
         case TTaskType::ALTER:
@@ -599,7 +599,7 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
                 break;
             default:
                 ret_st = Status::InvalidArgument(absl::Substitute("tasks(type=$0, push_type=$1) has wrong task type",
-                                                                     TTaskType::PUSH, push_type));
+                                                                  TTaskType::PUSH, push_type));
                 LOG(WARNING) << "fail to batch submit push task. reason: " << ret_st.message();
             }
         }

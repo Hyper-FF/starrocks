@@ -38,11 +38,11 @@
 #include <memory>
 #include <string>
 
+#include "base/compiler_util.h"
 #include "common/statusor.h"
 #include "fs/fs.h"
 #include "gen_cpp/olap_file.pb.h"
 #include "gen_cpp/segment.pb.h"
-#include "base/compiler_util.h"
 #include "storage/delta_column_group.h"
 #include "storage/index/inverted/inverted_index_iterator.h"
 #include "storage/options.h"

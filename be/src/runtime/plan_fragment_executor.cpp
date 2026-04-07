@@ -37,6 +37,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/gutil/map_util.h"
 #include "base/string/parse_util.h"
 #include "base/uid_util.h"
 #include "common/logging.h"
@@ -46,7 +47,6 @@
 #include "exec/exec_factory.h"
 #include "exec/exec_node.h"
 #include "exec/scan_node.h"
-#include "base/gutil/map_util.h"
 #include "runtime/current_thread.h"
 #include "runtime/data_stream_mgr.h"
 #include "runtime/descriptors.h"

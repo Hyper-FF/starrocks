@@ -37,9 +37,9 @@
 #include <cstddef>
 #include <memory>
 
+#include "base/compiler_util.h"
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "base/compiler_util.h"
 
 namespace starrocks {
 

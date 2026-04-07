@@ -25,9 +25,9 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "base/simd/simd_utils.h"
 #include "base/gutil/port.h"
 #include "base/gutil/strings/fastmem.h"
+#include "base/simd/simd_utils.h"
 
 namespace starrocks {
 

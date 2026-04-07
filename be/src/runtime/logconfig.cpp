@@ -43,14 +43,14 @@
 #include <memory>
 #include <mutex>
 
+#include "base/gutil/endian.h"
+#include "base/gutil/stringprintf.h"
+#include "base/gutil/sysinfo.h"
 #include "base/process/lite_exec.h"
 #include "cache/datacache.h"
 #include "cache/mem_cache/page_cache.h"
 #include "common/config_diagnostic_fwd.h"
 #include "common/config_path_fwd.h"
-#include "base/gutil/endian.h"
-#include "base/gutil/stringprintf.h"
-#include "base/gutil/sysinfo.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/logconfig.h"

@@ -32,8 +32,8 @@
 #include <utility>
 #include <vector>
 
-#include "base/logging.h"
 #include "base/gutil/walltime.h"
+#include "base/logging.h"
 
 using std::pair;
 using std::string;

@@ -162,9 +162,9 @@ StatusOr<ColumnPtr> MapFunctions::map_keys(FunctionContext* context, const Colum
                                               UInt32Column::static_pointer_cast(col_map->offsets_column()->clone()));
 
     if (arg0->has_null()) {
-        return NullableColumn::create(
-                std::move(map_keys_array),
-                NullColumn::static_pointer_cast(static_cast<const NullableColumn*>(arg0.get())->null_column()->clone()));
+        return NullableColumn::create(std::move(map_keys_array),
+                                      NullColumn::static_pointer_cast(
+                                              static_cast<const NullableColumn*>(arg0.get())->null_column()->clone()));
     } else {
         return map_keys_array;
     }
@@ -182,9 +182,9 @@ StatusOr<ColumnPtr> MapFunctions::map_values(FunctionContext* context, const Col
                                                 UInt32Column::static_pointer_cast(col_map->offsets_column()->clone()));
 
     if (arg0->has_null()) {
-        return NullableColumn::create(
-                std::move(map_values_array),
-                NullColumn::static_pointer_cast(static_cast<const NullableColumn*>(arg0.get())->null_column()->clone()));
+        return NullableColumn::create(std::move(map_values_array),
+                                      NullColumn::static_pointer_cast(
+                                              static_cast<const NullableColumn*>(arg0.get())->null_column()->clone()));
     } else {
         return map_values_array;
     }
@@ -219,9 +219,9 @@ StatusOr<ColumnPtr> MapFunctions::map_entries(FunctionContext* context, const Co
                                             UInt32Column::static_pointer_cast(col_map->offsets_column()->clone()));
 
     if (arg0->has_null()) {
-        return NullableColumn::create(
-                std::move(result_array),
-                NullColumn::static_pointer_cast(static_cast<const NullableColumn*>(arg0.get())->null_column()->clone()));
+        return NullableColumn::create(std::move(result_array),
+                                      NullColumn::static_pointer_cast(
+                                              static_cast<const NullableColumn*>(arg0.get())->null_column()->clone()));
     } else {
         return result_array;
     }
@@ -391,9 +391,9 @@ StatusOr<ColumnPtr> MapFunctions::distinct_map_keys(FunctionContext* context, co
     }
     auto map = MapColumn::create(std::move(new_keys), std::move(new_values), std::move(new_offsets));
     if (arg0->has_null()) {
-        return NullableColumn::create(
-                std::move(map),
-                NullColumn::static_pointer_cast(static_cast<const NullableColumn*>(arg0.get())->null_column()->clone()));
+        return NullableColumn::create(std::move(map),
+                                      NullColumn::static_pointer_cast(
+                                              static_cast<const NullableColumn*>(arg0.get())->null_column()->clone()));
     }
     return map;
 }

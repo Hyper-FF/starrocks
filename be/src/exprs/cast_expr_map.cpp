@@ -90,7 +90,8 @@ StatusOr<ColumnPtr> CastVariantToMap::evaluate_checked(ExprContext* context, Chu
     }
 
     ColumnViewer<TYPE_VARIANT> variant_viewer(src_column);
-    const auto* variant_data_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(src_column.get()));
+    const auto* variant_data_column =
+            static_cast<const VariantColumn*>(ColumnHelper::get_data_column(src_column.get()));
     NullColumn::MutablePtr null_column = NullColumn::create();
     UInt32Column::MutablePtr offsets_column = UInt32Column::create();
     ColumnBuilder<TYPE_VARCHAR> keys_builder(src_column->size());

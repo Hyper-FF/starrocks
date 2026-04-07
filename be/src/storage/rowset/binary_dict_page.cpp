@@ -36,6 +36,7 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h" // for Substitute
 #include "base/hash/unaligned_access.h"
 #include "base/simd/simd.h"
 #include "base/string/slice.h" // for Slice
@@ -44,7 +45,6 @@
 #include "column/column_helper.h"
 #include "column/nullable_column.h"
 #include "common/logging.h"
-#include "absl/strings/substitute.h" // for Substitute
 #include "storage/chunk_helper.h"
 #include "storage/column_predicate.h"
 #include "storage/range.h"

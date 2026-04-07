@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "storage/local_tablet_reader.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "gen_cpp/internal_service.pb.h"
 #include "runtime/current_thread.h"
 #include "serde/protobuf_serde.h"
@@ -130,11 +130,11 @@ Status LocalTabletReader::multi_get(const Chunk& keys, const std::vector<uint32_
     if (edit_version.major_number() != _version) {
         return Status::InternalError(
                 absl::Substitute("multi_get version not match tablet:$0 current_version:$1 read_version:$2",
-                                    _tablet->tablet_id(), edit_version.to_string(), _version));
+                                 _tablet->tablet_id(), edit_version.to_string(), _version));
     }
     if (rowids.size() != n) {
         return Status::InternalError(absl::Substitute("multi_get rowid size not match tablet:$0 $1 != $2",
-                                                         _tablet->tablet_id(), rowids.size(), n));
+                                                      _tablet->tablet_id(), rowids.size(), n));
     }
 
     // sort rowids by rssid, so we can plan&perform read operations by rowset/segment
@@ -169,8 +169,8 @@ Status LocalTabletReader::multi_get(const Chunk& keys, const std::vector<uint32_
     }
     int64_t t_end = MonotonicMillis();
     LOG(INFO) << absl::Substitute("multi_get tablet:$0 version:$1 #columns:$2 #rows:$3 found:$4 time:$5ms",
-                                     _tablet->tablet_id(), _version, value_column_ids.size(), n, idxes.size(),
-                                     t_end - t_start);
+                                  _tablet->tablet_id(), _version, value_column_ids.size(), n, idxes.size(),
+                                  t_end - t_start);
     return Status::OK();
 }
 

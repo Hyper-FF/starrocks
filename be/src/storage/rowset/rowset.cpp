@@ -37,6 +37,7 @@
 #include <memory>
 #include <set>
 
+#include "absl/strings/substitute.h"
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
 #include "common/config_exec_fwd.h"
@@ -44,7 +45,6 @@
 #include "fmt/format.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "absl/strings/substitute.h"
 #include "rowset_options.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_state.h"
@@ -475,7 +475,7 @@ Status Rowset::link_files_to(const std::string& dir, RowsetId new_rowset_id, int
                         if (link(src_absolute_path.c_str(), dst_absolute_path.c_str()) != 0) {
                             PLOG(WARNING) << "Fail to link " << src_absolute_path << " to " << dst_absolute_path;
                             return Status::RuntimeError(absl::Substitute("Fail to link index gin file from $0 to $1",
-                                                                            src_absolute_path, dst_absolute_path));
+                                                                         src_absolute_path, dst_absolute_path));
                         }
                     }
                 } else if (index.index_type() == VECTOR) {
@@ -1025,8 +1025,8 @@ static Status report_duplicate(const Chunk& chunk, size_t idx, int64_t row_id0, 
 
 static Status report_unordered(const Chunk& chunk0, size_t idx0, int64_t row_id0, const Chunk& chunk1, size_t idx1,
                                int64_t row_id1) {
-    return Status::Corruption(absl::Substitute("unordered row row:$0 $1 > row:$2 $3", row_id0,
-                                                  chunk0.debug_row(idx0), row_id1, chunk1.debug_row(idx1)));
+    return Status::Corruption(absl::Substitute("unordered row row:$0 $1 > row:$2 $3", row_id0, chunk0.debug_row(idx0),
+                                               row_id1, chunk1.debug_row(idx1)));
 }
 
 static Status is_ordered(ChunkIteratorPtr& iter, bool unique) {

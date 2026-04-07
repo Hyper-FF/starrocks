@@ -13,10 +13,11 @@
 // limitations under the License.
 
 #include "types/checker/type_checker_xml_loader.h"
-#include "absl/strings/substitute.h"
 
 #include <libxml/parser.h>
 #include <libxml/tree.h>
+
+#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

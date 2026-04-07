@@ -16,9 +16,9 @@
 
 #include <type_traits>
 
+#include "base/gutil/strings/fastmem.h"
 #include "column/array_column.h"
 #include "column/runtime_type_traits.h"
-#include "base/gutil/strings/fastmem.h"
 #include "types/logical_type.h"
 
 namespace starrocks {

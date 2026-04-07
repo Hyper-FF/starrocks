@@ -14,12 +14,11 @@
 
 #pragma once
 
-#include "base/gutil/bits.h>
-#include "absl/strings/substitute.h"
-
 #include <atomic>
 #include <chrono>
 
+#include "absl/strings/substitute.h"
+#include "base/gutil/bits.h>
 #include "base/phmap/phmap.h"
 #include "column/vectorized_fwd.h"
 #include "common/statusor.h"

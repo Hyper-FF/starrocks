@@ -14,6 +14,7 @@
 
 #include "rowset_column_update_state.h"
 
+#include "absl/strings/substitute.h"
 #include "base/phmap/phmap.h"
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
@@ -23,7 +24,6 @@
 #include "common/tracer.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "serde/column_array_serde.h"
 #include "storage/chunk_helper.h"
@@ -844,12 +844,11 @@ Status RowsetColumnUpdateState::finalize(Tablet* tablet, Rowset* rowset, uint32_
         cost_str << " [insert missing rows] " << watch.elapsed_time();
         watch.reset();
     }
-    cost_str << absl::Substitute(" total_do_update_time(ms):$0 total_finalize_dcg_time(ms):$1 ",
-                                    total_do_update_time, total_finalize_dcg_time);
-    cost_str << absl::Substitute(
-            "rss_cnt:$0 update_cnt:$1 column_cnt:$2 update_rows:$3 handle_cnt:$4 insert_rows:$5",
-            rss_upt_id_to_rowid_pairs.size(), _partial_update_states.size(), update_column_ids.size(), update_rows,
-            handle_cnt, insert_rows);
+    cost_str << absl::Substitute(" total_do_update_time(ms):$0 total_finalize_dcg_time(ms):$1 ", total_do_update_time,
+                                 total_finalize_dcg_time);
+    cost_str << absl::Substitute("rss_cnt:$0 update_cnt:$1 column_cnt:$2 update_rows:$3 handle_cnt:$4 insert_rows:$5",
+                                 rss_upt_id_to_rowid_pairs.size(), _partial_update_states.size(),
+                                 update_column_ids.size(), update_rows, handle_cnt, insert_rows);
 
     if (total_do_update_time > config::apply_version_slow_log_sec * 1000) {
         LOG(INFO) << "RowsetColumnUpdateState tablet_id: " << tablet->tablet_id() << ", txn_id: " << rowset->txn_id()

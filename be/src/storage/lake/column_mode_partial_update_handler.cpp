@@ -14,6 +14,7 @@
 
 #include "storage/lake/column_mode_partial_update_handler.h"
 
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/phmap/phmap.h"
 #include "base/time/time.h"
@@ -25,7 +26,6 @@
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "serde/column_array_serde.h"
 #include "storage/chunk_helper.h"
@@ -400,7 +400,7 @@ Status ColumnModePartialUpdateHandler::execute(const RowsetUpdateStateParams& pa
         auto cid = params.tablet_schema->field_index(uid);
         if (cid == -1) {
             std::string msg = absl::Substitute("column with unique id:$0 does not exist. tablet:$1", uid,
-                                                  params.tablet->tablet_id());
+                                               params.tablet->tablet_id());
             LOG(ERROR) << msg;
             return Status::InternalError(msg);
         }

@@ -1337,7 +1337,8 @@ TEST_F(JoinHashMapTest, DirectMappingJoinBuildProbeFuncNullable) {
     // check
     ASSERT_EQ(result_chunk->columns().size(), 2);
     auto* result_column = result_chunk->get_column_raw_ptr_by_slot_id(1);
-    auto* result_data_column = static_cast<Int8Column*>(static_cast<NullableColumn*>(result_column)->data_column_raw_ptr());
+    auto* result_data_column =
+            static_cast<Int8Column*>(static_cast<NullableColumn*>(result_column)->data_column_raw_ptr());
     auto* result_null_column =
             static_cast<UInt8Column*>(static_cast<NullableColumn*>(result_column)->null_column_raw_ptr());
     auto result_data = result_data_column->get_data();

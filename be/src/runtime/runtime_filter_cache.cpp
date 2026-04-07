@@ -16,10 +16,10 @@
 
 #include <chrono>
 
+#include "absl/strings/substitute.h"
 #include "base/uid_util.h"
 #include "common/system/backend_options.h"
 #include "common/thread/thread.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

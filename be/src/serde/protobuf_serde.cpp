@@ -16,12 +16,12 @@
 
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/container/raw_container.h"
 #include "column/chunk_extra_data.h"
 #include "column/column_helper.h"
 #include "common/statusor.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
 #include "serde/column_array_serde.h"

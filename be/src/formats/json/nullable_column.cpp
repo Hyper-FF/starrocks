@@ -14,6 +14,7 @@
 
 #include "nullable_column.h"
 
+#include "absl/strings/substitute.h"
 #include "base/string/string_parser.hpp"
 #include "column/adaptive_nullable_column.h"
 #include "column/array_column.h"
@@ -22,7 +23,6 @@
 #include "formats/json/binary_column.h"
 #include "formats/json/map_column.h"
 #include "formats/json/struct_column.h"
-#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks {
@@ -43,7 +43,7 @@ static Status add_adaptive_nullable_numeric_column(Column* column, const TypeDes
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as number, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -81,7 +81,7 @@ static Status add_nullable_numeric_column(Column* column, const TypeDescriptor& 
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as number, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -159,8 +159,8 @@ static Status add_boolean_column(Column* column, const TypeDescriptor& type_desc
             if (r != StringParser::PARSE_SUCCESS || std::isnan(v) || std::isinf(v)) {
                 bool b = StringParser::string_to_bool(s.data(), s.size(), &r);
                 if (r != StringParser::PARSE_SUCCESS) {
-                    auto err_msg = absl::Substitute("Failed to parse string value as boolean. column=$0, value=$1",
-                                                       name, s);
+                    auto err_msg =
+                            absl::Substitute("Failed to parse string value as boolean. column=$0, value=$1", name, s);
                     return Status::InvalidArgument(err_msg);
                 }
                 bool_column->append(b);
@@ -178,7 +178,7 @@ static Status add_boolean_column(Column* column, const TypeDescriptor& type_desc
         }
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as boolean, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -195,7 +195,7 @@ static Status add_adaptive_nullable_boolean_column(Column* column, const TypeDes
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as boolean type, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -213,7 +213,7 @@ static Status add_nullable_boolean_column(Column* column, const TypeDescriptor& 
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as boolean type, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -230,7 +230,7 @@ static Status add_adaptive_nullable_binary_column(Column* column, const TypeDesc
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as binary type, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -248,7 +248,7 @@ static Status add_nullable_binary_column(Column* column, const TypeDescriptor& t
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as binary type, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -264,7 +264,7 @@ static Status add_adaptive_nullable_native_json_column(Column* column, const Typ
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as json type, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -282,7 +282,7 @@ static Status add_nullable_native_json_column(Column* column, const TypeDescript
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as json type, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -315,7 +315,7 @@ static Status add_adaptive_nullable_array_column(Column* column, const TypeDescr
         }
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as array, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -349,7 +349,7 @@ static Status add_nullable_array_column(Column* column, const TypeDescriptor& ty
         }
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value as array, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -487,7 +487,7 @@ Status add_adaptive_nullable_column_by_json_object(Column* column, const TypeDes
         return Status::OK();
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -508,7 +508,7 @@ Status add_adaptive_nullable_column(Column* column, const TypeDescriptor& type_d
         return st;
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }
@@ -529,7 +529,7 @@ Status add_nullable_column(Column* column, const TypeDescriptor& type_desc, cons
         return st;
     } catch (simdjson::simdjson_error& e) {
         auto err_msg = absl::Substitute("Failed to parse value, column=$0, error=$1", name,
-                                           simdjson::error_message(e.error()));
+                                        simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }
 }

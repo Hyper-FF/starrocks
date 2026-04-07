@@ -40,12 +40,12 @@
 #include <numeric>
 #include <type_traits>
 
+#include "base/gutil/endian.h"
+#include "base/gutil/stringprintf.h"
 #include "column/binary_column.h"
 #include "column/chunk.h"
 #include "column/fixed_length_column.h"
 #include "column/schema.h"
-#include "base/gutil/endian.h"
-#include "base/gutil/stringprintf.h"
 #include "storage/dictionary_cache_manager.h"
 #include "storage/tablet_schema.h"
 #include "types/date_value.h"

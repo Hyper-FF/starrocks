@@ -22,6 +22,7 @@
 #include <map>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "column/struct_column.h"
 #include "common/config_exec_fwd.h"
 #include "common/object_pool.h"
@@ -30,7 +31,6 @@
 #include "formats/orc/memory_stream/MemoryInputStream.hh"
 #include "formats/orc/memory_stream/MemoryOutputStream.hh"
 #include "gen_cpp/Exprs_types.h"
-#include "absl/strings/substitute.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"

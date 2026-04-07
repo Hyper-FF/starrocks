@@ -18,12 +18,12 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "column/binary_column.h"
 #include "column/json_column.h"
 #include "common/config_avro_fwd.h"
 #include "common/status.h"
-#include "absl/strings/substitute.h"
 #include "types/json_value.h"
 
 namespace starrocks {
@@ -40,7 +40,7 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
         std::string sv = std::to_string(in);
         if (UNLIKELY(type_desc.len < sv.size())) {
             auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
-                                               type_desc.len);
+                                            type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -57,7 +57,7 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
         std::string sv = std::to_string(in);
         if (UNLIKELY(type_desc.len < sv.size())) {
             auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
-                                               type_desc.len);
+                                            type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -74,7 +74,7 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
         std::string sv = std::to_string(in);
         if (UNLIKELY(type_desc.len < sv.size())) {
             auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
-                                               type_desc.len);
+                                            type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -92,7 +92,7 @@ static Status add_column_with_numeric_value(BinaryColumn* column, const TypeDesc
         std::string sv = std::to_string(in);
         if (UNLIKELY(type_desc.len < sv.size())) {
             auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
-                                               type_desc.len);
+                                            type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -122,7 +122,7 @@ static Status add_column_with_string_value(BinaryColumn* column, const TypeDescr
         --size;
         if (UNLIKELY(type_desc.len < size)) {
             auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
-                                               type_desc.len);
+                                            type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -155,7 +155,7 @@ static Status add_column_with_string_value(BinaryColumn* column, const TypeDescr
 
         if (UNLIKELY(type_desc.len < size)) {
             auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
-                                               type_desc.len);
+                                            type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
 
@@ -173,7 +173,7 @@ static Status add_column_with_string_value(BinaryColumn* column, const TypeDescr
 
         if (UNLIKELY(type_desc.len < size)) {
             auto err_msg = absl::Substitute("Value length is beyond the capacity. column=$0, capacity=$1", name,
-                                               type_desc.len);
+                                            type_desc.len);
             return Status::InvalidArgument(err_msg);
         }
 

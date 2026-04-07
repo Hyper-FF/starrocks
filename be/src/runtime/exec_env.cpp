@@ -38,7 +38,11 @@
 #include <memory>
 #include <thread>
 
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "agent/agent_server.h"
+#include "base/gutil/strings/strip.h"
 #include "base/string/parse_util.h"
 #include "base/time/time.h"
 #include "base/utility/pretty_printer.h"
@@ -66,10 +70,6 @@
 #include "fs/fs_s3.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/TFileBrokerService.h"
-#include "absl/strings/str_join.h"
-#include "absl/strings/str_split.h"
-#include "base/gutil/strings/strip.h"
-#include "absl/strings/substitute.h"
 #include "runtime/base_load_path_mgr.h"
 #include "runtime/batch_write/batch_write_mgr.h"
 #include "runtime/broker_mgr.h"
@@ -1133,8 +1133,8 @@ void ExecEnv::try_release_resource_before_core_dump() {
     if (config::try_release_resource_before_core_dump.value() == "*") {
         release_all = true;
     } else {
-        for (auto piece : absl::StrSplit(config::try_release_resource_before_core_dump.value(),
-                                         absl::ByAnyChar(","), absl::SkipEmpty())) {
+        for (auto piece : absl::StrSplit(config::try_release_resource_before_core_dump.value(), absl::ByAnyChar(","),
+                                         absl::SkipEmpty())) {
             std::string val;
             if (parse_resource_str(std::string(piece), &val)) {
                 modules.insert(val);

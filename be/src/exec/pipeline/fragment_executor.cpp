@@ -19,6 +19,7 @@
 #include <unordered_set>
 
 #include "base/failpoint/fail_point.h"
+#include "base/gutil/map_util.h"
 #include "base/time/time.h"
 #include "base/uid_util.h"
 #include "common/config_exec_flow_fwd.h"
@@ -43,7 +44,6 @@
 #include "exec/scan_node.h"
 #include "exec/tablet_sink.h"
 #include "exec/workgroup/work_group.h"
-#include "base/gutil/map_util.h"
 #include "runtime/batch_write/batch_write_mgr.h"
 #include "runtime/data_stream_mgr.h"
 #include "runtime/data_stream_sender.h"

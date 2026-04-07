@@ -16,9 +16,9 @@
 
 #include <cstddef>
 
+#include "base/gutil/cpu.h"
 #include "column/vectorized_fwd.h"
 #include "common/memory/column_allocator.h"
-#include "base/gutil/cpu.h"
 
 namespace starrocks::column_filter_range {
 

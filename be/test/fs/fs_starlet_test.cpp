@@ -25,13 +25,13 @@
 
 #include <fstream>
 
+#include "absl/strings/str_join.h"
 #include "base/testutil/assert.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/config_object_storage_fwd.h"
 #include "common/config_starlet_fwd.h"
 #include "fs/fs_factory.h"
-#include "absl/strings/str_join.h"
 #include "service/staros_worker.h"
 #include "storage/rowset/page_io.h"
 

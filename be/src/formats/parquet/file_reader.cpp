@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "cache/datacache.h"
 #include "column/vectorized_fwd.h"
 #include "common/compiler_util.h"
@@ -34,7 +35,6 @@
 #include "formats/parquet/utils.h"
 #include "fs/fs.h"
 #include "gen_cpp/parquet_types.h"
-#include "absl/strings/substitute.h"
 #include "io/shared_buffered_input_stream.h"
 
 namespace starrocks::parquet {
@@ -384,7 +384,7 @@ Status FileReader::get_next(ChunkPtr* chunk) {
             }
         } else {
             auto s = absl::Substitute("FileReader::get_next failed. reason = $0, file = $1", status.to_string(),
-                                         _file->filename());
+                                      _file->filename());
             LOG(WARNING) << s;
             return status;
         }

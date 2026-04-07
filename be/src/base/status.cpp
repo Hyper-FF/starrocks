@@ -10,11 +10,11 @@
 #include <limits>
 #include <sstream>
 
-#include "gen_cpp/StatusCode_types.h"
-#include "gen_cpp/Status_types.h"  // for TStatus
-#include "gen_cpp/status.pb.h"     // for StatusPB
-#include "base/gutil/strings/fastmem.h" // for memcpy_inlined
 #include "absl/strings/str_split.h"
+#include "base/gutil/strings/fastmem.h" // for memcpy_inlined
+#include "gen_cpp/StatusCode_types.h"
+#include "gen_cpp/Status_types.h" // for TStatus
+#include "gen_cpp/status.pb.h"    // for StatusPB
 
 #if defined(ENABLE_STATUS_FAILED)
 namespace starrocks::config {

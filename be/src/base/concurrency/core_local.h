@@ -42,7 +42,6 @@ static inline unsigned starrocks_sched_getcpu_fallback() {
 #endif
 
 #include "base/compiler_util.h"
-#include "base/compiler_util.h"
 
 namespace starrocks {
 

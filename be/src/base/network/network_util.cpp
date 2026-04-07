@@ -51,8 +51,8 @@
 #include <sstream>
 #include <utility>
 
-#include "base/logging.h"
 #include "absl/strings/substitute.h"
+#include "base/logging.h"
 
 #ifdef __APPLE__
 #ifndef HOST_NAME_MAX

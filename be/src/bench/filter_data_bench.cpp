@@ -78,7 +78,7 @@ static inline size_t filter_simd_compress(const Filter& filter, T* data) {
     const __m512i zero64 = _mm512_setzero_si512();
     for (size_t i = 0; i < filter.size(); i += filter_batch_size) {
         int64_t m = _mm512_cmpneq_epi8_mask(_mm512_loadu_si512(reinterpret_cast<const __m512i*>(filter.data() + i)),
-                                          zero64);
+                                            zero64);
         // int64_t m_order = ghtonll(m);
         memcpy(bit_mask.data() + mask_offset, &m, 8);
         mask_offset += 8;

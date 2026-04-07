@@ -227,7 +227,8 @@ private:
     void append_value_data(Column* value_data_col, ValueResultCppType value) const {
         DCHECK(value_data_col->is_nullable());
         auto* nullable_value_col = static_cast<NullableColumn*>(value_data_col);
-        auto* data_column = static_cast<ValueResultColumnType*>(nullable_value_col->data_column()->as_mutable_raw_ptr());
+        auto* data_column =
+                static_cast<ValueResultColumnType*>(nullable_value_col->data_column()->as_mutable_raw_ptr());
         data_column->get_data().push_back(value);
         nullable_value_col->null_column_data().push_back(0);
     }

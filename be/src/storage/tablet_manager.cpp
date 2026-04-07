@@ -41,6 +41,7 @@
 #include <ctime>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/path/path_util.h"
 #include "base/testutil/sync_point.h"
 #include "common/config_compaction_fwd.h"
@@ -48,7 +49,6 @@
 #include "exec/schema_scanner/schema_be_tablets_scanner.h"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/starrocks_metrics.h"
 #include "storage/compaction_manager.h"
@@ -1324,8 +1324,8 @@ Status TabletManager::try_delete_unused_tablet_path(DataDir* data_dir, TTabletId
     TabletMeta tablet_meta;
     Status st = TabletMetaManager::get_tablet_meta(data_dir, tablet_id, schema_hash, &tablet_meta);
     if (st.ok()) {
-        return Status::InternalError(absl::Substitute(
-                "Cannot remove schema_hash_path=$0, tablet meta exist in meta store", tablet_id_path));
+        return Status::InternalError(
+                absl::Substitute("Cannot remove schema_hash_path=$0, tablet meta exist in meta store", tablet_id_path));
     } else if (st.is_not_found()) {
         if (shard.tablets_under_clone.count(tablet_id) > 0) {
             return Status::InternalError(absl::Substitute(
@@ -1763,7 +1763,7 @@ Status TabletManager::create_tablet_from_meta_snapshot(DataDir* store, TTabletId
         return Status::InternalError("non-zero log id in tablet meta");
     }
     LOG(INFO) << absl::Substitute("create tablet from snapshot tablet:$0 version:$1 path:$2", tablet_id,
-                                     snapshot_meta->snapshot_version(), schema_hash_path);
+                                  snapshot_meta->snapshot_version(), schema_hash_path);
 
     auto tablet_schema = TabletSchema::create(snapshot_meta->tablet_meta().schema());
     RETURN_IF_ERROR(SnapshotManager::instance()->assign_new_rowset_id(snapshot_meta, schema_hash_path, tablet_schema));

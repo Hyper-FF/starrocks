@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "base/failpoint/fail_point.h"
+#include "base/gutil/port.h"
 #include "column/chunk.h"
 #include "common/status.h"
 #include "common/statusor.h"
@@ -35,7 +36,6 @@
 #include "exec/spill/mem_table.h"
 #include "exec/spill/options.h"
 #include "exec/spill/spiller.hpp"
-#include "base/gutil/port.h"
 #include "runtime/runtime_state.h"
 #include "serde/column_array_serde.h"
 

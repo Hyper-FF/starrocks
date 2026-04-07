@@ -247,7 +247,8 @@ public:
     void finalize() override {
         _child->finalize();
         _aggregate_nulls->append(_row_is_null);
-        static_cast<NullableColumn*>(_aggregate_column)->set_has_null(SIMD::count_nonzero(_aggregate_nulls->get_data()));
+        static_cast<NullableColumn*>(_aggregate_column)
+                ->set_has_null(SIMD::count_nonzero(_aggregate_nulls->get_data()));
 
         _aggregate_nulls = nullptr;
         _aggregate_column = nullptr;

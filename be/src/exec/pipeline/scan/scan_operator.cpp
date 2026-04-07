@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "exec/pipeline/scan/scan_operator.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/race_detect.h"
 #include "base/failpoint/fail_point.h"
 #include "base/time/time.h"

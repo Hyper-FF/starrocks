@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "fs/fs.h"
 #include "base/compiler_util.h"
+#include "fs/fs.h"
 
 namespace starrocks {
 

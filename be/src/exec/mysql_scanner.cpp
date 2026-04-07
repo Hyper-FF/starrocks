@@ -36,8 +36,8 @@
 
 #define __StarRocksMysql MYSQL
 #define __StarRocksMysqlRes MYSQL_RES
-#include "common/logging.h"
 #include "absl/strings/substitute.h"
+#include "common/logging.h"
 #include "mysql_scanner.h"
 
 namespace starrocks {
@@ -237,8 +237,7 @@ Status MysqlScanner::get_next_row(char*** buf, unsigned long** lengths, bool* eo
         // because we use mysql_use_result, we should check mysql error to see what error happend
         // https://dev.mysql.com/doc/c-api/8.0/en/mysql-fetch-row.html
         if (mysql_errno(_my_conn) != 0) {
-            return Status::InternalError(
-                    absl::Substitute("fail to read MySQL result, msg=$0", mysql_error(_my_conn)));
+            return Status::InternalError(absl::Substitute("fail to read MySQL result, msg=$0", mysql_error(_my_conn)));
         } else {
             // if mysql_errno is 0, it means query finish normally.
             *eos = true;

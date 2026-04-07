@@ -14,8 +14,8 @@
 
 #include <benchmark/benchmark.h>
 #include <glog/logging.h>
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "formats/orc/column_reader.h"
 #include "formats/orc/memory_stream/MemoryInputStream.hh"
 #include "formats/orc/memory_stream/MemoryOutputStream.hh"

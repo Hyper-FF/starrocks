@@ -18,6 +18,7 @@
 #include <memory>
 #include <utility>
 
+#include "absl/strings/str_join.h"
 #include "base/failpoint/fail_point.h"
 #include "base/testutil/assert.h"
 #include "base/testutil/id_generator.h"
@@ -25,7 +26,6 @@
 #include "connector/connector.h"
 #include "fs/fs_util.h"
 #include "gen_cpp/lake_service.pb.h"
-#include "absl/strings/str_join.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"

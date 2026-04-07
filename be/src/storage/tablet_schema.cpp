@@ -33,13 +33,13 @@
 // under the License.
 
 #include "storage/tablet_schema.h"
-#include "absl/strings/substitute.h"
 
 #include <gen_cpp/descriptors.pb.h>
 
 #include <algorithm>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "runtime/mem_tracker.h"
 #include "storage/chunk_helper.h"

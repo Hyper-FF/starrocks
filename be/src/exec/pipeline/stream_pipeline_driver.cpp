@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "exec/pipeline/stream_pipeline_driver.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "common/statusor.h"
 #include "exec/pipeline/pipeline_driver.h"
 #include "exec/pipeline/pipeline_driver_executor.h"
@@ -291,7 +291,7 @@ Status StreamPipelineDriver::_mark_operator_epoch_finishing(OperatorPtr& op, Run
     }
 
     VLOG_ROW << absl::Substitute("[Driver] epoch_finishing operator [fragment_id=$0] [driver=$1] [operator=$2]",
-                                    print_id(state->fragment_instance_id()), to_readable_string(), op->get_name());
+                                 print_id(state->fragment_instance_id()), to_readable_string(), op->get_name());
     {
         SCOPED_TIMER(op->_finishing_timer);
         op_state = OperatorStage::EPOCH_FINISHING;
@@ -307,7 +307,7 @@ Status StreamPipelineDriver::_mark_operator_epoch_finished(OperatorPtr& op, Runt
     }
 
     VLOG_ROW << absl::Substitute("[Driver] epoch_finished operator [fragment_id=$0] [driver=$1] [operator=$2]",
-                                    print_id(state->fragment_instance_id()), to_readable_string(), op->get_name());
+                                 print_id(state->fragment_instance_id()), to_readable_string(), op->get_name());
     {
         SCOPED_TIMER(op->_finishing_timer);
         op_state = OperatorStage::EPOCH_FINISHED;

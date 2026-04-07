@@ -18,6 +18,7 @@
 #include <ios>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
@@ -33,7 +34,6 @@
 #include "exprs/expr_factory.h"
 #include "exprs/function_context.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"

@@ -20,8 +20,11 @@
 #include <filesystem>
 #include <set>
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "agent/agent_server.h"
 #include "agent/task_signatures_manager.h"
+#include "base/gutil/strings/util.h"
 #include "base/string/string_parser.hpp"
 #include "base/utility/defer_op.h"
 #include "common/config_http_fwd.h"
@@ -32,9 +35,6 @@
 #include "fs/fs_memory.h"
 #include "gen_cpp/BackendService.h"
 #include "gen_cpp/Types_constants.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
-#include "base/gutil/strings/util.h"
 #include "http/http_client.h"
 #include "runtime/client_cache.h"
 #include "runtime/current_thread.h"

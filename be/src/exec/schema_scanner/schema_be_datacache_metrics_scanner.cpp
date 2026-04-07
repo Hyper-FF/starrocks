@@ -14,9 +14,9 @@
 
 #include "exec/schema_scanner/schema_be_datacache_metrics_scanner.h"
 
+#include "absl/strings/substitute.h"
 #include "cache/datacache.h"
 #include "common/system/master_info.h"
-#include "absl/strings/substitute.h"
 #include "runtime/exec_env.h"
 #include "types/datum.h"
 

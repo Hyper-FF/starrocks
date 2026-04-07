@@ -11,8 +11,8 @@
 
 #include <cstddef> // For size_t
 
-#include "butil/macros.h"
 #include "base/gutil/port.h"
+#include "butil/macros.h"
 
 // The swigged version of an abstract class must be concrete if any methods
 // return objects of the abstract type. We keep it abstract in C++ and

@@ -26,11 +26,11 @@
 #include <vector>
 
 #include "base/concurrency/countdown_latch.h"
+#include "base/gutil/basictypes.h"
+#include "base/gutil/ref_counted.h"
 #include "common/logging.h"
 #include "common/runtime_profile.h"
 #include "common/status.h"
-#include "base/gutil/basictypes.h"
-#include "base/gutil/ref_counted.h"
 
 using std::string;
 

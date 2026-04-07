@@ -74,7 +74,8 @@ StatusOr<ColumnPtr> DictionaryGetExpr::evaluate_checked(ExprContext* context, Ch
         auto column = value_chunk->columns()[i];
         field->append(*column, 0, column->size());
     }
-    nullable_col->set_has_null(SIMD::contain_nonzero(static_cast<UInt8Column*>(null_column.get())->immutable_data(), 0));
+    nullable_col->set_has_null(
+            SIMD::contain_nonzero(static_cast<UInt8Column*>(null_column.get())->immutable_data(), 0));
     nullable_col->null_column_raw_ptr()->swap_column(*null_column);
 
     return nullable_struct_column;

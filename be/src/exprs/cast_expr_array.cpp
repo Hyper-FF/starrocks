@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
+#include "base/gutil/strings/strip.h"
 #include "base/string/slice.h"
 #include "column/array_column.h"
 #include "column/column_builder.h"
@@ -21,9 +24,6 @@
 #include "column/variant_column.h"
 #include "exprs/cast_expr.h"
 #include "exprs/expr_context.h"
-#include "absl/strings/str_split.h"
-#include "base/gutil/strings/strip.h"
-#include "absl/strings/substitute.h"
 #include "runtime/memory/memory_resource.h"
 #include "types/logical_type.h"
 #include "velocypack/Iterator.h"

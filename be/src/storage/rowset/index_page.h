@@ -38,11 +38,11 @@
 #include <memory>
 #include <vector>
 
+#include "base/compiler_util.h"
 #include "base/string/faststring.h"
 #include "base/string/slice.h"
 #include "common/status.h"
 #include "gen_cpp/segment.pb.h"
-#include "base/compiler_util.h"
 #include "storage/rowset/page_pointer.h"
 
 namespace starrocks {

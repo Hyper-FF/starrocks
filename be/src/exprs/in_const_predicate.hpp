@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "absl/strings/substitute.h"
 #include "base/simd/simd.h"
 #include "column/chunk.h"
 #include "column/column_builder.h"
@@ -25,7 +26,6 @@
 #include "exprs/function_helper.h"
 #include "exprs/literal.h"
 #include "exprs/predicate.h"
-#include "absl/strings/substitute.h"
 #include "types/type_descriptor.h"
 
 namespace starrocks {
@@ -106,8 +106,8 @@ public:
             _null_in_set = _null_in_set || that->null_in_set();
             return Status::OK();
         } else {
-            return Status::NotSupported(absl::Substitute("$0 cannot be merged with VectorizedInConstPredicate",
-                                                            predicate->debug_string()));
+            return Status::NotSupported(
+                    absl::Substitute("$0 cannot be merged with VectorizedInConstPredicate", predicate->debug_string()));
         }
     }
 

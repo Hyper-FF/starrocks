@@ -43,23 +43,23 @@ ExprContext* VectorizedInConstPredicateBuilder::_create() {
     // create template of in-predicate.
     // and fill actual IN values later.
     switch (probe_type) {
-#define M(NAME)                                                                                                      \
-    case LogicalType::NAME: {                                                                                        \
-        if (_array_size != 0 && !VectorizedInConstPredicate<LogicalType::NAME>::can_use_array()) {                   \
-            _st = Status::NotSupported(                                                                              \
+#define M(NAME)                                                                                                   \
+    case LogicalType::NAME: {                                                                                     \
+        if (_array_size != 0 && !VectorizedInConstPredicate<LogicalType::NAME>::can_use_array()) {                \
+            _st = Status::NotSupported(                                                                           \
                     absl::Substitute("Can not create in-const-predicate with array set on type $0", probe_type)); \
-            return nullptr;                                                                                          \
-        }                                                                                                            \
-        auto* in_pred = _pool->add(new VectorizedInConstPredicate<LogicalType::NAME>(node));                         \
-        in_pred->set_null_in_set(_null_in_set);                                                                      \
-        in_pred->set_array_size(_array_size);                                                                        \
-        _st = in_pred->prepare(_state);                                                                              \
-        if (!_st.ok()) return nullptr;                                                                               \
-        in_pred->add_child(Expr::copy(_pool, probe_expr));                                                           \
-        in_pred->set_is_join_runtime_filter(_is_join_runtime_filter);                                                \
-        in_pred->set_eq_null(_eq_null);                                                                              \
-        auto* ctx = _pool->add(new ExprContext(in_pred));                                                            \
-        return ctx;                                                                                                  \
+            return nullptr;                                                                                       \
+        }                                                                                                         \
+        auto* in_pred = _pool->add(new VectorizedInConstPredicate<LogicalType::NAME>(node));                      \
+        in_pred->set_null_in_set(_null_in_set);                                                                   \
+        in_pred->set_array_size(_array_size);                                                                     \
+        _st = in_pred->prepare(_state);                                                                           \
+        if (!_st.ok()) return nullptr;                                                                            \
+        in_pred->add_child(Expr::copy(_pool, probe_expr));                                                        \
+        in_pred->set_is_join_runtime_filter(_is_join_runtime_filter);                                             \
+        in_pred->set_eq_null(_eq_null);                                                                           \
+        auto* ctx = _pool->add(new ExprContext(in_pred));                                                         \
+        return ctx;                                                                                               \
     }
         APPLY_FOR_ALL_SCALAR_TYPE(M)
 #undef M

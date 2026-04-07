@@ -107,7 +107,8 @@ public:
         ColumnPtr predicate_column = ColumnHelper::unpack_and_duplicate_const_column(
                 chunk_size, columns[predicate_col_index]->as_mutable_ptr());
         if (predicate_column->is_nullable()) {
-            const NullableColumn* nullable_predicate_column = static_cast<const NullableColumn*>(predicate_column.get());
+            const NullableColumn* nullable_predicate_column =
+                    static_cast<const NullableColumn*>(predicate_column.get());
             size_t nullCount = nullable_predicate_column->null_count();
 
             if (nullCount == 0) {

@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "exec/file_scanner/parquet_scanner.h"
-#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
+#include "absl/strings/substitute.h"
 #include "base/simd/simd.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
@@ -284,7 +284,7 @@ Status ParquetScanner::build_dest(const arrow::DataType* arrow_type, const TypeD
             case TYPE_DECIMAL64: {
                 return Status::InternalError(
                         absl::Substitute("Apache Arrow type($0) does not match the type($1) in StarRocks",
-                                            arrow_type->name(), type_to_string(strict_pt)));
+                                         arrow_type->name(), type_to_string(strict_pt)));
             }
             default:
                 break;

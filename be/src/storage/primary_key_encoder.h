@@ -14,11 +14,11 @@
 
 #pragma once
 
+#include "base/gutil/endian.h"
 #include "column/field.h"
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "gen_cpp/types.pb.h"
-#include "base/gutil/endian.h"
 #include "storage/primary_key_encoding_types.h"
 
 namespace starrocks {

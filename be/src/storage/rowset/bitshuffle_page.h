@@ -36,7 +36,6 @@
 
 #include <glog/logging.h>
 #include <sys/types.h>
-#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -44,12 +43,13 @@
 #include <memory>
 #include <ostream>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
+#include "base/gutil/port.h"
 #include "base/string/faststring.h"
 #include "base/string/slice.h"
 #include "column/fixed_length_column.h"
 #include "common/logging.h"
-#include "base/gutil/port.h"
 #include "storage/olap_common.h"
 #include "storage/rowset/bitshuffle_wrapper.h"
 #include "storage/rowset/common.h"

@@ -18,11 +18,11 @@
 #include <iostream>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/assert.h"
 #include "column/column_helper.h"
 #include "column/datum_tuple.h"
 #include "column/vectorized_fwd.h"
-#include "absl/strings/substitute.h"
 #include "runtime/descriptor_helper.h"
 #include "storage/chunk_helper.h"
 #include "storage/rowset/rowset_factory.h"

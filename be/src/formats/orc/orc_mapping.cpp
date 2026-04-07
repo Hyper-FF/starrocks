@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "formats/orc/orc_mapping.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "common/statusor.h"
 
 namespace starrocks {
@@ -154,7 +154,7 @@ Status OrcMappingFactory::_check_orc_type_can_convert_2_logical_type(const orc::
     if (!can_convert) {
         return Status::NotSupported(
                 absl::Substitute("Orc's type $0 and Slot's type $1 can't convert to each other, filename = $2",
-                                    orc_source_type->toString(), slot_target_type.debug_string(), options.filename));
+                                 orc_source_type->toString(), slot_target_type.debug_string(), options.filename));
     }
     return Status::OK();
 }
@@ -273,9 +273,8 @@ Status OrcMappingFactory::_set_child_mapping(const OrcMappingPtr& mapping, const
             std::string field_name = Utils::format_name(origin_type.field_names[index], options.case_sensitive);
             auto it = tmp_orc_fieldname_2_pos.find(field_name);
             if (it == tmp_orc_fieldname_2_pos.end()) {
-                auto s = absl::Substitute(
-                        "OrcChunkReader::_set_child_mapping not found struct subfield $0, file = $1", field_name,
-                        options.filename);
+                auto s = absl::Substitute("OrcChunkReader::_set_child_mapping not found struct subfield $0, file = $1",
+                                          field_name, options.filename);
                 return Status::NotFound(s);
             }
             const orc::Type* orc_child_type = orc_type->getSubtype(it->second);

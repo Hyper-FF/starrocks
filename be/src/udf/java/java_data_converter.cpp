@@ -206,11 +206,11 @@ StatusOr<jvalue> cast_to_jvalue(const TypeDescriptor& type_desc, bool is_boxed, 
 
     if (!is_boxed) {
         switch (type) {
-#define M(NAME)                                                         \
-    case NAME: {                                                        \
+#define M(NAME)                                                           \
+    case NAME: {                                                          \
         auto spec_col = static_cast<const RunTimeColumnType<NAME>*>(col); \
-        const auto container = spec_col->immutable_data();              \
-        return cast_to_jvalue<NAME>(container[row_num], helper);        \
+        const auto container = spec_col->immutable_data();                \
+        return cast_to_jvalue<NAME>(container[row_num], helper);          \
     }
 
             APPLY_FOR_NUMBERIC_TYPE(M)
@@ -222,11 +222,11 @@ StatusOr<jvalue> cast_to_jvalue(const TypeDescriptor& type_desc, bool is_boxed, 
     }
 
     switch (type) {
-#define CREATE_BOX_TYPE(NAME, TYPE)                                     \
-    case NAME: {                                                        \
+#define CREATE_BOX_TYPE(NAME, TYPE)                                       \
+    case NAME: {                                                          \
         auto spec_col = static_cast<const RunTimeColumnType<NAME>*>(col); \
-        const auto container = spec_col->immutable_data();              \
-        return jvalue{.l = helper.new##TYPE(container[row_num])};       \
+        const auto container = spec_col->immutable_data();                \
+        return jvalue{.l = helper.new##TYPE(container[row_num])};         \
     }
 
         CREATE_BOX_TYPE(TYPE_BOOLEAN, Boolean)
@@ -311,11 +311,11 @@ void assign_jvalue(MethodTypeDescriptor method_type_desc, Column* col, int row_n
         data_col = nullable_column->data_column_raw_ptr();
     }
     switch (method_type_desc.type) {
-#define ASSIGN_BOX_TYPE(NAME, TYPE)                                                \
-    case NAME: {                                                                   \
-        auto data = helper.val##TYPE(val.l);                                       \
+#define ASSIGN_BOX_TYPE(NAME, TYPE)                                                  \
+    case NAME: {                                                                     \
+        auto data = helper.val##TYPE(val.l);                                         \
         static_cast<RunTimeColumnType<NAME>*>(data_col)->get_data()[row_num] = data; \
-        break;                                                                     \
+        break;                                                                       \
     }
 
         ASSIGN_BOX_TYPE(TYPE_TINYINT, int8_t)

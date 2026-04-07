@@ -43,9 +43,9 @@
 #include <type_traits>
 #include <utility>
 
+#include "base/compiler_util.h"
 #include "base/status.h"
 #include "base/statusor_internal.h"
-#include "base/compiler_util.h"
 
 namespace starrocks {
 

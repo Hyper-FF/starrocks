@@ -16,11 +16,12 @@
 #include <bthread/condition_variable.h>
 #include <bthread/mutex.h>
 #include <fmt/format.h>
-#include "absl/strings/substitute.h"
 
 #include <unordered_map>
 #include <vector>
 
+#include "absl/strings/substitute.h"
+#include "base/compiler_util.h"
 #include "base/concurrency/bthread_shared_mutex.h"
 #include "base/concurrency/countdown_latch.h"
 #include "column/chunk.h"
@@ -33,7 +34,6 @@
 #include "exec/tablet_info.h"
 #include "fs/bundle_file.h"
 #include "gen_cpp/internal_service.pb.h"
-#include "base/compiler_util.h"
 #include "runtime/closure_guard.h"
 #include "runtime/descriptors.h"
 #include "runtime/load_channel.h"

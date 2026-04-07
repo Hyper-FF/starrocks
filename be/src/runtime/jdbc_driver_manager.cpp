@@ -19,13 +19,13 @@
 #include <memory>
 #include <utility>
 
+#include "absl/strings/str_split.h"
 #include "base/string/slice.h"
 #include "base/utility/defer_op.h"
 #include "base/utility/dynamic_util.h"
 #include "fmt/format.h"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "absl/strings/str_split.h"
 #include "util/download_util.h"
 
 namespace starrocks {

@@ -13,16 +13,16 @@
 // limitations under the License.
 
 #include "storage/rowset_merger.h"
-#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <queue>
 
+#include "absl/strings/substitute.h"
+#include "base/gutil/stl_util.h"
 #include "base/utility/pretty_printer.h"
 #include "column/binary_column.h"
 #include "common/config_compaction_fwd.h"
 #include "common/config_exec_fwd.h"
-#include "base/gutil/stl_util.h"
 #include "runtime/starrocks_metrics.h"
 #include "storage/chunk_helper.h"
 #include "storage/empty_iterator.h"
@@ -483,8 +483,8 @@ private:
         }
 
         if (stats->raw_rows_read != *total_rows) {
-            string msg = absl::Substitute("update compaction rows read($0) != rows written($1)",
-                                             stats->raw_rows_read, *total_rows);
+            string msg = absl::Substitute("update compaction rows read($0) != rows written($1)", stats->raw_rows_read,
+                                          *total_rows);
             LOG(WARNING) << msg;
             return Status::InternalError(msg);
         }
@@ -606,7 +606,7 @@ private:
             if (non_key_stats.raw_rows_read != *total_rows) {
                 string msg =
                         absl::Substitute("update compaction rows read($0) != rows written($1) when merging non keys",
-                                            non_key_stats.raw_rows_read, *total_rows);
+                                         non_key_stats.raw_rows_read, *total_rows);
                 LOG(WARNING) << msg;
                 return Status::InternalError(msg);
             }

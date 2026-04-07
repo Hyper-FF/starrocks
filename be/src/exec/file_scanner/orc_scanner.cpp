@@ -16,13 +16,13 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "column/array_column.h"
 #include "common/config_scan_io_fwd.h"
 #include "formats/orc/orc_chunk_reader.h"
 #include "formats/orc/orc_input_stream.h"
 #include "fs/fs.h"
 #include "gen_cpp/orc_proto.pb.h"
-#include "absl/strings/substitute.h"
 #include "runtime/broker_mgr.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
@@ -81,9 +81,8 @@ Status ORCScanner::open() {
     }
 
     auto range = _scan_range.ranges[0];
-    int num_columns_from_orc = range.__isset.num_of_columns_from_file
-                                       ? static_cast<int>(range.num_of_columns_from_file)
-                                       : static_cast<int>(_src_slot_descriptors.size());
+    int num_columns_from_orc = range.__isset.num_of_columns_from_file ? static_cast<int>(range.num_of_columns_from_file)
+                                                                      : static_cast<int>(_src_slot_descriptors.size());
 
     // column from path
     if (range.__isset.num_of_columns_from_file) {

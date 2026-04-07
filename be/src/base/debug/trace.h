@@ -24,11 +24,11 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
+#include "base/compiler_util.h"
 #include "base/concurrency/spinlock.h"
 #include "base/debug/trace_metrics.h"
-#include "base/compiler_util.h"
 #include "base/gutil/ref_counted.h"
-#include "absl/strings/substitute.h"
 #include "base/gutil/threading/thread_collision_warner.h"
 #include "base/gutil/walltime.h"
 
@@ -46,12 +46,12 @@ class Trace;
 // Uses absl::Substitute format ($0, $1, ...) for arguments.
 // Example:
 //  TRACE("Acquired timestamp $0", timestamp);
-#define TRACE(format, ...)                                                                            \
-    do {                                                                                              \
-        starrocks::Trace* _trace = starrocks::Trace::CurrentTrace();                                  \
-        if (_trace) {                                                                                 \
+#define TRACE(format, ...)                                                                       \
+    do {                                                                                         \
+        starrocks::Trace* _trace = starrocks::Trace::CurrentTrace();                             \
+        if (_trace) {                                                                            \
             _trace->TraceMessage(__FILE__, __LINE__, absl::Substitute((format), ##__VA_ARGS__)); \
-        }                                                                                             \
+        }                                                                                        \
     } while (0)
 
 // Like the above, but takes the trace pointer as an explicit argument.

@@ -39,13 +39,13 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
+#include "base/gutil/stl_util.h"
 #include "base/types/int128.h"
 #include "common/logging.h"
 #include "exec/filter_condition.h"
 #include "exec/olap_utils.h"
 #include "exec/scan_node.h"
-#include "base/gutil/stl_util.h"
-#include "absl/strings/substitute.h"
 #include "storage/olap_tuple.h"
 
 namespace starrocks {

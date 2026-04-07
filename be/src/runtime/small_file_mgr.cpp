@@ -40,13 +40,13 @@
 #include <sstream>
 #include <utility>
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "base/crypto/md5.h"
 #include "common/status.h"
 #include "common/system/master_info.h"
 #include "fs/fs.h"
 #include "fs/fs_util.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 #include "http/http_client.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"

@@ -104,7 +104,8 @@ public:
         auto* map_column = static_cast<MapColumn*>(ColumnHelper::get_data_column(to));
 
         auto elem_size = state_impl.hash_map.size();
-        auto* key_column = static_cast<KeyColumnType*>(ColumnHelper::get_data_column(map_column->keys_column_raw_ptr()));
+        auto* key_column =
+                static_cast<KeyColumnType*>(ColumnHelper::get_data_column(map_column->keys_column_raw_ptr()));
         if constexpr (lt_is_string<KT>) {
             for (const auto& entry : state_impl.hash_map) {
                 key_column->append(Slice(entry.first.data, entry.first.size));

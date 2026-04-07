@@ -33,8 +33,8 @@
 // under the License.
 
 #include "storage/rowset/scalar_column_iterator.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/bit/bitmap.h"
 #include "common/config_rowset_fwd.h"
 #include "common/config_scan_io_fwd.h"

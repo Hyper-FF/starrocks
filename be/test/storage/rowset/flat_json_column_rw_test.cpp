@@ -14,12 +14,12 @@
 
 #include <gtest/gtest.h>
 #include <lz4/lz4.h>
-#include "absl/strings/substitute.h"
 
 #include <iostream>
 #include <memory>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/assert.h"
 #include "base/testutil/parallel_test.h"
 #include "column/column_access_path.h"

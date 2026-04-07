@@ -13,10 +13,11 @@
 // limitations under the License.
 
 #include "agent/agent_task.h"
-#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
+#include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "agent/agent_common.h"
 #include "agent/finish_task.h"
 #include "agent/task_signatures_manager.h"
@@ -25,7 +26,6 @@
 #include "common/config_agent_fwd.h"
 #include "common/status.h"
 #include "common/system/backend_options.h"
-#include "absl/strings/str_join.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
@@ -296,7 +296,7 @@ void run_create_tablet_task(const std::shared_ptr<CreateTabletAgentTaskRequest>&
 void run_alter_tablet_task(const std::shared_ptr<AlterTabletAgentTaskRequest>& agent_task_req, ExecEnv* exec_env) {
     int64_t signatrue = agent_task_req->signature;
     std::string alter_msg_head = absl::Substitute("[Alter Job:$0, tablet:$1]: ", agent_task_req->task_req.job_id,
-                                                     agent_task_req->task_req.base_tablet_id);
+                                                  agent_task_req->task_req.base_tablet_id);
     VLOG(1) << alter_msg_head << "get alter table task, signature: " << agent_task_req->signature;
     bool is_task_req_expired = false;
     if (agent_task_req->isset.recv_time) {

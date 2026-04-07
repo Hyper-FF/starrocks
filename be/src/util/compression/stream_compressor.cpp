@@ -42,9 +42,9 @@
 #include <memory>
 #include <optional>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "fmt/compile.h"
-#include "absl/strings/substitute.h"
 #include "util/compression/compression_context_pool_singletons.h"
 #include "util/compression/compression_headers.h"
 
@@ -259,8 +259,7 @@ Status ZstdStreamCompressor::init() {
     _ctx = _ref->get()->ctx;
     size_t ret = ZSTD_initCStream(_ctx, ZSTD_CLEVEL_DEFAULT);
     if (ZSTD_isError(ret)) {
-        return Status::InternalError(
-                absl::Substitute("ZSTD init stream compress failed: $0", ZSTD_getErrorName(ret)));
+        return Status::InternalError(absl::Substitute("ZSTD init stream compress failed: $0", ZSTD_getErrorName(ret)));
     }
     return Status::OK();
 }

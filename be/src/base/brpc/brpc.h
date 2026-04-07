@@ -40,6 +40,7 @@
 // and this file must put the first include in soure file
 
 #include <cstdint>
+
 #include "base/compiler_util.h"
 // Macros in the guti/macros.h, use butil's define
 #ifdef DISALLOW_IMPLICIT_CONSTRUCTORS

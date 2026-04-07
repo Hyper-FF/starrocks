@@ -17,11 +17,10 @@
 
 #pragma once
 
-#include "base/gutil/macros.h>
-
 #include <string>
 #include <vector>
 
+#include "base/gutil/macros.h>
 #include "gen_cpp/Types_types.h"
 
 namespace starrocks {

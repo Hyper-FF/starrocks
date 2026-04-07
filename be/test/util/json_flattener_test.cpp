@@ -27,6 +27,7 @@
 #include <string>
 #include <vector>
 
+#include "base/gutil/strings/strip.h"
 #include "base/string/slice.h"
 #include "base/testutil/assert.h"
 #include "column/column.h"
@@ -41,7 +42,6 @@
 #include "common/statusor.h"
 #include "exprs/mock_vectorized_expr.h"
 #include "gtest/gtest-param-test.h"
-#include "base/gutil/strings/strip.h"
 #include "types/json_value.h"
 #include "types/logical_type.h"
 #include "util/compression/block_compression.h"

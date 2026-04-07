@@ -20,6 +20,7 @@
 #include <thread>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "column/fixed_length_column.h"
 #include "column/vectorized_fwd.h"
 #include "exec/pipeline/group_execution/execution_group_builder.h"
@@ -34,7 +35,6 @@
 #include "exec/query_cache/multilane_operator.h"
 #include "exec/query_cache/ticket_checker.h"
 #include "exec/query_cache/transform_operator.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -301,9 +301,9 @@ bool exec_test_pipeline(Task& task, RuntimeState* state, const ChunkPtr& input_c
     while (true) {
         if (!first_op->is_finished() && first_op->need_input() && !pushed) {
             LOG(WARNING) << absl::Substitute("[EXEC] Push input chunk: op=$0, num_rows=$1, tablet_id=$2, eof=$3",
-                                                first_op->get_name(), input_chunk->num_rows(),
-                                                input_chunk->owner_info().owner_id(),
-                                                input_chunk->owner_info().is_last_chunk());
+                                             first_op->get_name(), input_chunk->num_rows(),
+                                             input_chunk->owner_info().owner_id(),
+                                             input_chunk->owner_info().is_last_chunk());
             CHECK(first_op->push_chunk(state, input_chunk).ok());
             pushed = true;
         }

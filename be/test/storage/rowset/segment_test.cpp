@@ -39,6 +39,7 @@
 #include <functional>
 #include <iostream>
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "base/testutil/assert.h"
 #include "column/datum_tuple.h"
@@ -46,7 +47,6 @@
 #include "common/logging.h"
 #include "fs/fs_memory.h"
 #include "fs/key_cache.h"
-#include "absl/strings/substitute.h"
 #include "runtime/mem_pool.h"
 #include "runtime/mem_tracker.h"
 #include "storage/chunk_helper.h"

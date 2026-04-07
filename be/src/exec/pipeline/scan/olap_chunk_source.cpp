@@ -20,6 +20,7 @@
 #include <string_view>
 #include <unordered_map>
 
+#include "base/gutil/map_util.h"
 #include "base/string/string_parser.hpp"
 #include "cache/data_cache_hit_rate_counter.hpp"
 #include "column/column.h"
@@ -39,7 +40,6 @@
 #include "exprs/jsonpath.h"
 #include "gen_cpp/Metrics_types.h"
 #include "gen_cpp/RuntimeProfile_types.h"
-#include "base/gutil/map_util.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"

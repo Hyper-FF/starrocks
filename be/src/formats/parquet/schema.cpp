@@ -19,8 +19,8 @@
 #include <sstream>
 #include <utility>
 
-#include "base/string/slice.h"
 #include "absl/strings/substitute.h"
+#include "base/string/slice.h"
 #include "types/logical_type.h"
 
 namespace starrocks::parquet {
@@ -226,8 +226,8 @@ Status SchemaDescriptor::map_to_field(const std::vector<tparquet::SchemaElement>
     }
 
     if (key_value_schema->num_children != 1 && key_value_schema->num_children != 2) {
-        return Status::InvalidArgument(absl::Substitute(
-                "Key-value map node must have 1 or 2 child elements. Found: $0", key_value_schema->num_children));
+        return Status::InvalidArgument(absl::Substitute("Key-value map node must have 1 or 2 child elements. Found: $0",
+                                                        key_value_schema->num_children));
     }
 
     // Compatible with trino, comment below checks

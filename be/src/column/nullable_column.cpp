@@ -14,10 +14,10 @@
 
 #include "column/nullable_column.h"
 
+#include "base/gutil/strings/fastmem.h"
 #include "base/simd/simd.h"
 #include "column/mysql_row_buffer.h"
 #include "column/vectorized_fwd.h"
-#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 

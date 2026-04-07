@@ -33,7 +33,6 @@
 // under the License.
 
 #include "storage/tablet.h"
-#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 #include <pthread.h>
@@ -44,6 +43,7 @@
 #include <memory>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "base/time/ratelimit.h"
 #include "base/time/time.h"
@@ -1827,7 +1827,7 @@ Status Tablet::verify() {
         auto st = rowset->verify();
         if (!st.ok()) {
             return st.clone_and_append(absl::Substitute("tablet:$0 version:$1 rowset:$2", tablet_id(), version,
-                                                           rowset->rowset_id().to_string()));
+                                                        rowset->rowset_id().to_string()));
         }
     }
     return Status::OK();

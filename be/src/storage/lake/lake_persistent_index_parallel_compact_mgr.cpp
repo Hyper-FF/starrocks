@@ -21,6 +21,7 @@
 #include <memory>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/countdown_latch.h"
 #include "base/debug/trace.h"
 #include "base/utility/defer_op.h"
@@ -28,7 +29,6 @@
 #include "common/system/cpu_info.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
-#include "absl/strings/substitute.h"
 #include "runtime/starrocks_metrics.h"
 #include "storage/lake/filenames.h"
 #include "storage/lake/lake_persistent_index.h"

@@ -302,8 +302,9 @@ Status ColumnExprPredicate::seek_inverted_index(const std::string& column_name, 
 
     Expr* expr = with_not ? _expr_ctxs[0]->root()->get_child(0) : _expr_ctxs[0]->root();
 
-    auto* vectorized_function_call =
-            expr->node_type() == TExprNodeType::FUNCTION_CALL ? static_cast<VectorizedFunctionCallExpr*>(expr) : nullptr;
+    auto* vectorized_function_call = expr->node_type() == TExprNodeType::FUNCTION_CALL
+                                             ? static_cast<VectorizedFunctionCallExpr*>(expr)
+                                             : nullptr;
 
     // check if satisfy valid LIKE format
     valid_like = vectorized_function_call != nullptr &&

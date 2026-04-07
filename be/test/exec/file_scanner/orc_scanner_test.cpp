@@ -13,13 +13,13 @@
 // limitations under the License.
 
 #include "exec/file_scanner/orc_scanner.h"
-#include "absl/strings/substitute.h"
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/assert.h"
 #include "base/utility/defer_op.h"
 #include "common/config_exec_fwd.h"

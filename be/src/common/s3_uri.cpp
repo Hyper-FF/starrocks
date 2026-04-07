@@ -17,9 +17,10 @@
 #include <aws/core/utils/StringUtils.h>
 #include <aws/crt/io/Uri.h>
 #include <fmt/format.h>
-#include "base/gutil/strings/util.h>
 
 #include <algorithm>
+
+#include "base/gutil/strings/util.h>
 
 namespace starrocks {
 

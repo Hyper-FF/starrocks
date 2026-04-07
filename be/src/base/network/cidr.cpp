@@ -43,9 +43,9 @@
 #include <iterator>
 #include <ostream>
 
-#include "base/logging.h"
-#include "base/gutil/strings/numbers.h"
 #include "absl/strings/str_split.h"
+#include "base/gutil/strings/numbers.h"
+#include "base/logging.h"
 
 namespace starrocks {
 

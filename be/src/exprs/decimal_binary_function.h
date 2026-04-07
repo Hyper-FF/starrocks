@@ -14,11 +14,11 @@
 
 #pragma once
 
+#include "absl/strings/substitute.h"
 #include "column/column_builder.h"
 #include "exprs/arithmetic_operation.h"
 #include "exprs/binary_function.h"
 #include "exprs/overflow.h"
-#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks {

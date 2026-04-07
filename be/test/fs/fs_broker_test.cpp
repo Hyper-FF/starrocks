@@ -20,12 +20,12 @@
 #include <map>
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/assert.h"
 #include "common/util/thrift_client.h"
 #include "fs/fs_memory.h"
 #include "gen_cpp/FileBrokerService_types.h"
 #include "gen_cpp/TFileBrokerService.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

@@ -22,6 +22,7 @@
 #include <chrono>
 #include <thread>
 
+#include "base/gutil/stl_util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/config_compaction_fwd.h"
@@ -34,7 +35,6 @@
 #include "fs/key_cache.h"
 #include "gen_cpp/FrontendService.h"
 #include "gen_cpp/FrontendService_types.h"
-#include "base/gutil/stl_util.h"
 #include "runtime/client_cache.h"
 #include "runtime/exec_env.h"
 #include "service/service_be/lake_service.h"

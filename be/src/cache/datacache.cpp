@@ -14,6 +14,8 @@
 
 #include "cache/datacache.h"
 
+#include "absl/strings/str_split.h"
+#include "base/gutil/strings/strip.h"
 #include "base/string/parse_util.h"
 #include "cache/datacache_utils.h"
 #include "cache/disk_space_monitor.h"
@@ -25,8 +27,6 @@
 #include "common/config_starlet_fwd.h"
 #include "common/config_storage_fwd.h"
 #include "common/status.h"
-#include "absl/strings/str_split.h"
-#include "base/gutil/strings/strip.h"
 #include "runtime/exec_env.h"
 
 #ifdef WITH_STARCACHE
@@ -264,8 +264,8 @@ void DataCache::try_release_resource_before_core_dump() {
     if (config::try_release_resource_before_core_dump.value() == "*") {
         release_all = true;
     } else {
-        for (auto piece : absl::StrSplit(config::try_release_resource_before_core_dump.value(),
-                                         absl::ByAnyChar(","), absl::SkipEmpty())) {
+        for (auto piece : absl::StrSplit(config::try_release_resource_before_core_dump.value(), absl::ByAnyChar(","),
+                                         absl::SkipEmpty())) {
             std::string val;
             if (parse_resource_str(std::string(piece), &val)) {
                 modules.insert(val);

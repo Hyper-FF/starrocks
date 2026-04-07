@@ -18,8 +18,8 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
-#include "base/testutil/assert.h"
 #include "absl/strings/str_join.h"
+#include "base/testutil/assert.h"
 
 namespace starrocks {
 

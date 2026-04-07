@@ -16,8 +16,8 @@
 // under the License.
 
 #include "exec/short_circuit.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "base/brpc/brpc.h"
 #include "column/column_helper.h"
 #include "column/mysql_row_buffer.h"

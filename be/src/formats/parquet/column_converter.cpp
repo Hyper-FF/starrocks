@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/bit/bit_util.h"
 #include "base/decimal_types.h"
 #include "base/time/timezone_utils.h"
@@ -39,7 +40,6 @@
 #include "common/config_scan_io_fwd.h"
 #include "formats/parquet/schema.h"
 #include "formats/parquet/types.h"
-#include "absl/strings/substitute.h"
 #include "storage/olap_common.h"
 #include "types/date_value.h"
 #include "types/logical_type.h"
@@ -541,9 +541,9 @@ Status ColumnConverterFactory::create_converter(const ParquetField& field, const
     }
 
     if (need_convert && *converter == nullptr) {
-        return Status::NotSupported(absl::Substitute(
-                "parquet column reader: not supported convert from parquet `$0` to `$1`, field=$2",
-                ::tparquet::to_string(parquet_type), type_to_string(col_type), field.debug_string()));
+        return Status::NotSupported(
+                absl::Substitute("parquet column reader: not supported convert from parquet `$0` to `$1`, field=$2",
+                                 ::tparquet::to_string(parquet_type), type_to_string(col_type), field.debug_string()));
     }
 
     if (!need_convert) {
@@ -758,7 +758,7 @@ Status Int64ToDateTimeConverter::init(const std::string& timezone, const tparque
         }
     } else {
         return Status::InternalError(absl::Substitute("can not convert parquet type $0 to date time",
-                                                         tparquet::to_string(schema_element.type)));
+                                                      tparquet::to_string(schema_element.type)));
     }
 
     if (_is_adjusted_to_utc) {

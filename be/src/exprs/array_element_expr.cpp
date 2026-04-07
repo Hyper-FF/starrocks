@@ -15,7 +15,6 @@
 #include "exprs/array_element_expr.h"
 
 #include "absl/strings/substitute.h"
-
 #include "base/container/raw_container.h"
 #include "column/array_column.h"
 #include "column/column_helper.h"
@@ -69,7 +68,7 @@ public:
                 if ((curr != prev) && (subscript > (curr - prev))) {
                     return Status::InvalidArgument(
                             absl::Substitute("Array subscript must be less than or equal to array length: $0 > $1",
-                                                subscript, curr - prev));
+                                             subscript, curr - prev));
                 }
                 prev = curr;
             }

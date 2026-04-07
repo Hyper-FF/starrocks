@@ -115,8 +115,8 @@ StatusOr<TFetchDataResultPtr> StatisticResultWriter::_process_chunk(Chunk* chunk
     DCHECK(!result_columns[0]->empty());
     DCHECK(!result_columns[0]->is_null(0));
 
-    int version =
-            static_cast<const Int32Column*>(ColumnHelper::get_data_column(result_columns[0].get()))->immutable_data()[0];
+    int version = static_cast<const Int32Column*>(ColumnHelper::get_data_column(result_columns[0].get()))
+                          ->immutable_data()[0];
 
     std::unique_ptr<TFetchDataResult> result(new (std::nothrow) TFetchDataResult());
     if (!result) {

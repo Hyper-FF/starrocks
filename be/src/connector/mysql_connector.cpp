@@ -135,24 +135,24 @@ Status MySQLDataSource::open(RuntimeState* state) {
             // we support numerical type, char type and date type.
             switch (type) {
                 // In Filter is must handle by VectorizedInConstPredicate type.
-#define READ_CONST_PREDICATE(TYPE, APPEND_TO_SQL)                                             \
-    case TYPE: {                                                                              \
-        if (typeid(*root_expr) == typeid(VectorizedInConstPredicate<TYPE>)) {                 \
+#define READ_CONST_PREDICATE(TYPE, APPEND_TO_SQL)                                               \
+    case TYPE: {                                                                                \
+        if (typeid(*root_expr) == typeid(VectorizedInConstPredicate<TYPE>)) {                   \
             const auto* pred = static_cast<const VectorizedInConstPredicate<TYPE>*>(root_expr); \
-            const auto& hash_set = pred->hash_set();                                          \
-            if (pred->is_not_in()) {                                                          \
-                continue;                                                                     \
-            }                                                                                 \
-            auto& field_name = iter->second->col_name();                                      \
-            filters_null_in_set[field_name] = pred->null_in_set();                            \
-            std::vector<std::string> vector_values;                                           \
-            vector_values.reserve(1024);                                                      \
-            for (const auto& value : hash_set) {                                              \
-                APPEND_TO_SQL                                                                 \
-            }                                                                                 \
-            filters_in.emplace(field_name, vector_values);                                    \
-        }                                                                                     \
-        break;                                                                                \
+            const auto& hash_set = pred->hash_set();                                            \
+            if (pred->is_not_in()) {                                                            \
+                continue;                                                                       \
+            }                                                                                   \
+            auto& field_name = iter->second->col_name();                                        \
+            filters_null_in_set[field_name] = pred->null_in_set();                              \
+            std::vector<std::string> vector_values;                                             \
+            vector_values.reserve(1024);                                                        \
+            for (const auto& value : hash_set) {                                                \
+                APPEND_TO_SQL                                                                   \
+            }                                                                                   \
+            filters_in.emplace(field_name, vector_values);                                      \
+        }                                                                                       \
+        break;                                                                                  \
     }
 
 #define DIRECT_APPEND_TO_SQL vector_values.emplace_back(std::to_string(value));

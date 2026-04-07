@@ -23,8 +23,10 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_join.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "base/failpoint/fail_point.h"
+#include "base/gutil/ref_counted.h"
 #include "base/string/faststring.h"
 #include "column/chunk.h"
 #include "common/brpc_helper.h"
@@ -32,8 +34,6 @@
 #include "common/statusor.h"
 #include "exec/tablet_info.h"
 #include "gen_cpp/internal_service.pb.h"
-#include "base/gutil/ref_counted.h"
-#include "absl/strings/str_join.h"
 #include "runtime/closure_guard.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"

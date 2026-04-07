@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "column/binary_column.h"
 #include "column/column_builder.h"
@@ -30,7 +31,6 @@
 #include "column/variant_encoder.h"
 #include "column/variant_merger.h"
 #include "column/variant_path_parser.h"
-#include "absl/strings/substitute.h"
 #include "types/variant_value.h"
 
 namespace starrocks {
@@ -67,7 +67,8 @@ StatusOr<VariantColumn::EncodedVariantResult> VariantColumn::encode_typed_row_as
     }
 
     if (type_desc.type == TYPE_VARIANT) {
-        const auto* typed_variant_column = static_cast<const VariantColumn*>(ColumnHelper::get_data_column(typed_column));
+        const auto* typed_variant_column =
+                static_cast<const VariantColumn*>(ColumnHelper::get_data_column(typed_column));
         if (typed_variant_column == nullptr) {
             return Status::InvalidArgument("typed variant column is null");
         }

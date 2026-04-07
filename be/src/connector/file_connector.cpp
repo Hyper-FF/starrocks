@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "connector/file_connector.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "exec/file_scanner/avro_cpp_scanner.h"
 #include "exec/file_scanner/avro_scanner.h"
 #include "exec/file_scanner/csv_scanner.h"

@@ -14,10 +14,10 @@
 
 #include "exec/schema_scanner/schema_be_txns_scanner.h"
 
+#include "absl/strings/substitute.h"
 #include "base/metrics.h"
 #include "common/system/master_info.h"
 #include "exec/schema_scanner/schema_helper.h"
-#include "absl/strings/substitute.h"
 #include "storage/storage_engine.h"
 #include "storage/txn_manager.h"
 #include "types/logical_type.h"

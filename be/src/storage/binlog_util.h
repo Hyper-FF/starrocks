@@ -16,10 +16,10 @@
 
 #include <list>
 
+#include "absl/strings/substitute.h"
 #include "base/types/uint24.h"
 #include "common/status.h"
 #include "gen_cpp/binlog.pb.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 

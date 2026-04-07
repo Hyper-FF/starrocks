@@ -140,8 +140,10 @@ Status MetadataResultWriter::_fill_iceberg_metadata(const Columns& columns, cons
 
     const auto* sort_id = static_cast<const Int32Column*>(ColumnHelper::get_data_column(columns[8].get()));
     const auto* equality_ids = static_cast<const ArrayColumn*>(ColumnHelper::get_data_column(columns[9].get()));
-    const auto* file_sequence_number = static_cast<const Int64Column*>(ColumnHelper::get_data_column(columns[10].get()));
-    const auto* data_sequence_number = static_cast<const Int64Column*>(ColumnHelper::get_data_column(columns[11].get()));
+    const auto* file_sequence_number =
+            static_cast<const Int64Column*>(ColumnHelper::get_data_column(columns[10].get()));
+    const auto* data_sequence_number =
+            static_cast<const Int64Column*>(ColumnHelper::get_data_column(columns[11].get()));
     const auto* iceberg_metrics = static_cast<const BinaryColumn*>(ColumnHelper::get_data_column(columns[12].get()));
     const auto* key_metadata = static_cast<const BinaryColumn*>(ColumnHelper::get_data_column(columns[13].get()));
 

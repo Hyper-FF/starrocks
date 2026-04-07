@@ -17,6 +17,7 @@
 #include <boost/variant/static_visitor.hpp>
 #include <variant>
 
+#include "base/gutil/map_util.h"
 #include "base/orlp/pdqsort.h"
 #include "column/runtime_type_traits.h"
 #include "common/config_scan_io_fwd.h"
@@ -27,7 +28,6 @@
 #include "exprs/expr_context.h"
 #include "exprs/in_const_predicate.hpp"
 #include "exprs/is_null_predicate.h"
-#include "base/gutil/map_util.h"
 #include "runtime/descriptors.h"
 #include "runtime/global_dict/fragment_dict_state.h"
 #include "runtime/runtime_filter.h"

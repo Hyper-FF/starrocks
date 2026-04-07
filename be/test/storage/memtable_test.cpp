@@ -22,11 +22,11 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "absl/strings/str_split.h"
 #include "base/testutil/assert.h"
 #include "column/datum_tuple.h"
 #include "common/config_exec_fwd.h"
 #include "fs/fs_util.h"
-#include "absl/strings/str_split.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "runtime/mem_tracker.h"

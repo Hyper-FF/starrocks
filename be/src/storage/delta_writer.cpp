@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "storage/delta_writer.h"
-#include "absl/strings/substitute.h"
 
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "common/config_cache_fwd.h"
 #include "common/config_ingest_fwd.h"
 #include "common/config_primary_key_fwd.h"
@@ -357,7 +357,7 @@ Status DeltaWriter::_init() {
     Status st = RowsetFactory::create_rowset_writer(writer_context, &_rowset_writer);
     if (!st.ok()) {
         auto msg = absl::Substitute("Fail to create rowset writer. tablet_id: $0, error: $1", _opt.tablet_id,
-                                       st.to_string());
+                                    st.to_string());
         LOG(WARNING) << msg;
         st = Status::InternalError(msg);
         _set_state(kAborted, st);

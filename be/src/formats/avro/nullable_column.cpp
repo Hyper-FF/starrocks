@@ -14,11 +14,11 @@
 
 #include "nullable_column.h"
 
+#include "absl/strings/substitute.h"
 #include "column/adaptive_nullable_column.h"
 #include "column/array_column.h"
 #include "column/nullable_column.h"
 #include "formats/json/binary_column.h"
-#include "absl/strings/substitute.h"
 #include "types/logical_type.h"
 
 namespace starrocks {

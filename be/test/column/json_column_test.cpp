@@ -16,10 +16,10 @@
 
 #include <fmt/format.h>
 #include <gtest/gtest.h>
-#include "absl/strings/substitute.h"
 
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/assert.h"
 #include "base/testutil/parallel_test.h"
 #include "column/column_builder.h"

@@ -16,11 +16,11 @@
 
 #include <fmt/format.h>
 #include <gtest/gtest.h>
-#include "absl/strings/substitute.h"
 
 #include <tuple>
 #include <vector>
 
+#include "absl/strings/substitute.h"
 #include "velocypack/vpack.h"
 
 namespace starrocks {

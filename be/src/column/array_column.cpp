@@ -16,13 +16,13 @@
 
 #include <cstdint>
 
+#include "base/gutil/bits.h"
+#include "base/gutil/strings/fastmem.h"
 #include "column/column_helper.h"
 #include "column/fixed_length_column.h"
 #include "column/mysql_row_buffer.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
-#include "base/gutil/bits.h"
-#include "base/gutil/strings/fastmem.h"
 
 namespace starrocks {
 void ArrayColumn::check_or_die() const {

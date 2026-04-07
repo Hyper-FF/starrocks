@@ -216,9 +216,10 @@ void ChunksSorterHeapSort::_do_filter_data_for_type(detail::ChunkHolder* chunk_h
         }
     } else if (top_cursor_column->is_nullable()) {
         bool top_is_null = top_cursor_column->is_null(cursor_rid);
-        const auto& need_filter_data = ColumnHelper::cast_to_raw<TYPE>(
-                                               static_cast<const NullableColumn*>(top_cursor_column.get())->data_column())
-                                               ->immutable_data()[cursor_rid];
+        const auto& need_filter_data =
+                ColumnHelper::cast_to_raw<TYPE>(
+                        static_cast<const NullableColumn*>(top_cursor_column.get())->data_column())
+                        ->immutable_data()[cursor_rid];
 
         const auto& order_by_null_column = static_cast<const NullableColumn*>(input_column.get())->null_column();
         const auto& order_by_data_column = static_cast<const NullableColumn*>(input_column.get())->data_column();

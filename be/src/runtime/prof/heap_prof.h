@@ -16,8 +16,8 @@
 
 #include <mutex>
 
-#include "common/status.h"
 #include "base/compiler_util.h"
+#include "common/status.h"
 
 namespace starrocks {
 class HeapProf {

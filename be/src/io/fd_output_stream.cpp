@@ -18,9 +18,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "base/compiler_util.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "common/logging.h"
-#include "base/compiler_util.h"
 #include "io/core/io_error.h"
 #include "io/io_profiler.h"
 

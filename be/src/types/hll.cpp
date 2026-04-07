@@ -42,11 +42,11 @@
 #include <map>
 #include <mutex>
 
+#include "absl/strings/substitute.h"
 #include "base/coding.h"
 #include "base/phmap/phmap.h"
 #include "base/simd/multi_version.h"
 #include "common/logging.h"
-#include "absl/strings/substitute.h"
 
 using std::map;
 using std::string;
@@ -666,8 +666,8 @@ std::string HyperLogLog::to_string() const {
     case HLL_DATA_EMPTY:
         return {};
     case HLL_DATA_EXPLICIT:
-        return absl::Substitute("hash set size: $0\ncardinality:$1\ntype:$2", _hash_set.size(),
-                                   estimate_cardinality(), _type);
+        return absl::Substitute("hash set size: $0\ncardinality:$1\ntype:$2", _hash_set.size(), estimate_cardinality(),
+                                _type);
     case HLL_DATA_SPARSE:
     case HLL_DATA_FULL: {
         return absl::Substitute("cardinality:$0\ntype:$1", estimate_cardinality(), _type);

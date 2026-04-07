@@ -22,8 +22,8 @@
 #include <optional>
 #include <utility>
 
-#include "base/time/time.h"
 #include "base/compiler_util.h"
+#include "base/time/time.h"
 
 namespace starrocks::bthreads {
 

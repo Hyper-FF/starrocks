@@ -13,19 +13,19 @@
 // limitations under the License.
 
 #include "storage/update_manager.h"
-#include "absl/strings/substitute.h"
 
 #include <limits>
 #include <memory>
 #include <numeric>
 
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
+#include "base/gutil/endian.h"
 #include "base/time/time.h"
 #include "base/utility/pretty_printer.h"
 #include "common/config_primary_key_fwd.h"
 #include "common/system/cpu_info.h"
 #include "fs/fs_factory.h"
-#include "base/gutil/endian.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"
@@ -209,7 +209,7 @@ Status UpdateManager::get_del_vec(KVStore* meta, const TabletSegmentId& tsid, in
         if (itr != _del_vec_cache.end()) {
             if (version >= itr->second->version()) {
                 VLOG(3) << absl::Substitute("get_del_vec cached tablet_segment=$0 version=$1 actual_version=$2",
-                                               tsid.to_string(), version, itr->second->version());
+                                            tsid.to_string(), version, itr->second->version());
                 // cache valid
                 // TODO(cbl): add cache hit stats
                 *pdelvec = itr->second;
@@ -453,10 +453,9 @@ void UpdateManager::expire_cache() {
         _index_cache.clear_expired();
         ssize_t size = _index_cache.size();
         ssize_t obj_size = _index_cache.object_size();
-        LOG(INFO) << absl::Substitute("index cache expire: before:($0 $1) after:($2 $3) expire: ($4 $5)",
-                                         orig_obj_size, PrettyPrinter::print_bytes(orig_size), obj_size,
-                                         PrettyPrinter::print_bytes(size), orig_obj_size - obj_size,
-                                         PrettyPrinter::print_bytes(orig_size - size));
+        LOG(INFO) << absl::Substitute("index cache expire: before:($0 $1) after:($2 $3) expire: ($4 $5)", orig_obj_size,
+                                      PrettyPrinter::print_bytes(orig_size), obj_size, PrettyPrinter::print_bytes(size),
+                                      orig_obj_size - obj_size, PrettyPrinter::print_bytes(orig_size - size));
 
         _last_clear_expired_cache_millis = MonotonicMillis();
     }
@@ -483,13 +482,13 @@ void UpdateManager::evict_cache(int64_t memory_urgent_level, int64_t memory_high
 
 string UpdateManager::memory_stats() {
     return absl::Substitute("index:$0 rowset:$1 compaction:$2 delvec:$3 dcg:$4 total:$5/$6",
-                               PrettyPrinter::print_bytes(_index_cache_mem_tracker->consumption()),
-                               PrettyPrinter::print_bytes(_update_state_mem_tracker->consumption()),
-                               PrettyPrinter::print_bytes(_compaction_state_mem_tracker->consumption()),
-                               PrettyPrinter::print_bytes(_del_vec_cache_mem_tracker->consumption()),
-                               PrettyPrinter::print_bytes(_delta_column_group_cache_mem_tracker->consumption()),
-                               PrettyPrinter::print_bytes(_update_mem_tracker->consumption()),
-                               PrettyPrinter::print_bytes(_update_mem_tracker->limit()));
+                            PrettyPrinter::print_bytes(_index_cache_mem_tracker->consumption()),
+                            PrettyPrinter::print_bytes(_update_state_mem_tracker->consumption()),
+                            PrettyPrinter::print_bytes(_compaction_state_mem_tracker->consumption()),
+                            PrettyPrinter::print_bytes(_del_vec_cache_mem_tracker->consumption()),
+                            PrettyPrinter::print_bytes(_delta_column_group_cache_mem_tracker->consumption()),
+                            PrettyPrinter::print_bytes(_update_mem_tracker->consumption()),
+                            PrettyPrinter::print_bytes(_update_mem_tracker->limit()));
 }
 
 string UpdateManager::detail_memory_stats() {
@@ -551,7 +550,7 @@ Status UpdateManager::set_cached_del_vec(const TabletSegmentId& tsid, const DelV
     if (itr != _del_vec_cache.end()) {
         if (delvec->version() <= itr->second->version()) {
             string msg = absl::Substitute("UpdateManager::set_cached_del_vec: new version($0) < old version($1)",
-                                             delvec->version(), itr->second->version());
+                                          delvec->version(), itr->second->version());
             LOG(ERROR) << msg;
             return Status::InternalError(msg);
         } else {
@@ -630,7 +629,7 @@ Status UpdateManager::on_rowset_finished(Tablet* tablet, Rowset* rowset) {
     if (!st.ok()) {
         if (tablet->tablet_state() == TABLET_SHUTDOWN) {
             std::string msg = absl::Substitute("tablet $0 in TABLET_SHUTDOWN, maybe deleted by other thread",
-                                                  tablet->tablet_id());
+                                               tablet->tablet_id());
             LOG(WARNING) << msg;
         }
     }

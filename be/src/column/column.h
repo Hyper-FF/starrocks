@@ -18,6 +18,7 @@
 #include <string>
 #include <type_traits>
 
+#include "base/compiler_util.h"
 #include "base/string/slice.h"
 #include "column/column_visitor.h"
 #include "column/column_visitor_mutable.h"
@@ -28,7 +29,6 @@
 #include "common/delete_condition.h" // for DelCondSatisfied
 #include "common/memory/column_allocator.h"
 #include "common/statusor.h"
-#include "base/compiler_util.h"
 
 namespace starrocks {
 

@@ -23,18 +23,18 @@ namespace starrocks::parquet {
 
 ColumnChunkWriter::ColumnChunkWriter(::parquet::ColumnWriter* column_writer) : _column_writer(column_writer) {}
 
-#define WRITE_BATCH_CASE(ParquetType)                                                                           \
-    case ParquetType: {                                                                                         \
-        auto typed_column_writer =                                                                              \
+#define WRITE_BATCH_CASE(ParquetType)                                                                             \
+    case ParquetType: {                                                                                           \
+        auto typed_column_writer =                                                                                \
                 static_cast<::parquet::TypedColumnWriter<::parquet::PhysicalType<ParquetType>>*>(_column_writer); \
-        auto values = reinterpret_cast<::parquet::type_traits<ParquetType>::value_type*>(result.values);        \
-        if (result.null_bitset == nullptr) {                                                                    \
-            typed_column_writer->WriteBatch(result.num_levels, result.def_levels, result.rep_levels, values);   \
-        } else {                                                                                                \
-            typed_column_writer->WriteBatchSpaced(result.num_levels, result.def_levels, result.rep_levels,      \
-                                                  result.null_bitset, 0, values);                               \
-        }                                                                                                       \
-        return;                                                                                                 \
+        auto values = reinterpret_cast<::parquet::type_traits<ParquetType>::value_type*>(result.values);          \
+        if (result.null_bitset == nullptr) {                                                                      \
+            typed_column_writer->WriteBatch(result.num_levels, result.def_levels, result.rep_levels, values);     \
+        } else {                                                                                                  \
+            typed_column_writer->WriteBatchSpaced(result.num_levels, result.def_levels, result.rep_levels,        \
+                                                  result.null_bitset, 0, values);                                 \
+        }                                                                                                         \
+        return;                                                                                                   \
     }
 
 void ColumnChunkWriter::write(const LevelBuilderResult& result) {
@@ -52,11 +52,11 @@ void ColumnChunkWriter::write(const LevelBuilderResult& result) {
     }
 }
 
-#define ESTIMATED_BUFFERED_VALUE_BYTES(ParquetType)                                                             \
-    case ParquetType: {                                                                                         \
-        auto typed_column_writer =                                                                              \
+#define ESTIMATED_BUFFERED_VALUE_BYTES(ParquetType)                                                               \
+    case ParquetType: {                                                                                           \
+        auto typed_column_writer =                                                                                \
                 static_cast<::parquet::TypedColumnWriter<::parquet::PhysicalType<ParquetType>>*>(_column_writer); \
-        return typed_column_writer->estimated_buffered_value_bytes();                                           \
+        return typed_column_writer->estimated_buffered_value_bytes();                                             \
     }
 
 int64_t ColumnChunkWriter::estimated_buffered_value_bytes() {

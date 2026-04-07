@@ -21,10 +21,10 @@
 #include <fstream>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "base/system/errno.h"
 #include "base/utility/defer_op.h"
 #include "common/version.h"
-#include "absl/strings/substitute.h"
 
 namespace starrocks {
 
@@ -36,7 +36,7 @@ Status ClusterIdMgr::init() {
         int fd = open(cluster_id_path.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
         if (fd < 0 || close(fd) < 0) {
             RETURN_IF_ERROR_WITH_WARN(Status::IOError(absl::Substitute("failed to create cluster id file $0, err=$1",
-                                                                          cluster_id_path, errno_to_string(errno))),
+                                                                       cluster_id_path, errno_to_string(errno))),
                                       "create file failed");
         }
     }

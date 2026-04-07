@@ -17,6 +17,7 @@
 #include <numeric>
 #include <utility>
 
+#include "base/gutil/strings/fastmem.h"
 #include "column/adaptive_nullable_column.h"
 #include "column/array_column.h"
 #include "column/chunk.h"
@@ -30,7 +31,6 @@
 #include "column/struct_column.h"
 #include "column/vectorized_fwd.h"
 #include "exprs/expr_context.h"
-#include "base/gutil/strings/fastmem.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
 #include "storage/olap_type_infra.h"

@@ -17,10 +17,10 @@
 #include <memory>
 #include <mutex>
 
+#include "absl/strings/substitute.h"
 #include "base/hash/xxh3.h"
 #include "base/types/int128.h"
 #include "common/tracer.h"
-#include "absl/strings/substitute.h"
 #include "io/io_profiler.h"
 #include "runtime/current_thread.h"
 #include "runtime/starrocks_metrics.h"
@@ -1290,7 +1290,7 @@ Status PrimaryIndex::_do_load(Tablet* tablet) {
     }
     if (size() != total_rows - total_dels) {
         LOG(WARNING) << absl::Substitute("load primary index row count not match tablet:$0 index:$1 != stats:$2",
-                                            _tablet_id, size(), total_rows - total_dels);
+                                         _tablet_id, size(), total_rows - total_dels);
     }
     LOG(INFO) << "load primary index finish table:" << tablet->belonged_table_id() << " tablet:" << tablet->tablet_id()
               << " version:" << apply_version << " #rowset:" << rowsets.size() << " #segment:" << total_segments

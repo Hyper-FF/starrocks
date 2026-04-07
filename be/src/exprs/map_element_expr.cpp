@@ -15,7 +15,6 @@
 #include "exprs/map_element_expr.h"
 
 #include "absl/strings/substitute.h"
-
 #include "base/container/raw_container.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"

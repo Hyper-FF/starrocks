@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "base/gutil/strings/strip.h"
 #include "base/testutil/assert.h"
 #include "base/utility/defer_op.h"
 #include "butil/time.h"
@@ -36,7 +37,6 @@
 #include "common/statusor.h"
 #include "exprs/mock_vectorized_expr.h"
 #include "gtest/gtest-param-test.h"
-#include "base/gutil/strings/strip.h"
 #include "types/json_value.h"
 #include "types/logical_type.h"
 #include "util/json_flattener.h"

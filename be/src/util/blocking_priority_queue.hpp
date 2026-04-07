@@ -40,8 +40,8 @@
 #include <mutex>
 #include <vector>
 
-#include "common/compiler_util.h"
 #include "base/gutil/port.h"
+#include "common/compiler_util.h"
 
 namespace starrocks::config {
 // Keep this declaration in sync with common/config.h.

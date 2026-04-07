@@ -13,12 +13,12 @@
 // limitations under the License.
 
 #include "exec/pipeline/sort/local_partition_topn_context.h"
-#include "absl/strings/substitute.h"
 
 #include <exec/partition/chunks_partitioner.h>
 
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "exec/chunks_sorter_topn.h"
 #include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
@@ -137,8 +137,8 @@ Status LocalPartitionTopnContext::prepare_pre_agg(RuntimeState* state) {
                                    fn.binary_type, state->func_version());
         if (func == nullptr) {
             return Status::InternalError(absl::Substitute("Invalid window function plan: ($0, $1, $2, $3, $4, $5)",
-                                                             fn.name.function_name, arg_type.type, return_type.type,
-                                                             is_input_nullable, fn.binary_type, state->func_version()));
+                                                          fn.name.function_name, arg_type.type, return_type.type,
+                                                          is_input_nullable, fn.binary_type, state->func_version()));
         }
         _pre_agg->_agg_functions[i] = func;
     }

@@ -17,8 +17,8 @@
 #include <string>
 #include <utility>
 
-#include "common/status.h"
 #include "base/compiler_util.h"
+#include "common/status.h"
 
 namespace google::protobuf {
 class Message;

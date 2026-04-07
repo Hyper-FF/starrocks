@@ -40,6 +40,8 @@
 
 #include <memory>
 
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "base/failpoint/fail_point.h"
 #include "base/hash/crc32c.h"
 #include "base/string/slice.h"
@@ -49,8 +51,6 @@
 #include "common/config_rowset_fwd.h"
 #include "common/logging.h"
 #include "fs/key_cache.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
 #include "runtime/starrocks_metrics.h"
@@ -115,8 +115,8 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
     if (partial_rowset_footer != nullptr) {
         if (file_size < partial_rowset_footer->position() + partial_rowset_footer->size()) {
             return Status::Corruption(
-                    absl::Substitute("Bad partial segment file $0: file size $1 < $2", read_file->filename(),
-                                        file_size, partial_rowset_footer->position() + partial_rowset_footer->size()));
+                    absl::Substitute("Bad partial segment file $0: file size $1 < $2", read_file->filename(), file_size,
+                                     partial_rowset_footer->position() + partial_rowset_footer->size()));
         }
         footer_read_size = partial_rowset_footer->size();
     }
@@ -142,7 +142,7 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
 
     if (file_size < 12 + footer_length) {
         return Status::Corruption(absl::Substitute("Bad segment file $0: file size $1 < $2", read_file->filename(),
-                                                      file_size, 12 + footer_length));
+                                                   file_size, 12 + footer_length));
     }
 
     buff.resize(buff.size() - 12); // Remove the last 12 bytes.
@@ -183,7 +183,7 @@ StatusOr<size_t> parse_segment_footer_internal(RandomAccessFile* read_file, Segm
     if (actual_checksum != checksum) {
         return Status::Corruption(
                 absl::Substitute("Bad segment file $0: footer checksum not match, actual=$1 vs expect=$2",
-                                    read_file->filename(), actual_checksum, checksum));
+                                 read_file->filename(), actual_checksum, checksum));
     }
 
     return footer_length + 12;

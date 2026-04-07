@@ -16,8 +16,8 @@
 
 #include <rapidjson/document.h>
 
-#include "common/configbase.h"
 #include "absl/strings/substitute.h"
+#include "common/configbase.h"
 #include "http/action/update_config_action.h"
 #include "script/script.h"
 

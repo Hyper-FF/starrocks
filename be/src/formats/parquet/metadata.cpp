@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "formats/parquet/metadata.h"
-#include "absl/strings/substitute.h"
 
 #include <glog/logging.h>
 
@@ -22,6 +21,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/strings/substitute.h"
 #include "common/util/thrift_util.h"
 #include "formats/parquet/file_reader.h"
 #include "formats/parquet/schema.h"
@@ -560,9 +560,9 @@ StatusOr<uint32_t> FileMetaDataParser::_parse_metadata_length(const std::vector<
 
     uint32_t metadata_length = decode_fixed32_le(reinterpret_cast<const uint8_t*>(footer_buff.data()) + size - 8);
     if (metadata_length > _file_size - PARQUET_FOOTER_SIZE) {
-        return Status::Corruption(absl::Substitute(
-                "Parquet file size is $0 bytes, smaller than the size reported by footer's ($1 bytes)", _file_size,
-                metadata_length));
+        return Status::Corruption(
+                absl::Substitute("Parquet file size is $0 bytes, smaller than the size reported by footer's ($1 bytes)",
+                                 _file_size, metadata_length));
     }
     return metadata_length;
 }

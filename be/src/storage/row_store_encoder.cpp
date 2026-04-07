@@ -14,11 +14,11 @@
 
 #include "storage/row_store_encoder.h"
 
+#include "base/gutil/endian.h"
 #include "column/binary_column.h"
 #include "column/chunk.h"
 #include "column/fixed_length_column.h"
 #include "column/schema.h"
-#include "base/gutil/endian.h"
 #include "storage/chunk_helper.h"
 #include "storage/olap_common.h"
 #include "storage/primary_key_encoder.h"

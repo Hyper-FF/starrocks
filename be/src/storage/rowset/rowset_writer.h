@@ -37,11 +37,11 @@
 #include <mutex>
 #include <vector>
 
+#include "base/compiler_util.h"
 #include "common/statusor.h"
 #include "gen_cpp/data.pb.h"
 #include "gen_cpp/olap_file.pb.h"
 #include "gen_cpp/types.pb.h"
-#include "base/compiler_util.h"
 #include "runtime/global_dict/types.h"
 #include "runtime/global_dict/types_fwd_decl.h"
 #include "storage/column_mapping.h"

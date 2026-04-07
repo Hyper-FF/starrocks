@@ -26,7 +26,12 @@
 #include <filesystem>
 #include <memory>
 
+#include "absl/strings/substitute.h"
+#include "base/compiler_util.h"
 #include "base/concurrency/stopwatch.hpp"
+#include "base/gutil/gscoped_ptr.h"
+#include "base/gutil/port.h"
+#include "base/gutil/strings/util.h"
 #include "base/string/slice.h"
 #include "base/system/errno.h"
 #include "base/testutil/sync_point.h"
@@ -35,11 +40,6 @@
 #include "fs/encrypt_file.h"
 #include "fs/fd_cache.h"
 #include "fs/fs.h"
-#include "base/gutil/gscoped_ptr.h"
-#include "base/compiler_util.h"
-#include "base/gutil/port.h"
-#include "absl/strings/substitute.h"
-#include "base/gutil/strings/util.h"
 #include "io/fd_input_stream.h"
 #include "io/io_profiler.h"
 

@@ -21,8 +21,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "common/status.h"
 #include "absl/strings/substitute.h"
+#include "common/status.h"
 #include "types/checker/type_checker.h"
 
 namespace starrocks {

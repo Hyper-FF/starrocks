@@ -16,6 +16,7 @@
 
 #include <cstring>
 
+#include "absl/strings/substitute.h"
 #include "base/bit/bit_stream_utils.h"
 #include "base/bit/bit_util.h"
 #include "base/coding.h"
@@ -30,7 +31,6 @@
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "formats/parquet/encoding.h"
-#include "absl/strings/substitute.h"
 
 #ifdef __AVX2__
 #include <immintrin.h>
@@ -146,8 +146,8 @@ public:
     Status skip(size_t values_to_skip) override {
         size_t fetch_size = values_to_skip * SIZE_OF_TYPE;
         if (fetch_size + _offset > _data.size) {
-            return Status::InternalError(absl::Substitute(
-                    "going to skip out-of-bounds data, offset=$0,skip=$1,size=$2", _offset, fetch_size, _data.size));
+            return Status::InternalError(absl::Substitute("going to skip out-of-bounds data, offset=$0,skip=$1,size=$2",
+                                                          _offset, fetch_size, _data.size));
         }
         _offset += fetch_size;
         return Status::OK();
@@ -268,10 +268,10 @@ public:
             static_cast<NullableColumn*>(dst)->null_column_raw_ptr()->append_default(count);
         }
 
-#define CHECK_DECODING_BOUND                                                                                  \
-    if (UNLIKELY(num_decoded < count || _offset > _data.size)) {                                              \
-        return Status::InternalError(absl::Substitute(                                                     \
-                "going to read out-of-bounds data, offset=$0,count=$1,size=$2", _offset, count, _data.size)); \
+#define CHECK_DECODING_BOUND                                                                                          \
+    if (UNLIKELY(num_decoded < count || _offset > _data.size)) {                                                      \
+        return Status::InternalError(absl::Substitute("going to read out-of-bounds data, offset=$0,count=$1,size=$2", \
+                                                      _offset, count, _data.size));                                   \
     }
 
         if (filter) {
@@ -572,9 +572,8 @@ public:
 
     Status skip(size_t values_to_skip) override {
         if (_offset + _type_length * values_to_skip > _data.size) {
-            return Status::InternalError(
-                    absl::Substitute("going to skip out-of-bounds data, offset=$0,skip=$1,size=$2", _offset,
-                                        _type_length * values_to_skip, _data.size));
+            return Status::InternalError(absl::Substitute("going to skip out-of-bounds data, offset=$0,skip=$1,size=$2",
+                                                          _offset, _type_length * values_to_skip, _data.size));
         }
         _offset += _type_length * values_to_skip;
         return Status::OK();

@@ -15,15 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
 #include "base/json/easy_json.h"
 
 #include <gtest/gtest.h>
 #include <rapidjson/document.h>
 #include <rapidjson/rapidjson.h>
 
+#include <cstdint>
 #include <string>
-
 
 using rapidjson::SizeType;
 using rapidjson::Value;

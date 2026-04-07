@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
-#include "absl/strings/substitute.h"
 
 #include <random>
 
+#include "absl/strings/substitute.h"
 #include "base/testutil/assert.h"
 #include "base/testutil/id_generator.h"
 #include "base/utility/defer_op.h"

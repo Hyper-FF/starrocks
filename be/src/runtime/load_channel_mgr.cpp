@@ -39,12 +39,12 @@
 
 #include <memory>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/stopwatch.hpp"
 #include "common/config_ingest_fwd.h"
 #include "common/system/cpu_info.h"
 #include "common/thread/thread.h"
 #include "fs/key_cache.h"
-#include "absl/strings/substitute.h"
 #include "runtime/closure_guard.h"
 #include "runtime/load_channel.h"
 #include "runtime/mem_tracker.h"

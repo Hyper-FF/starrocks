@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "exec/hdfs_scanner/cache_select_scanner.h"
-#include "absl/strings/substitute.h"
 
+#include "absl/strings/substitute.h"
 #include "common/config_scan_io_fwd.h"
 #include "formats/orc/orc_chunk_reader.h"
 #include "formats/orc/orc_input_stream.h"
@@ -86,8 +86,7 @@ Status CacheSelectScanner::_fetch_orc() {
         orc::ReaderOptions options;
         reader = orc::createReader(std::move(input_stream), options);
     } catch (std::exception& e) {
-        return Status::InternalError(
-                absl::Substitute("CacheSelectScanner::_fetch_orc failed. reason = $0", e.what()));
+        return Status::InternalError(absl::Substitute("CacheSelectScanner::_fetch_orc failed. reason = $0", e.what()));
     }
 
     // prepare SlotDescriptor

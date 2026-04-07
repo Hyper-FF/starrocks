@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "exec/query_cache/multilane_operator.h"
-#include "absl/strings/substitute.h"
 
 #include <glog/logging.h>
 
+#include "absl/strings/substitute.h"
 #include "base/utility/defer_op.h"
 
 namespace starrocks::query_cache {

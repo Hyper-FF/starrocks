@@ -13,9 +13,10 @@
 // limitations under the License.
 
 #include "exec/query_cache/conjugate_operator.h"
-#include "absl/strings/substitute.h"
 
 #include <utility>
+
+#include "absl/strings/substitute.h"
 
 namespace starrocks::query_cache {
 

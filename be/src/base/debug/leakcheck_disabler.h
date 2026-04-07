@@ -16,8 +16,8 @@
 // under the License.
 #pragma once
 
-#include "base/debug/leak_annotations.h"
 #include "base/compiler_util.h"
+#include "base/debug/leak_annotations.h"
 
 namespace starrocks::debug {
 

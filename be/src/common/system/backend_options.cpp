@@ -20,12 +20,12 @@
 #include <algorithm>
 #include <ostream>
 
+#include "absl/strings/str_split.h"
 #include "base/network/cidr.h"
 #include "base/network/network_util.h"
 #include "common/config_network_fwd.h"
 #include "common/logging.h"
 #include "common/status.h"
-#include "absl/strings/str_split.h"
 
 namespace starrocks {
 

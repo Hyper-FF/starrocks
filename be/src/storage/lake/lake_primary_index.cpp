@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "storage/lake/lake_primary_index.h"
-#include "absl/strings/substitute.h"
 
 #include <bvar/bvar.h>
 
+#include "absl/strings/substitute.h"
 #include "base/debug/trace.h"
 #include "base/testutil/sync_point.h"
 #include "storage/chunk_helper.h"

@@ -31,8 +31,8 @@
 #include <arm_acle.h>
 #endif
 
-#include "base/hash/murmur_hash3.h"
 #include "base/gutil/cpu.h"
+#include "base/hash/murmur_hash3.h"
 
 namespace starrocks {
 

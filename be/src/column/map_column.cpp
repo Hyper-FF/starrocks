@@ -19,13 +19,13 @@
 #include <numeric>
 #include <set>
 
+#include "base/gutil/bits.h"
+#include "base/gutil/strings/fastmem.h"
 #include "column/column_helper.h"
 #include "column/fixed_length_column.h"
 #include "column/mysql_row_buffer.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
-#include "base/gutil/bits.h"
-#include "base/gutil/strings/fastmem.h"
 #include "types/datum.h"
 
 namespace starrocks {

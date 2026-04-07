@@ -15,10 +15,10 @@
 #pragma once
 
 #include <exprs/predicate.h>
-#include "absl/strings/substitute.h"
 
 #include <atomic>
 
+#include "absl/strings/substitute.h"
 #include "base/concurrency/race_detect.h"
 #include "exec/pipeline/hashjoin/hash_joiner_fwd.h"
 #include "exec/pipeline/operator.h"
