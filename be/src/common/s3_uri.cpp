@@ -20,7 +20,6 @@
 
 #include <algorithm>
 
-
 namespace starrocks {
 
 bool S3URI::parse(const char* uri_str, const size_t size) {

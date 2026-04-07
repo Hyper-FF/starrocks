@@ -48,17 +48,40 @@
 #endif
 #endif
 
-inline uint16_t UnalignedLoad16(const void* p) { uint16_t t; memcpy(&t, p, sizeof t); return t; }
-inline uint32_t UnalignedLoad32(const void* p) { uint32_t t; memcpy(&t, p, sizeof t); return t; }
-inline uint64_t UnalignedLoad64(const void* p) { uint64_t t; memcpy(&t, p, sizeof t); return t; }
-inline void UnalignedStore16(void* p, uint16_t v) { memcpy(p, &v, sizeof v); }
-inline void UnalignedStore32(void* p, uint32_t v) { memcpy(p, &v, sizeof v); }
-inline void UnalignedStore64(void* p, uint64_t v) { memcpy(p, &v, sizeof v); }
+inline uint16_t UnalignedLoad16(const void* p) {
+    uint16_t t;
+    memcpy(&t, p, sizeof t);
+    return t;
+}
+inline uint32_t UnalignedLoad32(const void* p) {
+    uint32_t t;
+    memcpy(&t, p, sizeof t);
+    return t;
+}
+inline uint64_t UnalignedLoad64(const void* p) {
+    uint64_t t;
+    memcpy(&t, p, sizeof t);
+    return t;
+}
+inline void UnalignedStore16(void* p, uint16_t v) {
+    memcpy(p, &v, sizeof v);
+}
+inline void UnalignedStore32(void* p, uint32_t v) {
+    memcpy(p, &v, sizeof v);
+}
+inline void UnalignedStore64(void* p, uint64_t v) {
+    memcpy(p, &v, sizeof v);
+}
 
 inline uint64_t gbswap_64(uint64_t host_int) {
 #if defined(__GNUC__) && defined(__x86_64__) && !defined(__APPLE__)
-    if (__builtin_constant_p(host_int)) { return __bswap_constant_64(host_int); }
-    else { uint64_t result; __asm__("bswap %0" : "=r"(result) : "0"(host_int)); return result; }
+    if (__builtin_constant_p(host_int)) {
+        return __bswap_constant_64(host_int);
+    } else {
+        uint64_t result;
+        __asm__("bswap %0" : "=r"(result) : "0"(host_int));
+        return result;
+    }
 #elif defined(bswap_64)
     return bswap_64(host_int);
 #else
@@ -77,23 +100,45 @@ inline uint32_t bswap_24(uint32_t x) {
 }
 
 #ifdef IS_LITTLE_ENDIAN
-inline uint16 ghtons(uint16 x) { return bswap_16(x); }
-inline uint32 ghtonl(uint32 x) { return bswap_32(x); }
-inline uint64 ghtonll(uint64 x) { return gbswap_64(x); }
+inline uint16 ghtons(uint16 x) {
+    return bswap_16(x);
+}
+inline uint32 ghtonl(uint32 x) {
+    return bswap_32(x);
+}
+inline uint64 ghtonll(uint64 x) {
+    return gbswap_64(x);
+}
 #elif defined(IS_BIG_ENDIAN)
-inline uint16 ghtons(uint16 x) { return x; }
-inline uint32 ghtonl(uint32 x) { return x; }
-inline uint64 ghtonll(uint64 x) { return x; }
+inline uint16 ghtons(uint16 x) {
+    return x;
+}
+inline uint32 ghtonl(uint32 x) {
+    return x;
+}
+inline uint64 ghtonll(uint64 x) {
+    return x;
+}
 #else
 #error "Unsupported bytesex"
 #endif
 
-inline uint16 gntohl(uint16 x) { return ghtonl(x); }
-inline uint32 gntohs(uint32 x) { return ghtons(x); }
-inline uint64 gntohll(uint64 x) { return ghtonll(x); }
+inline uint16 gntohl(uint16 x) {
+    return ghtonl(x);
+}
+inline uint32 gntohs(uint32 x) {
+    return ghtons(x);
+}
+inline uint64 gntohll(uint64 x) {
+    return ghtonll(x);
+}
 #if !defined(__APPLE__)
-inline uint64 htonll(uint64 x) { return ghtonll(x); }
-inline uint64 ntohll(uint64 x) { return htonll(x); }
+inline uint64 htonll(uint64 x) {
+    return ghtonll(x);
+}
+inline uint64 ntohll(uint64 x) {
+    return htonll(x);
+}
 #endif
 
 class LittleEndian {
@@ -125,8 +170,11 @@ public:
     static uint64 Load64VariableLength(const void* const p, int len) {
         assert(len >= 1 && len <= 8);
         const char* const buf = static_cast<const char* const>(p);
-        uint64 val = 0; --len;
-        do { val = (val << 8) | buf[len]; } while (--len >= 0);
+        uint64 val = 0;
+        --len;
+        do {
+            val = (val << 8) | buf[len];
+        } while (--len >= 0);
         return val;
     }
     static void Store64(void* p, uint64 v) { UnalignedStore64(p, FromHost64(v)); }
@@ -142,7 +190,12 @@ public:
         return uint128(Load64VariableLength(static_cast<const char*>(p) + 8, len - 8), Load64(p));
     }
     static uword_t LoadUnsignedWord(const void* p) { return sizeof(uword_t) == 8 ? Load64(p) : Load32(p); }
-    static void StoreUnsignedWord(void* p, uword_t v) { if (sizeof(v) == 8) Store64(p, v); else Store32(p, v); }
+    static void StoreUnsignedWord(void* p, uword_t v) {
+        if (sizeof(v) == 8)
+            Store64(p, v);
+        else
+            Store32(p, v);
+    }
 };
 
 class BigEndian {
@@ -179,8 +232,12 @@ public:
     static uint64 Load64(const void* p) { return ToHost64(UnalignedLoad64(p)); }
     static uint64 Load64VariableLength(const void* const p, int len) {
         assert(len >= 1 && len <= 8);
-        uint64 val = Load64(p); uint64 mask = 0; --len;
-        do { mask = (mask << 8) | 0xff; } while (--len >= 0);
+        uint64 val = Load64(p);
+        uint64 mask = 0;
+        --len;
+        do {
+            mask = (mask << 8) | 0xff;
+        } while (--len >= 0);
         return val & mask;
     }
     static void Store64(void* p, uint64 v) { UnalignedStore64(p, FromHost64(v)); }
@@ -196,7 +253,12 @@ public:
         return uint128(Load64VariableLength(p, len - 8), Load64(static_cast<const char*>(p) + 8));
     }
     static uword_t LoadUnsignedWord(const void* p) { return sizeof(uword_t) == 8 ? Load64(p) : Load32(p); }
-    static void StoreUnsignedWord(void* p, uword_t v) { if (sizeof(uword_t) == 8) Store64(p, v); else Store32(p, v); }
+    static void StoreUnsignedWord(void* p, uword_t v) {
+        if (sizeof(uword_t) == 8)
+            Store64(p, v);
+        else
+            Store32(p, v);
+    }
 };
 
 typedef BigEndian NetworkByteOrder;

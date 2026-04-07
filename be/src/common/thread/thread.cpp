@@ -45,6 +45,7 @@
 #endif
 #include <sched.h>
 
+#include <atomic>
 #include <boost/asio/spawn.hpp>
 #include <cstring>
 #include <limits>
@@ -54,7 +55,6 @@
 #include <string>
 
 #include "absl/strings/substitute.h"
-#include <atomic>
 #include "base/utility/scoped_cleanup.h"
 #include "common/logging.h"
 
