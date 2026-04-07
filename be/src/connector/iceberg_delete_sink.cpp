@@ -20,7 +20,6 @@
 #include <future>
 #include <unordered_map>
 
-#include "gutil/strings/fastmem.h"
 #include "base/url_coding.h"
 #include "column/column_helper.h"
 #include "common/config_exec_fwd.h"
@@ -34,6 +33,7 @@
 #include "formats/parquet/parquet_file_writer.h"
 #include "formats/utils.h"
 #include "fs/fs_factory.h"
+#include "gutil/strings/fastmem.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "storage/chunk_helper.h"

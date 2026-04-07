@@ -16,8 +16,8 @@
 
 #include <optional>
 
-#include "gutil/hash/hash.h"
 #include "base/phmap/phmap.h"
+#include "gutil/hash/hash.h"
 
 namespace starrocks {
 class TExecDebugOption;

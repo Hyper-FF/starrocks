@@ -15,9 +15,9 @@
 #include "io/shared_buffered_input_stream.h"
 
 #include "absl/strings/substitute.h"
-#include "gutil/strings/fastmem.h"
 #include "common/config_scan_io_fwd.h"
 #include "common/runtime_profile.h"
+#include "gutil/strings/fastmem.h"
 #include "runtime/current_thread.h"
 
 namespace starrocks::io {

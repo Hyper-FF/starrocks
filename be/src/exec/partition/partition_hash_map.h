@@ -16,7 +16,6 @@
 
 #include <utility>
 
-#include "gutil/strings/fastmem.h"
 #include "base/phmap/phmap.h"
 #include "column/chunk.h"
 #include "column/column_hash.h"
@@ -24,6 +23,7 @@
 #include "column/hash_set.h"
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
+#include "gutil/strings/fastmem.h"
 #include "runtime/mem_pool.h"
 
 namespace starrocks {

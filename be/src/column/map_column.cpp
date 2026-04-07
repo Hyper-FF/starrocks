@@ -20,12 +20,12 @@
 #include <set>
 
 #include "base/bits.h"
-#include "gutil/strings/fastmem.h"
 #include "column/column_helper.h"
 #include "column/fixed_length_column.h"
 #include "column/mysql_row_buffer.h"
 #include "column/nullable_column.h"
 #include "column/vectorized_fwd.h"
+#include "gutil/strings/fastmem.h"
 #include "types/datum.h"
 
 namespace starrocks {

@@ -31,9 +31,9 @@
 #include <xmmintrin.h>
 #endif
 
-#include "gutil/hash/hash.h"
 #include "base/string/slice.h"
 #include "column/runtime_type_traits.h"
+#include "gutil/hash/hash.h"
 #include "types/logical_type.h"
 
 namespace starrocks {

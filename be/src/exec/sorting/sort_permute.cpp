@@ -16,7 +16,6 @@
 
 #include <span>
 
-#include "gutil/strings/fastmem.h"
 #include "column/adaptive_nullable_column.h"
 #include "column/array_column.h"
 #include "column/binary_column.h"
@@ -33,6 +32,7 @@
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "exec/sorting/sorting.h"
+#include "gutil/strings/fastmem.h"
 
 namespace starrocks {
 

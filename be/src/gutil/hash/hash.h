@@ -86,6 +86,7 @@ using __gnu_cxx::hash_set;
 #include <string>
 #include <utility>
 
+#include "butil/containers/hash_tables.h"
 #include "gutil/casts.h"
 #include "gutil/hash/city.h"
 #include "gutil/hash/hash128to64.h"
@@ -97,7 +98,6 @@ using __gnu_cxx::hash_set;
 #include "gutil/integral_types.h"
 #include "gutil/macros.h"
 #include "gutil/port.h"
-#include "butil/containers/hash_tables.h"
 
 namespace __gnu_cxx {
 

@@ -18,7 +18,6 @@
 #include <arrow/status.h>
 
 #include "absl/strings/substitute.h"
-#include "gutil/strings/fastmem.h"
 #include "base/utility/meta_macro.h"
 #include "column/array_column.h"
 #include "column/nullable_column.h"
@@ -26,6 +25,7 @@
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "exec/arrow_type_traits.h"
+#include "gutil/strings/fastmem.h"
 #include "types/logical_type.h"
 #include "types/type_descriptor.h"
 

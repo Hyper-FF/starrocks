@@ -21,7 +21,6 @@
 #include <unordered_map>
 
 #include "base/concurrency/spinlock.h"
-#include "gutil/hash/hash.h"
 #include "base/hash/hash_std.hpp"
 #include "base/time/time.h"
 #include "base/uid_util.h"
@@ -32,6 +31,7 @@
 #include "gen_cpp/InternalService_types.h" // for TQueryOptions
 #include "gen_cpp/Types_types.h"           // for TUniqueId
 #include "gen_cpp/internal_service.pb.h"
+#include "gutil/hash/hash.h"
 #include "runtime/exec_env_fwd.h"
 #include "runtime/profile_report_worker.h"
 #include "runtime/query_statistics.h"

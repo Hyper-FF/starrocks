@@ -15,12 +15,12 @@
 #pragma once
 #include <map>
 
-#include "gutil/hash/hash.h"
 #include "base/hash/hash_std.hpp"
 #include "base/uid_util.h"
 #include "column/column_hash.h"
 #include "column/vectorized_fwd.h"
 #include "gen_cpp/Types_types.h" // for TUniqueId
+#include "gutil/hash/hash.h"
 #include "runtime/descriptors.h" // for PlanNodeId
 
 namespace starrocks {

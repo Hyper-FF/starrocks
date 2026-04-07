@@ -38,10 +38,10 @@
 #include <cstring>
 #include <memory>
 
-#include "gutil/strings/fastmem.h"
 #include "base/testutil/sync_point.h"
 #include "common/logging.h"
 #include "common/statusor.h"
+#include "gutil/strings/fastmem.h"
 #include "runtime/current_thread.h"
 #include "runtime/mem_tracker.h"
 #include "storage/utils.h"

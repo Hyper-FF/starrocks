@@ -18,8 +18,8 @@
 #include <malloc.h> // for memalign()
 #endif
 
-#include "gutil/integral_types.h"
 #include "butil/compiler_specific.h"
+#include "gutil/integral_types.h"
 
 // Must happens before inttypes.h inclusion */
 #if defined(__APPLE__)

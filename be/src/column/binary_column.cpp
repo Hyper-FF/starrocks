@@ -21,12 +21,12 @@
 #include "absl/strings/substitute.h"
 #include "base/bits.h"
 #include "base/container/raw_container.h"
-#include "gutil/strings/fastmem.h"
 #include "base/hash/hash_util.hpp"
 #include "column/bytes.h"
 #include "column/mysql_row_buffer.h"
 #include "column/vectorized_fwd.h"
 #include "common/config_local_io_fwd.h"
+#include "gutil/strings/fastmem.h"
 
 namespace starrocks {
 template <typename T>

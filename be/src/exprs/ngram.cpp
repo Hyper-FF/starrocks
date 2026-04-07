@@ -14,10 +14,10 @@
 // This file is based on code available under the Apache license here:
 //  https://github.com/ClickHouse/ClickHouse/blob/master/src/Functions/FunctionsStringSimilarity.cpp
 
-#include "gutil/strings/fastmem.h"
 #include "column/column_hash.h"
 #include "exprs/function_context.h"
 #include "exprs/string_functions.h"
+#include "gutil/strings/fastmem.h"
 namespace starrocks {
 static constexpr size_t MAX_STRING_SIZE = 1 << 15;
 // uint16_t[2^16] can almost fit into L2

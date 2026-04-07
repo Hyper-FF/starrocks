@@ -22,8 +22,8 @@
 #include <string_view>
 #include <vector>
 
-#include "gutil/hash/hash.h"
 #include "base/hash/hash_std.hpp"
+#include "gutil/hash/hash.h"
 
 #if defined(__SSE4_2__)
 #include <nmmintrin.h>
@@ -31,8 +31,8 @@
 #include <arm_acle.h>
 #endif
 
-#include "gutil/cpu.h"
 #include "base/hash/murmur_hash3.h"
+#include "gutil/cpu.h"
 
 namespace starrocks {
 

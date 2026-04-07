@@ -15,7 +15,6 @@
 #include "column/fixed_length_column_base.h"
 
 #include "absl/strings/substitute.h"
-#include "gutil/strings/fastmem.h"
 #include "base/hash/hash_util.hpp"
 #include "base/simd/gather.h"
 #include "base/types/decimal12.h"
@@ -27,6 +26,7 @@
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
 #include "common/config_local_io_fwd.h"
+#include "gutil/strings/fastmem.h"
 #include "types/value_generator.h"
 
 namespace starrocks {

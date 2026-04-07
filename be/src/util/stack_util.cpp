@@ -44,12 +44,12 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
-#include "gutil/hash/hash.h"
 #include "base/phmap/phmap.h"
 #include "base/testutil/sync_point.h"
 #include "base/time/time.h"
 #include "base/utility/defer_op.h"
 #include "common/config_diagnostic_fwd.h"
+#include "gutil/hash/hash.h"
 #include "runtime/current_thread.h"
 
 namespace google {

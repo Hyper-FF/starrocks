@@ -19,7 +19,6 @@
 #include <sstream>
 #include <type_traits>
 
-#include "gutil/strings/fastmem.h"
 #include "base/string/slice.h"
 #include "column/bytes.h"
 #include "column/column.h"
@@ -27,6 +26,7 @@
 #include "column/german_string.h"
 #include "column/vectorized_fwd.h"
 #include "common/statusor.h"
+#include "gutil/strings/fastmem.h"
 #include "types/datum.h"
 
 namespace starrocks {

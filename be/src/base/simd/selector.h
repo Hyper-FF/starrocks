@@ -27,8 +27,8 @@
 #include <type_traits>
 
 #include "base/compiler_util.h"
-#include "gutil/strings/fastmem.h"
 #include "base/simd/simd_utils.h"
+#include "gutil/strings/fastmem.h"
 
 namespace starrocks {
 

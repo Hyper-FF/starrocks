@@ -22,11 +22,11 @@
 #include <random>
 #include <vector>
 
-#include "gutil/hash/hash.h"
 #include "base/phmap/phmap.h"
 #include "bench/bench_util.h"
 #include "exprs/hash_functions.h"
 #include "exprs/time_functions.h"
+#include "gutil/hash/hash.h"
 #include "runtime/runtime_state.h"
 #include "testutil/function_utils.h"
 
