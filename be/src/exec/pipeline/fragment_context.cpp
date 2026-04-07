@@ -65,11 +65,7 @@ private:
     TUniqueId _query_id;
 };
 
-FragmentContext::FragmentContext()
-        : _fragment_mem_pool(std::make_unique<MemPool>()),
-          _mem_resource(_fragment_mem_pool.get()),
-          _data_sink(nullptr),
-          _fragment_dict_state(std::make_unique<FragmentDictState>()) {}
+FragmentContext::FragmentContext() : _data_sink(nullptr), _fragment_dict_state(std::make_unique<FragmentDictState>()) {}
 
 FragmentContext::~FragmentContext() {
     _close_stream_load_contexts();
@@ -83,9 +79,6 @@ FragmentContext::~FragmentContext() {
         _fragment_dict_state->close(_runtime_state.get());
     }
     clear_pipeline_timer();
-    // _fragment_mem_pool is declared before _runtime_state so it is destroyed after
-    // _runtime_state (reverse member order). This ensures the ObjectPool inside
-    // RuntimeState calls ExecNode destructors before the MemPool memory is freed.
 }
 
 size_t FragmentContext::total_dop() const {

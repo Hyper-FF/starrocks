@@ -39,8 +39,6 @@
 #include "gen_cpp/PlanNodes_types.h"
 #include "gen_cpp/QueryPlanExtra_types.h"
 #include "gen_cpp/Types_types.h"
-#include "runtime/arena_allocator.h"
-#include "runtime/mem_pool.h"
 #include "runtime/profile_report_worker.h"
 #include "runtime/runtime_filter_worker.h"
 #include "runtime/runtime_state.h"
@@ -65,13 +63,11 @@ public:
     FragmentContext();
     ~FragmentContext();
 
-    // Fragment-level shared MemPool that ExecNodes can allocate from.
-    // Lifetime is tied to the FragmentContext — outlives all ExecNodes.
-    MemPool* fragment_mem_pool() { return _fragment_mem_pool.get(); }
+    // Fragment-level shared MemPool — delegates to RuntimeState which owns it.
+    MemPool* fragment_mem_pool() { return _runtime_state ? _runtime_state->fragment_mem_pool() : nullptr; }
 
-    // PMR memory resource backed by the fragment MemPool.
-    // Use with std::pmr::string, std::pmr::vector, std::pmr::unordered_map, etc.
-    std::pmr::memory_resource* mem_resource() { return &_mem_resource; }
+    // PMR memory resource — delegates to RuntimeState which owns it.
+    std::pmr::memory_resource* mem_resource() { return _runtime_state ? _runtime_state->mem_resource() : nullptr; }
 
     const TUniqueId& query_id() const { return _query_id; }
     void set_query_id(const TUniqueId& query_id) { _query_id = query_id; }
@@ -210,17 +206,6 @@ private:
     void _close_stream_load_contexts();
 
     bool _enable_group_execution = false;
-
-    // Fragment-level shared memory pool for ExecNode placement-new allocations.
-    // IMPORTANT: Must be declared before _runtime_state so that it is destroyed AFTER
-    // _runtime_state (C++ reverse member destruction order). This guarantees the
-    // ObjectPool in RuntimeState calls ExecNode destructors before the memory is freed.
-    std::unique_ptr<MemPool> _fragment_mem_pool;
-
-    // PMR adapter over _fragment_mem_pool. Declared after _fragment_mem_pool so it
-    // is destroyed first (it does not own the pool, just references it).
-    MemPoolResource _mem_resource{nullptr};
-
     // Id of this query
     TUniqueId _query_id;
     // Id of this instance

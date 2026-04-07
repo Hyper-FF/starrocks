@@ -143,16 +143,15 @@ RuntimeState::~RuntimeState() {
     }
 }
 
+void RuntimeState::init_fragment_mem_pool() {
+    if (_fragment_mem_pool == nullptr) {
+        _fragment_mem_pool = std::make_unique<MemPool>();
+        _mem_resource = std::make_unique<MemPoolResource>(_fragment_mem_pool.get());
+    }
+}
+
 void RuntimeState::set_fragment_ctx(pipeline::FragmentContext* fragment_ctx) {
     _fragment_ctx = fragment_ctx;
-}
-
-MemPool* RuntimeState::fragment_mem_pool() {
-    return _fragment_ctx != nullptr ? _fragment_ctx->fragment_mem_pool() : nullptr;
-}
-
-std::pmr::memory_resource* RuntimeState::mem_resource() {
-    return _fragment_ctx != nullptr ? _fragment_ctx->mem_resource() : nullptr;
 }
 
 void RuntimeState::_init(const TUniqueId& fragment_instance_id, const TQueryOptions& query_options,
