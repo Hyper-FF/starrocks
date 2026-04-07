@@ -33,7 +33,6 @@ SET(SOURCE_FILES
         once.cc
         ref_counted.cc
         spinlock_internal.cc
-        stringprintf.cc
         strings/ascii_ctype.cc
         strings/charset.cc
         strings/escaping.cc
@@ -41,10 +40,8 @@ SET(SOURCE_FILES
         strings/memutil.cc
         strings/numbers.cc
         strings/split.cc
-        strings/strip.cc
         strings/strcat.cc
         strings/stringpiece.cc
-        strings/substitute.cc
         strings/util.cc
         strtoint.cc
         sysinfo.cc

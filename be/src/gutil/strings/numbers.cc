@@ -23,7 +23,7 @@ using std::string;
 #include "gutil/int128.h"
 #include "gutil/integral_types.h"
 #include "gutil/logging.h"
-#include "gutil/stringprintf.h"
+#include "fmt/printf.h"
 #include "gutil/strings/ascii_ctype.h"
 #include "gutil/strtoint.h"
 
@@ -1432,24 +1432,24 @@ string ItoaKMGT(int64 i) {
         val = i;
     }
 
-    return StringPrintf("%s%" PRId64 "%s", sign, val, suffix);
+    return fmt::sprintf("%s%" PRId64 "%s", sign, val, suffix);
 }
 
 // DEPRECATED(wadetregaskis).
 // These are non-inline because some BUILD files turn on -Wformat-non-literal.
 
 string FloatToString(float f, const char* format) {
-    return StringPrintf(format, f);
+    return fmt::sprintf(format, f);
 }
 
 string IntToString(int i, const char* format) {
-    return StringPrintf(format, i);
+    return fmt::sprintf(format, i);
 }
 
 string Int64ToString(int64 i64, const char* format) {
-    return StringPrintf(format, i64);
+    return fmt::sprintf(format, i64);
 }
 
 string UInt64ToString(uint64 ui64, const char* format) {
-    return StringPrintf(format, ui64);
+    return fmt::sprintf(format, ui64);
 }
