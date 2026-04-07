@@ -16,7 +16,6 @@
 
 #include <cstddef>
 
-#include "base/cpu.h"
 #include "column/vectorized_fwd.h"
 #include "common/memory/column_allocator.h"
 
@@ -27,17 +26,21 @@ size_t t_filter_range(const Filter& filter, T* dst_data, const T* src_data, size
 
 template <typename T>
 inline size_t filter_range(const Filter& filter, T* data, size_t from, size_t to) {
-    if (base::CPU::instance()->has_avx512f()) {
+#if defined(__x86_64__) || defined(__i386)
+    if (__builtin_cpu_supports("avx512f")) {
         return t_filter_range<T, true>(filter, data, data, from, to);
     }
+#endif
     return t_filter_range<T, false>(filter, data, data, from, to);
 }
 
 template <typename T>
 inline size_t filter_range(const Filter& filter, T* dst_data, const T* src_data, size_t from, size_t to) {
-    if (base::CPU::instance()->has_avx512f()) {
+#if defined(__x86_64__) || defined(__i386)
+    if (__builtin_cpu_supports("avx512f")) {
         return t_filter_range<T, true>(filter, dst_data, src_data, from, to);
     }
+#endif
     return t_filter_range<T, false>(filter, dst_data, src_data, from, to);
 }
 
