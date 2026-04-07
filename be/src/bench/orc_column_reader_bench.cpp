@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <benchmark/benchmark.h>
+#include "absl/strings/substitute.h"
 #include <glog/logging.h>
 
 #include "formats/orc/column_reader.h"
@@ -109,9 +110,9 @@ static inline std::string getOrcSchemaString(const LogicalType& logicalType) {
     case TYPE_DOUBLE:
         return "struct<c0:double>";
     case TYPE_DECIMAL64:
-        return strings::Substitute("struct<c0:decimal($0,$1)>", decimal64Precision, decimal64Scale);
+        return absl::Substitute("struct<c0:decimal($0,$1)>", decimal64Precision, decimal64Scale);
     case TYPE_DECIMAL128:
-        return strings::Substitute("struct<c0:decimal($0,$1)>", decimal128Precision, decimal128Scale);
+        return absl::Substitute("struct<c0:decimal($0,$1)>", decimal128Precision, decimal128Scale);
     case TYPE_DATE:
         return "struct<c0:date>";
     case TYPE_DATETIME:
@@ -139,7 +140,7 @@ template <bool nullable>
 static inline void insertString(orc::StringVectorBatch* vb, size_t pos, size_t kBatchNum, ObjectPool& pool) {
     std::string* data;
     if (kBatchNum % 2 == 0) {
-        data = pool.add(new std::string(strings::Substitute("Hello, ORC! %ld", pos)));
+        data = pool.add(new std::string(absl::Substitute("Hello, ORC! %ld", pos)));
     } else {
         data = pool.add(new std::string("Hello, ORC!"));
     }

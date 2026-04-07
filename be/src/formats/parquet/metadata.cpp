@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "formats/parquet/metadata.h"
+#include "absl/strings/substitute.h"
 
 #include <glog/logging.h>
 
@@ -540,7 +541,7 @@ StatusOr<uint32_t> FileMetaDataParser::_get_footer_read_size() const {
     if (_file_size == 0) {
         return Status::Corruption("Parquet file size is 0 bytes");
     } else if (_file_size < PARQUET_FOOTER_SIZE) {
-        return Status::Corruption(strings::Substitute(
+        return Status::Corruption(absl::Substitute(
                 "Parquet file size is $0 bytes, smaller than the minimum parquet file footer ($1 bytes)", _file_size,
                 PARQUET_FOOTER_SIZE));
     }
@@ -559,7 +560,7 @@ StatusOr<uint32_t> FileMetaDataParser::_parse_metadata_length(const std::vector<
 
     uint32_t metadata_length = decode_fixed32_le(reinterpret_cast<const uint8_t*>(footer_buff.data()) + size - 8);
     if (metadata_length > _file_size - PARQUET_FOOTER_SIZE) {
-        return Status::Corruption(strings::Substitute(
+        return Status::Corruption(absl::Substitute(
                 "Parquet file size is $0 bytes, smaller than the size reported by footer's ($1 bytes)", _file_size,
                 metadata_length));
     }

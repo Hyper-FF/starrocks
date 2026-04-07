@@ -15,6 +15,7 @@
 #pragma once
 
 #include <gutil/bits.h>
+#include "absl/strings/substitute.h"
 
 #include <atomic>
 #include <chrono>
@@ -231,7 +232,7 @@ public:
               _pipeline(pipeline),
               _source_node_id(operators[0]->get_plan_node_id()),
               _driver_id(driver_id) {
-        _runtime_profile = std::make_shared<RuntimeProfile>(strings::Substitute("PipelineDriver (id=$0)", _driver_id));
+        _runtime_profile = std::make_shared<RuntimeProfile>(absl::Substitute("PipelineDriver (id=$0)", _driver_id));
         for (auto& op : _operators) {
             _operator_stages[op->get_id()] = OperatorStage::INIT;
         }
@@ -541,7 +542,7 @@ public:
     bool need_check_reschedule() const { return _need_check_reschedule; }
     void set_need_check_reschedule(bool need_reschedule) { _need_check_reschedule = need_reschedule; }
 
-    inline std::string get_name() const { return strings::Substitute("PipelineDriver (id=$0)", _driver_id); }
+    inline std::string get_name() const { return absl::Substitute("PipelineDriver (id=$0)", _driver_id); }
 
     // Whether the query can be expirable or not.
     virtual bool is_query_never_expired() { return false; }

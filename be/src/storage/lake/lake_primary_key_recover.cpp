@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/lake/lake_primary_key_recover.h"
+#include "absl/strings/substitute.h"
 
 #include "column/column.h"
 #include "common/constexpr.h"
@@ -40,7 +41,7 @@ Status LakePrimaryKeyRecover::pre_cleanup() {
         // clear local persistent index's index meta from rocksdb, and index files.
         RETURN_IF_ERROR(TabletMetaManager::remove_tablet_persistent_index_meta(data_dir, _tablet->id()));
         std::string tablet_pk_path =
-                strings::Substitute("$0/$1/", data_dir->get_persistent_index_path(), _tablet->id());
+                absl::Substitute("$0/$1/", data_dir->get_persistent_index_path(), _tablet->id());
         RETURN_IF_ERROR(fs::remove_all(tablet_pk_path));
     }
     return Status::OK();

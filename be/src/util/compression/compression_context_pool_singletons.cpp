@@ -29,6 +29,7 @@
  */
 
 #include "util/compression/compression_context_pool_singletons.h"
+#include "absl/strings/substitute.h"
 
 #include <cstdlib>
 #include <memory>
@@ -126,7 +127,7 @@ StatusOr<LZ4FCompressContext*> LZ4F_CCtx_Creator::operator()() const noexcept {
     if (res != 0) {
         delete context;
         return Status::InvalidArgument(
-                strings::Substitute("Fail to init LZ4FRAME compression context, res=$0", LZ4F_getErrorName(res)));
+                absl::Substitute("Fail to init LZ4FRAME compression context, res=$0", LZ4F_getErrorName(res)));
     }
     return context;
 }
@@ -140,7 +141,7 @@ StatusOr<LZ4FDecompressContext*> LZ4F_DCtx_Creator::operator()() const noexcept 
     if (res != 0) {
         delete context;
         return Status::InvalidArgument(
-                strings::Substitute("Fail to init LZ4FRAME decompression context, res=$0", LZ4F_getErrorName(res)));
+                absl::Substitute("Fail to init LZ4FRAME decompression context, res=$0", LZ4F_getErrorName(res)));
     }
     return context;
 }
@@ -167,7 +168,7 @@ Status LZ4F_CCtx_Resetter::operator()(LZ4FCompressContext* context) const noexce
             delete context;
             context = nullptr;
             return Status::InvalidArgument(
-                    strings::Substitute("Fail to reinit LZ4FRAME compress context, res=$0", LZ4F_getErrorName(res)));
+                    absl::Substitute("Fail to reinit LZ4FRAME compress context, res=$0", LZ4F_getErrorName(res)));
         }
         context->ctx = new_ctx;
         context->compression_fail = false;

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/binlog_file_reader.h"
+#include "absl/strings/substitute.h"
 
 #include "base/coding.h"
 #include "base/container/raw_container.h"
@@ -73,12 +74,12 @@ Status BinlogFileReader::_seek_to_page(int64_t version, int64_t seq_id) {
         PageHeaderPB& page_header_pb = _current_page_context->page_header;
         RETURN_IF_ERROR(_read_page_header(_next_page_index, &page_header_pb));
         if (page_header_pb.version() > version) {
-            return Status::NotFound(strings::Substitute("Can't find version $0", version));
+            return Status::NotFound(absl::Substitute("Can't find version $0", version));
         }
 
         if (page_header_pb.version() == version) {
             if (seq_id < page_header_pb.start_seq_id()) {
-                return Status::NotFound(strings::Substitute("Can't find version $0, seq_id $1", version, seq_id));
+                return Status::NotFound(absl::Substitute("Can't find version $0, seq_id $1", version, seq_id));
             }
 
             int64_t end_seq_id = page_header_pb.end_seq_id();
@@ -99,7 +100,7 @@ Status BinlogFileReader::_seek_to_page(int64_t version, int64_t seq_id) {
         // reach the end of the file
         if (_next_page_index >= _file_meta->num_pages()) {
             return Status::NotFound(
-                    strings::Substitute("Can't find version $0, changelog_id $1 "
+                    absl::Substitute("Can't find version $0, changelog_id $1 "
                                         "in file $2, largest version $3, seq_id $4, and changelog_id $5",
                                         version, seq_id, _file_path, _file_meta->end_version(),
                                         _file_meta->end_seq_id(), _file_meta->end_seq_id()));
@@ -136,7 +137,7 @@ Status BinlogFileReader::_seek_to_log_entry(int64_t seq_id) {
         }
     }
 
-    return Status::NotFound(strings::Substitute("Can't find log entry containing the change event <$0, $1>",
+    return Status::NotFound(absl::Substitute("Can't find log entry containing the change event <$0, $1>",
                                                 _current_page_context->page_header.version(), seq_id));
 }
 
@@ -220,7 +221,7 @@ Status BinlogFileReader::_read_page_content(int page_index, PageHeaderPB* page_h
 
     uint32_t actual_checksum = crc32c::Value(page_slice.get_data(), page_slice.get_size());
     if (page_header_pb->compressed_page_crc() != actual_checksum) {
-        return Status::Corruption(strings::Substitute(
+        return Status::Corruption(absl::Substitute(
                 "Bad binlog file $0: page content checksum not match, actual=$1 vs expect=$2, page index $3",
                 _file_path, actual_checksum, page_header_pb->compressed_page_crc(), page_index));
     }
@@ -233,7 +234,7 @@ Status BinlogFileReader::_read_page_content(int page_index, PageHeaderPB* page_h
         Slice decompress_page_slice(decompressed_page.get(), uncompressed_size);
         RETURN_IF_ERROR(compress_codec->decompress(page_slice, &decompress_page_slice));
         if (decompress_page_slice.get_size() != uncompressed_size) {
-            return Status::Corruption(strings::Substitute(
+            return Status::Corruption(absl::Substitute(
                     "Bad binlog file $0: page content decompress failed, expect uncompressed size=$1"
                     " vs real decompressed size=$2, page index $3",
                     _file_path, uncompressed_size, decompress_page_slice.get_size(), page_index));
@@ -244,7 +245,7 @@ Status BinlogFileReader::_read_page_content(int page_index, PageHeaderPB* page_h
 
     page_content_pb->Clear();
     if (!page_content_pb->ParseFromArray(page_slice.get_data(), page_slice.get_size())) {
-        return Status::Corruption(strings::Substitute(
+        return Status::Corruption(absl::Substitute(
                 "Bad binlog file page $0: failed to parse page content pb, page index $1", _file_path, page_index));
     }
 

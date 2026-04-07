@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/rowset_merger.h"
+#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <queue>
@@ -483,7 +484,7 @@ private:
         }
 
         if (stats->raw_rows_read != *total_rows) {
-            string msg = strings::Substitute("update compaction rows read($0) != rows written($1)",
+            string msg = absl::Substitute("update compaction rows read($0) != rows written($1)",
                                              stats->raw_rows_read, *total_rows);
             LOG(WARNING) << msg;
             return Status::InternalError(msg);
@@ -605,7 +606,7 @@ private:
 
             if (non_key_stats.raw_rows_read != *total_rows) {
                 string msg =
-                        strings::Substitute("update compaction rows read($0) != rows written($1) when merging non keys",
+                        absl::Substitute("update compaction rows read($0) != rows written($1) when merging non keys",
                                             non_key_stats.raw_rows_read, *total_rows);
                 LOG(WARNING) << msg;
                 return Status::InternalError(msg);

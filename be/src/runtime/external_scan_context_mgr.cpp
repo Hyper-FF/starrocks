@@ -33,6 +33,7 @@
 // under the License.
 
 #include "runtime/external_scan_context_mgr.h"
+#include "absl/strings/substitute.h"
 
 #include <chrono>
 #include <functional>
@@ -171,9 +172,9 @@ void ExternalScanContextMgr::gc_expired_context() {
             // must cancel the fragment instance, otherwise return thrift transport TTransportException
             WARN_IF_ERROR(
                     _exec_env->fragment_mgr()->cancel(expired_context->fragment_instance_id),
-                    strings::Substitute("Fail to cancel fragment $0", print_id(expired_context->fragment_instance_id)));
+                    absl::Substitute("Fail to cancel fragment $0", print_id(expired_context->fragment_instance_id)));
             WARN_IF_ERROR(_exec_env->result_queue_mgr()->cancel(expired_context->fragment_instance_id),
-                          strings::Substitute("Fail to cancel fragment $0 in result queue mgr",
+                          absl::Substitute("Fail to cancel fragment $0 in result queue mgr",
                                               print_id(expired_context->fragment_instance_id)));
         }
     }

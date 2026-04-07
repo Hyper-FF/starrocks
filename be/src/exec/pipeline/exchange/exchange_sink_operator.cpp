@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/pipeline/exchange/exchange_sink_operator.h"
+#include "absl/strings/substitute.h"
 
 #include <arpa/inet.h>
 
@@ -753,7 +754,7 @@ Status ExchangeSinkOperator::serialize_chunk(const Chunk* src, ChunkPB* dst, boo
                          << _compress_codec->max_input_size() << ", skipping compression";
             use_compression = false;
         } else {
-            return Status::InternalError(strings::Substitute("The input size for compression should be less than $0",
+            return Status::InternalError(absl::Substitute("The input size for compression should be less than $0",
                                                              _compress_codec->max_input_size()));
         }
     } else if (_compress_strategy) {

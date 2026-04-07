@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/query_cache/conjugate_operator.h"
+#include "absl/strings/substitute.h"
 
 #include <utility>
 
@@ -134,7 +135,7 @@ ConjugateOperatorFactory::ConjugateOperatorFactory(pipeline::OpFactoryPtr sink_o
                                                    const pipeline::OpFactoryPtr& source_op_factory)
         : pipeline::OperatorFactory(
                   source_op_factory->id(),
-                  strings::Substitute("conjugate_$0", base_name_of_conjugate_op(source_op_factory->get_raw_name())),
+                  absl::Substitute("conjugate_$0", base_name_of_conjugate_op(source_op_factory->get_raw_name())),
                   source_op_factory->plan_node_id()),
           _sink_op_factory(std::move(sink_op_factory)),
           _source_op_factory(source_op_factory) {}

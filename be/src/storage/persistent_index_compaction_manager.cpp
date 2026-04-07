@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/persistent_index_compaction_manager.h"
+#include "absl/strings/substitute.h"
 
 #include "base/utility/defer_op.h"
 #include "common/config_primary_key_fwd.h"
@@ -98,7 +99,7 @@ void PersistentIndexCompactionManager::schedule(const std::function<std::vector<
         if (!st.ok()) {
             // Resource busy, break and quit
             unmark_running(tablet_id, tablet->data_dir());
-            LOG(ERROR) << strings::Substitute("submit pk index compaction task failed: $0", st.to_string());
+            LOG(ERROR) << absl::Substitute("submit pk index compaction task failed: $0", st.to_string());
             break;
         }
         it = _ready_tablets_queue.erase(it);

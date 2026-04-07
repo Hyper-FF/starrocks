@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "aggregator.h"
+#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <memory>
@@ -607,7 +608,7 @@ Status Aggregator::_create_aggregate_function(starrocks::RuntimeState* state, co
         if (func_name == FUNCTION_COUNT) {
             auto* func = get_aggregate_function(FUNCTION_COUNT, TYPE_BIGINT, TYPE_BIGINT, is_result_nullable);
             if (func == nullptr) {
-                return Status::InternalError(strings::Substitute("Invalid agg function plan: $0 ", func_name));
+                return Status::InternalError(absl::Substitute("Invalid agg function plan: $0 ", func_name));
             }
             *ret = func;
         } else {
@@ -618,7 +619,7 @@ Status Aggregator::_create_aggregate_function(starrocks::RuntimeState* state, co
             auto* func = get_aggregate_function(func_name, return_type, arg_types, is_result_nullable, fn.binary_type,
                                                 state->func_version());
             if (func == nullptr) {
-                return Status::InternalError(strings::Substitute(
+                return Status::InternalError(absl::Substitute(
                         "Invalid agg function plan: $0 with (arg type $1, serde type $2, result type $3, nullable $4)",
                         func_name, type_to_string(arg_type.type), type_to_string(serde_type.type),
                         type_to_string(return_type.type), is_result_nullable ? "true" : "false"));

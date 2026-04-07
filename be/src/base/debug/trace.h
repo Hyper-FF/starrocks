@@ -132,21 +132,20 @@ public:
 
     // Logs a message into the trace buffer.
     //
-    // See strings::Substitute for details.
+    // See absl::Substitute for details.
     //
     // N.B.: the file path passed here is not copied, so should be a static
     // constant (eg __FILE__).
-    void SubstituteAndTrace(const char* filepath, int line_number, StringPiece format,
-                            const strings::internal::SubstituteArg& arg0 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg1 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg2 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg3 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg4 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg5 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg6 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg7 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg8 = strings::internal::SubstituteArg::NoArg,
-                            const strings::internal::SubstituteArg& arg9 = strings::internal::SubstituteArg::NoArg);
+    template <typename... Args>
+    void SubstituteAndTrace(const char* filepath, int line_number, absl::string_view format, const Args&... args) {
+        std::string msg = absl::Substitute(format, args...);
+        SubstituteAndTraceImpl(filepath, line_number, msg);
+    }
+
+    // No-args overload for format-only traces.
+    void SubstituteAndTrace(const char* filepath, int line_number, absl::string_view format) {
+        SubstituteAndTraceImpl(filepath, line_number, std::string(format));
+    }
 
     // Dump the trace buffer to the given output stream.
     //
@@ -203,6 +202,9 @@ private:
 
     // Allocate a new entry from the arena, with enough space to hold a
     // message of length 'len'.
+    // Implementation for SubstituteAndTrace - takes the already-formatted message.
+    void SubstituteAndTraceImpl(const char* filepath, int line_number, const std::string& msg);
+
     TraceEntry* NewEntry(int len, const char* file_path, int line_number);
 
     // Add the entry to the linked list of entries.

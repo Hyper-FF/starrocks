@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/hdfs_scanner/hdfs_scanner_json.h"
+#include "absl/strings/substitute.h"
 
 #include "common/simdjson_util.h"
 #include "exprs/chunk_predicate_evaluator.h"
@@ -157,7 +158,7 @@ Status HdfsJsonReader::_construct_row(simdjson::ondemand::object* row, Chunk* ch
         }
 
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("construct row in object order failed, error: $0",
+        auto err_msg = absl::Substitute("construct row in object order failed, error: $0",
                                            simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
     }

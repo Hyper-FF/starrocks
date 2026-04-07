@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <cstring>
+#include "absl/strings/substitute.h"
 
 #include "column/column.h"
 #include "column/nullable_column.h"
@@ -104,7 +105,7 @@ public:
         return Status::OK();
     }
 
-    std::string debug_string() const override { return strings::Substitute("(ColumnId($0) IS NULL)", _column_id); }
+    std::string debug_string() const override { return absl::Substitute("(ColumnId($0) IS NULL)", _column_id); }
 };
 
 class ColumnNotNullPredicate final : public ColumnPredicate {
@@ -183,7 +184,7 @@ public:
         return Status::OK();
     }
 
-    std::string debug_string() const override { return strings::Substitute("(ColumnId($0) IS NOT NULL)", _column_id); }
+    std::string debug_string() const override { return absl::Substitute("(ColumnId($0) IS NOT NULL)", _column_id); }
 };
 
 ColumnPredicate* new_column_null_predicate(const TypeInfoPtr& type_info, ColumnId id, bool is_null) {

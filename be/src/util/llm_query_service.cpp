@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "util/llm_query_service.h"
+#include "absl/strings/substitute.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -135,7 +136,7 @@ std::shared_future<StatusOr<std::string>> LLMQueryService::async_query(const std
         }
         std::promise<StatusOr<std::string>> error_promise;
         error_promise.set_value(
-                Status::InternalError(strings::Substitute("Submit to thread pool failed, $0", status.to_string())));
+                Status::InternalError(absl::Substitute("Submit to thread pool failed, $0", status.to_string())));
         return error_promise.get_future();
     }
 

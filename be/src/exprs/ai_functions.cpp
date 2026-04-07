@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exprs/ai_functions.h"
+#include "absl/strings/substitute.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -52,7 +53,7 @@ StatusOr<ModelConfig> AiFunctions::parse_model_config(const JsonValue& json) {
         std::string env_var = api_key.substr(4);
         const char* env_value = getenv(env_var.c_str());
         if (env_value == nullptr) {
-            return Status::InvalidArgument(strings::Substitute("Environment variable not found: $0", env_var));
+            return Status::InvalidArgument(absl::Substitute("Environment variable not found: $0", env_var));
         }
         config.api_key = std::string(env_value);
     } else {
@@ -137,7 +138,7 @@ StatusOr<ColumnPtr> AiFunctions::ai_query(FunctionContext* context, const starro
         auto status_or_config = parse_model_config(*json_value);
         if (!status_or_config.ok()) {
             return Status::InvalidArgument(
-                    strings::Substitute("Failed to parse constant config: $0", status_or_config.status().to_string()));
+                    absl::Substitute("Failed to parse constant config: $0", status_or_config.status().to_string()));
         }
         const_config = std::make_unique<ModelConfig>(status_or_config.value());
     }
@@ -160,7 +161,7 @@ StatusOr<ColumnPtr> AiFunctions::ai_query(FunctionContext* context, const starro
             JsonValue* json_value = json_viewer.value(row);
             auto status_or_config = parse_model_config(*json_value);
             if (!status_or_config.ok()) {
-                return Status::InvalidArgument(strings::Substitute("Failed to parse config at row $0: $1", row,
+                return Status::InvalidArgument(absl::Substitute("Failed to parse config at row $0: $1", row,
                                                                    status_or_config.status().to_string()));
             }
             config = status_or_config.value();
@@ -193,13 +194,13 @@ StatusOr<ColumnPtr> AiFunctions::ai_query(FunctionContext* context, const starro
 
         auto status = future.wait_for(timeout_duration);
         if (status == std::future_status::timeout) {
-            return Status::InternalError(strings::Substitute("LLM query timeout at row $0", row));
+            return Status::InternalError(absl::Substitute("LLM query timeout at row $0", row));
         }
 
         auto llm_result = future.get();
         if (!llm_result.ok()) {
             return Status::InternalError(
-                    strings::Substitute("LLM query failed at row $0: $1", row, llm_result.status().to_string()));
+                    absl::Substitute("LLM query failed at row $0: $1", row, llm_result.status().to_string()));
         }
 
         result.append(llm_result.value());

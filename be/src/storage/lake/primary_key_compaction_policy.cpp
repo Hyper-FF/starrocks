@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/lake/primary_key_compaction_policy.h"
+#include "absl/strings/substitute.h"
 
 #include "common/config_compaction_fwd.h"
 #include "common/config_storage_fwd.h"
@@ -261,7 +262,7 @@ StatusOr<std::vector<RowsetPtr>> PrimaryCompactionPolicy::pick_rowsets(
         input_rowsets.emplace_back(
                 std::make_shared<Rowset>(_tablet_mgr, tablet_metadata, rowset_index, 0 /* compaction_segment_limit */));
     }
-    VLOG(2) << strings::Substitute(
+    VLOG(2) << absl::Substitute(
             "lake PrimaryCompactionPolicy pick_rowsets tabletid:$0 version:$1 inputs:$2", tablet_metadata->id(),
             tablet_metadata->version(),
             JoinMapped(

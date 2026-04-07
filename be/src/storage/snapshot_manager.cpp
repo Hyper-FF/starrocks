@@ -33,6 +33,7 @@
 // under the License.
 
 #include "storage/snapshot_manager.h"
+#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
@@ -114,7 +115,7 @@ Status SnapshotManager::make_snapshot(const TSnapshotRequest& request, string* s
         res = snapshot_incremental(tablet, request.missing_version, timeout_s);
     } else if (request.__isset.missing_version_ranges) {
         if (tablet->updates() == nullptr) {
-            string msg = strings::Substitute(
+            string msg = absl::Substitute(
                     "non-primary tablet does not support snapshot by missing_version_ranges tablet:$0",
                     request.tablet_id);
             LOG(INFO) << msg;
@@ -380,12 +381,12 @@ StatusOr<std::string> SnapshotManager::snapshot_incremental(const TabletSharedPt
     for (int64_t v : delta_versions) {
         auto rowset = tablet->get_inc_rowset_by_version(Version{v, v});
         if (rowset == nullptr && tablet->max_continuous_version() >= v) {
-            return Status::VersionAlreadyMerged(strings::Substitute("version $0 has been merged", v));
+            return Status::VersionAlreadyMerged(absl::Substitute("version $0 has been merged", v));
         } else if (rowset == nullptr) {
-            return Status::RuntimeError(strings::Substitute("no incremental rowset $0", v));
+            return Status::RuntimeError(absl::Substitute("no incremental rowset $0", v));
         } else if (rowset->rowset_meta()->partial_schema_change()) {
             return Status::RuntimeError(
-                    strings::Substitute("rowset with version $0 has done partial schema change", v));
+                    absl::Substitute("rowset with version $0 has done partial schema change", v));
         }
         snapshot_rowsets.emplace_back(std::move(rowset));
     }
@@ -808,7 +809,7 @@ Status SnapshotManager::assign_new_rowset_id(SnapshotMeta* snapshot_meta, const 
                             if (link(src_absolute_path.c_str(), dst_absolute_path.c_str()) != 0) {
                                 PLOG(WARNING) << "Fail to link " << src_absolute_path << " to " << dst_absolute_path;
                                 return Status::RuntimeError(
-                                        strings::Substitute("Fail to link index inverted file from $0 to $1",
+                                        absl::Substitute("Fail to link index inverted file from $0 to $1",
                                                             src_absolute_path, dst_absolute_path));
                             }
                         }

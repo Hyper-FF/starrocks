@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/pipeline/exchange/local_exchange.h"
+#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <unordered_map>
@@ -149,7 +150,7 @@ PartitionExchanger::PartitionExchanger(const std::shared_ptr<ChunkBufferMemoryMa
                                        LocalExchangeSourceOperatorFactory* source, const TPartitionType::type part_type,
                                        std::vector<ExprContext*> partition_expr_ctxs,
                                        std::vector<TBucketProperty> bucket_properties)
-        : LocalExchanger(strings::Substitute("Partition($0)", to_string(part_type)), memory_manager, source),
+        : LocalExchanger(absl::Substitute("Partition($0)", to_string(part_type)), memory_manager, source),
           _part_type(part_type),
           _partition_exprs(std::move(partition_expr_ctxs)),
           _bucket_properties(std::move(bucket_properties)) {}
@@ -302,7 +303,7 @@ KeyPartitionExchanger::KeyPartitionExchanger(const std::shared_ptr<ChunkBufferMe
                                              LocalExchangeSourceOperatorFactory* source,
                                              std::vector<ExprContext*> partition_expr_ctxs, const size_t num_sinks,
                                              std::vector<std::string> transform_exprs)
-        : LocalExchanger(strings::Substitute("KeyPartition"), memory_manager, source),
+        : LocalExchanger(absl::Substitute("KeyPartition"), memory_manager, source),
           _source(source),
           _partition_expr_ctxs(std::move(partition_expr_ctxs)),
           _transform_exprs(std::move(transform_exprs)) {}

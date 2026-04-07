@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/pipeline/pipeline.h"
+#include "absl/strings/substitute.h"
 
 #include "exec/pipeline/adaptive/event.h"
 #include "exec/pipeline/group_execution/execution_group.h"
@@ -30,7 +31,7 @@ Pipeline::Pipeline(uint32_t id, OpFactories op_factories, ExecutionGroupRawPtr e
           _op_factories(std::move(op_factories)),
           _pipeline_event(Event::create_event()),
           _execution_group(execution_group) {
-    _runtime_profile = std::make_shared<RuntimeProfile>(strings::Substitute("Pipeline (id=$0)", _id));
+    _runtime_profile = std::make_shared<RuntimeProfile>(absl::Substitute("Pipeline (id=$0)", _id));
 }
 
 size_t Pipeline::degree_of_parallelism() const {

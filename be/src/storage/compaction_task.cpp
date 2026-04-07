@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/compaction_task.h"
+#include "absl/strings/substitute.h"
 
 #include <sstream>
 
@@ -141,7 +142,7 @@ void CompactionTask::run() {
     // get elapsed_time in us
     _task_info.elapsed_time = _watch.elapsed_time() / 1000;
     is_finished = true;
-    std::string msg = strings::Substitute("compaction finish. status:$0, task info:$1", status.to_string(),
+    std::string msg = absl::Substitute("compaction finish. status:$0, task info:$1", status.to_string(),
                                           _task_info.to_string());
     if (!status.ok()) {
         LOG(WARNING) << msg;

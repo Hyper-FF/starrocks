@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/file_scanner/parquet_scanner.h"
+#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
@@ -264,7 +265,7 @@ Status ParquetScanner::build_dest(const arrow::DataType* arrow_type, const TypeD
                                                                   : decimal_precision_limit<int128_t>;
                 if (precision < 1 || precision > max_precision || scale < 0 || scale > precision) {
                     return Status::InternalError(
-                            strings::Substitute("Decimal($0, $1) is out of range.", precision, scale));
+                            absl::Substitute("Decimal($0, $1) is out of range.", precision, scale));
                 }
                 raw_type_desc->precision = precision;
                 raw_type_desc->scale = scale;
@@ -282,7 +283,7 @@ Status ParquetScanner::build_dest(const arrow::DataType* arrow_type, const TypeD
             case TYPE_DECIMAL32:
             case TYPE_DECIMAL64: {
                 return Status::InternalError(
-                        strings::Substitute("Apache Arrow type($0) does not match the type($1) in StarRocks",
+                        absl::Substitute("Apache Arrow type($0) does not match the type($1) in StarRocks",
                                             arrow_type->name(), type_to_string(strict_pt)));
             }
             default:

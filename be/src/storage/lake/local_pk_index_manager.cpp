@@ -14,6 +14,7 @@
 
 #ifdef USE_STAROS
 #include "storage/lake/local_pk_index_manager.h"
+#include "absl/strings/substitute.h"
 
 #include <chrono>
 
@@ -273,7 +274,7 @@ void LocalPkIndexManager::schedule(const std::function<std::vector<TabletAndScor
         if (!st.ok()) {
             // Resource busy, break and quit
             unmark_running(tablet_id, data_dir);
-            LOG(ERROR) << strings::Substitute("submit pk index compaction task failed: $0", st.to_string());
+            LOG(ERROR) << absl::Substitute("submit pk index compaction task failed: $0", st.to_string());
             break;
         }
         it = _ready_tablets_queue.erase(it);

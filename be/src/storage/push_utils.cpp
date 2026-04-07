@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/push_utils.h"
+#include "absl/strings/substitute.h"
 
 #include "column/column_builder.h"
 #include "column/column_helper.h"
@@ -72,7 +73,7 @@ Status PushBrokerReader::init(const TBrokerScanRange& t_scan_range, const TPushR
     auto tuple_id = t_scan_range.params.dest_tuple_id;
     _tuple_desc = _runtime_state->desc_tbl().get_tuple_descriptor(tuple_id);
     if (_tuple_desc == nullptr) {
-        return Status::InternalError(strings::Substitute("Failed to get tuple descriptor, tuple_id: $0", tuple_id));
+        return Status::InternalError(absl::Substitute("Failed to get tuple descriptor, tuple_id: $0", tuple_id));
     }
 
     // init counter
@@ -90,7 +91,7 @@ Status PushBrokerReader::init(const TBrokerScanRange& t_scan_range, const TPushR
     }
     default:
         return Status::NotSupported(
-                strings::Substitute("Unsupported file format type: $0", t_scan_range.ranges[0].format_type));
+                absl::Substitute("Unsupported file format type: $0", t_scan_range.ranges[0].format_type));
     }
     _scanner.reset(scanner);
     RETURN_IF_ERROR(_scanner->open());
@@ -220,7 +221,7 @@ Status PushBrokerReader::_convert_chunk(const ChunkPtr& from, ChunkPtr* to) {
             // not null
             if (from_col->is_nullable() && from_col->has_null()) {
                 return Status::InternalError(
-                        strings::Substitute("non-nullable column has null data, name: $0", to_col->get_name()));
+                        absl::Substitute("non-nullable column has null data, name: $0", to_col->get_name()));
             }
 
             auto data_col = ColumnHelper::get_data_column(from_col.get());

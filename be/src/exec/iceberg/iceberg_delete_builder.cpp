@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/iceberg/iceberg_delete_builder.h"
+#include "absl/strings/substitute.h"
 
 #include <storage/chunk_helper.h>
 
@@ -89,7 +90,7 @@ Status IcebergDeleteBuilder::build_parquet(const TIcebergDeleteFile& delete_file
         reader = std::make_unique<parquet::FileReader>(_runtime_state->chunk_size(), file.get(),
                                                        file->get_size().value());
     } catch (std::exception& e) {
-        const auto s = strings::Substitute(
+        const auto s = absl::Substitute(
                 "IcebergDeleteBuilder::build_parquet create parquet::FileReader failed. reason = $0", e.what());
         LOG(WARNING) << s;
         return Status::InternalError(s);
@@ -175,7 +176,7 @@ Status IcebergDeleteBuilder::build_orc(const TIcebergDeleteFile& delete_file) co
         reader = createReader(std::move(input_stream), options);
     } catch (std::exception& e) {
         auto s =
-                strings::Substitute("ORCPositionDeleteBuilder::build create orc::Reader failed. reason = $0", e.what());
+                absl::Substitute("ORCPositionDeleteBuilder::build create orc::Reader failed. reason = $0", e.what());
         LOG(WARNING) << s;
         return Status::InternalError(s);
     }

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/hash_join_components.h"
+#include "absl/strings/substitute.h"
 
 #include <deque>
 #include <memory>
@@ -379,7 +380,7 @@ bool SingleHashJoinBuilder::anti_join_key_column_has_null() const {
 
 Status SingleHashJoinBuilder::do_append_chunk(RuntimeState* state, const ChunkPtr& chunk) {
     if (UNLIKELY(_ht.get_row_count() + chunk->num_rows() >= max_hash_table_element_size)) {
-        return Status::NotSupported(strings::Substitute("row count of right table in hash join > $0", UINT32_MAX));
+        return Status::NotSupported(absl::Substitute("row count of right table in hash join > $0", UINT32_MAX));
     }
 
     RETURN_IF_ERROR(_hash_joiner.prepare_build_key_columns(&_key_columns, chunk));

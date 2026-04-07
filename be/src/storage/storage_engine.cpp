@@ -33,6 +33,7 @@
 // under the License.
 
 #include "storage/storage_engine.h"
+#include "absl/strings/substitute.h"
 
 #include <fmt/format.h>
 
@@ -297,7 +298,7 @@ Status StorageEngine::_init_store_map() {
     }
 
     if (!error_msg.empty()) {
-        return Status::InternalError(strings::Substitute("init path failed, error=$0", error_msg));
+        return Status::InternalError(absl::Substitute("init path failed, error=$0", error_msg));
     }
 
     _store_map.swap(tmp_stores);
@@ -330,7 +331,7 @@ Status StorageEngine::_judge_and_update_effective_cluster_id(int32_t cluster_id)
     } else {
         if (cluster_id != _effective_cluster_id) {
             RETURN_IF_ERROR_WITH_WARN(
-                    Status::Corruption(strings::Substitute(
+                    Status::Corruption(absl::Substitute(
                             "multiple cluster ids is not equal. one=$0, other=", _effective_cluster_id, cluster_id)),
                     "cluster id not equal");
         }
@@ -449,7 +450,7 @@ Status StorageEngine::_check_all_root_path_cluster_id() {
             cluster_id = tmp_cluster_id;
         } else {
             RETURN_IF_ERROR_WITH_WARN(
-                    Status::Corruption(strings::Substitute(
+                    Status::Corruption(absl::Substitute(
                             "multiple cluster ids is not equal. one=$0, other=", cluster_id, tmp_cluster_id)),
                     "cluster id not equal");
         }

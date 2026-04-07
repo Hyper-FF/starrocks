@@ -39,7 +39,6 @@
 using std::pair;
 using std::string;
 using std::vector;
-using strings::internal::SubstituteArg;
 
 namespace starrocks {
 
@@ -93,16 +92,10 @@ static std::string format_timestamp_for_log(MicrosecondsInt64 micros_since_epoch
     return buf;
 }
 
-void Trace::SubstituteAndTrace(const char* file_path, int line_number, StringPiece format, const SubstituteArg& arg0,
-                               const SubstituteArg& arg1, const SubstituteArg& arg2, const SubstituteArg& arg3,
-                               const SubstituteArg& arg4, const SubstituteArg& arg5, const SubstituteArg& arg6,
-                               const SubstituteArg& arg7, const SubstituteArg& arg8, const SubstituteArg& arg9) {
-    const SubstituteArg* const args_array[] = {&arg0, &arg1, &arg2, &arg3, &arg4,  &arg5,
-                                               &arg6, &arg7, &arg8, &arg9, nullptr};
-
-    int msg_len = strings::internal::SubstitutedSize(format, args_array);
+void Trace::SubstituteAndTraceImpl(const char* file_path, int line_number, const std::string& msg) {
+    int msg_len = msg.size();
     TraceEntry* entry = NewEntry(msg_len, file_path, line_number);
-    SubstituteToBuffer(format, args_array, entry->message());
+    memcpy(entry->message(), msg.data(), msg_len);
     AddEntry(entry);
 }
 

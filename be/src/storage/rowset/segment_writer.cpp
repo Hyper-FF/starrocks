@@ -33,6 +33,7 @@
 // under the License.
 
 #include "storage/rowset/segment_writer.h"
+#include "absl/strings/substitute.h"
 
 #include <memory>
 #include <utility>
@@ -150,7 +151,7 @@ Status SegmentWriter::init(const std::vector<uint32_t>& column_indexes, bool has
         uint32_t column_index = _column_indexes[i];
         if (column_index >= num_columns) {
             return Status::InternalError(
-                    strings::Substitute("column index $0 out of range $1", column_index, num_columns));
+                    absl::Substitute("column index $0 out of range $1", column_index, num_columns));
         }
 
         const auto& column = _tablet_schema->column(column_index);
@@ -257,7 +258,7 @@ Status SegmentWriter::init(const std::vector<uint32_t>& column_indexes, bool has
                 //  2. vertical compaction, we will first write all sort key columns and write value columns by group
                 // So the all sort key columns should be found in `_column_indexes` so far.
                 std::string err_msg =
-                        strings::Substitute("column[$0]: $1 is sort key but not find while init segment writer",
+                        absl::Substitute("column[$0]: $1 is sort key but not find while init segment writer",
                                             column_idx, _tablet_schema->column(column_idx).name().data());
                 return Status::InternalError(err_msg);
             }
@@ -311,7 +312,7 @@ Status SegmentWriter::finalize_columns(uint64_t* index_size) {
         // _num_rows == 0 && !_has_key means this segment not contains key columns
         _num_rows = _num_rows_written;
     } else if (_num_rows != _num_rows_written) {
-        return Status::InternalError(strings::Substitute("num rows written $0 is not equal to segment num rows $1",
+        return Status::InternalError(absl::Substitute("num rows written $0 is not equal to segment num rows $1",
                                                          _num_rows_written, _num_rows));
     }
     _num_rows_written = 0;
@@ -321,7 +322,7 @@ Status SegmentWriter::finalize_columns(uint64_t* index_size) {
         uint32_t column_index = _column_indexes[i];
         if (column_index >= num_columns) {
             return Status::InternalError(
-                    strings::Substitute("column index $0 out of range $1", column_index, num_columns));
+                    absl::Substitute("column index $0 out of range $1", column_index, num_columns));
         }
 
         auto& column_writer = _column_writers[i];

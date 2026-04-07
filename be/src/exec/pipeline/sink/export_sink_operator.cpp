@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "exec/pipeline/sink/export_sink_operator.h"
+#include "absl/strings/substitute.h"
 
 #include "base/uid_util.h"
 #include "exec/data_sink.h"
@@ -110,7 +111,7 @@ Status ExportSinkIOBuffer::_open_file_writer() {
         break;
     }
     case TFileType::FILE_STREAM:
-        return Status::NotSupported(strings::Substitute("Unsupported file type $0", file_type));
+        return Status::NotSupported(absl::Substitute("Unsupported file type $0", file_type));
     }
 
     PlainTextBuilderOptions builder_options{.column_terminated_by = _t_export_sink.column_separator,

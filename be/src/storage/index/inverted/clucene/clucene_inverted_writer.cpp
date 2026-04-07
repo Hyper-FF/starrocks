@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/index/inverted/clucene/clucene_inverted_writer.h"
+#include "absl/strings/substitute.h"
 
 #include <CLucene/analysis/LanguageBasedAnalyzer.h>
 #include <CLucene/util/Misc.h>
@@ -248,7 +249,7 @@ Status CLuceneInvertedWriter::create(const TypeInfoPtr& typeinfo, const std::str
     }
     default:
         return Status::NotSupported(
-                strings::Substitute("Unsupported type for inverted index: $0", type_to_string_v2(type)));
+                absl::Substitute("Unsupported type for inverted index: $0", type_to_string_v2(type)));
     }
     return Status::OK();
 }

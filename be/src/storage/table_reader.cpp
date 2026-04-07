@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "storage/table_reader.h"
+#include "absl/strings/substitute.h"
 
 #include <algorithm>
 #include <queue>
@@ -43,7 +44,7 @@ Status TableReader::init(const LocalTableReaderParams& local_params) {
     }
     TabletSharedPtr tablet = StorageEngine::instance()->tablet_manager()->get_tablet(local_params.tablet_id);
     if (tablet == nullptr) {
-        return Status::InternalError(strings::Substitute("tablet $0 not found", local_params.tablet_id));
+        return Status::InternalError(absl::Substitute("tablet $0 not found", local_params.tablet_id));
     }
     auto local_tablet_reader = std::make_unique<LocalTabletReader>();
     RETURN_IF_ERROR(local_tablet_reader->init(tablet, local_params.version));
@@ -146,7 +147,7 @@ Status TableReader::multi_get(Chunk& keys, const std::vector<std::string>& value
             auto partition_id = partition->id;
             auto itr = _params->partition_versions.find(partition_id);
             if (itr == _params->partition_versions.end()) {
-                return Status::InternalError(strings::Substitute(
+                return Status::InternalError(absl::Substitute(
                         "partition version not found: partition:$0 tablet:$1 not found", partition_id, tablet_id));
             }
             multi_get->version = itr->second;
@@ -217,19 +218,19 @@ Status TableReader::_tablet_multi_get_remote(int64_t tablet_id, int64_t version,
                                              Chunk& values, SchemaPtr& value_schema) {
     auto location = _location_param->find_tablet(tablet_id);
     if (location == nullptr) {
-        return Status::InternalError(strings::Substitute("tablet $0 not found in OlapTableLocationParam", tablet_id));
+        return Status::InternalError(absl::Substitute("tablet $0 not found in OlapTableLocationParam", tablet_id));
     }
     Status st;
     for (int64_t node_id : location->node_ids) {
         auto node_info = _nodes_info->find_node(node_id);
         if (node_info == nullptr) {
-            string msg = strings::Substitute("multi_get fail: be $0 not found tablet:$1", node_id, tablet_id);
+            string msg = absl::Substitute("multi_get fail: be $0 not found tablet:$1", node_id, tablet_id);
             LOG(WARNING) << msg;
             st = Status::InternalError(msg);
         } else {
             auto stub = ExecEnv::GetInstance()->brpc_stub_cache()->get_stub(node_info->host, node_info->brpc_port);
             if (stub == nullptr) {
-                string msg = strings::Substitute("multi_get fail to get brpc stub for $0:$1 tablet:$2", node_info->host,
+                string msg = absl::Substitute("multi_get fail to get brpc stub for $0:$1 tablet:$2", node_info->host,
                                                  node_info->brpc_port, tablet_id);
                 LOG(WARNING) << msg;
                 st = Status::InternalError(msg);
