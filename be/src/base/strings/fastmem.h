@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Self-contained forwarding header for string utility functions.
-// Prefer including this header over base/gutil/strings/util.h.
+// Self-contained forwarding header for fastmem functions.
+// Prefer including this header over base/gutil/strings/fastmem.h.
 
 #pragma once
 
-#include "base/gutil/strings/util.h" // IWYU pragma: export
+#include "base/gutil/strings/fastmem.h" // IWYU pragma: export

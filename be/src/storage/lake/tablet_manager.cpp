@@ -24,7 +24,6 @@
 #include "base/container/raw_container.h"
 #include "base/debug/trace.h"
 #include "base/failpoint/fail_point.h"
-#include "base/strings/util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/compiler_util.h"
@@ -768,7 +767,7 @@ StatusOr<TabletMetadataIter> TabletManager::list_tablet_metadata(int64_t tablet_
     auto root = _location_provider->metadata_root_location(tablet_id);
     ASSIGN_OR_RETURN(auto fs, FileSystemFactory::CreateSharedFromString(root));
     auto scan_cb = [&](std::string_view name) {
-        if (HasPrefixString(name, prefix)) {
+        if (name.starts_with(prefix)) {
             objects.insert(join_path(root, name));
         }
         return true;

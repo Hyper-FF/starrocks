@@ -35,47 +35,47 @@ constexpr static const int64_t kInitialVersion = 1;
 constexpr static const char* const kGCFileName = "GC.json";
 
 inline bool is_segment(std::string_view file_name) {
-    return HasSuffixString(file_name, ".dat");
+    return file_name.ends_with(".dat");
 }
 
 inline bool is_del(std::string_view file_name) {
-    return HasSuffixString(file_name, ".del");
+    return file_name.ends_with(".del");
 }
 
 inline bool is_delvec(std::string_view file_name) {
-    return HasSuffixString(file_name, ".delvec");
+    return file_name.ends_with(".delvec");
 }
 
 inline bool is_txn_log(std::string_view file_name) {
-    return HasSuffixString(file_name, ".log");
+    return file_name.ends_with(".log");
 }
 
 inline bool is_txn_slog(std::string_view file_name) {
-    return HasSuffixString(file_name, ".slog");
+    return file_name.ends_with(".slog");
 }
 
 inline bool is_txn_vlog(std::string_view file_name) {
-    return HasSuffixString(file_name, ".vlog");
+    return file_name.ends_with(".vlog");
 }
 
 inline bool is_tablet_metadata(std::string_view file_name) {
-    return HasSuffixString(file_name, ".meta");
+    return file_name.ends_with(".meta");
 }
 
 inline bool is_tablet_initial_metadata(std::string_view file_name) {
-    return HasPrefixString(file_name, "0000000000000000_");
+    return file_name.starts_with("0000000000000000_");
 }
 
 inline bool is_tablet_metadata_lock(std::string_view file_name) {
-    return HasSuffixString(file_name, ".lock");
+    return file_name.ends_with(".lock");
 }
 
 inline bool is_sst(std::string_view file_name) {
-    return HasSuffixString(file_name, ".sst");
+    return file_name.ends_with(".sst");
 }
 
 inline bool is_cols(std::string_view file_name) {
-    return HasSuffixString(file_name, ".cols");
+    return file_name.ends_with(".cols");
 }
 
 // Check if file is a Lake Compaction Rows Mapper file
@@ -83,7 +83,7 @@ inline bool is_cols(std::string_view file_name) {
 // for correct cleanup behavior. Remote lcrm files must not be deleted immediately
 // after use since they may be accessed by multiple nodes during parallel pk execution.
 inline bool is_lcrm(std::string_view file_name) {
-    return HasSuffixString(file_name, ".lcrm");
+    return file_name.ends_with(".lcrm");
 }
 
 inline std::string tablet_metadata_filename(int64_t tablet_id, int64_t version) {
@@ -131,7 +131,7 @@ inline std::string combined_txn_log_filename(int64_t txn_id) {
 }
 
 inline bool is_combined_txn_log(std::string_view file_name) {
-    return HasSuffixString(file_name, ".logs");
+    return file_name.ends_with(".logs");
 }
 
 inline int64_t parse_combined_txn_log_filename(std::string_view file_name) {

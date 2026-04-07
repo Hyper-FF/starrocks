@@ -529,8 +529,8 @@ Status ReplicationTxnManager::replicate_remote_snapshot(const TReplicateSnapshot
         ASSIGN_OR_RETURN(auto output_file, fs::new_writable_file(opts, tablet_snapshot_dir_path + file_name));
 
         if (!column_unique_id_map.empty() &&
-            (HasSuffixString(file_name, ".dat") || HasSuffixString(file_name, ".upt") ||
-             HasSuffixString(file_name, ".cols"))) {
+            (file_name.ends_with(".dat") || file_name.ends_with(".upt") ||
+             file_name.ends_with(".cols"))) {
             return std::make_unique<SegmentStreamConverter>(file_name, file_size, std::move(output_file),
                                                             &column_unique_id_map);
         }

@@ -23,7 +23,6 @@
 
 #include "base/container/raw_container.h"
 #include "base/stl_util.h"
-#include "base/strings/util.h"
 #include "base/testutil/sync_point.h"
 #include "base/utility/defer_op.h"
 #include "common/config_lake_fwd.h"

@@ -44,8 +44,7 @@ namespace {
 
 bool sse42_available() {
 #ifdef __SSE4_2__
-    base::CPU cpu;
-    return cpu.has_sse42();
+    return __builtin_cpu_supports("sse4.2");
 #else
     return false;
 #endif

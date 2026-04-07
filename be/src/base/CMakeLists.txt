@@ -53,6 +53,10 @@ ADD_BE_LIB(Base
   simd/expand.cpp
   stats/ndv_estimator.cpp
   metrics.cpp
+  strings/charset.cc
+  strings/escaping.cc
+  strings/numbers.cc
+  strings/strip.cc
   string/base85.cpp
   string/parse_util.cpp
   string/faststring.cc

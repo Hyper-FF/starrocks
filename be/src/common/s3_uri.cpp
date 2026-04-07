@@ -20,7 +20,6 @@
 
 #include <algorithm>
 
-#include "base/strings/util.h"
 
 namespace starrocks {
 
@@ -53,7 +52,7 @@ bool S3URI::parse(const char* uri_str, const size_t size) {
         // URL like oss://bucket-name/key-name
         _bucket = host;
         _key = path;
-    } else if (HasPrefixString(host, "s3.") && HasSuffixString(host, ".amazonaws.com")) {
+    } else if (host.starts_with("s3.") && host.ends_with(".amazonaws.com")) {
         // S3's specific path-style URL: https://s3.<Region>.amazonaws.com/<Bucket>/<Object Key>
         auto region_start = host.data() + sizeof("s3.") - 1;
         auto region_end = host.data() + host.size() - sizeof(".amazonaws.com") + 1;
@@ -69,7 +68,7 @@ bool S3URI::parse(const char* uri_str, const size_t size) {
         } else {
             _bucket = path;
         }
-    } else if (HasSuffixString(host, ".amazonaws.com")) {
+    } else if (host.ends_with(".amazonaws.com")) {
         // S3's specific virtual-hosted–style URL: https://<Bucket>.s3.<Region>.amazonaws.com/<Object Key>
         auto pos = host.find(".s3.");
         if (pos == std::string::npos || pos == 0) {

@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Self-contained forwarding header for string utility functions.
-// Prefer including this header over base/gutil/strings/util.h.
+// Placeholder source file for base/strings/charset.
+// All implementations currently live in base/gutil/strings/charset.cc.
 
-#pragma once
-
-#include "base/gutil/strings/util.h" // IWYU pragma: export
+#include "base/strings/charset.h"
