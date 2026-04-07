@@ -16,6 +16,7 @@
 
 #include "absl/strings/substitute.h"
 #include "base/string/string_parser.hpp"
+#include "fmt/format.h"
 #include "base/types/numeric_types.h"
 #include "column/fixed_length_column.h"
 #include "common/simdjson_util.h"
@@ -54,7 +55,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = fmt::format("Value is overflow. column={}, value={}", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -87,7 +88,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast_flag) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = fmt::format("Value is overflow. column={}, value={}", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -106,7 +107,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = fmt::format("Value is overflow. column={}, value={}", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
@@ -119,7 +120,7 @@ static Status add_column_with_numeric_value(FixedLengthColumn<T>* column, const 
         if (!checked_cast(in, &out)) {
             column->append_numbers(&out, sizeof(out));
         } else {
-            auto err_msg = absl::Substitute("Value is overflow. column=$0, value=$1", name, in);
+            auto err_msg = fmt::format("Value is overflow. column={}, value={}", name, in);
             return Status::InvalidArgument(err_msg);
         }
         return Status::OK();
