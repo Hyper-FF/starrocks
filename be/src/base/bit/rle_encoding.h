@@ -37,7 +37,7 @@
 
 #include "base/bit/bit_stream_utils.inline.h"
 #include "base/bit/bit_util.h"
-#include "base/gutil/port.h"
+#include "base/compiler_util.h"
 
 namespace starrocks {
 
@@ -702,9 +702,9 @@ public:
     // NextNumLiterals(). Returns true if the requested number of literals were
     // successfully read or false if an error was encountered, e.g. the input was
     // truncated.
-    bool GetLiteralValues(int32_t num_literals_to_consume, T* values) WARN_UNUSED_RESULT;
+    bool GetLiteralValues(int32_t num_literals_to_consume, T* values);
 
-    bool SkipLiteralValues(int32_t num_literals_to_skip) WARN_UNUSED_RESULT;
+    bool SkipLiteralValues(int32_t num_literals_to_skip);
 
     // Consume 'num_values_to_consume' values and copy them to 'values'.
     // Returns the number of consumed values or 0 if an error occurred.
@@ -726,7 +726,7 @@ private:
 
     /// Fill the literal buffer. Invalid to call if there are already buffered literals.
     /// Return false if the input was truncated. This does not advance 'literal_count_'.
-    bool FillLiteralBuffer() WARN_UNUSED_RESULT;
+    bool FillLiteralBuffer();
 
     bool HaveBufferedLiterals() const { return literal_buffer_pos_ < num_buffered_literals_; }
 

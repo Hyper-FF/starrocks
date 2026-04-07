@@ -67,8 +67,7 @@ static void init_hash_functions() {
     g_crc64_func = crc_hash64_fallback;
 
 #ifdef __SSE4_2__
-    base::CPU cpu;
-    if (cpu.has_sse42()) {
+    if (__builtin_cpu_supports("sse4.2")) {
         g_hash32_func = crc_hash_sse42;
         g_hash64_func = crc_hash64_sse42;
         g_crc32_func = crc_hash_sse42;
