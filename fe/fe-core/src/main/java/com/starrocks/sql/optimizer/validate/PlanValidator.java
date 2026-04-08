@@ -58,7 +58,8 @@ public final class PlanValidator {
                 TypeChecker.getInstance(),
                 CTEUniqueChecker.getInstance(),
                 InputDependenciesChecker.getInstance(),
-                ColumnReuseChecker.getInstance());
+                ColumnReuseChecker.getInstance(),
+                JoinOnPredicateChecker.getInstance());
     }
 
     public void validatePlan(OptExpression optExpression, TaskContext taskContext) {
