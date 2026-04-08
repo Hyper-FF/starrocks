@@ -18,7 +18,127 @@
 | Descriptor placement new (descriptors_ext.cpp) | ✅ |
 | SlotDescriptor::col_name() → string_view | ✅ |
 
-## 迁移分为 4 个 Phase
+## 迁移分为 5 个 Phase
+
+---
+
+### Phase 0: Descriptor 成员 PMR 化（独立，可最先做）
+
+Descriptor 对象已经 placement new 到 MemPool，col_name() 已改为 string_view。
+现在把内部成员也改为 PMR 类型，使字符串/容器数据也从 MemPool 分配。
+
+#### 0.1 SlotDescriptor — 字符串 PMR 化
+
+**文件**: `be/src/runtime/descriptors.h/cpp`
+
+```cpp
+// 当前
+const SlotId _id;
+TypeDescriptor _type;
+const TupleId _parent;
+std::string _col_name;           // ← heap 分配
+std::string _col_physical_name;  // ← heap 分配
+
+// 目标
+std::pmr::string _col_name;
+std::pmr::string _col_physical_name;
+```
+
+构造函数加 `std::pmr::memory_resource* mr` 参数（已有默认值经验）。
+col_name() 已返回 string_view，调用方无需改动。
+
+**工作量**: 2 个文件
+**风险**: 低 — col_name() 返回值已经是 string_view，无级联改动
+
+#### 0.2 TableDescriptor — 字符串 PMR 化
+
+**文件**: `be/src/runtime/descriptors.h/cpp`
+
+```cpp
+// 当前
+std::string _name;      // ← heap
+std::string _database;  // ← heap
+
+// 目标
+std::pmr::string _name;
+std::pmr::string _database;
+```
+
+name()/database() 返回值改为 string_view（影响面需评估）。
+
+**工作量**: 2 个文件 + 调用方 string_view 适配
+**风险**: 低到中
+
+#### 0.3 DescriptorTbl — maps PMR 化
+
+**文件**: `be/src/runtime/descriptors.h/cpp`
+
+```cpp
+// 当前
+std::unordered_map<TableId, TableDescriptor*> _tbl_desc_map;
+std::unordered_map<TupleId, TupleDescriptor*> _tuple_desc_map;
+std::unordered_map<SlotId, SlotDescriptor*> _slot_desc_map;
+std::unordered_map<SlotId, SlotDescriptor*> _slot_with_column_name_map;
+
+// 目标
+std::pmr::unordered_map<TableId, TableDescriptor*> _tbl_desc_map;
+std::pmr::unordered_map<TupleId, TupleDescriptor*> _tuple_desc_map;
+std::pmr::unordered_map<SlotId, SlotDescriptor*> _slot_desc_map;
+std::pmr::unordered_map<SlotId, SlotDescriptor*> _slot_with_column_name_map;
+```
+
+maps 不对外暴露，只通过 get_xxx() 方法返回裸指针，无外部兼容性问题。
+构造函数接受 `std::pmr::memory_resource*`。
+
+**工作量**: 2 个文件
+**风险**: 低 — 内部变更，对外接口不变
+
+#### 0.4 TupleDescriptor — vectors 保持不变
+
+`_slots` 和 `_decoded_slots` 是 `std::vector<SlotDescriptor*>`。
+30+ 文件用 `const std::vector<SlotDescriptor*>*` 指针指向它们。
+改为 `std::pmr::vector` 会级联破坏整个 storage 层。**暂不迁移**。
+
+#### 0.5 TableDescriptor 子类 — 字符串 PMR 化
+
+**文件**: `be/src/runtime/descriptors_ext.h/cpp`
+
+~15 个子类（HdfsTableDescriptor, IcebergTableDescriptor, MySQLTableDescriptor 等），
+每个有 2-8 个 `std::string` 成员。
+
+迁移方式：
+1. 子类构造函数加 `mr` 参数，透传给基类
+2. 子类 string 成员改为 `std::pmr::string`
+3. `DescriptorTbl::create()` 的 `ALLOC_DESC` 宏传 `mr`
+
+**工作量**: 2 个文件，~15 个类
+**风险**: 中 — 工作量大但模式统一
+
+#### 0.6 TypeDescriptor — 容器 PMR 化
+
+**文件**: `be/src/types/type_descriptor.h/cpp`
+
+```cpp
+// 当前
+std::vector<TypeDescriptor> children;
+std::vector<std::string> field_names;
+std::vector<int32_t> field_ids;
+std::vector<std::string> field_physical_names;
+
+// 目标
+std::pmr::vector<TypeDescriptor> children;
+std::pmr::vector<std::pmr::string> field_names;
+std::pmr::vector<int32_t> field_ids;
+std::pmr::vector<std::pmr::string> field_physical_names;
+```
+
+TypeDescriptor 是值类型，到处拷贝。PMR 容器在拷贝时不传播 allocator。
+解法：from_thrift()/from_protobuf() 加 `mr` 参数，递归传递。
+默认 `get_default_resource()`（堆），向后兼容。
+栈上/静态工厂创建的 TypeDescriptor 继续用堆，无影响。
+
+**工作量**: 2 个文件
+**风险**: 低 — 读 API（size/operator[]/迭代）完全兼容，写入点只有 17 处
 
 ---
 
@@ -215,12 +335,13 @@ class MemPool {
 ## 依赖关系
 
 ```
-Phase 1.1 (Expr)     ← 独立，可先做
-Phase 1.2 (ExprContext) ← 依赖 1.1
+Phase 0   (Descriptor PMR)  ← 独立，可最先做
+Phase 1.1 (Expr)            ← 独立，可与 Phase 0 并行
+Phase 1.2 (ExprContext)     ← 依赖 1.1
 Phase 1.3 (FunctionContext) ← 依赖 1.2
-Phase 2   (RuntimeFilter) ← 独立，可并行
-Phase 3   (Contexts)  ← 依赖 Phase 1 完成（因为 Context 持有 ExprContext*）
-Phase 4   (PMR化)     ← 依赖 Phase 1-3 全部完成
+Phase 2   (RuntimeFilter)   ← 独立，可并行
+Phase 3   (Contexts)        ← 依赖 Phase 1 完成（Context 持有 ExprContext*）
+Phase 4   (消除析构器)       ← 依赖 Phase 0-3 全部完成
 ```
 
 ## 每个 Phase 的验证标准
