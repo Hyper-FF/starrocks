@@ -45,6 +45,7 @@
 #include "exprs/expr_factory.h"
 #include "gen_cpp/PlanNodes_types.h"
 #include "gen_cpp/RuntimeFilter_types.h"
+#include "runtime/mem_pool.h"
 #include "runtime/runtime_filter_worker.h"
 
 namespace starrocks {
@@ -140,7 +141,15 @@ Status HashJoinNode::init(const TPlanNode& tnode, RuntimeState* state) {
                                                    &_other_join_conjunct_ctxs, state));
 
     for (const auto& desc : tnode.hash_join_node.build_runtime_filters) {
-        auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+        RuntimeFilterBuildDescriptor* rf_desc;
+        MemPool* mp = (state != nullptr && _pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
+        if (mp != nullptr) {
+            void* buf = mp->allocate_aligned(sizeof(RuntimeFilterBuildDescriptor),
+                                              alignof(RuntimeFilterBuildDescriptor));
+            rf_desc = _pool->emplace<RuntimeFilterBuildDescriptor>(buf);
+        } else {
+            rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+        }
         RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
         _build_runtime_filters.emplace_back(rf_desc);
     }

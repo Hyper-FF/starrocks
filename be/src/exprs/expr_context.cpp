@@ -43,6 +43,7 @@
 #include "column/column_helper.h"
 #include "common/statusor.h"
 #include "exprs/expr.h"
+#include "common/object_pool.h"
 #include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
 
@@ -128,7 +129,14 @@ Status ExprContext::clone(RuntimeState* state, ObjectPool* pool, ExprContext** n
     DCHECK(_opened);
     DCHECK(*new_ctx == nullptr);
 
-    *new_ctx = pool->add(new ExprContext(_root));
+    // Clone ExprContexts are per-driver, so use fragment MemPool when available.
+    MemPool* mp = (state != nullptr && pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
+    if (mp != nullptr) {
+        void* buf = mp->allocate_aligned(sizeof(ExprContext), alignof(ExprContext));
+        *new_ctx = pool->emplace<ExprContext>(buf, _root);
+    } else {
+        *new_ctx = pool->add(new ExprContext(_root));
+    }
     (*new_ctx)->_pool = std::make_unique<MemPool>();
     for (auto& _fn_context : _fn_contexts) {
         (*new_ctx)->_fn_contexts.push_back(_fn_context->clone((*new_ctx)->_pool.get()));

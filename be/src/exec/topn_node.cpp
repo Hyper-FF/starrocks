@@ -37,6 +37,7 @@
 #include "exprs/expr_factory.h"
 #include "gutil/casts.h"
 #include "runtime/current_thread.h"
+#include "runtime/mem_pool.h"
 
 namespace starrocks {
 
@@ -91,8 +92,16 @@ Status TopNNode::init(const TPlanNode& tnode, RuntimeState* state) {
         }
     }
     if (tnode.sort_node.__isset.build_runtime_filters) {
+        MemPool* mp = (state != nullptr && _pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
         for (const auto& desc : tnode.sort_node.build_runtime_filters) {
-            auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+            RuntimeFilterBuildDescriptor* rf_desc;
+            if (mp != nullptr) {
+                void* buf = mp->allocate_aligned(sizeof(RuntimeFilterBuildDescriptor),
+                                                  alignof(RuntimeFilterBuildDescriptor));
+                rf_desc = _pool->emplace<RuntimeFilterBuildDescriptor>(buf);
+            } else {
+                rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+            }
             RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
             _build_runtime_filters.emplace_back(rf_desc);
         }

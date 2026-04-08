@@ -102,7 +102,7 @@ Status OlapChunkSource::prepare(RuntimeState* state) {
     const TupleDescriptor* tuple_desc = state->desc_tbl().get_tuple_descriptor(thrift_olap_scan_node.tuple_id);
     _slots = &tuple_desc->slots();
 
-    _runtime_profile->add_info_string("Table", tuple_desc->table_desc()->name());
+    _runtime_profile->add_info_string("Table", std::string(tuple_desc->table_desc()->name()));
     if (thrift_olap_scan_node.__isset.rollup_name) {
         _runtime_profile->add_info_string("Rollup", thrift_olap_scan_node.rollup_name);
     }

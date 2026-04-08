@@ -57,6 +57,7 @@
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
 #include "runtime/runtime_filter_cache.h"
+#include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -142,7 +143,15 @@ Status ExecNode::init_join_runtime_filters(const TPlanNode& tnode, RuntimeState*
     _runtime_filter_collector.set_plan_node_id(_id);
     if (state != nullptr && tnode.__isset.probe_runtime_filters) {
         for (const auto& desc : tnode.probe_runtime_filters) {
-            RuntimeFilterProbeDescriptor* rf_desc = _pool->add(new RuntimeFilterProbeDescriptor());
+            RuntimeFilterProbeDescriptor* rf_desc;
+            MemPool* mp = (state != nullptr && _pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
+            if (mp != nullptr) {
+                void* buf = mp->allocate_aligned(sizeof(RuntimeFilterProbeDescriptor),
+                                                  alignof(RuntimeFilterProbeDescriptor));
+                rf_desc = _pool->emplace<RuntimeFilterProbeDescriptor>(buf);
+            } else {
+                rf_desc = _pool->add(new RuntimeFilterProbeDescriptor());
+            }
             RETURN_IF_ERROR(rf_desc->init(_pool, desc, _id, state));
             register_runtime_filter_descriptor(state, rf_desc);
         }

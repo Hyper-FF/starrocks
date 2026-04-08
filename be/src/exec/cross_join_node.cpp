@@ -36,6 +36,7 @@
 #include "exprs/literal.h"
 #include "gen_cpp/PlanNodes_types.h"
 #include "glog/logging.h"
+#include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -84,8 +85,16 @@ Status CrossJoinNode::init(const TPlanNode& tnode, RuntimeState* state) {
             _sql_join_conjuncts = tnode.nestloop_join_node.sql_join_conjuncts;
         }
         if (tnode.nestloop_join_node.__isset.build_runtime_filters) {
+            MemPool* mp = (state != nullptr && _pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
             for (const auto& desc : tnode.nestloop_join_node.build_runtime_filters) {
-                auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+                RuntimeFilterBuildDescriptor* rf_desc;
+                if (mp != nullptr) {
+                    void* buf = mp->allocate_aligned(sizeof(RuntimeFilterBuildDescriptor),
+                                                      alignof(RuntimeFilterBuildDescriptor));
+                    rf_desc = _pool->emplace<RuntimeFilterBuildDescriptor>(buf);
+                } else {
+                    rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+                }
                 RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
                 _build_runtime_filters.emplace_back(rf_desc);
             }
@@ -100,10 +109,20 @@ Status CrossJoinNode::init(const TPlanNode& tnode, RuntimeState* state) {
         return Status::OK();
     }
 
-    for (const auto& desc : tnode.cross_join_node.build_runtime_filters) {
-        auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
-        RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
-        _build_runtime_filters.emplace_back(rf_desc);
+    {
+        MemPool* mp = (state != nullptr && _pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
+        for (const auto& desc : tnode.cross_join_node.build_runtime_filters) {
+            RuntimeFilterBuildDescriptor* rf_desc;
+            if (mp != nullptr) {
+                void* buf = mp->allocate_aligned(sizeof(RuntimeFilterBuildDescriptor),
+                                                  alignof(RuntimeFilterBuildDescriptor));
+                rf_desc = _pool->emplace<RuntimeFilterBuildDescriptor>(buf);
+            } else {
+                rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+            }
+            RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
+            _build_runtime_filters.emplace_back(rf_desc);
+        }
     }
     DCHECK_LE(_build_runtime_filters.size(), _conjunct_ctxs.size());
     return Status::OK();

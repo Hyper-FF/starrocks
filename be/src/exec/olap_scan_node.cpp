@@ -139,7 +139,7 @@ Status OlapScanNode::prepare(RuntimeState* state) {
     if (_tuple_desc == nullptr) {
         return Status::InternalError("Failed to get tuple descriptor.");
     }
-    _runtime_profile->add_info_string("Table", _tuple_desc->table_desc()->name());
+    _runtime_profile->add_info_string("Table", std::string(_tuple_desc->table_desc()->name()));
     if (_olap_scan_node.__isset.rollup_name) {
         _runtime_profile->add_info_string("Rollup", _olap_scan_node.rollup_name);
     }
