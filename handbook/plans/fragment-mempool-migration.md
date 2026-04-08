@@ -239,58 +239,61 @@ FunctionContext* FunctionContext::create_context(...)  {
 
 ---
 
-### Phase 3: Pipeline Operator Context 体系
+### Phase 3: Pipeline Operator / Context 体系
 
-这些 Context 对象数量少（每种一般 1-2 个），但体积大、成员多。
+Pipeline 组件全部用 `std::make_shared<T>(...)` 管理，无法简单 placement new。
 
-#### 3.1 Aggregator / AggregatorFactory
+#### 现状分析
 
-**文件**: `be/src/exec/aggregator.h/cpp`
+| 组件 | 分配方式 | 生命周期 | 内部拥有 MemPool? | 可 placement new? |
+|------|---------|---------|-------------------|-----------------|
+| Operator | make_shared | per-driver | 否 | **否** — shared_ptr 语义 |
+| OperatorFactory | make_shared | fragment | 否 | **否** — 存在 vector 中 |
+| PipelineDriver | make_shared | per-driver | 否 | **否** — 拥有 Operator 列表 |
+| Pipeline | make_shared | fragment | 否 | **否** — 拥有 Factory/Driver |
+| Aggregator | make_shared | per-driver-seq | **是** (unique_ptr) | **否** — 拥有 MemPool+ObjectPool |
+| Analytor | make_shared | per-driver | **是** (unique_ptr) | **否** — 拥有 MemPool+queue |
+| HashJoiner | make_shared | per-driver-seq | 否 | **否** — 拥有 hash table |
+| SortContext | make_shared | fragment/per-DOP | 否 | **否** — 拥有 sorter+cursor |
+| HashPartitionContext | make_shared | per-driver-seq | **是** (unique_ptr) | **否** — 拥有 MemPool |
+| ExceptContext | make_shared | per-partition | **是** (unique_ptr) | **否** — 拥有 MemPool+hash set |
+| IntersectContext | make_shared | per-partition | **是** (unique_ptr) | **否** — 拥有 MemPool+hash set |
 
-当前模式：`std::make_shared<Aggregator>(...)`
-内部拥有独立 `_mem_pool`。
+**核心阻碍**: 这些对象用 `shared_ptr` 管理生命周期，内部拥有 MemPool / ObjectPool / hash table 等复杂结构。不适合 placement new。
 
-迁移方式：
-1. Aggregator 对象 placement new 到 fragment MemPool
-2. Aggregator 内部 `_mem_pool` 改为指向 fragment MemPool
-3. HashTableKeyAllocator 的 pool 指针统一
+#### 3.1 可行方向：内部 MemPool 统一
 
-**工作量**: 2 个文件，复杂
-**风险**: 高 — 聚合状态内存管理是性能关键路径，需要性能验证
+对于内部拥有独立 `unique_ptr<MemPool>` 的组件（Aggregator、Analytor、HashPartitionContext、ExceptContext、IntersectContext），可以把它们的内部 MemPool **替换为指向 fragment MemPool 的指针**：
 
-#### 3.2 Analytor
+```cpp
+// Aggregator 当前
+std::unique_ptr<MemPool> _mem_pool;  // 独立拥有
 
-**文件**: `be/src/exec/analytor.h/cpp`
+// 目标
+MemPool* _mem_pool;  // 指向 RuntimeState::fragment_mem_pool()
+```
 
-当前模式：`std::make_shared<Analytor>(...)`
-内部拥有独立 `_mem_pool`。
+**收益**: 减少 MemPool 数量，聚合状态/hash key 分配统一到 fragment MemPool。
+**风险**: 高 — 这些 MemPool 有独立的 `clear()`/`free_all()` 调用控制中间数据释放（如 streaming agg 的 per-batch clear）。统一后 clear 语义需要重新设计。
 
-迁移方式：同 Aggregator。
+**结论**: 需要逐个组件分析其 MemPool 使用模式（是 per-batch clear 还是 fragment-lifetime）后才能决定是否统一。不建议在 Phase 3 中一步完成，改为 Phase 3 只做调研，实际改动放到后续迭代。
 
-**工作量**: 2 个文件
-**风险**: 中
+#### 3.2 可行方向：pmr::polymorphic_allocator 替代 make_shared
 
-#### 3.3 SortContext / LocalPartitionTopnContext / HashPartitionContext
+用 `std::allocate_shared` + `std::pmr::polymorphic_allocator` 替代 `make_shared`，使对象本身的内存从 MemPool 分配，但 shared_ptr 控制块仍在堆上：
 
-**文件**: `be/src/exec/pipeline/sort/*.h`, `be/src/exec/pipeline/hash_partition_context.h`
+```cpp
+// 当前
+auto ctx = std::make_shared<SortContext>(...);
 
-每个都拥有独立 `_mem_pool`。
+// 目标
+std::pmr::polymorphic_allocator<SortContext> alloc(state->mem_resource());
+auto ctx = std::allocate_shared<SortContext>(alloc, ...);
+```
 
-迁移方式：统一指向 fragment MemPool。
-
-**工作量**: 3 组文件
-**风险**: 中
-
-#### 3.4 Join Context (HashJoin / NLJoin / ExceptContext / IntersectContext)
-
-**文件**: `be/src/exec/pipeline/set/*.h`, `be/src/exec/pipeline/nljoin/*.h`
-
-当前模式：`std::make_shared<XxxContext>(...)`
-
-迁移方式：placement new。
-
-**工作量**: 4 组文件
-**风险**: 低到中
+**收益**: 对象内存从 MemPool 分配，不改变 shared_ptr 所有权语义。
+**风险**: 中 — shared_ptr 控制块仍然 heap 分配；析构器仍需调用。
+**适用**: 所有 make_shared 调用点，无需改接口。
 
 ---
 
