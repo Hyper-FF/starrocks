@@ -2256,8 +2256,8 @@ private:
                 continue;
             }
             size_t offset = is_const_array ? offsets_data[0] : offsets_data[i];
-            size_t array_size = is_const_array ? offsets_data[1] - offsets_data[0]
-                                               : offsets_data[i + 1] - offsets_data[i];
+            size_t array_size =
+                    is_const_array ? offsets_data[1] - offsets_data[0] : offsets_data[i + 1] - offsets_data[i];
             size_t position = 0;
             for (size_t j = 0; j < array_size; j++) {
                 if (elements_null_data[offset + j]) {
