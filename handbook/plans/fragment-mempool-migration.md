@@ -259,28 +259,12 @@ Pipeline 组件全部用 `std::make_shared<T>(...)` 管理，无法简单 placem
 | ExceptContext | make_shared | per-partition | **是** (unique_ptr) | **否** — 拥有 MemPool+hash set |
 | IntersectContext | make_shared | per-partition | **是** (unique_ptr) | **否** — 拥有 MemPool+hash set |
 
-**核心阻碍**: 这些对象用 `shared_ptr` 管理生命周期，内部拥有 MemPool / ObjectPool / hash table 等复杂结构。不适合 placement new。
+Pipeline/Operator/Context 的生命周期和 Fragment 绑定（在 `FragmentContext::~FragmentContext()` 中销毁）。`shared_ptr` 不会逃逸到 Fragment 之外。MemPool 在 RuntimeState 里，比 FragmentContext 活得久。**可以迁移。**
 
-#### 3.1 可行方向：内部 MemPool 统一
+#### 3.1 对象内存 → allocate_shared 从 MemPool 分配
 
-对于内部拥有独立 `unique_ptr<MemPool>` 的组件（Aggregator、Analytor、HashPartitionContext、ExceptContext、IntersectContext），可以把它们的内部 MemPool **替换为指向 fragment MemPool 的指针**：
-
-```cpp
-// Aggregator 当前
-std::unique_ptr<MemPool> _mem_pool;  // 独立拥有
-
-// 目标
-MemPool* _mem_pool;  // 指向 RuntimeState::fragment_mem_pool()
-```
-
-**收益**: 减少 MemPool 数量，聚合状态/hash key 分配统一到 fragment MemPool。
-**风险**: 高 — 这些 MemPool 有独立的 `clear()`/`free_all()` 调用控制中间数据释放（如 streaming agg 的 per-batch clear）。统一后 clear 语义需要重新设计。
-
-**结论**: 需要逐个组件分析其 MemPool 使用模式（是 per-batch clear 还是 fragment-lifetime）后才能决定是否统一。不建议在 Phase 3 中一步完成，改为 Phase 3 只做调研，实际改动放到后续迭代。
-
-#### 3.2 可行方向：pmr::polymorphic_allocator 替代 make_shared
-
-用 `std::allocate_shared` + `std::pmr::polymorphic_allocator` 替代 `make_shared`，使对象本身的内存从 MemPool 分配，但 shared_ptr 控制块仍在堆上：
+用 `std::allocate_shared` + `std::pmr::polymorphic_allocator` 替代 `make_shared`。
+对象内存 + shared_ptr 控制块全部从 MemPool 分配，接口不变：
 
 ```cpp
 // 当前
@@ -291,9 +275,36 @@ std::pmr::polymorphic_allocator<SortContext> alloc(state->mem_resource());
 auto ctx = std::allocate_shared<SortContext>(alloc, ...);
 ```
 
-**收益**: 对象内存从 MemPool 分配，不改变 shared_ptr 所有权语义。
-**风险**: 中 — shared_ptr 控制块仍然 heap 分配；析构器仍需调用。
-**适用**: 所有 make_shared 调用点，无需改接口。
+**适用组件** (按优先级):
+
+| 组件 | 调用点文件 | 工作量 |
+|------|-----------|--------|
+| Pipeline | pipeline_builder.h | 1 处 |
+| PipelineDriver | pipeline.cpp | 1 处 |
+| Aggregator | aggregator.h (factory) | 1 处 |
+| Analytor | analytor.cpp (factory) | 1 处 |
+| HashJoiner | hash_joiner_factory.cpp | 1 处 |
+| SortContext | sort_context.cpp (factory) | 1 处 |
+| HashPartitionContext | hash_partition_context.cpp | 1 处 |
+| LocalPartitionTopnContext | local_partition_topn_context.cpp | 1 处 |
+| NLJoinContext | cross_join_node.cpp | 1 处 |
+| ExceptContext | except_context.h (factory) | 1 处 |
+| IntersectContext | intersect_context.h (factory) | 1 处 |
+| Operator (所有子类) | 各 operator factory 的 create() | ~50 处 |
+
+**收益**: 对象内存+控制块从 MemPool 分配，不改变 shared_ptr 所有权语义。
+**风险**: 低 — 纯机械替换 `make_shared` → `allocate_shared`，不改接口。
+**注意**: `allocate_shared` 的 allocator 同时用于对象和控制块，析构时会通过 allocator 的 `deallocate()` 回收——我们的 `MemPoolResource::deallocate` 是 no-op，所以由 MemPool 批量释放。
+
+#### 3.2 内部 MemPool 统一（可选，后续迭代）
+
+Aggregator、Analytor、HashPartitionContext、ExceptContext、IntersectContext 内部拥有独立 `unique_ptr<MemPool>`。可替换为指向 fragment MemPool 的裸指针。
+
+**阻碍**: 部分组件对内部 MemPool 做 per-batch `clear()`（如 streaming agg）。统一后 clear 语义需要重新设计——不能 clear fragment MemPool（其他组件在用）。
+
+**方案**: 对 per-batch clear 的场景保留独立 MemPool；对 fragment-lifetime 的场景统一。需要逐组件分析。
+
+**结论**: Phase 3.2 作为后续迭代，不在本轮实施。
 
 ---
 
