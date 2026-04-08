@@ -395,7 +395,7 @@ void FileScanner::merge_schema(const std::vector<std::vector<SlotDescriptor>>& i
 
     for (size_t i = 0; i < merged_schema.size(); ++i) {
         const auto& schema = merged_schema[i];
-        output->emplace_back(i, schema->col_name(), schema->type());
+        output->emplace_back(i, std::string(schema->col_name()), schema->type());
     }
 }
 
