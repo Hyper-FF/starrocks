@@ -15,6 +15,7 @@
 #pragma once
 
 #include <map>
+#include <memory_resource>
 #include <optional>
 #include <shared_mutex>
 #include <string>
@@ -55,7 +56,8 @@ private:
 
 class HiveTableDescriptor : public TableDescriptor {
 public:
-    HiveTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    HiveTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                        std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     virtual bool has_partition() const = 0;
     virtual bool is_partition_col(const SlotDescriptor* slot) const;
     virtual int get_partition_col_index(const SlotDescriptor* slot) const;
@@ -88,7 +90,8 @@ protected:
 
 class HdfsTableDescriptor : public HiveTableDescriptor {
 public:
-    HdfsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    HdfsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                        std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~HdfsTableDescriptor() override = default;
     bool has_partition() const override { return true; }
     const std::string& get_hive_column_names() const;
@@ -109,7 +112,8 @@ private:
 
 class IcebergTableDescriptor : public HiveTableDescriptor {
 public:
-    IcebergTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    IcebergTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                           std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~IcebergTableDescriptor() override = default;
     bool has_partition() const override { return false; }
     const TIcebergSchema* get_iceberg_schema() const { return &_t_iceberg_schema; }
@@ -137,7 +141,8 @@ private:
 
 class FileTableDescriptor : public HiveTableDescriptor {
 public:
-    FileTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    FileTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                        std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~FileTableDescriptor() override = default;
     bool has_partition() const override { return false; }
     const std::string& get_table_locations() const;
@@ -157,7 +162,8 @@ private:
 
 class DeltaLakeTableDescriptor : public HiveTableDescriptor {
 public:
-    DeltaLakeTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    DeltaLakeTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                             std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~DeltaLakeTableDescriptor() override = default;
     bool has_partition() const override { return true; }
     bool has_base_path() const override { return true; }
@@ -165,7 +171,8 @@ public:
 
 class HudiTableDescriptor : public HiveTableDescriptor {
 public:
-    HudiTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    HudiTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                        std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~HudiTableDescriptor() override = default;
     bool has_partition() const override { return true; }
     const std::string& get_instant_time() const;
@@ -186,7 +193,8 @@ private:
 
 class PaimonTableDescriptor : public HiveTableDescriptor {
 public:
-    PaimonTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    PaimonTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                          std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~PaimonTableDescriptor() override = default;
     bool has_partition() const override { return false; }
     const std::string& get_paimon_native_table() const;
@@ -201,7 +209,8 @@ private:
 
 class OdpsTableDescriptor : public HiveTableDescriptor {
 public:
-    OdpsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    OdpsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                        std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~OdpsTableDescriptor() override = default;
     bool has_partition() const override { return false; }
     const std::string& get_database_name() const;
@@ -216,7 +225,8 @@ private:
 
 class IcebergMetadataTableDescriptor : public HiveTableDescriptor {
 public:
-    IcebergMetadataTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    IcebergMetadataTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                   std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~IcebergMetadataTableDescriptor() override = default;
     const std::string& get_hive_column_names() const;
     const std::string& get_hive_column_types() const;
@@ -231,20 +241,23 @@ private:
 
 class KuduTableDescriptor : public HiveTableDescriptor {
 public:
-    KuduTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool);
+    KuduTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                        std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~KuduTableDescriptor() override = default;
     bool has_partition() const override { return false; }
 };
 
 class OlapTableDescriptor : public TableDescriptor {
 public:
-    OlapTableDescriptor(const TTableDescriptor& tdesc);
+    OlapTableDescriptor(const TTableDescriptor& tdesc,
+                        std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     std::string debug_string() const override;
 };
 
 class SchemaTableDescriptor : public TableDescriptor {
 public:
-    SchemaTableDescriptor(const TTableDescriptor& tdesc);
+    SchemaTableDescriptor(const TTableDescriptor& tdesc,
+                          std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~SchemaTableDescriptor() override;
     std::string debug_string() const override;
     TSchemaTableType::type schema_table_type() const { return _schema_table_type; }
@@ -255,21 +268,24 @@ private:
 
 class BrokerTableDescriptor : public TableDescriptor {
 public:
-    BrokerTableDescriptor(const TTableDescriptor& tdesc);
+    BrokerTableDescriptor(const TTableDescriptor& tdesc,
+                          std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~BrokerTableDescriptor() override;
     std::string debug_string() const override;
 };
 
 class EsTableDescriptor : public TableDescriptor {
 public:
-    EsTableDescriptor(const TTableDescriptor& tdesc);
+    EsTableDescriptor(const TTableDescriptor& tdesc,
+                      std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~EsTableDescriptor() override;
     std::string debug_string() const override;
 };
 
 class MySQLTableDescriptor : public TableDescriptor {
 public:
-    MySQLTableDescriptor(const TTableDescriptor& tdesc);
+    MySQLTableDescriptor(const TTableDescriptor& tdesc,
+                         std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     std::string debug_string() const override;
     const std::string mysql_db() const { return _mysql_db; }
     const std::string mysql_table() const { return _mysql_table; }
@@ -289,7 +305,8 @@ private:
 
 class JDBCTableDescriptor : public TableDescriptor {
 public:
-    JDBCTableDescriptor(const TTableDescriptor& tdesc);
+    JDBCTableDescriptor(const TTableDescriptor& tdesc,
+                        std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     std::string debug_string() const override;
     const std::string jdbc_driver_name() const { return _jdbc_driver_name; }
     const std::string jdbc_driver_url() const { return _jdbc_driver_url; }

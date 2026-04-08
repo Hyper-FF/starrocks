@@ -18,6 +18,7 @@
 #include <type_traits>
 
 #include "exec/chunks_sorter.h"
+#include "runtime/runtime_state.h"
 #include "exec/chunks_sorter_full_sort.h"
 #include "exec/chunks_sorter_heap_sort.h"
 #include "exec/chunks_sorter_topn.h"
@@ -92,7 +93,7 @@ Status TopNNode::init(const TPlanNode& tnode, RuntimeState* state) {
     }
     if (tnode.sort_node.__isset.build_runtime_filters) {
         for (const auto& desc : tnode.sort_node.build_runtime_filters) {
-            auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+            auto* rf_desc = (state->fragment_mem_pool() ? _pool->emplace<RuntimeFilterBuildDescriptor>(state->fragment_mem_pool()) : _pool->add(new RuntimeFilterBuildDescriptor()));
             RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
             _build_runtime_filters.emplace_back(rf_desc);
         }

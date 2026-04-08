@@ -151,7 +151,7 @@ void MemoryScratchSinkOperatorFactory::_prepare_id_to_col_name_map() {
         for (auto slot : slots) {
             int64_t slot_id = slot->id();
             int64_t id = tuple_id << 32 | slot_id;
-            _id_to_col_name.emplace(id, slot->col_name());
+            _id_to_col_name.emplace(id, std::string(slot->col_name()));
         }
     }
 }

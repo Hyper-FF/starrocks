@@ -83,6 +83,11 @@ Status try_non_core_create_post_hook(ObjectPool* pool, const TExprNode& texpr_no
 
 Status create_vectorized_expr(ObjectPool* pool, const TExprNode& texpr_node, Expr** expr, RuntimeState* state) {
     FAIL_POINT_TRIGGER_RETURN_ERROR(random_error);
+    // Use fragment MemPool for placement-new when available.
+    MemPool* mem_pool = state ? state->fragment_mem_pool() : nullptr;
+#define ALLOC_EXPR(Type, ...) \
+    (mem_pool ? pool->emplace<Type>(mem_pool, __VA_ARGS__) : pool->add(new Type(__VA_ARGS__)))
+
     switch (texpr_node.node_type) {
     case TExprNodeType::BOOL_LITERAL:
     case TExprNodeType::INT_LITERAL:
@@ -93,7 +98,7 @@ Status create_vectorized_expr(ObjectPool* pool, const TExprNode& texpr_node, Exp
     case TExprNodeType::STRING_LITERAL:
     case TExprNodeType::BINARY_LITERAL:
     case TExprNodeType::NULL_LITERAL: {
-        *expr = pool->add(new VectorizedLiteral(texpr_node));
+        *expr = ALLOC_EXPR(VectorizedLiteral, texpr_node);
         break;
     }
     case TExprNodeType::COMPOUND_PRED: {
@@ -168,7 +173,7 @@ Status create_vectorized_expr(ObjectPool* pool, const TExprNode& texpr_node, Exp
         if (!texpr_node.__isset.slot_ref) {
             return Status::InternalError("Slot reference not set in thrift node");
         }
-        *expr = pool->add(new ColumnRef(texpr_node));
+        *expr = ALLOC_EXPR(ColumnRef, texpr_node);
         break;
     }
     case TExprNodeType::CASE_EXPR: {
@@ -194,26 +199,26 @@ Status create_vectorized_expr(ObjectPool* pool, const TExprNode& texpr_node, Exp
         *expr = pool->add(SubfieldExprFactory::from_thrift(texpr_node));
         break;
     case TExprNodeType::INFO_FUNC:
-        *expr = pool->add(new VectorizedInfoFunc(texpr_node));
+        *expr = ALLOC_EXPR(VectorizedInfoFunc, texpr_node);
         break;
     case TExprNodeType::PLACEHOLDER_EXPR:
-        *expr = pool->add(new PlaceHolderRef(texpr_node));
+        *expr = ALLOC_EXPR(PlaceHolderRef, texpr_node);
         break;
     case TExprNodeType::DICT_EXPR:
         RETURN_IF_ERROR(try_non_core_create_post_hook(pool, texpr_node, expr, state));
         break;
     case TExprNodeType::LAMBDA_FUNCTION_EXPR:
-        *expr = pool->add(new LambdaFunction(texpr_node));
+        *expr = ALLOC_EXPR(LambdaFunction, texpr_node);
         break;
     case TExprNodeType::CLONE_EXPR:
-        *expr = pool->add(new CloneExpr(texpr_node));
+        *expr = ALLOC_EXPR(CloneExpr, texpr_node);
         break;
     case TExprNodeType::DICT_QUERY_EXPR:
     case TExprNodeType::DICTIONARY_GET_EXPR:
         RETURN_IF_ERROR(try_non_core_create_post_hook(pool, texpr_node, expr, state));
         break;
     case TExprNodeType::MATCH_EXPR:
-        *expr = pool->add(new MatchExpr(texpr_node));
+        *expr = ALLOC_EXPR(MatchExpr, texpr_node);
         break;
     case TExprNodeType::ARRAY_SLICE_EXPR:
     case TExprNodeType::AGG_EXPR:
@@ -233,6 +238,7 @@ Status create_vectorized_expr(ObjectPool* pool, const TExprNode& texpr_node, Exp
         return Status::InternalError(err_msg);
     }
 
+#undef ALLOC_EXPR
     return Status::OK();
 }
 
@@ -342,7 +348,13 @@ Status ExprFactory::create_expr_tree(ObjectPool* pool, const TExpr& texpr, ExprC
                                      bool can_jit) {
     Expr* root_expr = nullptr;
     RETURN_IF_ERROR(create_expr_tree(pool, texpr, &root_expr, state, can_jit));
-    *ctx = root_expr == nullptr ? nullptr : pool->add(new ExprContext(root_expr));
+    if (root_expr == nullptr) {
+        *ctx = nullptr;
+    } else {
+        MemPool* mem_pool = state ? state->fragment_mem_pool() : nullptr;
+        *ctx = mem_pool ? pool->emplace<ExprContext>(mem_pool, root_expr)
+                        : pool->add(new ExprContext(root_expr));
+    }
     return Status::OK();
 }
 
@@ -350,10 +362,16 @@ Status ExprFactory::create_expr_trees(ObjectPool* pool, const std::vector<TExpr>
                                       std::vector<ExprContext*>* ctxs, RuntimeState* state, bool can_jit) {
     std::vector<Expr*> root_exprs;
     RETURN_IF_ERROR(create_expr_trees(pool, texprs, &root_exprs, state, can_jit));
+    MemPool* mem_pool = state ? state->fragment_mem_pool() : nullptr;
     ctxs->clear();
     ctxs->reserve(root_exprs.size());
     for (Expr* root_expr : root_exprs) {
-        ctxs->push_back(root_expr == nullptr ? nullptr : pool->add(new ExprContext(root_expr)));
+        if (root_expr == nullptr) {
+            ctxs->push_back(nullptr);
+        } else {
+            ctxs->push_back(mem_pool ? pool->emplace<ExprContext>(mem_pool, root_expr)
+                                     : pool->add(new ExprContext(root_expr)));
+        }
     }
     return Status::OK();
 }

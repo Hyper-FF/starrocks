@@ -35,6 +35,7 @@
 #include "exec/exec_factory.h"
 
 #include <fmt/format.h>
+#include "runtime/runtime_state.h"
 #include <thrift/protocol/TDebugProtocol.h>
 
 #include <sstream>
@@ -187,123 +188,126 @@ Status ExecFactory::create_tree(RuntimeState* state, ObjectPool* pool, const TPl
 
 Status ExecFactory::create_vectorized_node(RuntimeState* state, ObjectPool* pool, const TPlanNode& tnode,
                                            const DescriptorTbl& descs, ExecNode** node) {
-    (void)state;
+    MemPool* mem_pool = state ? state->fragment_mem_pool() : nullptr;
+#define ALLOC_NODE(Type, ...) \
+    (mem_pool ? pool->emplace<Type>(mem_pool, __VA_ARGS__) : pool->add(new Type(__VA_ARGS__)))
+
     switch (tnode.node_type) {
     case TPlanNodeType::OLAP_SCAN_NODE:
-        *node = pool->add(new OlapScanNode(pool, tnode, descs));
+        *node = ALLOC_NODE(OlapScanNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::META_SCAN_NODE:
-        *node = pool->add(new OlapMetaScanNode(pool, tnode, descs));
+        *node = ALLOC_NODE(OlapMetaScanNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::LAKE_META_SCAN_NODE:
-        *node = pool->add(new LakeMetaScanNode(pool, tnode, descs));
+        *node = ALLOC_NODE(LakeMetaScanNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::AGGREGATION_NODE:
         if (tnode.agg_node.__isset.use_streaming_preaggregation && tnode.agg_node.use_streaming_preaggregation) {
             if (tnode.agg_node.aggregate_functions.size() == 0) {
-                *node = pool->add(new DistinctStreamingNode(pool, tnode, descs));
+                *node = ALLOC_NODE(DistinctStreamingNode, pool, tnode, descs);
             } else {
-                *node = pool->add(new AggregateStreamingNode(pool, tnode, descs));
+                *node = ALLOC_NODE(AggregateStreamingNode, pool, tnode, descs);
             }
         } else {
             if (tnode.agg_node.aggregate_functions.size() == 0) {
-                *node = pool->add(new DistinctBlockingNode(pool, tnode, descs));
+                *node = ALLOC_NODE(DistinctBlockingNode, pool, tnode, descs);
             } else {
-                *node = pool->add(new AggregateBlockingNode(pool, tnode, descs));
+                *node = ALLOC_NODE(AggregateBlockingNode, pool, tnode, descs);
             }
         }
         return Status::OK();
     case TPlanNodeType::EMPTY_SET_NODE:
-        *node = pool->add(new EmptySetNode(pool, tnode, descs));
+        *node = ALLOC_NODE(EmptySetNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::EXCHANGE_NODE:
-        *node = pool->add(new ExchangeNode(pool, tnode, descs));
+        *node = ALLOC_NODE(ExchangeNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::HASH_JOIN_NODE:
-        *node = pool->add(new HashJoinNode(pool, tnode, descs));
+        *node = ALLOC_NODE(HashJoinNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::ANALYTIC_EVAL_NODE:
-        *node = pool->add(new AnalyticNode(pool, tnode, descs));
+        *node = ALLOC_NODE(AnalyticNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::SORT_NODE:
-        *node = pool->add(new TopNNode(pool, tnode, descs));
+        *node = ALLOC_NODE(TopNNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::CROSS_JOIN_NODE:
     case TPlanNodeType::NESTLOOP_JOIN_NODE:
-        *node = pool->add(new CrossJoinNode(pool, tnode, descs));
+        *node = ALLOC_NODE(CrossJoinNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::UNION_NODE:
-        *node = pool->add(new UnionNode(pool, tnode, descs));
+        *node = ALLOC_NODE(UnionNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::RAW_VALUES_NODE:
-        *node = pool->add(new RawValuesNode(pool, tnode, descs));
+        *node = ALLOC_NODE(RawValuesNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::INTERSECT_NODE:
-        *node = pool->add(new IntersectNode(pool, tnode, descs));
+        *node = ALLOC_NODE(IntersectNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::EXCEPT_NODE:
-        *node = pool->add(new ExceptNode(pool, tnode, descs));
+        *node = ALLOC_NODE(ExceptNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::SELECT_NODE:
-        *node = pool->add(new SelectNode(pool, tnode, descs));
+        *node = ALLOC_NODE(SelectNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::FILE_SCAN_NODE: {
         if (tnode.file_scan_node.__isset.enable_pipeline_load && tnode.file_scan_node.enable_pipeline_load) {
             TPlanNode new_node = tnode;
             new_node.connector_scan_node = make_connector_scan_node(tnode, connector::Connector::FILE);
-            *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+            *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         } else {
-            *node = pool->add(new FileScanNode(pool, tnode, descs));
+            *node = ALLOC_NODE(FileScanNode, pool, tnode, descs);
         }
     }
         return Status::OK();
     case TPlanNodeType::REPEAT_NODE:
-        *node = pool->add(new RepeatNode(pool, tnode, descs));
+        *node = ALLOC_NODE(RepeatNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::ASSERT_NUM_ROWS_NODE:
-        *node = pool->add(new AssertNumRowsNode(pool, tnode, descs));
+        *node = ALLOC_NODE(AssertNumRowsNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::PROJECT_NODE:
-        *node = pool->add(new ProjectNode(pool, tnode, descs));
+        *node = ALLOC_NODE(ProjectNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::TABLE_FUNCTION_NODE:
-        *node = pool->add(new TableFunctionNode(pool, tnode, descs));
+        *node = ALLOC_NODE(TableFunctionNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::HDFS_SCAN_NODE:
     case TPlanNodeType::KUDU_SCAN_NODE: {
         TPlanNode new_node = tnode;
         new_node.connector_scan_node = make_connector_scan_node(tnode, connector::Connector::HIVE);
-        *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+        *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         return Status::OK();
     }
     case TPlanNodeType::MYSQL_SCAN_NODE: {
         TPlanNode new_node = tnode;
         new_node.connector_scan_node = make_connector_scan_node(tnode, connector::Connector::MYSQL);
-        *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+        *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         return Status::OK();
     }
     case TPlanNodeType::BENCHMARK_SCAN_NODE: {
         TPlanNode new_node = tnode;
         new_node.connector_scan_node = make_connector_scan_node(tnode, connector::Connector::BENCHMARK);
-        *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+        *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         return Status::OK();
     }
     case TPlanNodeType::ES_HTTP_SCAN_NODE: {
         TPlanNode new_node = tnode;
         new_node.connector_scan_node = make_connector_scan_node(tnode, connector::Connector::ES);
-        *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+        *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         return Status::OK();
     }
     case TPlanNodeType::SCHEMA_SCAN_NODE:
-        *node = pool->add(new SchemaScanNode(pool, tnode, descs));
+        *node = ALLOC_NODE(SchemaScanNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::DECODE_NODE:
-        *node = pool->add(new DictDecodeNode(pool, tnode, descs));
+        *node = ALLOC_NODE(DictDecodeNode, pool, tnode, descs);
         return Status::OK();
     case TPlanNodeType::JDBC_SCAN_NODE: {
         TPlanNode new_node = tnode;
         new_node.connector_scan_node = make_connector_scan_node(tnode, connector::Connector::JDBC);
-        *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+        *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         return Status::OK();
     }
     case TPlanNodeType::LAKE_SCAN_NODE: {
@@ -312,7 +316,7 @@ Status ExecFactory::create_vectorized_node(RuntimeState* state, ObjectPool* pool
         if (!new_node.connector_scan_node.__isset.catalog_type) {
             new_node.connector_scan_node.__set_catalog_type("default");
         }
-        *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+        *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         return Status::OK();
     }
     case TPlanNodeType::STREAM_SCAN_NODE: {
@@ -328,34 +332,35 @@ Status ExecFactory::create_vectorized_node(RuntimeState* state, ObjectPool* pool
             return Status::InternalError(fmt::format("Stream scan node does not support source type {}", source_type));
         }
         new_node.connector_scan_node = make_connector_scan_node(tnode, connector_name);
-        *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+        *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         return Status::OK();
     }
     case TPlanNodeType::STREAM_AGG_NODE: {
-        *node = pool->add(new StreamAggregateNode(pool, tnode, descs));
+        *node = ALLOC_NODE(StreamAggregateNode, pool, tnode, descs);
         return Status::OK();
     }
     case TPlanNodeType::CAPTURE_VERSION_NODE: {
-        *node = pool->add(new CaptureVersionNode(pool, tnode, descs));
+        *node = ALLOC_NODE(CaptureVersionNode, pool, tnode, descs);
         return Status::OK();
     }
     case TPlanNodeType::FETCH_NODE: {
-        *node = pool->add(new FetchNode(pool, tnode, descs));
+        *node = ALLOC_NODE(FetchNode, pool, tnode, descs);
         return Status::OK();
     }
     case TPlanNodeType::LOOKUP_NODE: {
-        *node = pool->add(new LookUpNode(pool, tnode, descs));
+        *node = ALLOC_NODE(LookUpNode, pool, tnode, descs);
         return Status::OK();
     }
     case TPlanNodeType::LAKE_CACHE_STATS_SCAN_NODE: {
         TPlanNode new_node = tnode;
         new_node.connector_scan_node = make_connector_scan_node(tnode, connector::Connector::CACHE_STATS);
-        *node = pool->add(new ConnectorScanNode(pool, new_node, descs));
+        *node = ALLOC_NODE(ConnectorScanNode, pool, new_node, descs);
         return Status::OK();
     }
     default:
         return Status::InternalError(strings::Substitute("Vectorized engine not support node: $0", tnode.node_type));
     }
+#undef ALLOC_NODE
 }
 
 } // namespace starrocks

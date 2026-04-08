@@ -96,7 +96,7 @@ Status ShortCircuitHybridScanNode::get_next(RuntimeState* state, ChunkPtr* chunk
     if (result_size > 0) {
         _key_chunk->filter(selections);
         for (auto slot_desc : _tuple_desc->slots()) {
-            auto field = tablet_schema_without_rowstore->get_field_by_name(slot_desc->col_name());
+            auto field = tablet_schema_without_rowstore->get_field_by_name(std::string(slot_desc->col_name()));
             if (field->is_key()) {
                 result_chunk->get_column_raw_ptr_by_slot_id(slot_desc->id())
                         ->append(*(_key_chunk->get_column_by_name(field->name().data()).get()));
@@ -104,7 +104,7 @@ Status ShortCircuitHybridScanNode::get_next(RuntimeState* state, ChunkPtr* chunk
         }
 
         for (auto slot_desc : _tuple_desc->slots()) {
-            auto field = tablet_schema_without_rowstore->get_field_by_name(slot_desc->col_name());
+            auto field = tablet_schema_without_rowstore->get_field_by_name(std::string(slot_desc->col_name()));
             if (!field->is_key()) {
                 result_chunk->get_column_raw_ptr_by_slot_id(slot_desc->id())
                         ->append(*(_value_chunk->get_column_by_name(field->name().data()).get()));
@@ -176,7 +176,7 @@ Status ShortCircuitHybridScanNode::_process_value_chunk(std::vector<bool>& found
     std::vector<string> value_field_names;
     vector<starrocks::ColumnId> value_column_ids;
     for (auto slot_desc : _tuple_desc->slots()) {
-        auto field = _tablet_schema->schema()->get_field_by_name(slot_desc->col_name());
+        auto field = _tablet_schema->schema()->get_field_by_name(std::string(slot_desc->col_name()));
         if (field != nullptr && !field->is_key()) {
             value_field_names.emplace_back(field->name());
             value_column_ids.emplace_back(field->id());

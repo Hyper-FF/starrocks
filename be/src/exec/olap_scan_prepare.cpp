@@ -1035,7 +1035,7 @@ Status ChunkPredicateBuilder<E, Type>::normalize_is_null_predicate(const SlotDes
                     continue;
                 }
                 TCondition is_null;
-                is_null.column_name = slot.col_name();
+                is_null.column_name = std::string(slot.col_name());
                 is_null.condition_op = "is";
                 is_null.condition_values.push_back(is_null_str);
                 is_null_vector.push_back(is_null);
@@ -1081,7 +1081,7 @@ struct ColumnRangeBuilder {
             using value_type = typename RunTimeTypeLimits<limit_type>::value_type;
             using RangeType = ColumnValueRange<value_type>;
 
-            const std::string& col_name = slot->col_name();
+            std::string col_name(slot->col_name());
             RangeType full_range(col_name, ltype, RunTimeTypeLimits<ltype>::min_value(),
                                  RunTimeTypeLimits<ltype>::max_value());
             if constexpr (lt_is_decimal<limit_type>) {

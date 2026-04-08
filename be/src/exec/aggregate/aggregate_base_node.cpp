@@ -16,6 +16,7 @@
 
 #include "exec/aggregator.h"
 #include "exprs/expr_factory.h"
+#include "runtime/runtime_state.h"
 
 namespace starrocks {
 
@@ -40,7 +41,7 @@ Status AggregateBaseNode::init(const TPlanNode& tnode, RuntimeState* state) {
     }
     if (tnode.agg_node.__isset.build_runtime_filters) {
         for (const auto& desc : tnode.agg_node.build_runtime_filters) {
-            auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+            auto* rf_desc = (state->fragment_mem_pool() ? _pool->emplace<RuntimeFilterBuildDescriptor>(state->fragment_mem_pool()) : _pool->add(new RuntimeFilterBuildDescriptor()));
             RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
             _build_runtime_filters.emplace_back(rf_desc);
         }

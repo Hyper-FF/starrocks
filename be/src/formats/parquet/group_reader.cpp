@@ -662,7 +662,7 @@ StatusOr<ColumnReaderPtr> GroupReader::_create_reserved_iceberg_column_reader(co
     // then fall back to column name lookup for compatibility.
     int32_t field_idx = _param.file_metadata->schema().get_field_idx_by_field_id(field_id);
     if (field_idx < 0) {
-        field_idx = _param.file_metadata->schema().get_field_idx_by_column_name(slot->col_name());
+        field_idx = _param.file_metadata->schema().get_field_idx_by_column_name(std::string(slot->col_name()));
     }
     if (field_idx < 0) {
         return ColumnReaderPtr(nullptr);
@@ -777,7 +777,7 @@ Status GroupReader::_create_column_readers() {
     std::unordered_map<std::string, SlotId> physical_variant_slots_by_name;
     for (const auto& column : _param.read_cols) {
         if (!column.is_extended_variant_virtual && column.slot_type().type == LogicalType::TYPE_VARIANT) {
-            physical_variant_slots_by_name.emplace(column.slot_desc->col_name(), column.slot_id());
+            physical_variant_slots_by_name.emplace(std::string(column.slot_desc->col_name()), column.slot_id());
         }
     }
 
@@ -908,7 +908,7 @@ StatusOr<ColumnReaderPtr> GroupReader::_create_column_reader(const GroupReaderPa
     {
         if (column.slot_type().type == LogicalType::TYPE_VARIANT && schema_node != nullptr &&
             schema_node->type == ColumnType::STRUCT && column.t_lake_schema_field == nullptr) {
-            VariantShreddedReadHints hints = _get_variant_shredded_hints(column.slot_desc->col_name());
+            VariantShreddedReadHints hints = _get_variant_shredded_hints(std::string(column.slot_desc->col_name()));
             ASSIGN_OR_RETURN(column_reader, ColumnReaderFactory::create_variant_column_reader(_column_reader_opts,
                                                                                               schema_node, hints));
         } else if (column.t_lake_schema_field == nullptr) {

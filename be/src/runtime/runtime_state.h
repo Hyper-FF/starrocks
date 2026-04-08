@@ -38,6 +38,7 @@
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <memory_resource>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -53,6 +54,7 @@
 #include "gen_cpp/InternalService_types.h" // for TQueryOptions
 #include "gen_cpp/Types_types.h"           // for TUniqueId
 #include "runtime/exec_env_fwd.h"
+#include "runtime/mem_pool_resource.h"
 #include "runtime/mem_tracker.h"
 
 namespace starrocks {
@@ -153,6 +155,8 @@ public:
     ExecEnv* exec_env() { return _exec_env; }
     MemTracker* instance_mem_tracker() { return _instance_mem_tracker.get(); }
     MemPool* instance_mem_pool() { return _instance_mem_pool.get(); }
+    MemPool* fragment_mem_pool() { return _fragment_mem_pool.get(); }
+    std::pmr::memory_resource* mem_resource() { return _mem_resource.get(); }
     std::shared_ptr<MemTracker> query_mem_tracker_ptr() { return _query_mem_tracker; }
     void set_query_mem_tracker(const std::shared_ptr<MemTracker>& query_mem_tracker) {
         _query_mem_tracker = query_mem_tracker;
@@ -651,6 +655,12 @@ private:
     std::mutex _process_status_lock;
     Status _process_status;
     std::unique_ptr<MemPool> _instance_mem_pool;
+
+    // Fragment-level memory pool for placement-new'd query objects (descriptors,
+    // expr nodes, runtime-filter descriptors, etc.).  Outlives ObjectPool so that
+    // destructor-only cleanup runs before the backing memory is freed.
+    std::unique_ptr<MemPool> _fragment_mem_pool;
+    std::unique_ptr<MemPoolResource> _mem_resource;
 
     // This is the node id of the root node for this plan fragment. This is used as the
     // hash seed and has two useful properties:

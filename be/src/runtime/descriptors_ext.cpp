@@ -55,8 +55,9 @@ std::string HdfsPartitionDescriptor::debug_string() const {
     return out.str();
 }
 
-HdfsTableDescriptor::HdfsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {
+HdfsTableDescriptor::HdfsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                         std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {
     _hdfs_base_path = tdesc.hdfsTable.hdfs_base_dir;
     _columns = tdesc.hdfsTable.columns;
     _partition_columns = tdesc.hdfsTable.partition_columns;
@@ -96,8 +97,9 @@ const std::string& HdfsTableDescriptor::get_time_zone() const {
     return _time_zone;
 }
 
-FileTableDescriptor::FileTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {
+FileTableDescriptor::FileTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                         std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {
     _table_location = tdesc.fileTable.location;
     _columns = tdesc.fileTable.columns;
     _hive_column_names = tdesc.fileTable.hive_column_names;
@@ -127,8 +129,9 @@ const std::string& FileTableDescriptor::get_time_zone() const {
     return _time_zone;
 }
 
-IcebergTableDescriptor::IcebergTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {
+IcebergTableDescriptor::IcebergTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                               std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {
     _table_location = tdesc.icebergTable.location;
     _columns = tdesc.icebergTable.columns;
     _t_iceberg_schema = tdesc.icebergTable.iceberg_schema;
@@ -199,8 +202,9 @@ Status IcebergTableDescriptor::set_partition_desc_map(const starrocks::TIcebergT
     return Status::OK();
 }
 
-DeltaLakeTableDescriptor::DeltaLakeTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {
+DeltaLakeTableDescriptor::DeltaLakeTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                                   std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {
     _table_location = tdesc.deltaLakeTable.location;
     _columns = tdesc.deltaLakeTable.columns;
     _partition_columns = tdesc.deltaLakeTable.partition_columns;
@@ -210,8 +214,9 @@ DeltaLakeTableDescriptor::DeltaLakeTableDescriptor(const TTableDescriptor& tdesc
     }
 }
 
-HudiTableDescriptor::HudiTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {
+HudiTableDescriptor::HudiTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                         std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {
     _table_location = tdesc.hudiTable.location;
     _columns = tdesc.hudiTable.columns;
     _partition_columns = tdesc.hudiTable.partition_columns;
@@ -251,8 +256,9 @@ const std::string& HudiTableDescriptor::get_time_zone() const {
     return _time_zone;
 }
 
-PaimonTableDescriptor::PaimonTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {
+PaimonTableDescriptor::PaimonTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                             std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {
     _paimon_native_table = tdesc.paimonTable.paimon_native_table;
     _time_zone = tdesc.paimonTable.time_zone;
     _t_paimon_schema = tdesc.paimonTable.paimon_schema;
@@ -266,8 +272,9 @@ const std::string& PaimonTableDescriptor::get_time_zone() const {
     return _time_zone;
 }
 
-OdpsTableDescriptor::OdpsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {
+OdpsTableDescriptor::OdpsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                         std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {
     _columns = tdesc.hdfsTable.columns;
     _partition_columns = tdesc.hdfsTable.partition_columns;
     _database_name = tdesc.dbName;
@@ -287,10 +294,13 @@ const std::string& OdpsTableDescriptor::get_time_zone() const {
     return _time_zone;
 }
 
-KuduTableDescriptor::KuduTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {}
+KuduTableDescriptor::KuduTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                         std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {}
 
-HiveTableDescriptor::HiveTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool) : TableDescriptor(tdesc) {}
+HiveTableDescriptor::HiveTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                         std::pmr::memory_resource* mr)
+        : TableDescriptor(tdesc, mr) {}
 
 bool HiveTableDescriptor::is_partition_col(const SlotDescriptor* slot) const {
     return get_partition_col_index(slot) >= 0;
@@ -329,8 +339,9 @@ std::optional<std::string> HiveTableDescriptor::get_column_default_value(const S
     return std::nullopt;
 }
 
-IcebergMetadataTableDescriptor::IcebergMetadataTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool)
-        : HiveTableDescriptor(tdesc, pool) {
+IcebergMetadataTableDescriptor::IcebergMetadataTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
+                                                               std::pmr::memory_resource* mr)
+        : HiveTableDescriptor(tdesc, pool, mr) {
     _hive_column_names = tdesc.hdfsTable.hive_column_names;
     _hive_column_types = tdesc.hdfsTable.hive_column_types;
     _time_zone = tdesc.hdfsTable.__isset.time_zone ? tdesc.hdfsTable.time_zone : TimezoneUtils::default_time_zone;
@@ -394,7 +405,8 @@ Status HiveTableDescriptor::add_partition_value(RuntimeState* runtime_state, Obj
 
 // =============================================
 
-OlapTableDescriptor::OlapTableDescriptor(const TTableDescriptor& tdesc) : TableDescriptor(tdesc) {}
+OlapTableDescriptor::OlapTableDescriptor(const TTableDescriptor& tdesc, std::pmr::memory_resource* mr)
+        : TableDescriptor(tdesc, mr) {}
 
 std::string OlapTableDescriptor::debug_string() const {
     std::stringstream out;
@@ -402,8 +414,8 @@ std::string OlapTableDescriptor::debug_string() const {
     return out.str();
 }
 
-SchemaTableDescriptor::SchemaTableDescriptor(const TTableDescriptor& tdesc)
-        : TableDescriptor(tdesc), _schema_table_type(tdesc.schemaTable.tableType) {}
+SchemaTableDescriptor::SchemaTableDescriptor(const TTableDescriptor& tdesc, std::pmr::memory_resource* mr)
+        : TableDescriptor(tdesc, mr), _schema_table_type(tdesc.schemaTable.tableType) {}
 SchemaTableDescriptor::~SchemaTableDescriptor() = default;
 
 std::string SchemaTableDescriptor::debug_string() const {
@@ -412,7 +424,8 @@ std::string SchemaTableDescriptor::debug_string() const {
     return out.str();
 }
 
-BrokerTableDescriptor::BrokerTableDescriptor(const TTableDescriptor& tdesc) : TableDescriptor(tdesc) {}
+BrokerTableDescriptor::BrokerTableDescriptor(const TTableDescriptor& tdesc, std::pmr::memory_resource* mr)
+        : TableDescriptor(tdesc, mr) {}
 
 BrokerTableDescriptor::~BrokerTableDescriptor() = default;
 
@@ -422,7 +435,8 @@ std::string BrokerTableDescriptor::debug_string() const {
     return out.str();
 }
 
-EsTableDescriptor::EsTableDescriptor(const TTableDescriptor& tdesc) : TableDescriptor(tdesc) {}
+EsTableDescriptor::EsTableDescriptor(const TTableDescriptor& tdesc, std::pmr::memory_resource* mr)
+        : TableDescriptor(tdesc, mr) {}
 
 EsTableDescriptor::~EsTableDescriptor() = default;
 
@@ -432,8 +446,8 @@ std::string EsTableDescriptor::debug_string() const {
     return out.str();
 }
 
-MySQLTableDescriptor::MySQLTableDescriptor(const TTableDescriptor& tdesc)
-        : TableDescriptor(tdesc),
+MySQLTableDescriptor::MySQLTableDescriptor(const TTableDescriptor& tdesc, std::pmr::memory_resource* mr)
+        : TableDescriptor(tdesc, mr),
           _mysql_db(tdesc.mysqlTable.db),
           _mysql_table(tdesc.mysqlTable.table),
           _host(tdesc.mysqlTable.host),
@@ -448,8 +462,8 @@ std::string MySQLTableDescriptor::debug_string() const {
     return out.str();
 }
 
-JDBCTableDescriptor::JDBCTableDescriptor(const TTableDescriptor& tdesc)
-        : TableDescriptor(tdesc),
+JDBCTableDescriptor::JDBCTableDescriptor(const TTableDescriptor& tdesc, std::pmr::memory_resource* mr)
+        : TableDescriptor(tdesc, mr),
           _jdbc_driver_name(tdesc.jdbcTable.jdbc_driver_name),
           _jdbc_driver_url(tdesc.jdbcTable.jdbc_driver_url),
           _jdbc_driver_checksum(tdesc.jdbcTable.jdbc_driver_checksum),
@@ -470,7 +484,15 @@ std::string JDBCTableDescriptor::debug_string() const {
 
 Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescriptorTable& thrift_tbl,
                              DescriptorTbl** tbl, int32_t chunk_size) {
-    *tbl = pool->add(new DescriptorTbl());
+    // Use fragment MemPool for all descriptor allocations when available.
+    MemPool* mem_pool = state ? state->fragment_mem_pool() : nullptr;
+    std::pmr::memory_resource* mr = state ? state->mem_resource() : std::pmr::get_default_resource();
+
+// Helper macro: placement-new into fragment MemPool when available, else heap-new.
+#define ALLOC_DESC(Type, ...) \
+    (mem_pool ? pool->emplace<Type>(mem_pool, __VA_ARGS__) : pool->add(new Type(__VA_ARGS__)))
+
+    *tbl = ALLOC_DESC(DescriptorTbl, mr);
 
     // deserialize table descriptors first, they are being referenced by tuple descriptors
     for (const auto& tdesc : thrift_tbl.tableDescriptors) {
@@ -478,62 +500,62 @@ Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescr
 
         switch (tdesc.tableType) {
         case TTableType::MYSQL_TABLE:
-            desc = pool->add(new MySQLTableDescriptor(tdesc));
+            desc = ALLOC_DESC(MySQLTableDescriptor, tdesc, mr);
             break;
 
         case TTableType::OLAP_TABLE:
         case TTableType::MATERIALIZED_VIEW:
-            desc = pool->add(new OlapTableDescriptor(tdesc));
+            desc = ALLOC_DESC(OlapTableDescriptor, tdesc, mr);
             break;
 
         case TTableType::SCHEMA_TABLE:
-            desc = pool->add(new SchemaTableDescriptor(tdesc));
+            desc = ALLOC_DESC(SchemaTableDescriptor, tdesc, mr);
             break;
         case TTableType::BROKER_TABLE:
-            desc = pool->add(new BrokerTableDescriptor(tdesc));
+            desc = ALLOC_DESC(BrokerTableDescriptor, tdesc, mr);
             break;
         case TTableType::ES_TABLE:
-            desc = pool->add(new EsTableDescriptor(tdesc));
+            desc = ALLOC_DESC(EsTableDescriptor, tdesc, mr);
             break;
         case TTableType::HDFS_TABLE: {
-            auto* hdfs_desc = pool->add(new HdfsTableDescriptor(tdesc, pool));
+            auto* hdfs_desc = ALLOC_DESC(HdfsTableDescriptor, tdesc, pool, mr);
             RETURN_IF_ERROR(hdfs_desc->create_key_exprs(state, pool));
             desc = hdfs_desc;
             break;
         }
         case TTableType::FILE_TABLE: {
-            desc = pool->add(new FileTableDescriptor(tdesc, pool));
+            desc = ALLOC_DESC(FileTableDescriptor, tdesc, pool, mr);
             break;
         }
         case TTableType::ICEBERG_TABLE: {
-            auto* iceberg_desc = pool->add(new IcebergTableDescriptor(tdesc, pool));
+            auto* iceberg_desc = ALLOC_DESC(IcebergTableDescriptor, tdesc, pool, mr);
             RETURN_IF_ERROR(iceberg_desc->set_partition_desc_map(tdesc.icebergTable, pool));
             RETURN_IF_ERROR(iceberg_desc->create_key_exprs(state, pool));
             desc = iceberg_desc;
             break;
         }
         case TTableType::DELTALAKE_TABLE: {
-            auto* delta_lake_desc = pool->add(new DeltaLakeTableDescriptor(tdesc, pool));
+            auto* delta_lake_desc = ALLOC_DESC(DeltaLakeTableDescriptor, tdesc, pool, mr);
             RETURN_IF_ERROR(delta_lake_desc->create_key_exprs(state, pool));
             desc = delta_lake_desc;
             break;
         }
         case TTableType::HUDI_TABLE: {
-            auto* hudi_desc = pool->add(new HudiTableDescriptor(tdesc, pool));
+            auto* hudi_desc = ALLOC_DESC(HudiTableDescriptor, tdesc, pool, mr);
             RETURN_IF_ERROR(hudi_desc->create_key_exprs(state, pool));
             desc = hudi_desc;
             break;
         }
         case TTableType::PAIMON_TABLE: {
-            desc = pool->add(new PaimonTableDescriptor(tdesc, pool));
+            desc = ALLOC_DESC(PaimonTableDescriptor, tdesc, pool, mr);
             break;
         }
         case TTableType::JDBC_TABLE: {
-            desc = pool->add(new JDBCTableDescriptor(tdesc));
+            desc = ALLOC_DESC(JDBCTableDescriptor, tdesc, mr);
             break;
         }
         case TTableType::ODPS_TABLE: {
-            desc = pool->add(new OdpsTableDescriptor(tdesc, pool));
+            desc = ALLOC_DESC(OdpsTableDescriptor, tdesc, pool, mr);
             break;
         }
         case TTableType::LOGICAL_ICEBERG_METADATA_TABLE:
@@ -545,11 +567,11 @@ Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescr
         case TTableType::ICEBERG_FILES_TABLE:
         case TTableType::ICEBERG_PARTITIONS_TABLE:
         case TTableType::ICEBERG_PROPERTIES_TABLE: {
-            desc = pool->add(new IcebergMetadataTableDescriptor(tdesc, pool));
+            desc = ALLOC_DESC(IcebergMetadataTableDescriptor, tdesc, pool, mr);
             break;
         }
         case TTableType::KUDU_TABLE: {
-            desc = pool->add(new KuduTableDescriptor(tdesc, pool));
+            desc = ALLOC_DESC(KuduTableDescriptor, tdesc, pool, mr);
             break;
         }
         default:
@@ -560,7 +582,7 @@ Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescr
     }
 
     for (const auto& tdesc : thrift_tbl.tupleDescriptors) {
-        TupleDescriptor* desc = pool->add(new TupleDescriptor(tdesc));
+        TupleDescriptor* desc = ALLOC_DESC(TupleDescriptor, tdesc);
 
         // fix up table pointer
         if (tdesc.__isset.tableId) {
@@ -572,7 +594,7 @@ Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescr
     }
 
     for (const auto& tdesc : thrift_tbl.slotDescriptors) {
-        SlotDescriptor* slot_d = pool->add(new SlotDescriptor(tdesc));
+        SlotDescriptor* slot_d = ALLOC_DESC(SlotDescriptor, tdesc, mr);
         (*tbl)->_slot_desc_map[tdesc.id] = slot_d;
         if (!slot_d->col_name().empty()) {
             (*tbl)->_slot_with_column_name_map[tdesc.id] = slot_d;
@@ -586,6 +608,8 @@ Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescr
 
         entry->second->add_slot(slot_d);
     }
+
+#undef ALLOC_DESC
 
     return Status::OK();
 }

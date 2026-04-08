@@ -690,7 +690,7 @@ Status OlapChunkSource::_read_chunk_from_storage(RuntimeState* state, Chunk* chu
         TRY_CATCH_ALLOC_SCOPE_START()
 
         for (auto slot : _query_slots) {
-            size_t column_index = chunk->schema()->get_field_index_by_name(slot->col_name());
+            size_t column_index = chunk->schema()->get_field_index_by_name(std::string(slot->col_name()));
             chunk->set_slot_id_to_index(slot->id(), column_index);
         }
 

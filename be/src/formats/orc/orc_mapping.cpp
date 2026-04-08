@@ -173,7 +173,7 @@ Status OrcMappingFactory::_init_orc_mapping_with_orc_column_names(std::unique_pt
         SlotDescriptor* slot_desc = slot_descs[i];
         if (slot_desc == nullptr) continue;
 
-        std::string col_name = Utils::format_name(slot_desc->col_name(), options.case_sensitive);
+        std::string col_name = Utils::format_name(std::string(slot_desc->col_name()), options.case_sensitive);
         auto it = orc_fieldname_2_pos.find(col_name);
         if (it == orc_fieldname_2_pos.end()) {
             if (options.invalid_as_null) {
@@ -215,7 +215,7 @@ Status OrcMappingFactory::_init_orc_mapping_with_hive_column_names(std::unique_p
     for (size_t i = 0; i < slot_descs.size(); i++) {
         if (slot_descs[i] == nullptr) continue;
         slot_descriptor_name_2_slot_descriptor_pos.emplace(
-                Utils::format_name(slot_descs[i]->col_name(), options.case_sensitive), i);
+                Utils::format_name(std::string(slot_descs[i]->col_name()), options.case_sensitive), i);
     }
 
     // build hive column names index.

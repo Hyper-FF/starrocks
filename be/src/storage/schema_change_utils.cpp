@@ -247,7 +247,7 @@ bool ChunkChanger::change_chunk_v2(ChunkPtr& base_chunk, ChunkPtr& new_chunk, co
     }
     if (_alter_job_type == TAlterJobType::ROLLUP) {
         for (auto slot : _query_slots) {
-            size_t column_index = base_chunk->schema()->get_field_index_by_name(slot->col_name());
+            size_t column_index = base_chunk->schema()->get_field_index_by_name(std::string(slot->col_name()));
             if (column_index != -1) {
                 VLOG(2) << "col name:" << slot->col_name() << ", slot_id:" << slot->id()
                         << ", column_index:" << column_index;

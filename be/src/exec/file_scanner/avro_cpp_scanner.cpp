@@ -89,7 +89,7 @@ Status AvroCppScanner::create_column_readers() {
         }
 
         _column_readers[column_pos] = avrocpp::ColumnReader::get_nullable_column_reader(
-                slot_desc->col_name(), slot_desc->type(), _timezone, !_strict_mode);
+                std::string(slot_desc->col_name()), slot_desc->type(), _timezone, !_strict_mode);
     }
 
     return Status::OK();

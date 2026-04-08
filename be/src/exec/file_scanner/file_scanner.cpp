@@ -375,18 +375,19 @@ void FileScanner::merge_schema(const std::vector<std::vector<SlotDescriptor>>& i
     std::map<std::string, size_t> merged_schema_index;
     for (const auto& schema : input) {
         for (const auto& slot : schema) {
-            auto itr = merged_schema_index.find(slot.col_name());
+            std::string col_name(slot.col_name());
+            auto itr = merged_schema_index.find(col_name);
             if (itr == merged_schema_index.end()) {
                 merged_schema.emplace_back(
-                        std::make_shared<SlotDescriptor>(merged_schema.size(), slot.col_name(), slot.type()));
-                merged_schema_index.insert({slot.col_name(), merged_schema.size() - 1});
+                        std::make_shared<SlotDescriptor>(merged_schema.size(), col_name, slot.type()));
+                merged_schema_index.insert({col_name, merged_schema.size() - 1});
             } else {
                 const auto& merged_type = merged_schema[itr->second]->type();
                 const auto& slot_type = slot.type();
                 // handle conflicted types.
                 if (merged_type != slot_type) {
                     merged_schema[itr->second] = std::make_shared<SlotDescriptor>(
-                            slot.id(), slot.col_name(), TypeDescriptor::promote_types(merged_type, slot_type));
+                            slot.id(), col_name, TypeDescriptor::promote_types(merged_type, slot_type));
                 }
             }
         }
@@ -493,7 +494,7 @@ Status FileScanner::sample_schema(RuntimeState* state, const TBrokerScanRange& s
         // Column names are case insensitive.
         // Check duplicated column names.
         for (const auto& slot : schema) {
-            auto name = slot.col_name();
+            std::string name(slot.col_name());
             auto lowercase_name = boost::algorithm::to_lower_copy(name);
 
             auto itr = unique_names.find(lowercase_name);

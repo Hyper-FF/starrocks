@@ -87,7 +87,7 @@ FieldPtr build_field_from_type_desc(const TypeDescriptor& type_desc, const std::
 }
 
 FieldPtr build_field_from_slot_desc(const SlotDescriptor& slot) {
-    return build_field_from_type_desc(slot.type(), slot.col_name(), slot.id(), slot.is_nullable());
+    return build_field_from_type_desc(slot.type(), std::string(slot.col_name()), slot.id(), slot.is_nullable());
 }
 
 } // namespace

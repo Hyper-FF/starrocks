@@ -19,9 +19,11 @@
 
 #include <memory>
 #include <mutex>
+#include <new>
 #include <vector>
 
 #include "base/concurrency/spinlock.h"
+#include "runtime/mem_pool.h"
 
 namespace starrocks {
 
@@ -47,6 +49,17 @@ public:
         _objects.emplace_back(Element{t, [](void* obj) { delete reinterpret_cast<T*>(obj); }});
         uniq.release();
         return t;
+    }
+
+    // Placement-new an object into memory obtained from |pool|, register destructor-only
+    // cleanup (no deallocation — MemPool reclaims memory in bulk).
+    template <class T, class... Args>
+    T* emplace(MemPool* pool, Args&&... args) {
+        void* mem = pool->allocate_aligned(sizeof(T), alignof(T));
+        T* obj = new (mem) T(std::forward<Args>(args)...);
+        std::lock_guard<SpinLock> l(_lock);
+        _objects.emplace_back(Element{obj, [](void* p) { reinterpret_cast<T*>(p)->~T(); }});
+        return obj;
     }
 
     void clear() {

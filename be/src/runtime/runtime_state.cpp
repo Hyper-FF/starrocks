@@ -229,6 +229,8 @@ void RuntimeState::init_mem_trackers(const TUniqueId& query_id, MemTracker* pare
     _instance_mem_tracker = std::make_shared<MemTracker>(_profile.get(), std::make_tuple(true, true, true), "Instance",
                                                          -1, runtime_profile()->name(), _query_mem_tracker.get());
     _instance_mem_pool = std::make_unique<MemPool>();
+    _fragment_mem_pool = std::make_unique<MemPool>();
+    _mem_resource = std::make_unique<MemPoolResource>(_fragment_mem_pool.get());
 }
 
 void RuntimeState::init_mem_trackers(const std::shared_ptr<MemTracker>& query_mem_tracker) {
@@ -242,11 +244,15 @@ void RuntimeState::init_mem_trackers(const std::shared_ptr<MemTracker>& query_me
     _instance_mem_tracker = std::make_shared<MemTracker>(_profile.get(), std::make_tuple(true, true, true), "Instance",
                                                          -1, runtime_profile()->name(), _query_mem_tracker.get());
     _instance_mem_pool = std::make_unique<MemPool>();
+    _fragment_mem_pool = std::make_unique<MemPool>();
+    _mem_resource = std::make_unique<MemPoolResource>(_fragment_mem_pool.get());
 }
 
 void RuntimeState::init_instance_mem_tracker() {
     _instance_mem_tracker = std::make_unique<MemTracker>(-1);
     _instance_mem_pool = std::make_unique<MemPool>();
+    _fragment_mem_pool = std::make_unique<MemPool>();
+    _mem_resource = std::make_unique<MemPoolResource>(_fragment_mem_pool.get());
 }
 
 bool RuntimeState::use_page_cache() {

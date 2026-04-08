@@ -218,7 +218,7 @@ Status AvroScanner::_construct_row(const avro_value_t& avro_value, Chunk* chunk)
         auto st = _extract_field(avro_value, _json_paths[i], &output_value);
         if (LIKELY(st.ok())) {
             RETURN_IF_ERROR(_construct_column(output_value, column, _src_slot_descriptors[i]->type(),
-                                              _src_slot_descriptors[i]->col_name()));
+                                              std::string(_src_slot_descriptors[i]->col_name())));
         } else if (st.is_not_found()) {
             column->append_nulls(1);
         } else {

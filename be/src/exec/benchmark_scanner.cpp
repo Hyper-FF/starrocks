@@ -16,6 +16,8 @@
 
 #include <algorithm>
 
+#include <fmt/format.h>
+
 #include "base/utility/arrow_utils.h"
 #include "benchgen/benchmark_suite.h"
 #include "benchgen/record_batch_iterator_factory.h"
@@ -86,9 +88,10 @@ Status BenchmarkScanner::get_next(RuntimeState* state, ChunkPtr* chunk, bool* eo
         column->reserve(num_elements);
         raw_chunk->append_column(std::move(column), slot_desc->id());
 
-        auto array = _batch->GetColumnByName(slot_desc->col_name());
+        std::string col_name(slot_desc->col_name());
+        auto array = _batch->GetColumnByName(col_name);
         if (array == nullptr) {
-            return Status::NotFound("Benchmark column " + slot_desc->col_name() + " not found in schema");
+            return Status::NotFound(fmt::format("Benchmark column {} not found in schema", col_name));
         }
 
         _conv_ctx.current_slot = slot_desc;
@@ -131,9 +134,10 @@ Status BenchmarkScanner::_init_converters(const std::shared_ptr<arrow::Schema>& 
 
     for (size_t i = 0; i < slot_count; ++i) {
         SlotDescriptor* slot_desc = _slot_descs[i];
-        auto field = schema->GetFieldByName(slot_desc->col_name());
+        std::string col_name(slot_desc->col_name());
+        auto field = schema->GetFieldByName(col_name);
         if (field == nullptr) {
-            return Status::NotFound("Benchmark column " + slot_desc->col_name() + " not found in schema");
+            return Status::NotFound(fmt::format("Benchmark column {} not found in schema", col_name));
         }
 
         auto raw_type_desc = std::make_unique<TypeDescriptor>();

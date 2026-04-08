@@ -140,7 +140,7 @@ Status HashJoinNode::init(const TPlanNode& tnode, RuntimeState* state) {
                                                    &_other_join_conjunct_ctxs, state));
 
     for (const auto& desc : tnode.hash_join_node.build_runtime_filters) {
-        auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+        auto* rf_desc = (state->fragment_mem_pool() ? _pool->emplace<RuntimeFilterBuildDescriptor>(state->fragment_mem_pool()) : _pool->add(new RuntimeFilterBuildDescriptor()));
         RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
         _build_runtime_filters.emplace_back(rf_desc);
     }
