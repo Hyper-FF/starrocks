@@ -63,7 +63,7 @@ public:
         _column_readers.clear();
         for (auto* slot_desc : slot_descs) {
             _column_readers.emplace_back(avrocpp::ColumnReader::get_nullable_column_reader(
-                    slot_desc->col_name(), slot_desc->type(), timezone, invalid_as_null));
+                    std::string(slot_desc->col_name()), slot_desc->type(), timezone, invalid_as_null));
         }
     }
 
@@ -304,7 +304,7 @@ TEST_F(AvroReaderTest, test_read_complex_types_as_varchar) {
     // read as varchar type
     for (auto& slot_desc : tmp_slot_descs) {
         slot_descs.emplace_back(_obj_pool.add(
-                new SlotDescriptor(slot_desc.id(), slot_desc.col_name(),
+                new SlotDescriptor(slot_desc.id(), std::string(slot_desc.col_name()),
                                    TypeDescriptor::create_varchar_type(TypeDescriptor::MAX_VARCHAR_LENGTH))));
     }
 
