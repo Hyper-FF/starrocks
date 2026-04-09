@@ -86,18 +86,17 @@ else
 fi
 
 if starrocks_is_darwin ; then
-    PARALLEL=$(starrocks_detect_parallelism)
+    PARALLEL=$(starrocks_detect_build_parallelism 2048)
     # Darwin thirdparty is prepared separately and validated before BE configure.
 else
     if [[ ! -f ${STARROCKS_THIRDPARTY}/installed/llvm/lib/libLLVMInstCombine.a ]]; then
         echo "Thirdparty libraries need to be build ..."
         ${STARROCKS_THIRDPARTY}/build-thirdparty.sh
     fi
-    host_parallelism=$(starrocks_detect_parallelism)
-    # Use full CPU count by default; override with -j flag if needed.
-    # The old nproc/4+1 was far too conservative and is the single largest
-    # contributor to slow builds on most machines.
-    PARALLEL=${host_parallelism}
+    # Adaptive parallelism: uses all CPU cores but caps at available memory
+    # to prevent OOM kills.  Each C++ compilation can use ~2 GB RAM.
+    # Override with -j flag if needed.
+    PARALLEL=$(starrocks_detect_build_parallelism 2048)
 fi
 
 # Check args
@@ -323,6 +322,7 @@ if [[ -z ${ENABLE_FAULT_INJECTION} ]]; then
 fi
 
 HELP=0
+USER_SET_PARALLEL=0
 if [ $# == 1 ] ; then
     # default. `sh build.sh``
     BUILD_BE=1
@@ -340,6 +340,7 @@ elif [[ $OPTS =~ "-j " ]] && [ $# == 3 ]; then
     BUILD_FORMAT_LIB=0
     CLEAN=0
     PARALLEL=$2
+    USER_SET_PARALLEL=1
 else
     BUILD_BE=0
     BUILD_FORMAT_LIB=0
@@ -376,7 +377,7 @@ else
             --output) STARROCKS_OUTPUT=$2 ; shift 2 ;;
             -h) HELP=1; shift ;;
             --help) HELP=1; shift ;;
-            -j) PARALLEL=$2; shift 2 ;;
+            -j) PARALLEL=$2; USER_SET_PARALLEL=1; shift 2 ;;
             --disable-java-check-style) DISABLE_JAVA_CHECK_STYLE=ON; shift ;;
             --with-unity-build) WITH_UNITY_BUILD=$2 ; shift 2 ;;
             --with-split-dwarf) WITH_SPLIT_DWARF=$2 ; shift 2 ;;
@@ -602,11 +603,18 @@ if [ ${BUILD_BE} -eq 1 ] || [ ${BUILD_FORMAT_LIB} -eq 1 ] ; then
         exit 0
     fi
 
+    # Re-calculate parallelism for Unity Build (higher per-job memory) unless
+    # the user explicitly set -j.
+    if [[ "${USER_SET_PARALLEL}" -eq 0 && "${WITH_UNITY_BUILD}" == "ON" ]]; then
+        PARALLEL=$(starrocks_detect_build_parallelism 4096)
+        echo "Unity Build enabled: adjusted parallelism to ${PARALLEL} (4 GB/job estimate)"
+    fi
+
     if [ "${BUILD_BE_MODULE}" != "all" ] ; then
-        echo "build Backend module: ${BUILD_BE_MODULE}"
+        echo "build Backend module: ${BUILD_BE_MODULE} (parallel=${PARALLEL})"
         time ${BUILD_SYSTEM} -j${PARALLEL} $BUILD_BE_MODULE
     else
-        echo "Build all Backend modules"
+        echo "Build all Backend modules (parallel=${PARALLEL})"
         time ${BUILD_SYSTEM} -j${PARALLEL}
     fi
 

@@ -37,6 +37,71 @@ starrocks_detect_parallelism() {
     echo "${cpu_count}"
 }
 
+# Compute a build parallelism level that respects both CPU count and available
+# memory.  Each C++ compilation unit can consume 1-2 GB of RAM (more with -O3
+# or Unity Build), so blindly using nproc on a machine with many cores but
+# limited RAM easily triggers OOM kills.
+#
+# Arguments:
+#   $1 - estimated per-job memory in MB (default: 2048, i.e. 2 GB)
+#        Callers should pass a higher value when Unity Build is enabled
+#        (e.g. 3072-4096).
+#
+# The function prints min(cpu_count, available_memory / per_job_mem), clamped
+# to [1, cpu_count].  If memory detection fails it falls back to cpu_count.
+starrocks_detect_build_parallelism() {
+    local per_job_mb="${1:-2048}"
+    local cpu_count
+    cpu_count="$(starrocks_detect_parallelism)"
+
+    local mem_total_mb=""
+    if starrocks_is_darwin; then
+        # macOS: sysctl returns bytes
+        local mem_bytes
+        mem_bytes="$(sysctl -n hw.memsize 2>/dev/null || true)"
+        if [[ -n "${mem_bytes}" && "${mem_bytes}" =~ ^[0-9]+$ ]]; then
+            mem_total_mb=$(( mem_bytes / 1024 / 1024 ))
+        fi
+    else
+        # Linux: /proc/meminfo reports kB (actually KiB)
+        local mem_kb
+        mem_kb="$(awk '/^MemAvailable:/ {print $2; exit}' /proc/meminfo 2>/dev/null || true)"
+        # Fall back to MemTotal if MemAvailable is absent (older kernels)
+        if [[ -z "${mem_kb}" || ! "${mem_kb}" =~ ^[0-9]+$ ]]; then
+            mem_kb="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null || true)"
+        fi
+        if [[ -n "${mem_kb}" && "${mem_kb}" =~ ^[0-9]+$ ]]; then
+            mem_total_mb=$(( mem_kb / 1024 ))
+        fi
+    fi
+
+    if [[ -z "${mem_total_mb}" || ! "${mem_total_mb}" =~ ^[0-9]+$ || "${mem_total_mb}" -lt 1 ]]; then
+        # Cannot detect memory; fall back to CPU count alone.
+        echo "${cpu_count}"
+        return 0
+    fi
+
+    # Reserve ~1.5 GB for the OS / linker / other processes.
+    local reserved_mb=1536
+    local usable_mb=$(( mem_total_mb - reserved_mb ))
+    if [[ "${usable_mb}" -lt "${per_job_mb}" ]]; then
+        usable_mb="${per_job_mb}"  # at least 1 job
+    fi
+
+    local mem_jobs=$(( usable_mb / per_job_mb ))
+    if [[ "${mem_jobs}" -lt 1 ]]; then
+        mem_jobs=1
+    fi
+
+    # Take the smaller of CPU-bound and memory-bound limits.
+    local parallel="${cpu_count}"
+    if [[ "${mem_jobs}" -lt "${parallel}" ]]; then
+        parallel="${mem_jobs}"
+    fi
+
+    echo "${parallel}"
+}
+
 starrocks_default_ut_thin_archive() {
     if starrocks_is_darwin; then
         echo "OFF"
