@@ -26,10 +26,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Integration test for {@link JoinOnPredicateChecker}.
  * <p>
- * Validates that the checker detects non-column-ref expressions in hash join equality
- * predicates when the {@code PushDownJoinOnExpressionToChildProject} rule is skipped.
- * This reproduces the class of bugs described in issue #71058 where MV rewrite introduces
- * new join expressions that don't get projected, leading to incorrect shuffle distribution.
+ * Validates that the checker detects incorrect shuffle distribution caused by non-column-ref
+ * expressions in hash join equality predicates. This reproduces the class of bugs described
+ * in issue #71058:
+ * <ul>
+ *   <li>A join ON predicate like {@code t0.v1 + 1 = t1.v4} has expression {@code v1 + 1}</li>
+ *   <li>{@code JoinHelper.init()} extracts distribution col via {@code getUsedColumns().getFirstId()},
+ *       getting base column {@code v1} instead of expression {@code v1 + 1}</li>
+ *   <li>SHUFFLE distributes by {@code hash(v1)} on left and {@code hash(v4)} on right</li>
+ *   <li>A left row with v1=5 goes to hash(5), right row with v4=6 goes to hash(6),
+ *       but 5+1=6 means they should match — they end up on different nodes → WRONG RESULT</li>
+ * </ul>
+ * {@code PushDownJoinOnExpressionToChildProject} fixes this by projecting expressions to
+ * column refs before distribution derivation.
  */
 class JoinOnPredicateCheckerPlanTest extends PlanTestBase {
 
@@ -44,94 +53,106 @@ class JoinOnPredicateCheckerPlanTest extends PlanTestBase {
         connectContext.getSessionVariable().setEnablePlanValidation(true);
     }
 
+    // ==================== Distribution correctness: rule enabled ====================
+
     /**
-     * When PushDownJoinOnExpressionToChildProject is disabled, a query with an expression
-     * in the join ON clause (v1 + 1 = v4) should fail validation because the hash join
-     * equality predicate contains a non-column-ref expression.
+     * With PushDownJoinOnExpressionToChildProject enabled (default):
+     * - Expression {@code v1 + 1} is projected to a new column ref in a child project node
+     * - SHUFFLE distribution uses the projected column ref (correct)
+     * - Validation passes
      */
     @Test
-    void testExpressionInJoinOnClauseDetected() {
-        connectContext.getSessionVariable().setCboDisabledRules(
-                "TF_PUSH_DOWN_JOIN_ON_EXPRESSION_TO_CHILD_PROJECT");
-        connectContext.getSessionVariable().setEnablePlanValidation(true);
-
+    void testExpressionProjected_correctShuffleDistribution() throws Exception {
         String sql = "select count(*) from t0 join t1 on t0.v1 + 1 = t1.v4";
-        Exception ex = assertThrows(Exception.class, () -> getFragmentPlan(sql));
-        assertTrue(ex.getMessage().contains("Join on-predicate check failed")
-                        || ex.getMessage().contains("non-column-ref"),
-                "Expected JoinOnPredicateChecker error, got: " + ex.getMessage());
+        String plan = getFragmentPlan(sql);
+        // Plan should contain HASH JOIN with PARTITIONED (shuffle) distribution
+        // and equal join conjunct using a projected column ref, not the raw expression
+        assertContains(plan, "HASH JOIN");
+        // The expression v1+1 should NOT appear in "equal join conjunct" — it should
+        // have been replaced by a projected column ref
+        assertNotContains(plan, "equal join conjunct: 1: v1 + 1");
     }
 
     /**
-     * With the rule enabled (default), the same query should pass validation because
-     * PushDownJoinOnExpressionToChildProject pushes expressions into child project nodes.
+     * Column-ref only equality (v1 = v4): shuffle uses hash(v1) and hash(v4) directly.
+     * Always correct regardless of rule state.
      */
     @Test
-    void testExpressionInJoinOnClausePassesWithRule() {
-        connectContext.getSessionVariable().setCboDisabledRules("");
-        connectContext.getSessionVariable().setEnablePlanValidation(true);
-
-        String sql = "select count(*) from t0 join t1 on t0.v1 + 1 = t1.v4";
-        assertDoesNotThrow(() -> getFragmentPlan(sql));
-    }
-
-    /**
-     * When plan validation is disabled, the checker should not block the query even if
-     * the rule is disabled and expressions remain un-projected.
-     */
-    @Test
-    void testCheckerSkippedWhenValidationDisabled() {
+    void testColumnRefEquality_alwaysCorrectDistribution() throws Exception {
         connectContext.getSessionVariable().setCboDisabledRules(
                 "TF_PUSH_DOWN_JOIN_ON_EXPRESSION_TO_CHILD_PROJECT");
-        connectContext.getSessionVariable().setEnablePlanValidation(false);
-
-        String sql = "select count(*) from t0 join t1 on t0.v1 + 1 = t1.v4";
-        assertDoesNotThrow(() -> getFragmentPlan(sql));
-    }
-
-    /**
-     * Plain column-ref equality predicates (v1 = v4) should always pass validation,
-     * regardless of whether the rule is enabled or disabled.
-     */
-    @Test
-    void testColumnRefOnlyPredicateAlwaysPasses() {
-        connectContext.getSessionVariable().setCboDisabledRules(
-                "TF_PUSH_DOWN_JOIN_ON_EXPRESSION_TO_CHILD_PROJECT");
-        connectContext.getSessionVariable().setEnablePlanValidation(true);
-
         String sql = "select count(*) from t0 join t1 on t0.v1 = t1.v4";
+        // Should pass even with the rule disabled — no expression to project
         assertDoesNotThrow(() -> getFragmentPlan(sql));
     }
 
+    // ==================== Distribution mismatch: rule disabled ====================
+
     /**
-     * Left join with expression in ON clause should also be detected.
+     * With rule disabled: expression v1+1 stays in the ON predicate.
+     * JoinHelper would derive shuffle key as v1 (base column) instead of v1+1 (expression).
+     * Checker detects this distribution mismatch.
      */
     @Test
-    void testLeftJoinExpressionDetected() {
+    void testExpressionNotProjected_shuffleDistributionMismatch() {
         connectContext.getSessionVariable().setCboDisabledRules(
                 "TF_PUSH_DOWN_JOIN_ON_EXPRESSION_TO_CHILD_PROJECT");
         connectContext.getSessionVariable().setEnablePlanValidation(true);
 
-        String sql = "select count(*) from t0 left join t1 on t0.v1 + t0.v2 = t1.v4";
+        String sql = "select count(*) from t0 join t1 on t0.v1 + 1 = t1.v4";
         Exception ex = assertThrows(Exception.class, () -> getFragmentPlan(sql));
-        assertTrue(ex.getMessage().contains("Join on-predicate check failed")
-                        || ex.getMessage().contains("non-column-ref"),
-                "Expected JoinOnPredicateChecker error, got: " + ex.getMessage());
+        assertTrue(ex.getMessage().contains("Shuffle distribution check failed"),
+                "Expected shuffle distribution error, got: " + ex.getMessage());
     }
 
     /**
-     * Right side expression in ON clause should also be detected.
+     * Right-side expression (v4 + 1): same distribution mismatch.
+     * Shuffle would use hash(v4) but equality needs hash(v4 + 1).
      */
     @Test
-    void testRightSideExpressionDetected() {
+    void testRightExpressionNotProjected_shuffleDistributionMismatch() {
         connectContext.getSessionVariable().setCboDisabledRules(
                 "TF_PUSH_DOWN_JOIN_ON_EXPRESSION_TO_CHILD_PROJECT");
         connectContext.getSessionVariable().setEnablePlanValidation(true);
 
         String sql = "select count(*) from t0 join t1 on t0.v1 = t1.v4 + 1";
         Exception ex = assertThrows(Exception.class, () -> getFragmentPlan(sql));
-        assertTrue(ex.getMessage().contains("Join on-predicate check failed")
-                        || ex.getMessage().contains("non-column-ref"),
-                "Expected JoinOnPredicateChecker error, got: " + ex.getMessage());
+        assertTrue(ex.getMessage().contains("Shuffle distribution check failed"),
+                "Expected shuffle distribution error, got: " + ex.getMessage());
+    }
+
+    /**
+     * LEFT JOIN with expression: forces SHUFFLE (not broadcast) distribution since
+     * right join requires shuffle. Same distribution mismatch applies.
+     */
+    @Test
+    void testLeftJoinExpression_shuffleDistributionMismatch() {
+        connectContext.getSessionVariable().setCboDisabledRules(
+                "TF_PUSH_DOWN_JOIN_ON_EXPRESSION_TO_CHILD_PROJECT");
+        connectContext.getSessionVariable().setEnablePlanValidation(true);
+
+        String sql = "select count(*) from t0 left join t1 on t0.v1 + t0.v2 = t1.v4";
+        Exception ex = assertThrows(Exception.class, () -> getFragmentPlan(sql));
+        assertTrue(ex.getMessage().contains("Shuffle distribution check failed"),
+                "Expected shuffle distribution error, got: " + ex.getMessage());
+    }
+
+    // ==================== Validation toggle ====================
+
+    /**
+     * With plan validation disabled, checker is skipped. The query produces a plan
+     * with incorrect shuffle distribution (wrong result in production) but no error
+     * during planning.
+     */
+    @Test
+    void testValidationDisabled_incorrectDistributionSilentlyAllowed() {
+        connectContext.getSessionVariable().setCboDisabledRules(
+                "TF_PUSH_DOWN_JOIN_ON_EXPRESSION_TO_CHILD_PROJECT");
+        connectContext.getSessionVariable().setEnablePlanValidation(false);
+
+        String sql = "select count(*) from t0 join t1 on t0.v1 + 1 = t1.v4";
+        // Query plans successfully, but the shuffle distribution is incorrect.
+        // Without the checker, this would silently produce wrong results at runtime.
+        assertDoesNotThrow(() -> getFragmentPlan(sql));
     }
 }

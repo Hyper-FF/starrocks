@@ -40,48 +40,69 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JoinOnPredicateCheckerTest {
 
+    /**
+     * Column-ref equality (col_a = col_b): shuffle by hash(col_a) and hash(col_b).
+     * JoinHelper.getUsedColumns().getFirstId() returns the correct column for both sides,
+     * so shuffle distribution is correct.
+     */
     @Test
-    void testColumnRefPredicatesPasses() {
-        // Both sides are column refs — should pass
+    void testColumnRefEquality_correctShuffleDistribution() {
         ColumnRefOperator leftCol = new ColumnRefOperator(1, IntegerType.INT, "l", true);
         ColumnRefOperator rightCol = new ColumnRefOperator(2, IntegerType.INT, "r", true);
         OptExpression root = buildHashJoinExpr(leftCol, rightCol, leftCol, rightCol);
         assertDoesNotThrow(() -> JoinOnPredicateChecker.getInstance().validate(root, null));
     }
 
+    /**
+     * Expression equality (col_a + 1 = col_b): JoinHelper would extract col_a
+     * via getUsedColumns().getFirstId() and shuffle by hash(col_a), but the actual
+     * join condition requires hash(col_a + 1). This produces wrong data co-location.
+     * <p>
+     * Example: left row col_a=5 → hash(5) → nodeA, right row col_b=6 → hash(6) → nodeB.
+     * But 5+1=6, so they should match — they end up on different nodes → WRONG RESULT.
+     */
     @Test
-    void testExpressionInLeftSideFails() {
-        // Left side is an expression (add function), right side is column ref — should fail
+    void testLeftExpressionEquality_incorrectShuffleDistribution() {
         ColumnRefOperator leftCol = new ColumnRefOperator(1, IntegerType.INT, "l", true);
         ColumnRefOperator rightCol = new ColumnRefOperator(2, IntegerType.INT, "r", true);
+        // Simulates: l + 1 = r (expression on left side)
         ScalarOperator addExpr = new CallOperator("add", IntegerType.INT,
                 List.of(leftCol, ConstantOperator.createInt(1)));
         OptExpression root = buildHashJoinExpr(addExpr, rightCol, leftCol, rightCol);
 
         StarRocksPlannerException ex = assertThrows(StarRocksPlannerException.class,
                 () -> JoinOnPredicateChecker.getInstance().validate(root, null));
-        assertTrue(ex.getMessage().contains("non-column-ref"),
+        assertTrue(ex.getMessage().contains("Shuffle distribution check failed"),
                 "Unexpected error: " + ex.getMessage());
+        assertTrue(ex.getMessage().contains("not projected to a column ref"),
+                "Should mention the unprojected expression: " + ex.getMessage());
     }
 
+    /**
+     * Expression on right side (col_a = col_b + 1): same distribution mismatch problem.
+     * Shuffle uses hash(col_b) but equality needs hash(col_b + 1).
+     */
     @Test
-    void testExpressionInRightSideFails() {
-        // Left side is column ref, right side is an expression — should fail
+    void testRightExpressionEquality_incorrectShuffleDistribution() {
         ColumnRefOperator leftCol = new ColumnRefOperator(1, IntegerType.INT, "l", true);
         ColumnRefOperator rightCol = new ColumnRefOperator(2, IntegerType.INT, "r", true);
+        // Simulates: l = r + 1 (expression on right side)
         ScalarOperator addExpr = new CallOperator("add", IntegerType.INT,
                 List.of(rightCol, ConstantOperator.createInt(1)));
         OptExpression root = buildHashJoinExpr(leftCol, addExpr, leftCol, rightCol);
 
         StarRocksPlannerException ex = assertThrows(StarRocksPlannerException.class,
                 () -> JoinOnPredicateChecker.getInstance().validate(root, null));
-        assertTrue(ex.getMessage().contains("non-column-ref"),
+        assertTrue(ex.getMessage().contains("Shuffle distribution check failed"),
                 "Unexpected error: " + ex.getMessage());
     }
 
+    /**
+     * No on-predicate (cross join): no equality predicates → no shuffle distribution
+     * requirement → always valid.
+     */
     @Test
-    void testNullOnPredicatePasses() {
-        // No on-predicate (cross join) — should pass
+    void testCrossJoin_noShuffleDistribution() {
         PhysicalHashJoinOperator join = new PhysicalHashJoinOperator(
                 JoinOperator.CROSS_JOIN,
                 null,
