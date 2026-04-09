@@ -98,9 +98,28 @@ public class JoinHelper {
             boolean nullStrict = binaryPredicate.getBinaryType() == EQ_FOR_NULL;
             leftTableAggStrict = leftTableAggStrict || nullStrict;
             rightTableAggStrict = rightTableAggStrict || nullStrict;
-            ColumnRefSet leftUsedColumns = binaryPredicate.getChild(0).getUsedColumns();
-            ColumnRefSet rightUsedColumns = binaryPredicate.getChild(1).getUsedColumns();
-            // Join on expression had pushed down to project node, so there must be one column
+
+            ScalarOperator leftOperand = binaryPredicate.getChild(0);
+            ScalarOperator rightOperand = binaryPredicate.getChild(1);
+
+            // Only column-ref predicates can be used as shuffle distribution keys.
+            // If an operand is an expression (e.g. col + 1), getUsedColumns().getFirstId()
+            // returns the base column — not the expression value — producing a wrong shuffle key.
+            // Expression predicates are still evaluated as local join conditions after shuffle.
+            // PushDownJoinOnExpressionToChildProject should have projected expressions to
+            // column refs; this is a defensive fallback for cases where that rule didn't run.
+            if (!leftOperand.isColumnRef() && !rightOperand.isColumnRef()) {
+                continue;
+            }
+            if (!leftOperand.isColumnRef() || !rightOperand.isColumnRef()) {
+                // One side is column ref, the other is expression — skip this predicate
+                // for distribution. Shuffling by fewer columns is valid per isSatisfy() semantics.
+                continue;
+            }
+
+            ColumnRefSet leftUsedColumns = leftOperand.getUsedColumns();
+            ColumnRefSet rightUsedColumns = rightOperand.getUsedColumns();
+
             if (leftUsedColumns.cardinality() > 1 || rightUsedColumns.cardinality() > 1) {
                 throw new StarRocksPlannerException(
                         "we do not support equal on predicate have multi columns in left or right",
