@@ -106,6 +106,29 @@ class JoinOnPredicateCheckerPlanTest extends PlanTestBase {
     }
 
     /**
+     * Multi-predicate: v1=v4 AND v2+1=v5.
+     * <p>
+     * SHUFFLE_JOIN uses ALL equality columns: left hash(v1, v2), right hash(v4, v5).
+     * Even though v1=v4 is correct, v2+1=v5 with shuffle by v2 (not v2+1) is wrong.
+     * In SHUFFLE_JOIN semantics, fewer correct columns do NOT compensate for one
+     * incorrect column — the combined hash is wrong.
+     * <p>
+     * Example: left(v1=1, v2=5) → hash(1,5), right(v4=1, v5=6) → hash(1,6).
+     * Should match (v1=v4, v2+1=v5) but hash(1,5)≠hash(1,6) → different nodes.
+     */
+    @Test
+    void testMultiPredicate_partialExpression_shuffleDistributionMismatch() {
+        connectContext.getSessionVariable().setCboDisabledRules(
+                "TF_PUSH_DOWN_JOIN_ON_EXPRESSION_TO_CHILD_PROJECT");
+        connectContext.getSessionVariable().setEnablePlanValidation(true);
+
+        String sql = "select count(*) from t0 join t1 on t0.v1 = t1.v4 and t0.v2 + 1 = t1.v5";
+        Exception ex = assertThrows(Exception.class, () -> getFragmentPlan(sql));
+        assertTrue(ex.getMessage().contains("Shuffle distribution check failed"),
+                "Expected shuffle distribution error, got: " + ex.getMessage());
+    }
+
+    /**
      * Right-side expression (v4 + 1): same distribution mismatch.
      * Shuffle would use hash(v4) but equality needs hash(v4 + 1).
      */

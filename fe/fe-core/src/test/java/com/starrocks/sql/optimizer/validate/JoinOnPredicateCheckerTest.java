@@ -27,6 +27,7 @@ import com.starrocks.sql.optimizer.operator.physical.PhysicalHashJoinOperator;
 import com.starrocks.sql.optimizer.operator.scalar.BinaryPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.CallOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
+import com.starrocks.sql.optimizer.operator.scalar.CompoundPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ConstantOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.type.IntegerType;
@@ -123,6 +124,93 @@ class JoinOnPredicateCheckerTest {
 
         OptExpression root = OptExpression.create(join, left, right);
         assertDoesNotThrow(() -> JoinOnPredicateChecker.getInstance().validate(root, null));
+    }
+
+    // ==================== Multi-predicate: distribution uses ALL equality columns ====================
+
+    /**
+     * SHUFFLE_JOIN uses ALL equality predicate columns for distribution.
+     * Two column-ref equalities (a=c AND b=d): shuffle by hash(a,b) and hash(c,d).
+     * Both sides are column refs → distribution is correct.
+     */
+    @Test
+    void testMultiPredicate_allColumnRef_correctDistribution() {
+        ColumnRefOperator leftA = new ColumnRefOperator(1, IntegerType.INT, "a", true);
+        ColumnRefOperator leftB = new ColumnRefOperator(2, IntegerType.INT, "b", true);
+        ColumnRefOperator rightC = new ColumnRefOperator(3, IntegerType.INT, "c", true);
+        ColumnRefOperator rightD = new ColumnRefOperator(4, IntegerType.INT, "d", true);
+
+        OptExpression root = buildMultiPredicateHashJoin(
+                leftA, rightC, leftB, rightD,
+                new ColumnRefOperator[]{leftA, leftB},
+                new ColumnRefOperator[]{rightC, rightD});
+        assertDoesNotThrow(() -> JoinOnPredicateChecker.getInstance().validate(root, null));
+    }
+
+    /**
+     * Two equality predicates: a=c (column ref) AND b+1=d (expression).
+     * SHUFFLE_JOIN uses distribution cols [a, b] on left and [c, d] on right.
+     * <p>
+     * Even though the first predicate (a=c) would produce correct shuffle on its own,
+     * the combined distribution hash(a, b) != hash(c, d) when b+1=d.
+     * For example: left(a=1, b=5) → hash(1,5), right(c=1, d=6) → hash(1,6).
+     * They should match (a=c, b+1=d) but land on different nodes.
+     * <p>
+     * In SHUFFLE_JOIN semantics, fewer correct columns do NOT save the distribution
+     * when more columns have mismatched keys.
+     */
+    @Test
+    void testMultiPredicate_oneExpression_incorrectDistribution() {
+        ColumnRefOperator leftA = new ColumnRefOperator(1, IntegerType.INT, "a", true);
+        ColumnRefOperator leftB = new ColumnRefOperator(2, IntegerType.INT, "b", true);
+        ColumnRefOperator rightC = new ColumnRefOperator(3, IntegerType.INT, "c", true);
+        ColumnRefOperator rightD = new ColumnRefOperator(4, IntegerType.INT, "d", true);
+
+        // Second predicate has expression: b + 1 = d
+        ScalarOperator bPlusOne = new CallOperator("add", IntegerType.INT,
+                List.of(leftB, ConstantOperator.createInt(1)));
+
+        OptExpression root = buildMultiPredicateHashJoin(
+                leftA, rightC, bPlusOne, rightD,
+                new ColumnRefOperator[]{leftA, leftB},
+                new ColumnRefOperator[]{rightC, rightD});
+
+        StarRocksPlannerException ex = assertThrows(StarRocksPlannerException.class,
+                () -> JoinOnPredicateChecker.getInstance().validate(root, null));
+        assertTrue(ex.getMessage().contains("Shuffle distribution check failed"),
+                "Unexpected error: " + ex.getMessage());
+    }
+
+    /**
+     * Build a hash join with two equality predicates: (eq1Left = eq1Right) AND (eq2Left = eq2Right).
+     */
+    private static OptExpression buildMultiPredicateHashJoin(
+            ScalarOperator eq1Left, ScalarOperator eq1Right,
+            ScalarOperator eq2Left, ScalarOperator eq2Right,
+            ColumnRefOperator[] leftOutputCols, ColumnRefOperator[] rightOutputCols) {
+
+        BinaryPredicateOperator pred1 = new BinaryPredicateOperator(BinaryType.EQ, eq1Left, eq1Right);
+        BinaryPredicateOperator pred2 = new BinaryPredicateOperator(BinaryType.EQ, eq2Left, eq2Right);
+        ScalarOperator onPredicate = new CompoundPredicateOperator(
+                CompoundPredicateOperator.CompoundType.AND, pred1, pred2);
+
+        PhysicalHashJoinOperator join = new PhysicalHashJoinOperator(
+                JoinOperator.INNER_JOIN,
+                onPredicate,
+                "",
+                Operator.DEFAULT_LIMIT,
+                null,
+                null,
+                null,
+                null);
+
+        OptExpression left = new OptExpression(new MockOperator(OperatorType.LOGICAL_VALUES));
+        left.setLogicalProperty(new LogicalProperty(ColumnRefSet.of(leftOutputCols)));
+
+        OptExpression right = new OptExpression(new MockOperator(OperatorType.LOGICAL_VALUES));
+        right.setLogicalProperty(new LogicalProperty(ColumnRefSet.of(rightOutputCols)));
+
+        return OptExpression.create(join, left, right);
     }
 
     private static OptExpression buildHashJoinExpr(ScalarOperator predicateLeft, ScalarOperator predicateRight,
