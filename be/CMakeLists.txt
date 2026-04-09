@@ -457,11 +457,19 @@ SET(CXX_FLAGS_UBSAN "${CXX_FLAGS_RELEASE} -fsanitize=undefined")
 # Turn on sanitizer and debug symbols to get stack traces:
 SET(CXX_FLAGS_TSAN "${CXX_GCC_FLAGS} -O0 -ggdb3 -fsanitize=thread -DTHREAD_SANITIZER")
 
+# For CMAKE_BUILD_TYPE=Dev
+#   Fast development build: minimal optimization for fast compile, minimal debug info
+#   for fast link, but enough to get useful backtraces.
+#   Use: BUILD_TYPE=Dev ./build.sh --be --with-unity-build ON --with-split-dwarf ON --with-fast-linker ON
+SET(CXX_FLAGS_DEV "${CXX_GCC_FLAGS} -O1 -g1 -DNDEBUG")
+
 # Set compile flags based on the build type.
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     SET(CMAKE_CXX_FLAGS ${CXX_FLAGS_DEBUG})
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
     SET(CMAKE_CXX_FLAGS ${CXX_FLAGS_RELEASE})
+elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "DEV")
+    SET(CMAKE_CXX_FLAGS "${CXX_FLAGS_DEV}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "ASAN")
     SET(CMAKE_CXX_FLAGS "${CXX_FLAGS_ASAN}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "LSAN")
@@ -716,6 +724,54 @@ if (${WITH_TENANN} STREQUAL "ON")
     )
 endif()
 
+# ===== Build Speed Optimizations =====
+
+# Unity Build: batch multiple .cpp files into single translation units to reduce
+# redundant header parsing. Can give 3-5x compilation speedup for full builds.
+option(WITH_UNITY_BUILD "Enable CMake Unity Build to batch .cpp files" OFF)
+if (WITH_UNITY_BUILD)
+    set(CMAKE_UNITY_BUILD ON)
+    # Default batch size of 16 files per unity source is a good balance between
+    # compile speed (fewer TUs) and memory usage (larger TUs need more RAM).
+    set(CMAKE_UNITY_BUILD_BATCH_SIZE 16 CACHE STRING "Number of sources per unity batch")
+    message(STATUS "Unity Build enabled with batch size ${CMAKE_UNITY_BUILD_BATCH_SIZE}")
+endif()
+
+# Split DWARF: emit debug info into separate .dwo files so the linker doesn't
+# have to process them, dramatically reducing link time for debug/dev builds.
+option(WITH_SPLIT_DWARF "Emit debug info into .dwo files (-gsplit-dwarf)" OFF)
+if (WITH_SPLIT_DWARF)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -gsplit-dwarf")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -gsplit-dwarf")
+    # Use -gno-pubnames to further reduce .debug_info size with split-dwarf.
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -gno-pubnames")
+    message(STATUS "Split DWARF enabled (-gsplit-dwarf)")
+endif()
+
+# Fast Linker: auto-detect and use mold or lld for dramatically faster link times.
+# mold can be 5-12x faster than GNU ld for large C++ binaries like starrocks_be.
+option(WITH_FAST_LINKER "Auto-detect and use mold or lld linker" OFF)
+if (WITH_FAST_LINKER)
+    # Prefer mold > lld > default
+    find_program(MOLD_LINKER "mold")
+    find_program(LLD_LINKER "ld.lld")
+    if (MOLD_LINKER)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=mold")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=mold")
+        message(STATUS "Fast linker: using mold (${MOLD_LINKER})")
+    elseif (LLD_LINKER)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
+        message(STATUS "Fast linker: using lld (${LLD_LINKER})")
+    else()
+        message(WARNING "WITH_FAST_LINKER is ON but neither mold nor lld was found; using default linker")
+    endif()
+endif()
+
+# Use pipes between compiler stages instead of temp files (small but free speedup).
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pipe")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pipe")
+
 # enable global pch compiling
 option(WITH_PCH "Enable precompiled headers for BE targets" ON)
 if (WITH_PCH)
@@ -754,7 +810,7 @@ set(BUILD_FOR_SANITIZE "OFF")
 set(DEP_SANITIZE_LIBS "")
 
 # Add sanitize static link flags or jemalloc
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE" OR "${CMAKE_BUILD_TYPE}" STREQUAL "DEV")
     message("use jemalloc")
     set(STARROCKS_LINK_LIBS ${STARROCKS_LINK_LIBS} jemalloc)
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "ASAN")

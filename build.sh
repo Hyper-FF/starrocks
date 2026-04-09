@@ -94,7 +94,10 @@ else
         ${STARROCKS_THIRDPARTY}/build-thirdparty.sh
     fi
     host_parallelism=$(starrocks_detect_parallelism)
-    PARALLEL=$[$host_parallelism/4+1]
+    # Use full CPU count by default; override with -j flag if needed.
+    # The old nproc/4+1 was far too conservative and is the single largest
+    # contributor to slow builds on most machines.
+    PARALLEL=${host_parallelism}
 fi
 
 # Check args
@@ -140,6 +143,15 @@ Usage: $0 <options>
      --output           specify the output directory (default: $STARROCKS_HOME/output)
      --disable-java-check-style
                         disable Java checkstyle checks during build (default: $DISABLE_JAVA_CHECK_STYLE)
+     --with-unity-build {ON|OFF}
+                        enable CMake Unity Build to batch .cpp files and reduce header parsing overhead.
+                        Can give 3-5x compilation speedup for full builds. (default: OFF)
+     --with-split-dwarf {ON|OFF}
+                        emit debug info into separate .dwo files (-gsplit-dwarf) to speed up linking.
+                        (default: OFF)
+     --with-fast-linker {ON|OFF}
+                        auto-detect and use mold or lld linker for faster link times.
+                        (default: OFF)
      -h,--help          Show this help message
   Eg.
     $0                                           build all
@@ -190,6 +202,9 @@ OPTS=$(${GETOPT_BIN} \
   -l 'output:' \
   -l 'help' \
   -l 'disable-java-check-style' \
+  -l 'with-unity-build:' \
+  -l 'with-split-dwarf:' \
+  -l 'with-fast-linker:' \
   -- "$@")
 
 if [ $? != 0 ] ; then
@@ -227,6 +242,9 @@ CONFIGURE_ONLY=OFF
 WITH_RELATIVE_SRC_PATH=ON
 ENABLE_MULTI_DYNAMIC_LIBS=OFF
 BUILD_BE_MODULE=all
+WITH_UNITY_BUILD=OFF
+WITH_SPLIT_DWARF=OFF
+WITH_FAST_LINKER=OFF
 
 # Default to OFF, turn it ON if current shell is non-interactive
 WITH_MAVEN_BATCH_MODE=OFF
@@ -268,7 +286,16 @@ fi
 
 if [[ -z ${CCACHE} ]] && [[ -x "$(command -v ccache)" ]]; then
     CCACHE=ccache
-    export CCACHE_SLOPPINESS="pch_defines,include_file_mtime,time_macros,include_file_ctime"
+    # Sloppy mode avoids unnecessary cache misses from timestamps and macros.
+    export CCACHE_SLOPPINESS="pch_defines,include_file_mtime,time_macros,include_file_ctime,file_stat_matches,clang_index_store,system_headers"
+    # Compress cache entries (level 1 is fast and still saves ~50% space).
+    export CCACHE_COMPRESS=1
+    export CCACHE_COMPRESSLEVEL=1
+    # Default max cache size is 5GB which is too small for StarRocks.
+    # Set to 20GB unless already overridden by the user.
+    if [[ -z ${CCACHE_MAXSIZE} ]]; then
+        export CCACHE_MAXSIZE=20G
+    fi
 fi
 
 if [ -e /proc/cpuinfo ] ; then
@@ -351,6 +378,9 @@ else
             --help) HELP=1; shift ;;
             -j) PARALLEL=$2; shift 2 ;;
             --disable-java-check-style) DISABLE_JAVA_CHECK_STYLE=ON; shift ;;
+            --with-unity-build) WITH_UNITY_BUILD=$2 ; shift 2 ;;
+            --with-split-dwarf) WITH_SPLIT_DWARF=$2 ; shift 2 ;;
+            --with-fast-linker) WITH_FAST_LINKER=$2 ; shift 2 ;;
             --) shift ;  break ;;
             *) echo "Internal error" ; exit 1 ;;
         esac
@@ -416,6 +446,9 @@ echo "Get params:
     DISABLE_JAVA_CHECK_STYLE    -- $DISABLE_JAVA_CHECK_STYLE
     ENABLE_MULTI_DYNAMIC_LIBS   -- $ENABLE_MULTI_DYNAMIC_LIBS
     BUILD_BE_MODULE             -- $BUILD_BE_MODULE
+    WITH_UNITY_BUILD            -- $WITH_UNITY_BUILD
+    WITH_SPLIT_DWARF            -- $WITH_SPLIT_DWARF
+    WITH_FAST_LINKER            -- $WITH_FAST_LINKER
 "
 
 check_tool()
@@ -559,6 +592,9 @@ if [ ${BUILD_BE} -eq 1 ] || [ ${BUILD_FORMAT_LIB} -eq 1 ] ; then
                   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON                    \
                   -DBUILD_FORMAT_LIB=${BUILD_FORMAT_LIB}                \
                   -DWITH_RELATIVE_SRC_PATH=${WITH_RELATIVE_SRC_PATH}    \
+                  -DWITH_UNITY_BUILD=${WITH_UNITY_BUILD}                \
+                  -DWITH_SPLIT_DWARF=${WITH_SPLIT_DWARF}                \
+                  -DWITH_FAST_LINKER=${WITH_FAST_LINKER}                \
                   ${STARROCKS_HOME}/be
 
     if [ "${CONFIGURE_ONLY}" == "ON" ]; then

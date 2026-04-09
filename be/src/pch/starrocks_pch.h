@@ -15,6 +15,8 @@
 #pragma once
 
 #ifdef __cplusplus
+
+// C++ standard library headers (most frequently used across the codebase)
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -28,8 +30,10 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <optional>
 #include <set>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -40,4 +44,20 @@
 #include <utility>
 #include <variant>
 #include <vector>
+
+// Third-party headers that are widely used
+#include <fmt/format.h>
+#include <glog/logging.h>
+
+// Low-level StarRocks project headers that are included by hundreds of files.
+// These are all in the base/gutil/common layers with no circular-dependency risk.
+#include "base/string/slice.h"
+#include "base/utility/defer_op.h"
+#include "column/vectorized_fwd.h"
+#include "common/logging.h"
+#include "common/status.h"
+#include "common/statusor.h"
+#include "gutil/casts.h"
+#include "gutil/strings/substitute.h"
+
 #endif
