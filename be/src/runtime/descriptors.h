@@ -72,8 +72,7 @@ public:
     int32_t col_unique_id() const { return _col_unique_id; }
     std::string_view col_physical_name() const { return _col_physical_name; }
 
-    SlotDescriptor(const TSlotDescriptor& tdesc,
-                   std::pmr::memory_resource* mr = std::pmr::get_default_resource());
+    SlotDescriptor(const TSlotDescriptor& tdesc, std::pmr::memory_resource* mr = std::pmr::get_default_resource());
 
 private:
     friend class DescriptorTbl;
@@ -103,15 +102,13 @@ private:
 
     const bool _is_virtual;
 
-    SlotDescriptor(const PSlotDescriptor& pdesc,
-                   std::pmr::memory_resource* mr = std::pmr::get_default_resource());
+    SlotDescriptor(const PSlotDescriptor& pdesc, std::pmr::memory_resource* mr = std::pmr::get_default_resource());
 };
 
 // Base class for table descriptors.
 class TableDescriptor {
 public:
-    TableDescriptor(const TTableDescriptor& tdesc,
-                    std::pmr::memory_resource* mr = std::pmr::get_default_resource());
+    TableDescriptor(const TTableDescriptor& tdesc, std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     virtual ~TableDescriptor() = default;
     TableId table_id() const { return _id; }
     virtual std::string debug_string() const;
@@ -205,11 +202,7 @@ private:
               _slot_with_column_name_map(_mr) {}
 
     explicit DescriptorTbl(std::pmr::memory_resource* mr)
-            : _mr(mr),
-              _tbl_desc_map(_mr),
-              _tuple_desc_map(_mr),
-              _slot_desc_map(_mr),
-              _slot_with_column_name_map(_mr) {}
+            : _mr(mr), _tbl_desc_map(_mr), _tuple_desc_map(_mr), _slot_desc_map(_mr), _slot_with_column_name_map(_mr) {}
 
     friend class ObjectPool;
 };

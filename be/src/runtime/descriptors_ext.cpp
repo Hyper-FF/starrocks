@@ -57,8 +57,7 @@ std::string HdfsPartitionDescriptor::debug_string() const {
     return out.str();
 }
 
-HdfsTableDescriptor::HdfsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
-                                         std::pmr::memory_resource* mr)
+HdfsTableDescriptor::HdfsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool, std::pmr::memory_resource* mr)
         : HiveTableDescriptor(tdesc, pool, mr),
           _serde_lib(tdesc.hdfsTable.serde_lib, mr),
           _input_format(tdesc.hdfsTable.input_format, mr),
@@ -99,8 +98,7 @@ std::string_view HdfsTableDescriptor::get_time_zone() const {
     return _time_zone;
 }
 
-FileTableDescriptor::FileTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
-                                         std::pmr::memory_resource* mr)
+FileTableDescriptor::FileTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool, std::pmr::memory_resource* mr)
         : HiveTableDescriptor(tdesc, pool, mr),
           _serde_lib(tdesc.fileTable.serde_lib, mr),
           _input_format(tdesc.fileTable.input_format, mr),
@@ -220,8 +218,7 @@ DeltaLakeTableDescriptor::DeltaLakeTableDescriptor(const TTableDescriptor& tdesc
     }
 }
 
-HudiTableDescriptor::HudiTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
-                                         std::pmr::memory_resource* mr)
+HudiTableDescriptor::HudiTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool, std::pmr::memory_resource* mr)
         : HiveTableDescriptor(tdesc, pool, mr),
           _hudi_instant_time(tdesc.hudiTable.instant_time, mr),
           _hive_column_names(tdesc.hudiTable.hive_column_names, mr),
@@ -277,8 +274,7 @@ std::string_view PaimonTableDescriptor::get_time_zone() const {
     return _time_zone;
 }
 
-OdpsTableDescriptor::OdpsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
-                                         std::pmr::memory_resource* mr)
+OdpsTableDescriptor::OdpsTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool, std::pmr::memory_resource* mr)
         : HiveTableDescriptor(tdesc, pool, mr),
           _database_name(tdesc.dbName, mr),
           _table_name(tdesc.tableName, mr),
@@ -299,16 +295,11 @@ std::string_view OdpsTableDescriptor::get_time_zone() const {
     return _time_zone;
 }
 
-KuduTableDescriptor::KuduTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
-                                         std::pmr::memory_resource* mr)
+KuduTableDescriptor::KuduTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool, std::pmr::memory_resource* mr)
         : HiveTableDescriptor(tdesc, pool, mr) {}
 
-HiveTableDescriptor::HiveTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool,
-                                         std::pmr::memory_resource* mr)
-        : TableDescriptor(tdesc, mr),
-          _hdfs_base_path(mr),
-          _table_location(mr),
-          _mr(mr) {}
+HiveTableDescriptor::HiveTableDescriptor(const TTableDescriptor& tdesc, ObjectPool* pool, std::pmr::memory_resource* mr)
+        : TableDescriptor(tdesc, mr), _hdfs_base_path(mr), _table_location(mr), _mr(mr) {}
 
 bool HiveTableDescriptor::is_partition_col(const SlotDescriptor* slot) const {
     return get_partition_col_index(slot) >= 0;

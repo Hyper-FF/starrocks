@@ -278,8 +278,7 @@ public:
 
 class EsTableDescriptor : public TableDescriptor {
 public:
-    EsTableDescriptor(const TTableDescriptor& tdesc,
-                      std::pmr::memory_resource* mr = std::pmr::get_default_resource());
+    EsTableDescriptor(const TTableDescriptor& tdesc, std::pmr::memory_resource* mr = std::pmr::get_default_resource());
     ~EsTableDescriptor() override;
     std::string debug_string() const override;
 };
