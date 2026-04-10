@@ -241,7 +241,7 @@ struct TBrokerScanRangeParams {
     5: required Types.TTupleId dest_tuple_id
     // This is expr that convert the content read from file
     // the format that need by the compute layer.
-    6: optional map<Types.TSlotId, Exprs.TExpr> expr_of_dest_slot
+    6: optional map<Types.TSlotId, Exprs.TExpr> expr_of_dest_slot (cpp.template = "std::unordered_map")
 
     // properties need to access broker.
     7: optional map<string, string> properties;
@@ -251,7 +251,7 @@ struct TBrokerScanRangeParams {
 
     // This is the mapping of dest slot id and src slot id in load expr
     // It excludes the slot id which has the transform expr
-    9: optional map<Types.TSlotId, Types.TSlotId> dest_sid_to_src_sid_without_trans
+    9: optional map<Types.TSlotId, Types.TSlotId> dest_sid_to_src_sid_without_trans (cpp.template = "std::unordered_map")
     // strictMode is a boolean
     // if strict mode is true, the incorrect data (the result of cast is null) will not be loaded
     10: optional bool strict_mode
@@ -416,7 +416,7 @@ struct THdfsScanRange {
     27: optional TPaimonDeletionFile paimon_deletion_file
 
     // for extended column like iceberg data_seq_num or spec_id
-    28: optional map<Types.TSlotId, Exprs.TExpr> extended_columns;
+    28: optional map<Types.TSlotId, Exprs.TExpr> extended_columns (cpp.template = "std::unordered_map");
 
     // attached partition value.
     29: optional Descriptors.THdfsPartition partition_value;
@@ -435,7 +435,7 @@ struct THdfsScanRange {
     34: optional bool is_first_split
 
     // min/max value of slots
-    35: optional map<i32, Exprs.TExprMinMaxValue> min_max_values;
+    35: optional map<i32, Exprs.TExprMinMaxValue> min_max_values (cpp.template = "std::unordered_map");
 
     // mapping transformed bucket id, used to schedule scan range
     36: optional i32 bucket_id;
@@ -632,7 +632,7 @@ struct TOlapScanNode {
   20: optional string rollup_name
   21: optional string sql_predicates
   22: optional bool enable_column_expr_predicate
-  23: optional map<i32, i32> dict_string_id_to_int_ids
+  23: optional map<i32, i32> dict_string_id_to_int_ids (cpp.template = "std::unordered_map")
   // which columns only be used to filter data in the stage of scan data
   24: optional list<string> unused_output_column_name
   25: optional bool sorted_by_keys_per_tablet = false
@@ -687,7 +687,7 @@ struct TLakeScanNode {
   6: optional string rollup_name
   7: optional string sql_predicates
   8: optional bool enable_column_expr_predicate
-  9: optional map<i32, i32> dict_string_id_to_int_ids
+  9: optional map<i32, i32> dict_string_id_to_int_ids (cpp.template = "std::unordered_map")
   // which columns only be used to filter data in the stage of scan data
   10: optional list<string> unused_output_column_name
   11: optional list<string> sort_key_column_names
@@ -812,7 +812,7 @@ struct THashJoinNode {
   57: optional bool enable_partition_hash_join = false
   58: optional bool is_skew_join = false
 
-  59: optional map<Types.TSlotId, Exprs.TExpr> common_slot_map
+  59: optional map<Types.TSlotId, Exprs.TExpr> common_slot_map (cpp.template = "std::unordered_map")
 
   70: optional TAsofJoinCondition asof_join_condition
 }
@@ -854,7 +854,7 @@ struct TNestLoopJoinNode {
     3: optional list<Exprs.TExpr> join_conjuncts
     4: optional string sql_join_conjuncts
     5: optional bool interpolate_passthrough = false
-    6: optional map<Types.TSlotId, Exprs.TExpr> common_slot_map
+    6: optional map<Types.TSlotId, Exprs.TExpr> common_slot_map (cpp.template = "std::unordered_map")
 }
 
 enum TAggregationOp {
@@ -1133,7 +1133,7 @@ struct TUnionNode {
     // Index of the first child that needs to be materialized.
     4: required i64 first_materialized_child_idx
     // For pass through child, the slot map is union slot id -> child slot id
-    20: optional list<map<Types.TSlotId, Types.TSlotId>> pass_through_slot_maps
+    20: optional list<map<Types.TSlotId, Types.TSlotId> (cpp.template = "std::unordered_map")> pass_through_slot_maps
     // union node' local exchanger type with parent node, default is PASSTHROUGH
     21: optional TLocalExchangerType local_exchanger_type
 
@@ -1236,7 +1236,7 @@ struct THdfsScanNode {
     // Conjuncts that can be evaluated while materializing the items (tuples) of
     // collection-typed slots. Maps from item tuple id to the list of conjuncts
     // to be evaluated.
-    2: optional map<Types.TTupleId, list<Exprs.TExpr>> DEPRECATED_collection_conjuncts
+    2: optional map<Types.TTupleId, list<Exprs.TExpr>> DEPRECATED_collection_conjuncts (cpp.template = "std::unordered_map")
 
     // Conjuncts that can be evaluated against parquet::Statistics using the tuple
     // referenced by 'min_max_tuple_id'.
@@ -1246,7 +1246,7 @@ struct THdfsScanNode {
     4: optional Types.TTupleId min_max_tuple_id
 
     // The conjuncts that are eligible for dictionary filtering.
-    5: optional map<Types.TSlotId, list<i32>> DEPRECATED_dictionary_filter_conjuncts
+    5: optional map<Types.TSlotId, list<i32>> DEPRECATED_dictionary_filter_conjuncts (cpp.template = "std::unordered_map")
 
     // conjuncts in TPlanNode contains non-partition filters if node_type is HDFS_SCAN_NODE.
     // partition_conjuncts contains partition filters that are not evaled by pruner.
@@ -1306,19 +1306,19 @@ struct THdfsScanNode {
 }
 
 struct TProjectNode {
-    1: optional map<Types.TSlotId, Exprs.TExpr> slot_map
+    1: optional map<Types.TSlotId, Exprs.TExpr> slot_map (cpp.template = "std::unordered_map")
     // Used for common operator compute result reuse
-    2: optional map<Types.TSlotId, Exprs.TExpr> common_slot_map
+    2: optional map<Types.TSlotId, Exprs.TExpr> common_slot_map (cpp.template = "std::unordered_map")
 }
 
 struct TSelectNode {
      // used for common expressions compute result reuse
-    1: optional map<Types.TSlotId, Exprs.TExpr> common_slot_map
+    1: optional map<Types.TSlotId, Exprs.TExpr> common_slot_map (cpp.template = "std::unordered_map")
 }
 
 struct TMetaScanNode {
     // column id to column name
-    1: optional map<i32, string> id_to_names
+    1: optional map<i32, string> id_to_names (cpp.template = "std::unordered_map")
     2: optional list<Descriptors.TColumn> columns
     3: optional i32 low_cardinality_threshold
     4: optional list<TColumnAccessPath> column_access_paths
@@ -1330,8 +1330,8 @@ struct TMetaScanNode {
 
 struct TDecodeNode {
     // dict int column id to string column id
-    1: optional map<i32, i32> dict_id_to_string_ids
-    2: optional map<Types.TSlotId, Exprs.TExpr> string_functions
+    1: optional map<i32, i32> dict_id_to_string_ids (cpp.template = "std::unordered_map")
+    2: optional map<Types.TSlotId, Exprs.TExpr> string_functions (cpp.template = "std::unordered_map")
 }
 
 struct TCrossJoinNode {
@@ -1378,7 +1378,7 @@ struct TBinlogScanNode {
 
 struct TCacheStatsScanNode {
     1: optional Types.TTupleId tuple_id
-    2: optional map<i32, string> id_to_names
+    2: optional map<i32, string> id_to_names (cpp.template = "std::unordered_map")
     3: optional i64 table_id
     4: optional string table_name
 }
@@ -1434,17 +1434,17 @@ struct TStreamAggregationNode {
 struct TPlanNodeCommon {
   // heavy_exprs are extracted from projection and shall be push down to ScanNode and
   // it is evaluated by ScanNode's ChunkSource in io threads.
-  1: optional map<Types.TSlotId, Exprs.TExpr> heavy_exprs
+  1: optional map<Types.TSlotId, Exprs.TExpr> heavy_exprs (cpp.template = "std::unordered_map")
 }
 
 struct TFetchNode {
   1: optional i32 target_node_id
-  2: optional map<Types.TTupleId, Descriptors.TRowPositionDescriptor> row_pos_descs;
+  2: optional map<Types.TTupleId, Descriptors.TRowPositionDescriptor> row_pos_descs (cpp.template = "std::unordered_map");
   3: optional Descriptors.TNodesInfo nodes_info
 }
 
 struct TLookUpNode {
-  1: optional map<Types.TTupleId, Descriptors.TRowPositionDescriptor> row_pos_descs;
+  1: optional map<Types.TTupleId, Descriptors.TRowPositionDescriptor> row_pos_descs (cpp.template = "std::unordered_map");
 }
 
 // This is essentially a union of all messages corresponding to subclasses

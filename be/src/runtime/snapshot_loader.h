@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "common/status.h"
@@ -64,7 +65,7 @@ public:
     ~SnapshotLoader() = default;
 
     Status upload(const std::map<std::string, std::string>& src_to_dest_path, const TUploadReq& upload,
-                  std::map<int64_t, std::vector<std::string>>* tablet_files);
+                  std::unordered_map<int64_t, std::vector<std::string>>* tablet_files);
 
     Status download(const std::map<std::string, std::string>& src_to_dest_path, const TDownloadReq& download,
                     std::vector<int64_t>* downloaded_tablet_ids);

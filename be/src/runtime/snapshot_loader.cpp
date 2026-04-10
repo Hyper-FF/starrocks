@@ -90,7 +90,7 @@ SnapshotLoader::SnapshotLoader(ExecEnv* env, int64_t job_id, int64_t task_id)
         : _env(env), _job_id(job_id), _task_id(task_id) {}
 
 Status SnapshotLoader::upload(const std::map<std::string, std::string>& src_to_dest_path, const TUploadReq& upload,
-                              std::map<int64_t, std::vector<std::string>>* tablet_files) {
+                              std::unordered_map<int64_t, std::vector<std::string>>* tablet_files) {
     if (!upload.__isset.use_broker || upload.use_broker) {
         VLOG(2) << "begin to upload snapshot files. num: " << src_to_dest_path.size()
                 << ", broker addr: " << upload.broker_addr << ", job id: " << _job_id << ", task id: " << _task_id;

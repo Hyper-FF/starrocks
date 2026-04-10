@@ -248,7 +248,7 @@ struct TQueryExecRequest {
 
   // A map from scan node ids to a list of scan range locations.
   // The node ids refer to scan nodes in fragments[].plan_tree
-  4: optional map<Types.TPlanNodeId, list<Planner.TScanRangeLocations>>
+  4: optional map<Types.TPlanNodeId, list<Planner.TScanRangeLocations>> (cpp.template = "std::unordered_map")
       per_node_scan_ranges
 
   // Metadata of the query result set (only for select)
@@ -1030,8 +1030,8 @@ struct TMergeCommitResult {
 }
 
 struct TKafkaRLTaskProgress {
-    1: required map<i32,i64> partitionCmtOffset
-    2: optional map<i32,i64> partitionCmtOffsetTimestamp
+    1: required map<i32,i64> partitionCmtOffset (cpp.template = "std::unordered_map")
+    2: optional map<i32,i64> partitionCmtOffsetTimestamp (cpp.template = "std::unordered_map")
 }
 
 struct TPulsarRLTaskProgress {
@@ -1309,9 +1309,9 @@ struct TDataProperty {
 }
 
 struct TBasePartitionDesc {
-    1: optional map<i64, i16> replica_num_map
-    2: optional map<i64, bool> in_memory_map
-    3: optional map<i64, TDataProperty> data_property
+    1: optional map<i64, i16> replica_num_map (cpp.template = "std::unordered_map")
+    2: optional map<i64, bool> in_memory_map (cpp.template = "std::unordered_map")
+    3: optional map<i64, TDataProperty> data_property (cpp.template = "std::unordered_map")
 }
 
 struct TSinglePartitionDesc {
@@ -1331,7 +1331,7 @@ struct TRangePartitionDesc {
     // partition keys
     1: optional list<TColumnMeta> columns
     // partition ranges
-    2: optional map<i64, TRange> ranges
+    2: optional map<i64, TRange> ranges (cpp.template = "std::unordered_map")
 }
 
 struct TPartitionInfo {
@@ -1953,13 +1953,13 @@ struct TTabletReplicationInfo {
 struct TIndexReplicationInfo {
     1: optional i64 index_id
     2: optional i32 src_schema_hash
-    3: optional map<i64, TTabletReplicationInfo> tablet_replication_infos
+    3: optional map<i64, TTabletReplicationInfo> tablet_replication_infos (cpp.template = "std::unordered_map")
 }
 
 struct TPartitionReplicationInfo {
     1: optional i64 partition_id
     2: optional i64 src_version
-    3: optional map<i64, TIndexReplicationInfo> index_replication_infos
+    3: optional map<i64, TIndexReplicationInfo> index_replication_infos (cpp.template = "std::unordered_map")
     4: optional i64 src_version_epoch
     5: optional i64 src_partition_id
 }
@@ -1972,7 +1972,7 @@ struct TTableReplicationRequest {
     5: optional string src_token
     6: optional Types.TTableType src_table_type
     7: optional i64 src_table_data_size
-    8: optional map<i64, TPartitionReplicationInfo> partition_replication_infos
+    8: optional map<i64, TPartitionReplicationInfo> partition_replication_infos (cpp.template = "std::unordered_map")
     9: optional string job_id
     10: optional Types.TRunMode src_cluster_run_mode
     11: optional string src_storage_volume_name
@@ -2136,7 +2136,7 @@ struct TPartitionMetaResponse {
     1: optional Status.TStatus status;
     // (tablet_id -> array index in partition_metas)
     // In case of partial failure, the failed tablet_id will not be in the map
-    2: optional map<i64,i32> tablet_id_partition_meta_index;
+    2: optional map<i64,i32> tablet_id_partition_meta_index (cpp.template = "std::unordered_map");
     // all the partition meta info found for the tablets
     3: optional list<TPartitionMeta> partition_metas;
 }

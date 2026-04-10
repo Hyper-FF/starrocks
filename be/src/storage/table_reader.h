@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -53,7 +54,7 @@ struct TableReaderParams {
     TOlapTableLocationParam location_param;
     // node id -> host address map, used to find the RPC port of BE nodes
     TNodesInfo nodes_info;
-    std::map<int64_t, int64_t> partition_versions;
+    std::unordered_map<int64_t, int64_t> partition_versions;
     int64_t timeout_ms{-1};
 };
 

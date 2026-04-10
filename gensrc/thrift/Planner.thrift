@@ -45,8 +45,8 @@ include "Partitions.thrift"
 struct TCacheParam {
    1: optional i32 id;
    2: optional binary digest;
-   3: optional map<i32,i32> slot_remapping;
-   4: optional map<i64,string> region_map;
+   3: optional map<i32,i32> slot_remapping (cpp.template = "std::unordered_map");
+   4: optional map<i64,string> region_map (cpp.template = "std::unordered_map");
    5: optional bool force_populate;
    6: optional i64 entry_max_bytes;
    7: optional i64 entry_max_rows;
@@ -109,7 +109,7 @@ struct TPlanFragment {
   // For insert into table select * from table, we need to distinguish the global dicts for query and load
   21: optional list<Data.TGlobalDict> load_global_dicts
   22: optional TCacheParam cache_param
-  23: optional map<i32, Exprs.TExpr> query_global_dict_exprs
+  23: optional map<i32, Exprs.TExpr> query_global_dict_exprs (cpp.template = "std::unordered_map")
   24: optional TGroupExecutionParam group_execution_param
 }
 

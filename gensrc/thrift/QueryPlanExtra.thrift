@@ -51,7 +51,7 @@ struct TTabletVersionInfo {
 struct TQueryPlanInfo {
   1: required Planner.TPlanFragment plan_fragment
   // tablet_id -> TTabletVersionInfo
-  2: required map<i64, TTabletVersionInfo> tablet_info
+  2: required map<i64, TTabletVersionInfo> tablet_info (cpp.template = "std::unordered_map")
   3: required Descriptors.TDescriptorTable desc_tbl
   // all tablet scan should share one query_id
   4: required Types.TUniqueId query_id

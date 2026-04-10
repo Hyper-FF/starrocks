@@ -580,12 +580,12 @@ enum TRunMode {
 }
 
 struct TIcebergColumnStats {
-    1: optional map<i32, i64> column_sizes
-    2: optional map<i32, i64> value_counts
-    3: optional map<i32, i64> null_value_counts
-    4: optional map<i32, i64> nan_value_counts
-    5: optional map<i32, binary> lower_bounds;
-    6: optional map<i32, binary> upper_bounds;
+    1: optional map<i32, i64> column_sizes (cpp.template = "std::unordered_map")
+    2: optional map<i32, i64> value_counts (cpp.template = "std::unordered_map")
+    3: optional map<i32, i64> null_value_counts (cpp.template = "std::unordered_map")
+    4: optional map<i32, i64> nan_value_counts (cpp.template = "std::unordered_map")
+    5: optional map<i32, binary> lower_bounds (cpp.template = "std::unordered_map");
+    6: optional map<i32, binary> upper_bounds (cpp.template = "std::unordered_map");
 }
 
 enum TIcebergFileContent {

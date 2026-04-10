@@ -16,6 +16,8 @@
 
 #include <fmt/format.h>
 
+#include <unordered_map>
+
 #include "agent/agent_common.h"
 #include "agent/finish_task.h"
 #include "agent/task_signatures_manager.h"
@@ -719,7 +721,7 @@ void run_upload_task(const std::shared_ptr<UploadAgentTaskRequest>& agent_task_r
 
     VLOG(1) << "Got upload task signature=" << agent_task_req->signature << " job id=" << upload_request.job_id;
 
-    std::map<int64_t, std::vector<std::string>> tablet_files;
+    std::unordered_map<int64_t, std::vector<std::string>> tablet_files;
     SnapshotLoader loader(exec_env, upload_request.job_id, agent_task_req->signature);
     Status status = loader.upload(upload_request.src_dest_map, upload_request, &tablet_files);
 

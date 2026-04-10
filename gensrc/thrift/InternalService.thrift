@@ -418,11 +418,11 @@ struct TPlanFragmentExecParams {
   2: required Types.TUniqueId fragment_instance_id
 
   // initial scan ranges for each scan node in TPlanFragment.plan_tree
-  3: required map<Types.TPlanNodeId, list<TScanRangeParams>> per_node_scan_ranges
+  3: required map<Types.TPlanNodeId, list<TScanRangeParams>> per_node_scan_ranges (cpp.template = "std::unordered_map")
 
   // number of senders for ExchangeNodes contained in TPlanFragment.plan_tree;
   // needed to create a DataStreamRecvr
-  4: required map<Types.TPlanNodeId, i32> per_exch_num_senders
+  4: required map<Types.TPlanNodeId, i32> per_exch_num_senders (cpp.template = "std::unordered_map")
 
   // Output destinations, one per output partition.
   // The partitioning of the output is specified by
@@ -442,7 +442,7 @@ struct TPlanFragmentExecParams {
   // To enable pass through chunks between sink/exchange if they are in the same process.
   52: optional bool enable_exchange_pass_through
 
-  53: optional map<Types.TPlanNodeId, map<i32, list<TScanRangeParams>>> node_to_per_driver_seq_scan_ranges
+  53: optional map<Types.TPlanNodeId, map<i32, list<TScanRangeParams>>> node_to_per_driver_seq_scan_ranges (cpp.template = "std::unordered_map")
 
   54: optional bool enable_exchange_perf
 
@@ -454,8 +454,8 @@ struct TPlanFragmentExecParams {
   74: optional list<TExecDebugOption> exec_debug_options
 
   // used for global lazy materialization
-  75: optional map<Types.TPlanNodeId, i32> per_look_up_num_fetchers
-  76: optional map<Types.TPlanNodeId, Descriptors.TNodesInfo> per_fetch_target_nodes
+  75: optional map<Types.TPlanNodeId, i32> per_look_up_num_fetchers (cpp.template = "std::unordered_map")
+  76: optional map<Types.TPlanNodeId, Descriptors.TNodesInfo> per_fetch_target_nodes (cpp.template = "std::unordered_map")
 }
 
 // Global query parameters assigned by the coordinator.
@@ -545,7 +545,7 @@ struct TExecPlanFragmentParams {
 
   50: optional bool is_pipeline
   51: optional i32 pipeline_dop
-  52: optional map<Types.TPlanNodeId, i32> per_scan_node_dop
+  52: optional map<Types.TPlanNodeId, i32> per_scan_node_dop (cpp.template = "std::unordered_map")
 
   53: optional WorkGroup.TWorkGroup workgroup
   54: optional bool enable_resource_group

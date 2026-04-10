@@ -87,7 +87,7 @@ struct TFinishTaskRequest {
     10: optional string snapshot_path
     11: optional list<Types.TTabletId> error_tablet_ids
     12: optional list<string> snapshot_files
-    13: optional map<Types.TTabletId, list<string>> tablet_files
+    13: optional map<Types.TTabletId, list<string>> tablet_files (cpp.template = "std::unordered_map")
     14: optional list<Types.TTabletId> downloaded_tablet_ids
     15: optional i64 copy_size
     16: optional i64 copy_time_ms
@@ -119,7 +119,7 @@ struct TReportRequest {
     1: required Types.TBackend backend
     2: optional i64 report_version // Required
     3: optional map<Types.TTaskType, set<i64>> tasks // string signature
-    4: optional map<Types.TTabletId, TTablet> tablets
+    4: optional map<Types.TTabletId, TTablet> tablets (cpp.template = "std::unordered_map")
     5: optional map<string, TDisk> disks // string root_path
     6: optional bool force_recovery
     7: optional list<TTablet> tablet_list

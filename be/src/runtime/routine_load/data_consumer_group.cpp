@@ -48,7 +48,7 @@ Status KafkaDataConsumerGroup::assign_topic_partitions(StreamLoadContext* ctx) {
 
     // divide partitions
     int consumer_size = _consumers.size();
-    std::vector<std::map<int32_t, int64_t>> divide_parts(consumer_size);
+    std::vector<std::unordered_map<int32_t, int64_t>> divide_parts(consumer_size);
     int i = 0;
     for (auto& kv : ctx->kafka_info->begin_offset) {
         int idx = i % consumer_size;
@@ -116,8 +116,8 @@ Status KafkaDataConsumerGroup::start_all(StreamLoadContext* ctx) {
               << ", batch size: " << left_bytes << ". " << ctx->brief();
 
     // copy one
-    std::map<int32_t, int64_t> cmt_offset = ctx->kafka_info->cmt_offset;
-    std::map<int32_t, int64_t> cmt_offset_timestamp;
+    std::unordered_map<int32_t, int64_t> cmt_offset = ctx->kafka_info->cmt_offset;
+    std::unordered_map<int32_t, int64_t> cmt_offset_timestamp;
 
     //improve performance
     Status (KafkaConsumerPipe::*append_data)(const char* data, size_t size, char row_delimiter, int32_t partition,

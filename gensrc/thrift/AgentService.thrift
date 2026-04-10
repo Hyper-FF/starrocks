@@ -157,7 +157,7 @@ struct TAlterTabletReq {
 struct TAlterTabletMaterializedColumnReq {
     1: optional InternalService.TQueryGlobals query_globals
     2: optional InternalService.TQueryOptions query_options
-    3: optional map<i32, Exprs.TExpr> mc_exprs
+    3: optional map<i32, Exprs.TExpr> mc_exprs (cpp.template = "std::unordered_map")
 }
 
 enum TAlterJobType {
@@ -287,7 +287,7 @@ struct TCompactionReq {
 }
 
 struct TCompactionControlReq {
-    1: optional map<Types.TTableId, i64> table_to_disable_deadline
+    1: optional map<Types.TTableId, i64> table_to_disable_deadline (cpp.template = "std::unordered_map")
 }
 
 struct TUpdateSchemaReq {

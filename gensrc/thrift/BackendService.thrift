@@ -56,13 +56,13 @@ struct TTabletStat {
 }
 
 struct TTabletStatResult {
-    1: required map<i64, TTabletStat> tablets_stats
+    1: required map<i64, TTabletStat> tablets_stats (cpp.template = "std::unordered_map")
 }
 
 struct TKafkaLoadInfo {
     1: required string brokers;
     2: required string topic;
-    3: required map<i32, i64> partition_begin_offset;
+    3: required map<i32, i64> partition_begin_offset (cpp.template = "std::unordered_map");
     4: optional map<string, string> properties;
     5: optional string confluent_schema_registry_url;
 }
@@ -124,7 +124,7 @@ struct TGetTabletsInfoRequest {
 struct TGetTabletsInfoResult {
     1: required Status.TStatus status;
     2: optional i64 report_version;
-    3: optional map<Types.TTabletId, MasterService.TTablet> tablets;
+    3: optional map<Types.TTabletId, MasterService.TTablet> tablets (cpp.template = "std::unordered_map");
 }
 
 service BackendService {

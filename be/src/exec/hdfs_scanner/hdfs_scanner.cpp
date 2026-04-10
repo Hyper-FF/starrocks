@@ -634,7 +634,7 @@ void HdfsScannerContext::update_min_max_columns() {
         return;
     }
     std::vector<ColumnInfo> updated_columns;
-    const std::map<int32_t, TExprMinMaxValue>& min_max_values = scan_range->min_max_values;
+    const std::unordered_map<int32_t, TExprMinMaxValue>& min_max_values = scan_range->min_max_values;
     for (auto& column : materialized_columns) {
         if (min_max_values.find(column.slot_id()) != min_max_values.end()) {
             // handled in non existed slot

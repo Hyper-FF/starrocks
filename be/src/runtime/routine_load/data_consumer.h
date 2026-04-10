@@ -166,9 +166,9 @@ public:
     Status reset() override;
     bool match(StreamLoadContext* ctx) override;
     // commit kafka offset
-    Status commit(const std::string& topic, const std::map<int32_t, int64_t>& offsets);
+    Status commit(const std::string& topic, const std::unordered_map<int32_t, int64_t>& offsets);
 
-    Status assign_topic_partitions(const std::map<int32_t, int64_t>& begin_partition_offset, const std::string& topic,
+    Status assign_topic_partitions(const std::unordered_map<int32_t, int64_t>& begin_partition_offset, const std::string& topic,
                                    StreamLoadContext* ctx);
 
     // start the consumer and put msgs to queue

@@ -1023,7 +1023,7 @@ Status TabletManager::report_tablet_info(TTabletInfo* tablet_info) {
     return Status::OK();
 }
 
-Status TabletManager::report_all_tablets_info(std::map<TTabletId, TTablet>* tablets_info) {
+Status TabletManager::report_all_tablets_info(std::unordered_map<TTabletId, TTablet>* tablets_info) {
     DCHECK(tablets_info != nullptr);
 
     int64_t start_ms = MonotonicMillis();

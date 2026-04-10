@@ -472,7 +472,7 @@ struct THdfsTable {
     3: optional list<TColumn> partition_columns
 
     // Map from partition id to partition metadata.
-    4: optional map<i64, THdfsPartition> partitions
+    4: optional map<i64, THdfsPartition> partitions (cpp.template = "std::unordered_map")
 
     // The prefixes of locations of partitions in this table
     5: optional list<string> partition_prefixes
@@ -565,7 +565,7 @@ struct TIcebergSchema {
 }
 
 struct TPartitionMap {
-    1: optional map<i64, THdfsPartition> partitions
+    1: optional map<i64, THdfsPartition> partitions (cpp.template = "std::unordered_map")
 }
 
 struct TCompressedPartitionMap {
@@ -604,7 +604,7 @@ struct TIcebergTable {
     5: optional TCompressedPartitionMap compressed_partitions
 
     // if serialize partition info throws exception, then use unserialized partitions
-    6: optional map<i64, THdfsPartition> partitions
+    6: optional map<i64, THdfsPartition> partitions (cpp.template = "std::unordered_map")
 
     // Iceberg equality delete schema, used to support schema evolution
     7: optional TIcebergSchema iceberg_equal_delete_schema
@@ -626,7 +626,7 @@ struct THudiTable {
     3: optional list<TColumn> partition_columns
 
     // Map from partition id to partition metadata.
-    4: optional map<i64, THdfsPartition> partitions
+    4: optional map<i64, THdfsPartition> partitions (cpp.template = "std::unordered_map")
 
     // The prefixes of locations of partitions in this table
     5: optional list<string> partition_prefixes
@@ -674,7 +674,7 @@ struct TDeltaLakeTable {
     3: optional list<TColumn> partition_columns
 
     // Map from partition id to partition metadata.
-    4: optional map<i64, THdfsPartition> partitions
+    4: optional map<i64, THdfsPartition> partitions (cpp.template = "std::unordered_map")
 
     // The prefixes of locations of partitions in this table
     5: optional list<string> partition_prefixes

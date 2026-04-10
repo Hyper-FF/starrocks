@@ -182,7 +182,7 @@ struct TFunctionCallExpr {
 struct TDictQueryExpr {
   1: required string db_name
   2: required string tbl_name
-  3: required map<i64, i64> partition_version
+  3: required map<i64, i64> partition_version (cpp.template = "std::unordered_map")
   4: required list<string> key_fields
   5: required string value_field
   6: required bool strict_mode

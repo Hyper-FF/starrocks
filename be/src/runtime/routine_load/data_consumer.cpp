@@ -156,7 +156,7 @@ Status KafkaDataConsumer::init(StreamLoadContext* ctx) {
     return Status::OK();
 }
 
-Status KafkaDataConsumer::assign_topic_partitions(const std::map<int32_t, int64_t>& begin_partition_offset,
+Status KafkaDataConsumer::assign_topic_partitions(const std::unordered_map<int32_t, int64_t>& begin_partition_offset,
                                                   const std::string& topic, StreamLoadContext* ctx) {
     DCHECK(_k_consumer && !_k_consumer->closed());
     // create TopicPartitions
@@ -440,7 +440,7 @@ Status KafkaDataConsumer::reset() {
 }
 
 // The offsets is the last consumed message for every partition. We need to +1 when we commit offset.
-Status KafkaDataConsumer::commit(const std::string& topic, const std::map<int32_t, int64_t>& offsets) {
+Status KafkaDataConsumer::commit(const std::string& topic, const std::unordered_map<int32_t, int64_t>& offsets) {
     DCHECK(!_k_consumer->closed());
     std::vector<RdKafka::TopicPartition*> topic_partitions;
     // delete TopicPartition finally

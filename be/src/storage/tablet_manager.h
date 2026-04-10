@@ -169,7 +169,7 @@ public:
     // Returns NotFound if the corresponding tablet does not exist.
     Status report_tablet_info(TTabletInfo* tablet_info);
 
-    Status report_all_tablets_info(std::map<TTabletId, TTablet>* tablets_info);
+    Status report_all_tablets_info(std::unordered_map<TTabletId, TTablet>* tablets_info);
 
     Status start_trash_sweep();
     // Prevent schema change executed concurrently.
@@ -304,7 +304,7 @@ private:
     std::mutex _tablet_stat_mutex;
     // cache to save tablets' statistics, such as data-size and row-count
     // TODO(cmy): for now, this is a naive implementation
-    std::map<int64_t, TTabletStat> _tablet_stat_cache;
+    std::unordered_map<int64_t, TTabletStat> _tablet_stat_cache;
     // last update time of tablet stat cache
     int64_t _last_update_stat_ms{0};
 

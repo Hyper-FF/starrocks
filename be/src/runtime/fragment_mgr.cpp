@@ -40,6 +40,7 @@
 #include <functional>
 #include <memory>
 #include <sstream>
+#include <unordered_map>
 
 #include "base/concurrency/stopwatch.hpp"
 #include "base/network/network_util.h"
@@ -887,13 +888,13 @@ Status FragmentMgr::exec_external_plan_fragment(const TScanOpenParams& params, c
     TPlanFragmentExecParams fragment_exec_params;
     fragment_exec_params.query_id = t_query_plan_info.query_id;
     fragment_exec_params.fragment_instance_id = fragment_instance_id;
-    std::map<TPlanNodeId, std::vector<TScanRangeParams>> per_node_scan_ranges;
+    std::unordered_map<TPlanNodeId, std::vector<TScanRangeParams>> per_node_scan_ranges;
     std::vector<TScanRangeParams> scan_ranges;
     std::vector<int64_t> tablet_ids = params.tablet_ids;
     TNetworkAddress address;
     address.hostname = BackendOptions::get_localhost();
     address.port = config::be_port;
-    std::map<int64_t, TTabletVersionInfo> tablet_info = t_query_plan_info.tablet_info;
+    std::unordered_map<int64_t, TTabletVersionInfo> tablet_info = t_query_plan_info.tablet_info;
     for (auto tablet_id : params.tablet_ids) {
         TInternalScanRange scan_range;
         scan_range.db_name = params.database;
