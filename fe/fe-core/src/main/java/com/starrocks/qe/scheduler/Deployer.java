@@ -137,47 +137,55 @@ public class Deployer {
         final List<List<FragmentInstanceExecState>> threeStageExecutionsToDeploy =
                 deployState.getThreeStageExecutionsToDeploy();
 
-        if (enablePlanSerializeConcurrently) {
-            try (Timer ignored = Tracers.watchScope(Tracers.Module.SCHEDULER, "DeploySerializeConcurrencyTime")) {
-                int count = threeStageExecutionsToDeploy.stream().mapToInt(List::size).sum();
-                List<Future<?>> futures = new ArrayList<>(count + 1);
-                for (List<FragmentInstanceExecState> execStates : threeStageExecutionsToDeploy) {
-                    for (FragmentInstanceExecState execState : execStates) {
-                        try {
-                            Future<?> f = EXECUTOR.submit(execState::serializeRequest);
-                            futures.add(f);
-                        } catch (RejectedExecutionException e) {
-                            // If the thread pool is full, we will serialize the request in the current thread.
-                        }
-                    }
-                }
-                for (Future<?> future : futures) {
-                    try {
-                        future.get(2, TimeUnit.SECONDS);
-                    } catch (TimeoutException e) {
-                        LOG.warn("Slow serialize request, query: {}", DebugUtil.printId(context.getQueryId()));
-                    }
-                }
-                for (Future<?> future : futures) {
-                    if (!future.isDone()) {
-                        future.get();
-                    }
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } catch (ExecutionException e) {
-                LOG.warn("Error serialize request during deployFragments", e);
-                throw new StarRocksException(e);
-            }
-        }
-
+        // Serialize and deploy each stage before moving to the next one, so that only one stage's
+        // serialized byte arrays are alive at a time.  The previous approach serialized ALL stages
+        // upfront, which caused a large memory spike when the descriptor table is big because every
+        // stage-0/1 instance carries a full copy of it in its serialized form.
         for (List<FragmentInstanceExecState> executions : threeStageExecutionsToDeploy) {
+            if (enablePlanSerializeConcurrently) {
+                serializeConcurrently(executions);
+            }
             try (Timer ignored = Tracers.watchScope(Tracers.Module.SCHEDULER, "DeployStageByStageTime")) {
                 executions.forEach(FragmentInstanceExecState::deployAsync);
             }
             try (Timer ignored = Tracers.watchScope(Tracers.Module.SCHEDULER, "DeployWaitTime")) {
                 waitForDeploymentCompletion(executions);
             }
+        }
+    }
+
+    private void serializeConcurrently(List<FragmentInstanceExecState> execStates)
+            throws StarRocksException {
+        if (execStates.isEmpty()) {
+            return;
+        }
+        try (Timer ignored = Tracers.watchScope(Tracers.Module.SCHEDULER, "DeploySerializeConcurrencyTime")) {
+            List<Future<?>> futures = new ArrayList<>(execStates.size());
+            for (FragmentInstanceExecState execState : execStates) {
+                try {
+                    Future<?> f = EXECUTOR.submit(execState::serializeRequest);
+                    futures.add(f);
+                } catch (RejectedExecutionException e) {
+                    // If the thread pool is full, the request will be serialized on-the-fly during deployment.
+                }
+            }
+            for (Future<?> future : futures) {
+                try {
+                    future.get(2, TimeUnit.SECONDS);
+                } catch (TimeoutException e) {
+                    LOG.warn("Slow serialize request, query: {}", DebugUtil.printId(context.getQueryId()));
+                }
+            }
+            for (Future<?> future : futures) {
+                if (!future.isDone()) {
+                    future.get();
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            LOG.warn("Error serialize request during deployFragments", e);
+            throw new StarRocksException(e);
         }
     }
 
