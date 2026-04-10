@@ -152,9 +152,16 @@ public class ThreadPoolManager {
 
     public static ThreadPoolExecutor newDaemonCacheThreadPool(int maxNumThread, int queueSize, String poolName,
                                                               boolean needRegisterMetric) {
-        return newDaemonThreadPool(0, maxNumThread, KEEP_ALIVE_TIME, TimeUnit.SECONDS,
+        // Use corePoolSize = maxNumThread so threads are created eagerly up to the limit,
+        // and allowCoreThreadTimeOut so they are reclaimed after KEEP_ALIVE_TIME seconds of idle.
+        // The previous corePoolSize=0 with LinkedBlockingQueue caused tasks to queue behind a single
+        // thread instead of scaling out, because ThreadPoolExecutor only creates threads beyond
+        // corePoolSize when the queue is full.
+        ThreadPoolExecutor pool = newDaemonThreadPool(maxNumThread, maxNumThread, KEEP_ALIVE_TIME, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(queueSize),
                 new BlockedPolicy(poolName, 5), poolName, needRegisterMetric);
+        pool.allowCoreThreadTimeOut(true);
+        return pool;
     }
 
     public static ThreadPoolExecutor newDaemonFixedThreadPool(int numThread, int queueSize, String poolName,
