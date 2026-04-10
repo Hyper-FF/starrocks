@@ -77,9 +77,13 @@ public class Deployer {
         int threadPoolSize = Math.max(ThreadPoolManager.cpuCores(), Config.deploy_serialization_thread_pool_size);
         int threadPoolQueueSize = Config.deploy_serialization_queue_size > 0 ? Config.deploy_serialization_queue_size :
                 threadPoolSize * 2;
-        EXECUTOR = ThreadPoolManager.newDaemonThreadPool(1, threadPoolSize, 60, TimeUnit.SECONDS,
+        // Use corePoolSize = maxPoolSize so threads are created eagerly up to the limit.
+        // The previous corePoolSize=1 caused tasks to queue instead of spawning threads,
+        // making the pool effectively single-threaded under normal load.
+        EXECUTOR = ThreadPoolManager.newDaemonThreadPool(threadPoolSize, threadPoolSize, 60, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(threadPoolQueueSize), new ThreadPoolExecutor.AbortPolicy(),
                 "deployer", true);
+        EXECUTOR.allowCoreThreadTimeOut(true);
         ThreadPoolManager.registerAllThreadPoolMetric();
     }
 
