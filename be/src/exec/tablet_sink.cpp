@@ -1185,7 +1185,9 @@ void OlapTableSink::_padding_char_column(Chunk* chunk) {
 
             if (desc->is_nullable()) {
                 auto* nullable_column = down_cast<NullableColumn*>(column);
-                auto new_column = NullableColumn::create(std::move(new_binary), nullable_column->null_column());
+                auto null_column =
+                        NullColumn::static_pointer_cast(Column::mutate(nullable_column->null_column()));
+                auto new_column = NullableColumn::create(std::move(new_binary), std::move(null_column));
                 chunk->update_column(std::move(new_column), desc->id());
             } else {
                 chunk->update_column(std::move(new_binary), desc->id());

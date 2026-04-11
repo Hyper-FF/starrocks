@@ -179,7 +179,8 @@ ColumnPtr PushBrokerReader::_padding_char_column(const ColumnPtr& column, const 
 
     if (slot_desc->is_nullable()) {
         auto* nullable_column = down_cast<const NullableColumn*>(column.get());
-        return NullableColumn::create(std::move(new_binary), nullable_column->null_column());
+        auto null_column = NullColumn::static_pointer_cast(Column::mutate(nullable_column->null_column()));
+        return NullableColumn::create(std::move(new_binary), std::move(null_column));
     }
     return new_binary;
 }
