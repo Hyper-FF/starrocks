@@ -68,8 +68,17 @@ public class PullUpScanPredicateRule extends TransformationRule {
         }
 
         List<ScalarOperator> children = root.getChildren();
+        boolean modified = false;
         for (int i = 0; i < children.size(); i++) {
-            root.setChild(i, replaceScalarOperator(children.get(i), columnRefMap));
+            ScalarOperator newChild = replaceScalarOperator(children.get(i), columnRefMap);
+            if (newChild != children.get(i)) {
+                if (!modified) {
+                    // Clone to avoid mutating a shared predicate tree.
+                    root = root.clone();
+                    modified = true;
+                }
+                root.setChild(i, newChild);
+            }
         }
         return root;
     }

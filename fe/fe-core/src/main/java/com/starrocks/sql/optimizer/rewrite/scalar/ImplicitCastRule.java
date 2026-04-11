@@ -321,6 +321,12 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
 
     @Override
     public ScalarOperator visitCaseWhenOperator(CaseWhenOperator operator, ScalarOperatorRewriteContext context) {
+        // Clone to avoid mutating a shared CaseWhenOperator instance. When the same
+        // CaseWhenOperator is referenced from multiple expressions (e.g. via common
+        // sub-expression sharing), in-place setElseClause/setThenClause corrupts
+        // the other references.
+        operator = (CaseWhenOperator) operator.clone();
+
         if (operator.hasElse() && !operator.getType().matchesType(operator.getElseClause().getType())) {
             operator.setElseClause(new CastOperator(operator.getType(), operator.getElseClause()));
         }

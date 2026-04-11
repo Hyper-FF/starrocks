@@ -130,9 +130,12 @@ public class MVProjectAggProjectScanRewrite {
         for (Map.Entry<ColumnRefOperator, ScalarOperator> kv : projectOperator.getColumnRefMap().entrySet()) {
             if (kv.getValue().getUsedColumns().contains(baseColumnRef)) {
                 kv.setValue(mvColumnRef);
-                kv.getKey().setNullable(mvColumnRef.isNullable());
-                kv.getKey().setType(mvColumnRef.getType());
-                return kv.getKey();
+                // Clone the key before mutating type/nullable to avoid corrupting
+                // other references to this shared ColumnRefOperator.
+                ColumnRefOperator key = (ColumnRefOperator) kv.getKey().clone();
+                key.setNullable(mvColumnRef.isNullable());
+                key.setType(mvColumnRef.getType());
+                return key;
             }
         }
         Preconditions.checkState(false, "shouldn't reach here");

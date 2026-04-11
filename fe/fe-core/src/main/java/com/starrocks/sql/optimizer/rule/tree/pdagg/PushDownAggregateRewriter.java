@@ -406,7 +406,10 @@ public class PushDownAggregateRewriter extends OptExpressionVisitor<OptExpressio
                 if (!input.isColumnRef()) {
                     ColumnRefOperator ref = factory.create(input, input.getType(), input.isNullable());
                     refs.put(ref, input);
-                    entry.getValue().setChild(0, ref);
+                    // Clone to avoid mutating the shared CallOperator in context.aggregations.
+                    CallOperator cloned = (CallOperator) entry.getValue().clone();
+                    cloned.setChild(0, ref);
+                    entry.setValue(cloned);
                 }
             }
 

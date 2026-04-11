@@ -44,6 +44,15 @@ public abstract class ArgsScalarOperator extends ScalarOperator {
     }
 
     @Override
+    public ScalarOperator clone() {
+        ArgsScalarOperator operator = (ArgsScalarOperator) super.clone();
+        // Copy the arguments list so that setChild() on the clone does not mutate the original.
+        // Subclasses like CallOperator further override to deep-clone children.
+        operator.arguments = Lists.newArrayList(arguments);
+        return operator;
+    }
+
+    @Override
     public int hashCode() {
         return Objects.hash(hashCodeSelf(), arguments);
     }

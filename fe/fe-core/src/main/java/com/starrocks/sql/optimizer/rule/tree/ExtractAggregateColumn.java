@@ -113,11 +113,17 @@ public class ExtractAggregateColumn implements TreeRewriteRule {
 
             // replace aggregate column
             ReplaceColumnRefRewriter rewriter = new ReplaceColumnRefRewriter(rewriteMap);
+            // Clone each CallOperator before modifying to avoid mutating shared objects
+            // in the aggregation map.
+            Map<ColumnRefOperator, CallOperator> newAggregations = Maps.newHashMap();
             aggregateOperator.getAggregations().forEach((k, v) -> {
-                for (int i = 0; i < v.getChildren().size(); i++) {
-                    v.setChild(i, rewriter.rewrite(v.getChild(i)));
+                CallOperator cloned = (CallOperator) v.clone();
+                for (int i = 0; i < cloned.getChildren().size(); i++) {
+                    cloned.setChild(i, rewriter.rewrite(cloned.getChild(i)));
                 }
+                newAggregations.put(k, cloned);
             });
+            aggregateOperator.setAggregations(newAggregations);
 
             // get all used column
             ColumnRefSet usedColumns = new ColumnRefSet();

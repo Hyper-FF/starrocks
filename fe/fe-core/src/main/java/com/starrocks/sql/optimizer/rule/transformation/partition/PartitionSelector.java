@@ -379,10 +379,16 @@ public class PartitionSelector {
                     }
                 }
                 List<ScalarOperator> children = scalarOperator.getChildren();
+                boolean modified = false;
                 for (int i = 0; i < children.size(); ++i) {
                     ScalarOperator child = children.get(i);
                     ScalarOperator result = child.accept(this, context);
-                    if (result != null) {
+                    if (result != null && result != child) {
+                        if (!modified) {
+                            // Clone to avoid mutating children of a shared predicate.
+                            scalarOperator = scalarOperator.clone();
+                            modified = true;
+                        }
                         scalarOperator.setChild(i, result);
                     }
                 }

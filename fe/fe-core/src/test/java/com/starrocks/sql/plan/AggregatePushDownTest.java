@@ -365,6 +365,22 @@ public class AggregatePushDownTest extends PlanTestBase {
     }
 
     @Test
+    public void testRewriterSharedMutationComplexExprAgg() throws Exception {
+        // Bug: PushDownAggregateRewriter.rewrite() at line ~409 mutates CallOperator via
+        // setChild(0, ref) when the aggregation's input is a complex (non-columnref) expression.
+        // Without cloning, the shared CallOperator in context.aggregations is corrupted.
+        String sql = "SELECT SUM(sub.v1 + sub.v2), MIN(sub.v1 + sub.v2), sub.v3 " +
+                "FROM ( " +
+                "    SELECT v1, v2, v3 FROM t0 " +
+                ") sub " +
+                "JOIN t1 ON sub.v3 = t1.v4 " +
+                "GROUP BY sub.v3";
+        String plan = getVerboseExplain(sql);
+        assertContains(plan, "sum");
+        assertContains(plan, "min");
+    }
+
+    @Test
     public void testRewriterSharedMutationWithIf() throws Exception {
         // Bug: PushDownAggregateRewriter.rewriteProject() mutates shared CallOperator (IF)
         // in-place via setChild(). Same root cause as the CaseWhen bug but on the IF path.
