@@ -1,0 +1,267 @@
+-- name: test_shared_object_mutation
+-- 复现 FE Optimizer 中共享对象原地修改导致的 bug（与 f90720c9 同类）
+-- 核心思路：构造两个聚合函数引用同一个派生列，通过 JOIN 触发 aggregate push-down，
+-- 使 optimizer 在 rewrite 时遍历同一个共享 ScalarOperator。
+-- 如果 rewrite 时原地修改而非 clone，第二个聚合看到的是第一个聚合改写后的脏数据。
+
+-- =====================================================================
+-- 准备表和数据
+-- =====================================================================
+create database test_shared_mutation_${uuid0};
+use test_shared_mutation_${uuid0};
+
+create table t_fact (
+    fk  bigint not null,
+    cat varchar(20),
+    val_a smallint,
+    val_b double,
+    val_c int
+) engine=olap
+duplicate key(fk)
+distributed by hash(fk) buckets 3
+properties("replication_num"="1");
+
+create table t_dim (
+    pk bigint not null,
+    attr varchar(20)
+) engine=olap
+duplicate key(pk)
+distributed by hash(pk) buckets 3
+properties("replication_num"="1");
+
+insert into t_fact values
+    (1, 'X', 10,  1.1, 100),
+    (1, 'Y', 20,  2.2, 200),
+    (2, 'X', 30,  3.3, 300),
+    (2, NULL, 40, 4.4, 400),
+    (3, 'Y', 50,  5.5, 500),
+    (3, 'X', 60,  6.6, 600);
+
+insert into t_dim values
+    (1, 'dim_a'),
+    (2, 'dim_b'),
+    (3, 'dim_c');
+
+-- =====================================================================
+-- Case 1: PushDownAggregateRewriter CASE-WHEN 共享
+--
+-- 触发路径: PushDownAggregateRewriter.rewriteProject()
+-- bug 原因: SUM 先处理 CaseWhenOperator，通过 setThenClause() 把 then 值
+--           替换成 push-down 后的 ColumnRef；MIN 再处理同一个 CaseWhenOperator
+--           时看到的 then 已经不是原始列，而是 SUM 的 ColumnRef。
+-- 复现方法: 回退 PushDownAggregateRewriter.java 中
+--           CaseWhenOperator caseWhen = (CaseWhenOperator) aggExpr.clone()
+--           改为  = (CaseWhenOperator) aggExpr
+-- 预期症状: SUM 和 MIN 结果不一致 / plan 报错 / 列引用错误
+-- =====================================================================
+
+set cbo_push_down_aggregate = 'global';
+set new_planner_agg_stage = 1;
+set cbo_push_down_aggregate_mode = 1;
+
+select /*+ SET_VAR(enable_rewrite_sum_by_associative_rule=false,enable_eliminate_agg=false) */
+    SUM(sub.cval) as s, MIN(sub.cval) as m, sub.fk
+from (
+    select fk,
+           CASE WHEN val_a > 25 THEN val_b ELSE NULL END as cval
+    from t_fact
+) sub
+join t_dim on sub.fk = t_dim.pk
+group by sub.fk
+order by sub.fk;
+
+-- =====================================================================
+-- Case 2: PushDownAggregateRewriter IF 共享
+--
+-- 同 Case 1 但走 IF 分支。
+-- 触发路径: PushDownAggregateRewriter.rewriteProject() isIfFn 分支
+-- 复现方法: 回退 CallOperator ifFn = (CallOperator) aggExpr.clone()
+--           改为  = (CallOperator) aggExpr
+-- =====================================================================
+
+select /*+ SET_VAR(enable_rewrite_sum_by_associative_rule=false,enable_eliminate_agg=false) */
+    SUM(sub.cval) as s, MIN(sub.cval) as m, sub.fk
+from (
+    select fk,
+           IF(val_a > 25, val_b, NULL) as cval
+    from t_fact
+) sub
+join t_dim on sub.fk = t_dim.pk
+group by sub.fk
+order by sub.fk;
+
+-- =====================================================================
+-- Case 3: PushDownAggregateRewriter:409 复杂表达式聚合
+--
+-- 触发路径: PushDownAggregateRewriter.rewrite() ~line 409
+-- bug 原因: 当 aggregate 的 input 不是 columnRef 而是复杂表达式 (val_a + val_c)
+--           时，rewriter 创建 project 把表达式抽出来，再把 agg 的 child(0) 替换
+--           成新的 ColumnRef。如果不 clone，SUM 的 setChild(0, ref) 直接改了共享
+--           的 CallOperator，MIN 看到的 child(0) 已经是 ref 而不是 (val_a+val_c)。
+-- 复现方法: 回退 PushDownAggregateRewriter.java ~line 409：
+--           删除 clone，恢复 entry.getValue().setChild(0, ref)
+-- 预期症状: SUM 和 MIN 的值不正确 / NPE / plan 报错
+-- =====================================================================
+
+select /*+ SET_VAR(enable_rewrite_sum_by_associative_rule=false,enable_eliminate_agg=false) */
+    SUM(sub.expr_val) as s, MIN(sub.expr_val) as m, sub.fk
+from (
+    select fk, (val_a + val_c) as expr_val
+    from t_fact
+) sub
+join t_dim on sub.fk = t_dim.pk
+group by sub.fk
+order by sub.fk;
+
+-- =====================================================================
+-- Case 4: 嵌套 CASE WHEN + aggregate push-down（组合测试）
+--
+-- 内层 CASE WHEN 产生一个派生列 cval，外层再套一个 CASE WHEN 做分组筛选，
+-- 两个聚合 SUM/MIN 引用同一个外层 CASE WHEN 列。
+-- 这个 case 同时触发 collector 和 rewriter 两阶段的共享修改问题。
+-- =====================================================================
+
+select /*+ SET_VAR(enable_rewrite_sum_by_associative_rule=false,enable_eliminate_agg=false) */
+    SUM(CASE WHEN cat IS NOT NULL THEN cval ELSE NULL END) as s,
+    MIN(CASE WHEN cat IS NOT NULL THEN cval ELSE NULL END) as m,
+    fk
+from (
+    select fk, cat,
+           CASE WHEN val_a > 25 THEN val_b ELSE val_b * 0.5 END as cval
+    from t_fact
+) sub
+join t_dim on sub.fk = t_dim.pk
+group by fk
+order by fk;
+
+-- 恢复默认设置
+set cbo_push_down_aggregate = 'global';
+set new_planner_agg_stage = 0;
+set cbo_push_down_aggregate_mode = -1;
+
+-- =====================================================================
+-- Case 5: ImplicitCastRule CASE-WHEN 共享
+--
+-- 触发路径: ImplicitCastRule.visitCaseWhenOperator()
+-- bug 原因: CASE WHEN 的 then(smallint) 和 else(double) 类型不匹配，
+--           ImplicitCastRule 通过 setThenClause/setElseClause 原地插入 CastOperator。
+--           如果同一个 CaseWhenOperator 被多个投影/聚合共享，第二个引用看到的
+--           子节点已被 Cast 包裹。
+-- 复现方法: 回退 ImplicitCastRule.visitCaseWhenOperator 中的 clone() 行
+-- =====================================================================
+
+select
+    SUM(CASE WHEN val_a > 25 THEN val_a ELSE val_b END) as s1,
+    AVG(CASE WHEN val_a > 25 THEN val_a ELSE val_b END) as s2,
+    fk
+from t_fact
+group by fk
+order by fk;
+
+-- 验证：CASE WHEN with CASE clause（走 setCaseClause/setWhenClause 路径）
+select
+    SUM(CASE val_c WHEN 100 THEN val_a WHEN 200 THEN val_a * 2 ELSE 0 END) as s1,
+    MIN(CASE val_c WHEN 100 THEN val_a WHEN 200 THEN val_a * 2 ELSE 0 END) as s2,
+    fk
+from t_fact
+group by fk
+order by fk;
+
+-- =====================================================================
+-- Case 6: ExtractAggregateColumn 共享 CallOperator
+--
+-- 触发路径: ExtractAggregateColumn.rewriteAggregateOperator()
+-- bug 原因: 遍历 aggregateOperator.getAggregations() 时，对每个 CallOperator
+--           调用 v.setChild() 原地修改。如果 COUNT 和 SUM 引用同一个投影表达式，
+--           COUNT 的 rewrite 会污染 SUM 共享的 CallOperator。
+-- 复现方法: 回退 ExtractAggregateColumn.java 中 clone+newMap 的改动
+-- 预期症状: COUNT/SUM 的列引用混乱
+-- =====================================================================
+
+select
+    COUNT(val_a + val_c) as cnt,
+    SUM(val_a + val_c) as total,
+    MIN(val_a + val_c) as mi,
+    MAX(val_a + val_c) as ma
+from t_fact;
+
+-- 同一个表达式 cast(val_a as double) * val_b
+select
+    SUM(cast(val_a as double) * val_b) as s,
+    AVG(cast(val_a as double) * val_b) as a
+from t_fact;
+
+-- =====================================================================
+-- Case 7: PullUpScanPredicateRule 共享谓词树
+--
+-- 触发路径: PullUpScanPredicateRule.replaceScalarOperator()
+-- bug 原因: 包含 array/lambda 的谓词无法下推到存储层，被 pull-up 到 Filter 节点。
+--           在替换谓词树子节点时如果原地 setChild，会破坏仍留在 scan 上的谓词
+--           所共享的树节点。
+-- 复现方法: 回退 PullUpScanPredicateRule.replaceScalarOperator 的 clone 改动
+-- 注：此 case 需要 array 列。下面用子查询模拟，避免依赖特定 array 表。
+-- =====================================================================
+
+create table t_with_array (
+    id bigint not null,
+    tags array<bigint>,
+    score bigint
+) engine=olap
+duplicate key(id)
+distributed by hash(id) buckets 3
+properties("replication_num"="1");
+
+insert into t_with_array values
+    (1, [10,20,30], 100),
+    (2, [40,50],    200),
+    (3, [60],       300);
+
+select * from t_with_array
+where array_length(tags) > 1 AND id = 2;
+
+select * from t_with_array
+where array_length(tags) + score > 100 AND array_length(tags) > 0 AND id > 0
+order by id;
+
+-- =====================================================================
+-- Case 8: PartitionSelector 共享谓词树（generated column）
+--
+-- 触发路径: PartitionSelector 中 deduceGeneratedColumnPredicate 的 visitor
+-- bug 原因: visitor 对谓词树做 setChild() 替换时，没有 clone 父节点，
+--           破坏了共享的 CompoundPredicateOperator 的 children 列表。
+-- 复现方法: 回退 PartitionSelector.java 中 visitor 的 clone-on-first-write
+-- 预期症状: 分区裁剪结果错误 / NPE
+-- =====================================================================
+
+create table t_gen_part (
+    c1 datetime not null,
+    c2 bigint,
+    c3 datetime null as date_trunc('month', c1)
+) duplicate key(c1)
+partition by (c2, c3)
+properties("replication_num"="1");
+
+alter table t_gen_part add partition p1_202401 values in (('1','2024-01-01'));
+alter table t_gen_part add partition p1_202402 values in (('1','2024-02-01'));
+alter table t_gen_part add partition p2_202401 values in (('2','2024-01-01'));
+alter table t_gen_part add partition p2_202402 values in (('2','2024-02-01'));
+
+insert into t_gen_part (c1, c2) values
+    ('2024-01-15 10:00:00', 1),
+    ('2024-02-20 12:00:00', 1),
+    ('2024-01-05 08:00:00', 2),
+    ('2024-02-28 16:00:00', 2);
+
+-- 单条件 => visitor 替换 c1 谓词的子节点
+select * from t_gen_part where c1 = '2024-01-15 10:00:00' and c2 = 1 order by c1;
+
+-- 范围条件 => visitor 替换 AND 节点的两个子节点
+select * from t_gen_part where c1 >= '2024-01-01' and c1 < '2024-02-01' and c2 = 1 order by c1;
+
+-- OR 条件 => visitor 替换 OR 节点的两个子节点
+select * from t_gen_part where (c1 = '2024-01-15 10:00:00' or c1 = '2024-02-20 12:00:00') and c2 = 1 order by c1;
+
+-- =====================================================================
+-- 清理
+-- =====================================================================
+drop database test_shared_mutation_${uuid0} force;
