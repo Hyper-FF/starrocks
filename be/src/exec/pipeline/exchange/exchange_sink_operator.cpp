@@ -516,6 +516,15 @@ Status ExchangeSinkOperator::push_chunk(RuntimeState* state, const ChunkPtr& chu
     }
     DCHECK_LE(num_rows, state->chunk_size());
 
+    // Ensure shuffle buffers are large enough for the actual chunk size.
+    // Upstream operators may occasionally produce chunks exceeding chunk_size()
+    // (e.g., after lowering chunk_size), which would cause out-of-bounds writes
+    // in the shuffle logic and corrupt driver_sequence routing.
+    if (UNLIKELY(num_rows > _shuffle_channel_ids.size())) {
+        _shuffle_channel_ids.resize(num_rows);
+        _row_indexes.resize(num_rows);
+    }
+
     Chunk temp_chunk;
     Chunk* send_chunk = chunk.get();
     if (!_output_columns.empty()) {
