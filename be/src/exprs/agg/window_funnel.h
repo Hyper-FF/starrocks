@@ -553,20 +553,40 @@ public:
         auto* dst_column = down_cast<ArrayColumn*>(dst.get());
         dst_column->reserve(chunk_size);
 
-        const auto timestamp_column = down_cast<const TimeTypeColumn*>(src[1].get());
-        const auto* bool_array_column = down_cast<const ArrayColumn*>(src[3].get());
+        // `src[1]` (timestamp) and `src[3]` (event cond array) may still be ConstColumn here,
+        // because `Aggregator::evaluate_agg_input_column` does not unpack non-first arguments
+        // whose expressions are constant. Blindly down_cast'ing them to the concrete type is UB
+        // and `immutable_data()[i]` would read out of bounds. Handle the const case explicitly.
+        const bool timestamp_is_const = src[1]->is_constant();
+        const TimeTypeColumn* timestamp_column = nullptr;
+        TimeType const_tv{};
+        if (timestamp_is_const) {
+            const_tv = ColumnHelper::get_const_value<LT>(src[1].get());
+        } else {
+            timestamp_column = down_cast<const TimeTypeColumn*>(src[1].get());
+        }
+
+        const bool bool_array_is_const = src[3]->is_constant();
+        const ArrayColumn* bool_array_column = nullptr;
+        if (bool_array_is_const) {
+            bool_array_column =
+                    down_cast<const ArrayColumn*>(down_cast<const ConstColumn*>(src[3].get())->data_column().get());
+        } else {
+            bool_array_column = down_cast<const ArrayColumn*>(src[3].get());
+        }
         for (int i = 0; i < chunk_size; i++) {
             TimestampType tv;
+            const TimeType raw_tv = timestamp_is_const ? const_tv : timestamp_column->immutable_data()[i];
             if constexpr (LT == TYPE_DATETIME) {
-                tv = timestamp_column->immutable_data()[i].to_unix_second();
+                tv = raw_tv.to_unix_second();
             } else if constexpr (LT == TYPE_DATE) {
-                tv = timestamp_column->immutable_data()[i].julian();
+                tv = raw_tv.julian();
             } else {
-                tv = timestamp_column->immutable_data()[i];
+                tv = raw_tv;
             }
 
             // get 4th value: event cond array
-            auto ele_vector = bool_array_column->get(i).get_array();
+            auto ele_vector = bool_array_column->get(bool_array_is_const ? 0 : i).get_array();
             uint8_t event_level = 0;
             for (uint8_t j = 0; j < ele_vector.size(); j++) {
                 if (!ele_vector[j].is_null() && ele_vector[j].get_uint8() > 0) {

@@ -900,6 +900,73 @@ TEST_F(AggregateTest, test_window_funnel) {
     ASSERT_EQ(2, result_column->get_data()[0]);
 }
 
+// Reproduces the UB in WindowFunnelAggregateFunction::convert_to_serialize_format where
+// `src[1]` (timestamp) and `src[3]` (event cond array) may still be ConstColumn because the
+// aggregator does not unpack non-first constant arguments (see `Aggregator::evaluate_agg_input_column`).
+// Before the fix, the function down_cast'ed ConstColumn to the concrete column type and then
+// indexed its data by row id, which is UB / out-of-bounds.
+TEST_F(AggregateTest, test_window_funnel_convert_to_serialize_format_const_columns) {
+    std::vector<TypeDescriptor> arg_types = {
+            TypeDescriptor::from_logical_type(TYPE_BIGINT), TypeDescriptor::from_logical_type(TYPE_DATETIME),
+            TypeDescriptor::from_logical_type(TYPE_INT), TypeDescriptor::from_logical_type(TYPE_ARRAY)};
+    auto return_type = TypeDescriptor::from_logical_type(TYPE_INT);
+    std::unique_ptr<FunctionContext> local_ctx(FunctionContext::create_test_context(std::move(arg_types), return_type));
+
+    const AggregateFunction* func = get_aggregate_function("window_funnel", TYPE_DATETIME, TYPE_INT, false);
+
+    const size_t chunk_size = 3;
+
+    // src[0]: window_size (BIGINT const). Only used as context placeholder here.
+    auto column0 = ColumnHelper::create_const_column<TYPE_BIGINT>(1800, chunk_size);
+
+    // src[1]: timestamp column as a ConstColumn.
+    // Aggregator leaves non-first constant args unpacked, so convert_to_serialize_format
+    // must handle this case instead of down_cast'ing to TimestampColumn.
+    auto column1_const =
+            ColumnHelper::create_const_column<TYPE_DATETIME>(TimestampValue::create(2022, 6, 10, 12, 30, 30), chunk_size);
+
+    // src[2]: mode (INT const).
+    auto column2 = ColumnHelper::create_const_column<TYPE_INT>(0, chunk_size);
+
+    // src[3]: event cond array as a ConstColumn wrapping an ArrayColumn with a single row.
+    ColumnBuilder<TYPE_BOOLEAN> builder(config::vector_chunk_size);
+    builder.append(true);
+    builder.append(true);
+    auto data_col = NullableColumn::create(builder.build(false), NullColumn::create(2, 0));
+    auto offsets = UInt32Column::create();
+    offsets->append(0);
+    offsets->append(2); // [true, true]
+    auto inner_array = ArrayColumn::create(std::move(data_col), std::move(offsets));
+    auto column3_const = ConstColumn::create(std::move(inner_array), chunk_size);
+
+    Columns const_columns;
+    const_columns.emplace_back(column0);
+    const_columns.emplace_back(column2);
+    const_columns.emplace_back(column2);
+    local_ctx->set_constant_columns(const_columns);
+
+    Columns src;
+    src.emplace_back(column0);
+    src.emplace_back(column1_const);
+    src.emplace_back(column2);
+    src.emplace_back(column3_const);
+
+    MutableColumnPtr dst = ArrayColumn::create(
+            NullableColumn::create(Int64Column::create(), NullColumn::create()), UInt32Column::create());
+
+    // Before the fix, this would invoke UB (bad down_cast of ConstColumn) and/or
+    // read past the end of the single-element underlying column.
+    func->convert_to_serialize_format(local_ctx.get(), src, chunk_size, dst);
+
+    auto* result_array = down_cast<ArrayColumn*>(dst.get());
+    ASSERT_EQ(chunk_size, result_array->size());
+    // Every row must serialize exactly the same 4 int64 values: [events_size, sorted, tv, event_level]
+    const auto& offsets_col = result_array->offsets();
+    for (size_t i = 0; i < chunk_size; ++i) {
+        ASSERT_EQ(4u, offsets_col.get_data()[i + 1] - offsets_col.get_data()[i]);
+    }
+}
+
 TEST_F(AggregateTest, test_dict_merge) {
     const AggregateFunction* func = get_aggregate_function("dict_merge", TYPE_ARRAY, TYPE_VARCHAR, false);
     ColumnBuilder<TYPE_VARCHAR> builder(config::vector_chunk_size);
