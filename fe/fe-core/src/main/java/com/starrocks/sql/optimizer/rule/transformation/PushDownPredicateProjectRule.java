@@ -40,6 +40,7 @@ import com.starrocks.sql.optimizer.rule.RuleType;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class PushDownPredicateProjectRule extends TransformationRule {
@@ -58,17 +59,19 @@ public class PushDownPredicateProjectRule extends TransformationRule {
                         addChildren(Pattern.create(OperatorType.LOGICAL_PROJECT, OperatorType.PATTERN_LEAF)));
     }
 
-    private boolean containsAssertTrue(ScalarOperator op) {
-        if (op instanceof CallOperator
-                && FunctionSet.ASSERT_TRUE.equals(((CallOperator) op).getFnName())) {
-            return true;
-        }
-        for (ScalarOperator child : op.getChildren()) {
-            if (containsAssertTrue(child)) {
-                return true;
-            }
-        }
-        return false;
+    @Override
+    public boolean check(OptExpression input, OptimizerContext context) {
+        LogicalProjectOperator secondProject = (LogicalProjectOperator) input.getInputs().get(0).getOp();
+        Optional<ScalarOperator> assertColumn = secondProject.getColumnRefMap().values()
+                .stream()
+                .filter((op) -> {
+                    if (!(op instanceof CallOperator)) {
+                        return false;
+                    }
+                    return FunctionSet.ASSERT_TRUE.equals(((CallOperator) op).getFnName());
+                })
+                .findAny();
+        return !assertColumn.isPresent();
     }
 
     private boolean hasLambda(ScalarOperator op) {
@@ -102,14 +105,13 @@ public class PushDownPredicateProjectRule extends TransformationRule {
             }
         }
 
-        // Predicates that reference a project column whose expression is either non-deterministic
-        // (e.g. rand(), now()) or contains an assert_true() must stay above the Project to preserve
-        // evaluation order and assertion semantics. Unrelated predicates are still safe to push down.
+        // Check if the filter's predicate contains non-deterministic functions
+        // If it does, don't push down the predicate below project to avoid incorrect results
         List<ScalarOperator> compoundAndPredicates = Utils.extractConjuncts(filter.getPredicate());
         Set<ScalarOperator> deterministicPredicates = new HashSet<>();
         Set<ScalarOperator> nonDeterministicPredicates = new HashSet<>();
         for (var entry : project.getColumnRefMap().entrySet()) {
-            if (Utils.hasNonDeterministicFunc(entry.getValue()) || containsAssertTrue(entry.getValue())) {
+            if (Utils.hasNonDeterministicFunc(entry.getValue())) {
                 compoundAndPredicates.forEach(scalarOperator -> {
                     if (scalarOperator.getUsedColumns().contains(entry.getKey())) {
                         nonDeterministicPredicates.add(scalarOperator);
