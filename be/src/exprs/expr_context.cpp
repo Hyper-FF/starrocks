@@ -41,6 +41,7 @@
 
 #include "column/chunk.h"
 #include "column/column_helper.h"
+#include "common/object_pool.h"
 #include "common/statusor.h"
 #include "exprs/expr.h"
 #include "runtime/mem_pool.h"
@@ -49,6 +50,20 @@
 namespace starrocks {
 
 namespace {
+
+// Use the fragment-level MemPool only when |pool| belongs to the same fragment;
+// otherwise fall back to heap allocation.
+MemPool* get_fragment_mem_pool(RuntimeState* state, ObjectPool* pool) {
+    return (state != nullptr && pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
+}
+
+ExprContext* alloc_expr_context(ObjectPool* pool, MemPool* mp, Expr* root) {
+    if (mp != nullptr) {
+        void* buf = mp->allocate_aligned(sizeof(ExprContext), alignof(ExprContext));
+        return pool->emplace<ExprContext>(buf, root);
+    }
+    return pool->add(new ExprContext(root));
+}
 
 ChunkPtr create_dummy_chunk() {
     auto dummy_chunk = std::make_shared<Chunk>();
@@ -62,12 +77,12 @@ ChunkPtr create_dummy_chunk() {
 ExprContext::ExprContext(Expr* root) : _root(root) {}
 
 ExprContext::~ExprContext() {
-    // nothing to do
-    if (_runtime_state == nullptr) return;
-
-    close(_runtime_state);
-    for (auto& _fn_context : _fn_contexts) {
-        delete _fn_context;
+    // close() tears down |_fn_contexts| (placement-new'd into |_pool|) before the
+    // pool is freed. |_closed| guards against double-close when close() already
+    // ran externally. If |_runtime_state| is null, prepare() was never called, so
+    // register_func() never added FunctionContexts and |_pool| is idle.
+    if (_runtime_state != nullptr) {
+        close(_runtime_state);
     }
 }
 
@@ -75,11 +90,32 @@ Status ExprContext::prepare(RuntimeState* state) {
     if (_prepared) {
         return Status::OK();
     }
-    DCHECK(_pool.get() == nullptr);
     _prepared = true;
     _runtime_state = state;
-    _pool = std::make_unique<MemPool>();
     return _root->prepare(state, this);
+}
+
+FunctionContext* ExprContext::alloc_fn_context(RuntimeState* state, const FunctionContext::TypeDesc& return_type,
+                                               const std::vector<FunctionContext::TypeDesc>& arg_types) {
+    void* buf = _pool.allocate_aligned(sizeof(FunctionContext), alignof(FunctionContext));
+    auto* fc = new (buf) FunctionContext();
+    fc->_state = state;
+    fc->_mem_pool = &_pool;
+    fc->_return_type = return_type;
+    fc->_arg_types = arg_types;
+    return fc;
+}
+
+FunctionContext* ExprContext::alloc_fn_context_clone(const FunctionContext* src) {
+    void* buf = _pool.allocate_aligned(sizeof(FunctionContext), alignof(FunctionContext));
+    auto* fc = new (buf) FunctionContext();
+    fc->_state = src->_state;
+    fc->_mem_pool = &_pool;
+    fc->_return_type = src->_return_type;
+    fc->_arg_types = src->_arg_types;
+    fc->_constant_columns = src->_constant_columns;
+    fc->_fragment_local_fn_state = src->_fragment_local_fn_state;
+    return fc;
 }
 
 Status ExprContext::open(RuntimeState* state) {
@@ -110,16 +146,18 @@ void ExprContext::close(RuntimeState* state) {
     FunctionContext::FunctionStateScope scope =
             _is_clone ? FunctionContext::THREAD_LOCAL : FunctionContext::FRAGMENT_LOCAL;
     _root->close(state, this, scope);
-    // _pool can be nullptr if Prepare() was never called
-    if (_pool != nullptr) {
-        _pool->free_all();
+    // FunctionContexts were placement-new'd into |_pool|; destroy them before
+    // releasing the pool memory to avoid operating on freed chunks.
+    for (auto* fn_ctx : _fn_contexts) {
+        if (fn_ctx != nullptr) fn_ctx->~FunctionContext();
     }
-    _pool.reset();
+    _fn_contexts.clear();
+    _pool.free_all();
 }
 
 int ExprContext::register_func(RuntimeState* state, const FunctionContext::TypeDesc& return_type,
                                const std::vector<FunctionContext::TypeDesc>& arg_types) {
-    _fn_contexts.push_back(FunctionContext::create_context(state, _pool.get(), return_type, arg_types));
+    _fn_contexts.push_back(alloc_fn_context(state, return_type, arg_types));
     return _fn_contexts.size() - 1;
 }
 
@@ -128,10 +166,9 @@ Status ExprContext::clone(RuntimeState* state, ObjectPool* pool, ExprContext** n
     DCHECK(_opened);
     DCHECK(*new_ctx == nullptr);
 
-    *new_ctx = pool->add(new ExprContext(_root));
-    (*new_ctx)->_pool = std::make_unique<MemPool>();
-    for (auto& _fn_context : _fn_contexts) {
-        (*new_ctx)->_fn_contexts.push_back(_fn_context->clone((*new_ctx)->_pool.get()));
+    *new_ctx = alloc_expr_context(pool, get_fragment_mem_pool(state, pool), _root);
+    for (auto* fn_context : _fn_contexts) {
+        (*new_ctx)->_fn_contexts.push_back((*new_ctx)->alloc_fn_context_clone(fn_context));
     }
 
     (*new_ctx)->_is_clone = true;

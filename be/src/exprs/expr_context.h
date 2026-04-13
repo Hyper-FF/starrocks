@@ -40,6 +40,7 @@
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "exprs/function_context.h"
+#include "runtime/mem_pool.h"
 // Only include column/vectorized_fwd.h in this file, you need include what you need
 // in the source files. Please NOT add unnecessary includes in this file.
 
@@ -49,7 +50,6 @@ class OlapScanNode;
 class Chunk;
 
 class Expr;
-class MemPool;
 class MemTracker;
 class RuntimeState;
 class ObjectPool;
@@ -133,12 +133,21 @@ private:
     friend class OlapScanNode;
     friend class EsPredicate;
 
-    /// FunctionContexts for each registered expression. The FunctionContexts are created
-    /// and owned by this ExprContext.
-    std::vector<FunctionContext*> _fn_contexts;
+    // Placement-new a FunctionContext into |_pool|. The returned pointer is owned by
+    // |_fn_contexts|; its destructor must be invoked before |_pool| is freed.
+    FunctionContext* alloc_fn_context(RuntimeState* state, const FunctionContext::TypeDesc& return_type,
+                                      const std::vector<FunctionContext::TypeDesc>& arg_types);
+    FunctionContext* alloc_fn_context_clone(const FunctionContext* src);
 
     /// Pool backing fn_contexts_. Counts against the runtime state's UDF mem tracker.
-    std::unique_ptr<MemPool> _pool;
+    /// Stored inline so the MemPool itself needs no separate heap allocation, and
+    /// also backs placement-new of the FunctionContexts in |_fn_contexts|.
+    MemPool _pool;
+
+    /// FunctionContexts for each registered expression. The FunctionContexts are placement-new'd
+    /// into |_pool|, so they are declared AFTER |_pool| to guarantee that the vector is
+    /// destroyed before the pool is released.
+    std::vector<FunctionContext*> _fn_contexts;
 
     RuntimeState* _runtime_state = nullptr;
     /// The expr tree this context is for.
