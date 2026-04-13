@@ -19,6 +19,7 @@ import com.starrocks.catalog.FunctionSet;
 import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.OptimizerContext;
 import com.starrocks.sql.optimizer.Utils;
+import com.starrocks.sql.optimizer.base.ColumnRefSet;
 import com.starrocks.sql.optimizer.operator.OperatorType;
 import com.starrocks.sql.optimizer.operator.logical.LogicalFilterOperator;
 import com.starrocks.sql.optimizer.operator.logical.LogicalProjectOperator;
@@ -102,19 +103,39 @@ public class PushDownPredicateProjectRule extends TransformationRule {
             }
         }
 
-        // Predicates that reference a project column whose expression is either non-deterministic
-        // (e.g. rand(), now()) or contains an assert_true() must stay above the Project to preserve
-        // evaluation order and assertion semantics. Unrelated predicates are still safe to push down.
+        // Predicates that reference a project column whose expression is non-deterministic
+        // (e.g. rand(), now()) must stay above the Project.
+        //
+        // If the Project produces an assert_true() column, we further restrict push-down to
+        // predicates whose used columns are all identity pass-throughs of the Project. This
+        // preserves the eager-evaluation semantics of assert_true() on computed columns (e.g.
+        // the result of a correlated scalar subquery), while still allowing plain predicates on
+        // pure pass-through columns to be pushed below the Project.
         List<ScalarOperator> compoundAndPredicates = Utils.extractConjuncts(filter.getPredicate());
         Set<ScalarOperator> deterministicPredicates = new HashSet<>();
         Set<ScalarOperator> nonDeterministicPredicates = new HashSet<>();
+        boolean hasAssertTrue = false;
+        ColumnRefSet passThroughRefs = new ColumnRefSet();
         for (var entry : project.getColumnRefMap().entrySet()) {
-            if (Utils.hasNonDeterministicFunc(entry.getValue()) || containsAssertTrue(entry.getValue())) {
+            if (containsAssertTrue(entry.getValue())) {
+                hasAssertTrue = true;
+            }
+            if (entry.getKey().equals(entry.getValue())) {
+                passThroughRefs.union(entry.getKey());
+            }
+            if (Utils.hasNonDeterministicFunc(entry.getValue())) {
                 compoundAndPredicates.forEach(scalarOperator -> {
                     if (scalarOperator.getUsedColumns().contains(entry.getKey())) {
                         nonDeterministicPredicates.add(scalarOperator);
                     }
                 });
+            }
+        }
+        if (hasAssertTrue) {
+            for (ScalarOperator predicate : compoundAndPredicates) {
+                if (!passThroughRefs.containsAll(predicate.getUsedColumns())) {
+                    nonDeterministicPredicates.add(predicate);
+                }
             }
         }
         compoundAndPredicates.forEach(predicate -> {

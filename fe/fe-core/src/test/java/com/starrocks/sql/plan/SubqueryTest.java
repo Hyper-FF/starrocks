@@ -541,6 +541,26 @@ public class SubqueryTest extends PlanTestBase {
     }
 
     @Test
+    public void testPushDownUnrelatedPredicateThroughAssertTrueProject() throws Exception {
+        // A correlated scalar subquery introduces an assert_true() column in a Project.
+        // Predicates that only reference pass-through columns of the outer table (here: v3)
+        // must still be pushed all the way down to the outer scan, instead of being blocked
+        // above the Project by the assert_true() side-effect.
+        String sql = "SELECT * FROM t0\n" +
+                "WHERE t0.v3 > 10\n" +
+                "  AND t0.v2 = (\n" +
+                "      SELECT t1.v5 FROM t1\n" +
+                "      WHERE t0.v1 = t1.v4\n" +
+                "  );";
+        String plan = getFragmentPlan(sql);
+        // The assert_true() assertion must still be preserved in the plan.
+        assertContains(plan, "assert_true");
+        // The unrelated predicate on a pass-through column must reach the outer scan.
+        assertContains(plan, "TABLE: t0");
+        assertContains(plan, "PREDICATES: 3: v3 > 10");
+    }
+
+    @Test
     public void testCorrelatedScalarNonAggSubqueryByHavingClause() throws Exception {
         {
             String sql = "SELECT v1, SUM(v2) FROM t0\n" +
