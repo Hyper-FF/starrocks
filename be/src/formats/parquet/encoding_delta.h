@@ -525,8 +525,13 @@ public:
     std::string to_string() const override { return "DeltaLengthByteArrayEncoder"; }
 
 private:
+    static constexpr int kBatchSize = 256;
+
     faststring string_buffer_;
     DeltaBinaryPackedEncoder<int> length_encoder_;
+    // Heap-allocated scratch buffer reused across Put() calls to avoid
+    // large stack frames in nested encoder call chains.
+    std::vector<int32_t> lengths_scratch_;
 
     bool sink_sealed_ = false;
     faststring sink_;
@@ -537,8 +542,10 @@ private:
             return Status::OK();
         }
 
-        constexpr int kBatchSize = 256;
-        std::array<int32_t, kBatchSize> lengths;
+        if (lengths_scratch_.size() < static_cast<size_t>(kBatchSize)) {
+            lengths_scratch_.resize(kBatchSize);
+        }
+        int32_t* lengths = lengths_scratch_.data();
         int64_t total_increment_size = 0;
         for (int idx = 0; idx < num_values; idx += kBatchSize) {
             const int batch_size = std::min(kBatchSize, num_values - idx);
@@ -547,7 +554,7 @@ private:
                 total_increment_size += len;
                 lengths[j] = len;
             }
-            RETURN_IF_ERROR(length_encoder_.append((const uint8_t*)lengths.data(), batch_size));
+            RETURN_IF_ERROR(length_encoder_.append((const uint8_t*)lengths, batch_size));
         }
         if (total_increment_size > std::numeric_limits<int32_t>::max()) {
             return Status::Corruption("total increment size overflow in DELTA_LENGTH_BYTE_ARRAY");
@@ -746,9 +753,15 @@ public:
     }
 
 private:
+    static constexpr int kBatchSize = 256;
+
     DeltaBinaryPackedEncoder<int32_t> prefix_length_encoder_;
     DeltaLengthByteArrayEncoder suffix_encoder_;
     std::string last_value_ = "";
+    // Heap-allocated scratch buffers reused across Put() calls to avoid
+    // large stack frames (~5KB combined) in nested encoder call chains.
+    std::vector<int32_t> prefix_lengths_scratch_;
+    std::vector<Slice> suffixes_scratch_;
 
     bool sink_sealed_ = false;
     faststring sink_;
@@ -760,9 +773,14 @@ private:
         }
 
         std::string_view last_value_view = last_value_;
-        constexpr int kBatchSize = 256;
-        std::array<int32_t, kBatchSize> prefix_lengths;
-        std::array<Slice, kBatchSize> suffixes;
+        if (prefix_lengths_scratch_.size() < static_cast<size_t>(kBatchSize)) {
+            prefix_lengths_scratch_.resize(kBatchSize);
+        }
+        if (suffixes_scratch_.size() < static_cast<size_t>(kBatchSize)) {
+            suffixes_scratch_.resize(kBatchSize);
+        }
+        int32_t* prefix_lengths = prefix_lengths_scratch_.data();
+        Slice* suffixes = suffixes_scratch_.data();
 
         for (int i = 0; i < num_values; i += kBatchSize) {
             const int batch_size = std::min(kBatchSize, num_values - i);
@@ -792,9 +810,9 @@ private:
                 suffixes[j] = suffix;
             }
 
-            RETURN_IF_ERROR(suffix_encoder_.append(reinterpret_cast<const uint8_t*>(suffixes.data()), batch_size));
+            RETURN_IF_ERROR(suffix_encoder_.append(reinterpret_cast<const uint8_t*>(suffixes), batch_size));
             RETURN_IF_ERROR(
-                    prefix_length_encoder_.append(reinterpret_cast<const uint8_t*>(prefix_lengths.data()), batch_size));
+                    prefix_length_encoder_.append(reinterpret_cast<const uint8_t*>(prefix_lengths), batch_size));
         }
         last_value_ = last_value_view;
         return Status::OK();
