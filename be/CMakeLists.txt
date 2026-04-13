@@ -720,8 +720,11 @@ endif()
 
 # enable global pch compiling
 option(WITH_PCH "Enable precompiled headers for BE targets" ON)
+# Always declare the StarRocksPCH interface library so consumers can link to it
+# unconditionally; precompiled-header attributes are only attached when
+# WITH_PCH is ON, otherwise linking is a no-op.
+add_library(StarRocksPCH INTERFACE)
 if (WITH_PCH)
-    add_library(StarRocksPCH INTERFACE)
     target_precompile_headers(StarRocksPCH INTERFACE ${SRC_DIR}/pch/starrocks_pch.h)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(StarRocksPCH INTERFACE "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-Xclang -fno-pch-timestamp>")
@@ -805,9 +808,7 @@ FUNCTION(ADD_BE_LIB LIB_NAME)
         )
     ELSE()
         ADD_LIBRARY(${LIB_NAME} STATIC ${ARGN})
-        if (WITH_PCH)
-            target_link_libraries(${LIB_NAME} PRIVATE StarRocksPCH)
-        endif()
+        target_link_libraries(${LIB_NAME} PRIVATE StarRocksPCH)
     ENDIF()
     set(ALL_BE_LIBS "${ALL_BE_LIBS};${LIB_NAME}" CACHE INTERNAL "All BE libraries")
 ENDFUNCTION()
