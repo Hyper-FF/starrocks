@@ -1,0 +1,119 @@
+-- name: test_array_map_slot_conflict_68481
+-- Regression test for https://github.com/StarRocks/starrocks/issues/68481
+-- The user reported that in 4.0.4 (vs 4.0.0) queries fail with:
+--     "slot_id 108 already exists BE: 10132"
+-- when running a view that uses multiple CTEs containing array_map, array_filter,
+-- array_sort, regexp_replace, json_query and nested CASE expressions.
+--
+-- This test combines patterns that historically have triggered BE-side
+-- "slot_id already exists" bugs (see PRs #52692, #57756, #62414) together with
+-- the new array_sort lambda comparator path added in 4.0.4 (PR #66607) and the
+-- JSON v2 lambda rewrite path (PR #66550). The goal is to stress
+-- `extract_outer_common_exprs` and `evaluate_lambda_expr` in a realistic shape
+-- similar to the user's view.
+
+CREATE TABLE `slot_conflict_68481` (
+  `id`       bigint      NOT NULL,
+  `key_col`  varchar(64) NOT NULL,
+  `ts`       datetime    NULL,
+  `payload`  json        NULL,
+  `raw`      varchar(4096) NULL,
+  `tags`     array<varchar(64)> NULL,
+  `scores`   array<bigint> NULL,
+  `events`   array<json> NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`id`)
+DISTRIBUTED BY HASH(`id`) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+insert into slot_conflict_68481 values
+ (1, 'a', '2026-01-01 00:00:00',
+     parse_json('{"lat":10.5,"lng":20.1,"kind":"x"}'),
+     'abc-DEF-123',
+     ['alpha','beta','gamma'],
+     [1,2,3,4,5],
+     [parse_json('{"id":1,"v":10}'), parse_json('{"id":2,"v":20}'), parse_json('{"id":3,"v":30}')]),
+ (2, 'b', '2026-01-02 00:00:00',
+     parse_json('{"lat":11.2,"lng":21.3,"kind":"y"}'),
+     'foo-BAR-999',
+     ['x','y','z','w'],
+     [10,20,30],
+     [parse_json('{"id":4,"v":40}'), parse_json('{"id":5,"v":50}')]),
+ (3, 'c', '2026-01-03 00:00:00',
+     parse_json('{"lat":null,"lng":22.4,"kind":"z"}'),
+     'baz-QUUX-000',
+     ['k1','k2'],
+     [100,200,300,400],
+     [parse_json('{"id":6,"v":60}')]);
+
+-- Pattern 1: nested array_map with any_match - same shape as PR #52692 reproducer.
+-- Uses the `raw` column (varchar) inside length() so length() becomes an outer
+-- common expression extracted by both outer and inner lambdas.
+select id,
+       coalesce(
+         element_at(array_map(x -> x + any_match(array_map(y -> y < length(raw), scores)), scores), 1),
+         element_at(array_map(x -> x + length(raw),                                          scores), 1),
+         0) as c
+from slot_conflict_68481
+order by id;
+
+-- Pattern 2: sibling array_maps in a CASE, each with their own common expr.
+-- Matches the "view with nested CASE statements and array operations" shape.
+select id,
+       case
+         when id = 1 then array_map(x -> x + length(regexp_replace(raw, '[0-9]+', '')), scores)
+         when id = 2 then array_map(x -> x * length(regexp_replace(raw, '[A-Z]+', '?')), scores)
+         else              array_map(x -> x - length(regexp_replace(raw, '[a-z]+', '_')), scores)
+       end as c
+from slot_conflict_68481
+order by id;
+
+-- Pattern 3: CTE that inlines multiple times into another CTE with array_map
+-- that captures json_query on the inlined column (PR #66550 is the json v2
+-- rewrite-with-lambda path).
+with
+  base as (
+    select id, raw,
+           array_map(e -> json_query(e, '$.v'), events) as vals,
+           payload
+    from slot_conflict_68481
+  ),
+  filt as (
+    select id,
+           array_filter(vals,
+                        array_map(v -> cast(v as bigint) > 15, vals)) as kept,
+           array_map(v -> cast(v as bigint) + cast(json_query(payload, '$.lng') as bigint),
+                     vals) as shifted
+    from base
+  )
+select id,
+       array_sortby(kept, array_map(v -> length(cast(v as varchar)), kept)) as sorted_kept,
+       array_sum(shifted) as s
+from filt
+order by id;
+
+-- Pattern 4: array_sort with lambda comparator (new in 4.0.4, PR #66607) that
+-- captures an outer-scope expression. The comparator must be purely over its
+-- args; placing it next to array_map siblings stresses shared slot allocation.
+select id,
+       array_sort(array_map(x -> x + length(raw), scores),
+                  (a, b) -> if(a < b, 1, if(a = b, 0, -1))) as sorted_scores,
+       array_map(x -> concat(regexp_replace(raw, '[0-9]+', ''), cast(x as varchar)), scores) as annotated
+from slot_conflict_68481
+order by id;
+
+-- Pattern 5: nested any_match in the same projection as an outer array_map,
+-- combined with a json_query captured by the outer lambda - reuses the fact
+-- that the inner lambda's slot range is "hidden" inside an
+-- outer_common_expr of the outer lambda (discussed in PR #52692).
+select id,
+       array_map(x -> case
+                         when any_match(y -> y > cast(json_query(payload, '$.lng') as bigint), scores)
+                              then x + length(regexp_replace(raw, '[^0-9]+', ''))
+                         else x
+                      end,
+                 scores) as c
+from slot_conflict_68481
+order by id;
+
+drop table slot_conflict_68481;
