@@ -92,6 +92,9 @@ Status TabletSinkSender::_send_chunk_by_node(Chunk* chunk, IndexChannel* channel
 
     DCHECK(_index_id_to_tablet_be_map.find(channel->index_id()) != _index_id_to_tablet_be_map.end());
     auto& tablet_to_be = _index_id_to_tablet_be_map.find(channel->index_id())->second;
+    // Acquire shared lock to protect against concurrent modification of _node_channels
+    // during incremental partition opens (see IndexChannel::init with is_incremental=true).
+    std::shared_lock<std::shared_mutex> lock(channel->_node_channels_mutex);
     for (auto& it : channel->_node_channels) {
         NodeChannel* node = it.second.get();
         if (channel->is_failed_channel(node)) {
