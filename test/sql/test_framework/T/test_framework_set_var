@@ -1,4 +1,4 @@
--- name: test_set_var_basic
+-- name: test_framework_set_var
 create database test_db_${uuid0};
 use test_db_${uuid0};
 create table t1 (c1 int, c2 string) DUPLICATE KEY(c1) DISTRIBUTED BY HASH(c1) PROPERTIES('replication_num' = '1');
@@ -14,7 +14,6 @@ SET_VAR {
 
 drop database test_db_${uuid0};
 
--- name: test_set_var_multi_vars
 create database test_db_${uuid0};
 use test_db_${uuid0};
 create table t2 (c1 int, c2 int, c3 string) DUPLICATE KEY(c1) DISTRIBUTED BY HASH(c1) PROPERTIES('replication_num' = '1');
