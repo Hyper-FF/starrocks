@@ -580,9 +580,9 @@ DirectByteBuffer::DirectByteBuffer(void* ptr, int capacity) {
     auto* env = helper.getEnv();
     auto lref = env->NewDirectByteBuffer(ptr, capacity);
     if (UNLIKELY(lref == nullptr)) {
-        if (env->ExceptionOccurred()) {
-            LOG(WARNING) << "NewDirectByteBuffer failed: "
-                         << JVMFunctionHelper::getInstance().dumpExceptionString(env->ExceptionOccurred());
+        if (jthrowable jthr = env->ExceptionOccurred()) {
+            LOCAL_REF_GUARD(jthr);
+            LOG(WARNING) << "NewDirectByteBuffer failed: " << helper.dumpExceptionString(jthr);
             env->ExceptionClear();
         }
         _handle = nullptr;
