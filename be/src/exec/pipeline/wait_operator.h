@@ -98,7 +98,7 @@ public:
               _wait_time_ns(wait_times_ms * 1000L * 1000L),
               _action(action) {}
 
-    ~WaitSinkOperator() override = default;
+    ~WaitSinkOperator() override;
 
     Status push_chunk(RuntimeState* state, const ChunkPtr& chunk) override;
 
@@ -114,6 +114,8 @@ public:
 
     bool ignore_empty_eos() const override { return false; }
 
+    void close(RuntimeState* state) override;
+
     Status set_finishing(RuntimeState* state) override;
     Status set_finished(RuntimeState* state) override;
 
@@ -126,6 +128,7 @@ private:
     int64_t _wait_time_ns = 0;
     EnumDebugAction _action = EnumDebugAction::WAIT;
     mutable bool _reached_timeout = false;
+    std::unique_ptr<PipelineTimerTask> _wait_timer_task;
 };
 
 class WaitContextFactory {

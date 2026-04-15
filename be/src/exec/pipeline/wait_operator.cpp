@@ -77,7 +77,32 @@ Status WaitSinkOperator::prepare(RuntimeState* state) {
     _wait_context->observable->attach_sink_observer(state, observer());
     _mono_timer = state->obj_pool()->add(new MonotonicStopWatch());
     _mono_timer->start();
+    if (_sink_should_block() && state->enable_event_scheduler()) {
+        // When the event scheduler is enabled, drivers stuck in OUTPUT_FULL are not polled by the
+        // PipelineDriverPoller. Schedule a pipeline timer to fire an observer event on the sink
+        // driver when the block timeout elapses, so that need_input() gets re-evaluated and the
+        // driver resumes rather than hanging until query timeout.
+        auto fragment_ctx = state->fragment_ctx();
+        auto timer = std::make_unique<RFScanWaitTimeout>();
+        timer->add_observer(state, observer());
+        _wait_timer_task = std::move(timer);
+        timespec abstime = butil::microseconds_to_timespec(butil::gettimeofday_us());
+        abstime.tv_nsec += _wait_time_ns;
+        butil::timespec_normalize(&abstime);
+        RETURN_IF_ERROR(fragment_ctx->pipeline_timer()->schedule(_wait_timer_task.get(), abstime));
+    }
     return Status::OK();
+}
+
+WaitSinkOperator::~WaitSinkOperator() {
+    close(runtime_state());
+}
+
+void WaitSinkOperator::close(RuntimeState* state) {
+    if (_wait_timer_task != nullptr) {
+        state->fragment_ctx()->pipeline_timer()->unschedule(_wait_timer_task.get());
+        _wait_timer_task = nullptr;
+    }
 }
 
 bool WaitSinkOperator::need_input() const {
