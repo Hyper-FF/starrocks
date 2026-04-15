@@ -502,21 +502,31 @@ OpFactories PipelineBuilderContext::maybe_interpolate_collect_stats(RuntimeState
 OpFactories PipelineBuilderContext::maybe_interpolate_debug_ops(RuntimeState* state, int32_t plan_node_id,
                                                                 OpFactories& pred_operators) {
     auto action_opt = runtime_state()->debug_action_mgr().get_debug_action(plan_node_id);
-    if (action_opt.has_value() && action_opt.value().is_wait_action()) {
-        auto* pred_source_op = source_operator(pred_operators);
-        auto wait_context_factory = std::make_shared<WaitContextFactory>(action_opt->value);
-        auto wait_sink =
-                std::make_shared<WaitOperatorSinkFactory>(next_operator_id(), plan_node_id, wait_context_factory);
-
-        pred_operators.push_back(std::move(wait_sink));
-        add_pipeline(pred_operators);
-
-        auto wait_src =
-                std::make_shared<WaitOperatorSourceFactory>(next_operator_id(), plan_node_id, wait_context_factory);
-        this->inherit_upstream_source_properties(wait_src.get(), pred_source_op);
-        return {std::move(wait_src)};
+    if (!action_opt.has_value()) {
+        return pred_operators;
     }
-    return pred_operators;
+    WaitMode mode;
+    if (action_opt->is_wait_action()) {
+        mode = WaitMode::WAIT;
+    } else if (action_opt->is_block_source_action()) {
+        mode = WaitMode::BLOCK_SOURCE;
+    } else if (action_opt->is_block_sink_action()) {
+        mode = WaitMode::BLOCK_SINK;
+    } else {
+        return pred_operators;
+    }
+
+    auto* pred_source_op = source_operator(pred_operators);
+    auto wait_context_factory = std::make_shared<WaitContextFactory>(action_opt->value, mode);
+    auto wait_sink = std::make_shared<WaitOperatorSinkFactory>(next_operator_id(), plan_node_id, wait_context_factory);
+
+    pred_operators.push_back(std::move(wait_sink));
+    add_pipeline(pred_operators);
+
+    auto wait_src =
+            std::make_shared<WaitOperatorSourceFactory>(next_operator_id(), plan_node_id, wait_context_factory);
+    this->inherit_upstream_source_properties(wait_src.get(), pred_source_op);
+    return {std::move(wait_src)};
 }
 
 size_t PipelineBuilderContext::dop_of_source_operator(int source_node_id) {

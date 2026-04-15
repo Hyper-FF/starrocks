@@ -28,7 +28,10 @@ Status WaitSourceOperator::prepare(RuntimeState* state) {
     _mono_timer = state->obj_pool()->add(new MonotonicStopWatch());
     _mono_timer->start();
     _wait_context->observable->attach_source_observer(state, observer());
-    if (state->enable_event_scheduler()) {
+    // BLOCK_SINK mode only blocks the sink side, so the source is not gated on time.
+    // BLOCK_SOURCE/WAIT with a zero timeout is treated as a permanent block, so skip
+    // scheduling a wakeup timer in that case.
+    if (_mode != WaitMode::BLOCK_SINK && _wait_time_ns > 0 && state->enable_event_scheduler()) {
         auto fragment_ctx = state->fragment_ctx();
         auto timer = std::make_unique<RFScanWaitTimeout>();
         timer->add_observer(state, observer());
@@ -53,8 +56,13 @@ void WaitSourceOperator::close(RuntimeState* state) {
 }
 
 bool WaitSourceOperator::has_output() const {
+    if (_mode == WaitMode::BLOCK_SINK) {
+        // Source is not gated; just pass through whatever the (blocked) sink managed to buffer.
+        return !_wait_context->is_finished && !_wait_context->chunk_buffer->is_empty();
+    }
     if (!_reached_timeout) {
-        if (_mono_timer->elapsed_time() > _wait_time_ns) {
+        // A non-positive wait time under BLOCK_SOURCE/WAIT means block forever.
+        if (_wait_time_ns > 0 && _mono_timer->elapsed_time() > _wait_time_ns) {
             _reached_timeout = true;
         } else {
             return false;
@@ -75,14 +83,27 @@ Status WaitSinkOperator::prepare(RuntimeState* state) {
             _metrics.get(), 1, config::local_exchange_buffer_mem_limit_per_driver, state->chunk_size() * 16);
     _wait_context->observable = std::make_unique<PipeObservable>();
     _wait_context->observable->attach_sink_observer(state, observer());
+    _mono_timer = state->obj_pool()->add(new MonotonicStopWatch());
+    _mono_timer->start();
     return Status::OK();
 }
 
 bool WaitSinkOperator::need_input() const {
+    if (_mode == WaitMode::BLOCK_SINK && !_reached_timeout) {
+        // A non-positive wait time under BLOCK_SINK means block forever.
+        if (_wait_time_ns > 0 && _mono_timer->elapsed_time() > _wait_time_ns) {
+            _reached_timeout = true;
+        } else {
+            return false;
+        }
+    }
     return !_wait_context->chunk_buffer->is_full();
 }
 
 bool WaitSinkOperator::is_finished() const {
+    if (_mode == WaitMode::BLOCK_SINK && !_reached_timeout) {
+        return false;
+    }
     return _wait_context->is_finished || (_wait_context->is_finishing && _wait_context->chunk_buffer->is_empty());
 }
 

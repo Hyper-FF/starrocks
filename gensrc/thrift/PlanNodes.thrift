@@ -104,7 +104,19 @@ enum TExecNodePhase {
 // what to do when hitting a debug point (TQueryOptions.DEBUG_ACTION)
 enum TDebugAction {
   WAIT,
-  FAIL
+  FAIL,
+  // Block the source operator at the given plan node id so that it never
+  // produces output. Used to test pipeline scheduling behavior under blocked
+  // source operators. The `value` field of TExecDebugOption, if greater than 0,
+  // specifies a duration in milliseconds after which the block is released;
+  // otherwise the source is blocked permanently.
+  BLOCK_SOURCE_OPERATOR,
+  // Block the sink operator at the given plan node id so that it never accepts
+  // input. Used to test pipeline backpressure behavior under blocked sink
+  // operators. The `value` field of TExecDebugOption, if greater than 0,
+  // specifies a duration in milliseconds after which the block is released;
+  // otherwise the sink is blocked permanently.
+  BLOCK_SINK_OPERATOR
 }
 
 struct TKeyRange {

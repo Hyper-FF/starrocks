@@ -39,6 +39,20 @@ struct BufferMetrics {
     RuntimeProfile::HighWaterMarkCounter* chunk_buffer_peak_size{};
 };
 
+// Mode that controls the behavior of WaitSource/WaitSinkOperator pair.
+//   - WAIT: Both operators are interpolated to add a fixed delay. After the
+//     delay elapses, the source begins pulling chunks from the buffer and the
+//     pipeline continues normally.
+//   - BLOCK_SOURCE: The source operator stays blocked (has_output() == false)
+//     until the (optional) timeout elapses; if the timeout is zero, the source
+//     is blocked permanently. Used to test pipeline scheduling under blocked
+//     source operators.
+//   - BLOCK_SINK: The sink operator stays blocked (need_input() == false)
+//     until the (optional) timeout elapses; if the timeout is zero, the sink
+//     is blocked permanently. Used to test pipeline backpressure under blocked
+//     sink operators.
+enum class WaitMode { WAIT, BLOCK_SOURCE, BLOCK_SINK };
+
 struct WaitContext {
     bool is_finished = false;
     bool is_finishing = false;
@@ -49,10 +63,11 @@ struct WaitContext {
 class WaitSourceOperator final : public SourceOperator {
 public:
     WaitSourceOperator(OperatorFactory* factory, int32_t id, int32_t plan_node_id, int32_t driver_sequence,
-                       WaitContext* wait_context, int32_t wait_times_ms)
+                       WaitContext* wait_context, int32_t wait_times_ms, WaitMode mode)
             : SourceOperator(factory, id, "wait_source", plan_node_id, true, driver_sequence),
               _wait_context(wait_context),
-              _wait_time_ns(wait_times_ms * 1000L * 1000L) {}
+              _wait_time_ns(wait_times_ms * 1000L * 1000L),
+              _mode(mode) {}
 
     ~WaitSourceOperator() override;
 
@@ -62,6 +77,9 @@ public:
 
     bool has_output() const override;
     bool is_finished() const override {
+        if (_mode == WaitMode::BLOCK_SOURCE && !_reached_timeout) {
+            return false;
+        }
         return _wait_context->is_finished || (_wait_context->is_finishing && _wait_context->chunk_buffer->is_empty());
     }
 
@@ -79,14 +97,18 @@ private:
     MonotonicStopWatch* _mono_timer = nullptr;
     WaitContext* _wait_context = nullptr;
     int64_t _wait_time_ns = 0;
+    WaitMode _mode = WaitMode::WAIT;
     std::unique_ptr<PipelineTimerTask> _wait_timer_task;
 };
 
 class WaitSinkOperator final : public Operator {
 public:
     WaitSinkOperator(OperatorFactory* factory, int32_t id, int32_t plan_node_id, int32_t driver_sequence,
-                     WaitContext* wait_context)
-            : Operator(factory, id, "wait_sink", plan_node_id, true, driver_sequence), _wait_context(wait_context) {}
+                     WaitContext* wait_context, int32_t wait_times_ms, WaitMode mode)
+            : Operator(factory, id, "wait_sink", plan_node_id, true, driver_sequence),
+              _wait_context(wait_context),
+              _wait_time_ns(wait_times_ms * 1000L * 1000L),
+              _mode(mode) {}
 
     ~WaitSinkOperator() override = default;
 
@@ -109,19 +131,25 @@ public:
 
 private:
     std::unique_ptr<BufferMetrics> _metrics;
+    mutable bool _reached_timeout = false;
+    MonotonicStopWatch* _mono_timer = nullptr;
     WaitContext* _wait_context = nullptr;
+    int64_t _wait_time_ns = 0;
+    WaitMode _mode = WaitMode::WAIT;
 };
 
 class WaitContextFactory {
 public:
     size_t wait_times_ms() const { return _wait_time_ms; }
+    WaitMode mode() const { return _mode; }
     void resize(int dop) { _buffer.resize(dop); }
     WaitContext* get(int driver_sequence) { return &_buffer[driver_sequence]; }
 
-    WaitContextFactory(size_t wait_time_ms) : _wait_time_ms(wait_time_ms) {}
+    WaitContextFactory(size_t wait_time_ms, WaitMode mode = WaitMode::WAIT) : _wait_time_ms(wait_time_ms), _mode(mode) {}
 
 private:
     size_t _wait_time_ms = 0;
+    WaitMode _mode = WaitMode::WAIT;
     std::vector<WaitContext> _buffer;
 };
 
@@ -139,7 +167,7 @@ public:
         _buffer_factory->resize(degree_of_parallelism);
         auto single_chunk_buffer = _buffer_factory->get(driver_sequence);
         return std::make_shared<WaitSourceOperator>(this, _id, _plan_node_id, driver_sequence, single_chunk_buffer,
-                                                    _buffer_factory->wait_times_ms());
+                                                    _buffer_factory->wait_times_ms(), _buffer_factory->mode());
     }
 
 private:
@@ -157,7 +185,9 @@ public:
     OperatorPtr create(int32_t degree_of_parallelism, int32_t driver_sequence) override {
         _wait_context_factory->resize(degree_of_parallelism);
         auto wait_context = _wait_context_factory->get(driver_sequence);
-        return std::make_shared<WaitSinkOperator>(this, _id, _plan_node_id, driver_sequence, wait_context);
+        return std::make_shared<WaitSinkOperator>(this, _id, _plan_node_id, driver_sequence, wait_context,
+                                                  _wait_context_factory->wait_times_ms(),
+                                                  _wait_context_factory->mode());
     }
 
 private:
