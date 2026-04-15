@@ -22,7 +22,9 @@ import com.starrocks.sql.optimizer.rewrite.ScalarOperatorRewriteContext;
 import com.starrocks.sql.optimizer.transformer.OptExprBuilder;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The processing flow of the subquery is as follows:
@@ -35,12 +37,20 @@ import java.util.Map;
 public class ReplaceSubqueryRewriteRule extends TopDownScalarOperatorRewriteRule {
 
     private final Map<ScalarOperator, SubqueryOperator> subqueryPlaceholders;
+    private final Set<Integer> attachedApplyOutputIds;
     private OptExprBuilder builder;
 
     public ReplaceSubqueryRewriteRule(Map<ScalarOperator, SubqueryOperator> subqueryPlaceholders,
                                       OptExprBuilder builder) {
+        this(subqueryPlaceholders, builder, new HashSet<>());
+    }
+
+    public ReplaceSubqueryRewriteRule(Map<ScalarOperator, SubqueryOperator> subqueryPlaceholders,
+                                      OptExprBuilder builder,
+                                      Set<Integer> attachedApplyOutputIds) {
         this.subqueryPlaceholders = subqueryPlaceholders;
         this.builder = builder;
+        this.attachedApplyOutputIds = attachedApplyOutputIds;
     }
 
     public OptExprBuilder getBuilder() {
@@ -59,8 +69,11 @@ public class ReplaceSubqueryRewriteRule extends TopDownScalarOperatorRewriteRule
         SubqueryOperator subqueryOperator = Utils.getValueIfExists(subqueryPlaceholders, scalarOperator);
         if (subqueryOperator != null) {
             LogicalApplyOperator applyOperator = subqueryOperator.getApplyOperator();
-            builder = new OptExprBuilder(applyOperator, Arrays.asList(builder, subqueryOperator.getRootBuilder()),
-                    builder.getExpressionMapping());
+            int outputId = applyOperator.getOutput().getId();
+            if (attachedApplyOutputIds.add(outputId)) {
+                builder = new OptExprBuilder(applyOperator, Arrays.asList(builder, subqueryOperator.getRootBuilder()),
+                        builder.getExpressionMapping());
+            }
         }
 
         return scalarOperator;

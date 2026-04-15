@@ -50,9 +50,11 @@ import com.starrocks.type.IntegerType;
 import com.starrocks.type.Type;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class SubqueryUtils {
 
@@ -69,12 +71,26 @@ public class SubqueryUtils {
             ScalarOperator scalarOperator,
             OptExprBuilder builder,
             Map<ScalarOperator, SubqueryOperator> subqueryPlaceholders) {
+        return rewriteScalarOperator(scalarOperator, builder, subqueryPlaceholders, new HashSet<>());
+    }
+
+    /**
+     * Overload that accepts a shared {@code attachedApplyOutputIds} set so that callers processing
+     * multiple conjuncts independently (e.g. {@code parseJoinOnPredicate}) can prevent the same
+     * Apply operator from being attached more than once across calls.
+     */
+    public static Pair<ScalarOperator, OptExprBuilder> rewriteScalarOperator(
+            ScalarOperator scalarOperator,
+            OptExprBuilder builder,
+            Map<ScalarOperator, SubqueryOperator> subqueryPlaceholders,
+            Set<Integer> attachedApplyOutputIds) {
         if (scalarOperator == null) {
             return Pair.create(null, builder);
         }
 
         List<ScalarOperatorRewriteRule> rules = Lists.newArrayList();
-        ReplaceSubqueryRewriteRule subqueryRewriteRule = new ReplaceSubqueryRewriteRule(subqueryPlaceholders, builder);
+        ReplaceSubqueryRewriteRule subqueryRewriteRule =
+                new ReplaceSubqueryRewriteRule(subqueryPlaceholders, builder, attachedApplyOutputIds);
         rules.add(subqueryRewriteRule);
         ScalarOperatorRewriter rewriter = new ScalarOperatorRewriter();
         scalarOperator = rewriter.rewrite(scalarOperator, rules);

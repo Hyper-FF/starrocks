@@ -155,6 +155,7 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -1516,7 +1517,11 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
         }
 
         // Step3
+        // Share a single set across conjuncts to prevent the same Apply from being attached more
+        // than once when predicate normalization (e.g. BETWEEN → GE AND LE) causes the same
+        // scalar-subquery placeholder to appear in multiple conjuncts after extractConjuncts.
         scalarConjuncts = Utils.extractConjuncts(scalarOperator);
+        Set<Integer> attachedApplyOutputIds = new HashSet<>();
         List<ScalarOperator> newScalarConjuncts = Lists.newArrayList();
         for (ScalarOperator scalarConjunct : scalarConjuncts) {
             boolean leftRelated = Utils.collect(scalarConjunct, ScalarOperator.class).stream()
@@ -1527,12 +1532,14 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
             ScalarOperator newScalarConjunct;
             if (leftRelated) {
                 Pair<ScalarOperator, OptExprBuilder> pair =
-                        SubqueryUtils.rewriteScalarOperator(scalarConjunct, leftOpt, allSubqueryPlaceholders);
+                        SubqueryUtils.rewriteScalarOperator(scalarConjunct, leftOpt, allSubqueryPlaceholders,
+                                attachedApplyOutputIds);
                 newScalarConjunct = pair.first;
                 leftOpt = pair.second;
             } else {
                 Pair<ScalarOperator, OptExprBuilder> pair =
-                        SubqueryUtils.rewriteScalarOperator(scalarConjunct, rightOpt, allSubqueryPlaceholders);
+                        SubqueryUtils.rewriteScalarOperator(scalarConjunct, rightOpt, allSubqueryPlaceholders,
+                                attachedApplyOutputIds);
                 newScalarConjunct = pair.first;
                 rightOpt = pair.second;
             }

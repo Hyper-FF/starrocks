@@ -18,11 +18,13 @@ import com.starrocks.common.FeConstants;
 import com.starrocks.qe.SessionVariable;
 import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.sql.analyzer.SemanticException;
+import org.apache.commons.lang.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -2086,5 +2088,17 @@ public class SubqueryTest extends PlanTestBase {
                 + " left join t1 xx1 on x1.v5 = xx1.v5 and xx1.v6 = (select v8 from t2 where v9 = 1 order by v8 limit 1) ";
         String plan = getFragmentPlan(sql);
         assertContains(plan, "ASSERT NUMBER OF ROWS");
+    }
+
+    @Test
+    public void testBetweenScalarSubqueryInJoinOnAttachApplyOnlyOnce() throws Exception {
+        // In parseJoinOnPredicate(), after BETWEEN normalization (GE AND LE), extractConjuncts
+        // splits the AND into separate conjuncts, each containing the same scalar-subquery
+        // placeholder. Each conjunct is processed by a separate rewriteScalarOperator() call.
+        // Without a shared dedup set, duplicate Apply nodes (and ASSERT NUMBER OF ROWS) are created.
+        String sql = "select * from t0 inner join t1 on "
+                + "(select max(v8) from t2) between t0.v1 and t1.v4";
+        String plan = getFragmentPlan(sql);
+        assertEquals(1, StringUtils.countMatches(plan, "ASSERT NUMBER OF ROWS"));
     }
 }
