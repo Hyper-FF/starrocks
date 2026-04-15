@@ -618,7 +618,7 @@ StatusOr<JavaGlobalRef> JVMClass::newInstance() const {
     // get default constructor
     jmethodID constructor = env->GetMethodID((jclass)_clazz.handle(), "<init>", "()V");
     if (constructor == nullptr) {
-        if (env->ExceptionOccurred()) {
+        if (env->ExceptionCheck()) {
             env->ExceptionClear();
         }
         return Status::InternalError("couldn't found default constructor for Java Object");
@@ -634,7 +634,7 @@ StatusOr<jobject> JVMClass::newLocalInstance() const {
     // get default constructor
     jmethodID constructor = env->GetMethodID((jclass)_clazz.handle(), "<init>", "()V");
     if (constructor == nullptr) {
-        if (env->ExceptionOccurred()) {
+        if (env->ExceptionCheck()) {
             env->ExceptionClear();
         }
         return Status::InternalError("couldn't found default constructor for Java Object");
