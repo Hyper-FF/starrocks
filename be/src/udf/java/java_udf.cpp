@@ -370,8 +370,13 @@ jmethodID JVMFunctionHelper::getToStringMethod(jclass clazz) {
     return _env->GetMethodID(clazz, "toString", "()Ljava/lang/String;");
 }
 
-jstring JVMFunctionHelper::to_jstring(const std::string& str) {
-    return _env->NewStringUTF(str.c_str());
+StatusOr<jstring> JVMFunctionHelper::to_jstring(const std::string& str) {
+    auto res = _env->NewStringUTF(str.c_str());
+    if (UNLIKELY(res == nullptr)) {
+        _env->ExceptionClear();
+        return Status::InternalError(fmt::format("NewStringUTF failed for: {}", str));
+    }
+    return res;
 }
 
 jmethodID JVMFunctionHelper::getMethod(jclass clazz, const std::string& method, const std::string& sig) {
@@ -759,7 +764,7 @@ StatusOr<JVMClass> ClassLoader::getClass(const std::string& className) {
     // class Name java.lang.Object -> java/lang/Object
     std::string jni_class_name = JVMFunctionHelper::to_jni_class_name(className);
     // invoke class loader
-    jstring jstr_name = helper.to_jstring(jni_class_name);
+    ASSIGN_OR_RETURN(jstring jstr_name, helper.to_jstring(jni_class_name));
     LOCAL_REF_GUARD(jstr_name);
 
     auto loaded_clazz = env->CallObjectMethod(_handle.handle(), _get_class, jstr_name);
@@ -780,7 +785,7 @@ StatusOr<JVMClass> ClassLoader::genCallStub(const std::string& stubClassName, jc
     JNIEnv* env = helper.getEnv();
 
     std::string jni_class_name = JVMFunctionHelper::to_jni_class_name(stubClassName);
-    jstring jstr_name = helper.to_jstring(jni_class_name);
+    ASSIGN_OR_RETURN(jstring jstr_name, helper.to_jstring(jni_class_name));
     LOCAL_REF_GUARD(jstr_name);
 
     // generate call stub; pass numActualVarArgs for varargs methods
@@ -818,7 +823,7 @@ Status ClassAnalyzer::has_method(jclass clazz, const std::string& method, bool* 
         return Status::InternalError("couldn't found hasMethod method");
     }
 
-    jstring method_name = helper.to_jstring(method.c_str());
+    ASSIGN_OR_RETURN(jstring method_name, helper.to_jstring(method.c_str()));
     LOCAL_REF_GUARD(method_name);
 
     *has = env->CallStaticBooleanMethod(class_analyzer, hasMethod, method_name, (jobject)clazz);
@@ -862,7 +867,7 @@ Status ClassAnalyzer::get_signature(jclass clazz, const std::string& method, std
         return Status::InternalError("couldn't found getSignature method");
     }
 
-    jstring method_name = helper.to_jstring(method.c_str());
+    ASSIGN_OR_RETURN(jstring method_name, helper.to_jstring(method.c_str()));
     LOCAL_REF_GUARD(method_name);
 
     jobject result_sign = env->CallStaticObjectMethod(class_analyzer, getSign, method_name, (jobject)clazz);
@@ -897,7 +902,7 @@ StatusOr<jobject> ClassAnalyzer::get_method_object(jclass clazz, const std::stri
     jmethodID getMethodObject = env->GetStaticMethodID(
             class_analyzer, "getMethodObject", "(Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/reflect/Method;");
     DCHECK(getMethodObject);
-    jstring method_name = helper.to_jstring(method.c_str());
+    ASSIGN_OR_RETURN(jstring method_name, helper.to_jstring(method.c_str()));
     LOCAL_REF_GUARD(method_name);
 
     jobject method_object = env->CallStaticObjectMethod(class_analyzer, getMethodObject, method_name, (jobject)clazz);
