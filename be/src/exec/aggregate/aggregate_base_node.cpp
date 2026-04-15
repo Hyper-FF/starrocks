@@ -16,6 +16,7 @@
 
 #include "exec/aggregator.h"
 #include "exprs/expr_factory.h"
+#include "runtime/mem_pool_alloc.h"
 
 namespace starrocks {
 
@@ -39,8 +40,9 @@ Status AggregateBaseNode::init(const TPlanNode& tnode, RuntimeState* state) {
         }
     }
     if (tnode.agg_node.__isset.build_runtime_filters) {
+        MemPool* mp = fragment_mem_pool_of(state, _pool);
         for (const auto& desc : tnode.agg_node.build_runtime_filters) {
-            auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+            auto* rf_desc = pool_alloc<RuntimeFilterBuildDescriptor>(_pool, mp);
             RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
             _build_runtime_filters.emplace_back(rf_desc);
         }

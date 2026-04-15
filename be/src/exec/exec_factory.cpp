@@ -75,28 +75,12 @@
 #include "exec/union_node.h"
 #include "gen_cpp/PlanNodes_types.h"
 #include "gutil/strings/substitute.h"
-#include "runtime/mem_pool.h"
-#include "runtime/runtime_state.h"
+#include "runtime/mem_pool_alloc.h"
 
 namespace starrocks {
 
 namespace {
 
-// Get the fragment-level MemPool, but only when |pool| belongs to the same
-// fragment. If |pool| is query-level, ExecNodes / plan nodes allocated here
-// may outlive the fragment MemPool and cause use-after-free. Return nullptr
-// to fall back to heap allocation.
-inline MemPool* get_fragment_mem_pool(RuntimeState* state, ObjectPool* pool) {
-    return (state != nullptr && pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
-}
-
-// Allocate sizeof(T) bytes with proper alignment from |mem_pool|.
-template <typename T>
-void* alloc_from(MemPool* mem_pool) {
-    void* ptr = mem_pool->allocate_aligned(sizeof(T), alignof(T));
-    DCHECK(ptr != nullptr);
-    return ptr;
-}
 
 Status check_tuple_ids_in_descs(const DescriptorTbl& descs, const TPlanNode& plan_node) {
     for (auto id : plan_node.row_tuples) {
@@ -205,17 +189,11 @@ Status ExecFactory::create_tree(RuntimeState* state, ObjectPool* pool, const TPl
 
 Status ExecFactory::create_vectorized_node(RuntimeState* state, ObjectPool* pool, const TPlanNode& tnode,
                                            const DescriptorTbl& descs, ExecNode** node) {
-    MemPool* mp = get_fragment_mem_pool(state, pool);
+    MemPool* mp = fragment_mem_pool_of(state, pool);
 
-// Placement-new T into fragment MemPool and register destructor in ObjectPool.
-// Falls back to heap when no MemPool is available (e.g. unit tests).
-#define CREATE_NODE(T, ...)                                           \
-    do {                                                              \
-        if (mp != nullptr) {                                          \
-            *node = pool->emplace<T>(alloc_from<T>(mp), __VA_ARGS__); \
-        } else {                                                      \
-            *node = pool->add(new T(__VA_ARGS__));                    \
-        }                                                             \
+#define CREATE_NODE(T, ...) \
+    do {                    \
+        *node = pool_alloc<T>(pool, mp, __VA_ARGS__); \
     } while (0)
 
     switch (tnode.node_type) {

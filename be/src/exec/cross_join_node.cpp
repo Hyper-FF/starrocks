@@ -37,6 +37,7 @@
 #include "exprs/literal.h"
 #include "gen_cpp/PlanNodes_types.h"
 #include "glog/logging.h"
+#include "runtime/mem_pool_alloc.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -85,8 +86,9 @@ Status CrossJoinNode::init(const TPlanNode& tnode, RuntimeState* state) {
             _sql_join_conjuncts = tnode.nestloop_join_node.sql_join_conjuncts;
         }
         if (tnode.nestloop_join_node.__isset.build_runtime_filters) {
+            MemPool* mp = fragment_mem_pool_of(state, _pool);
             for (const auto& desc : tnode.nestloop_join_node.build_runtime_filters) {
-                auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+                auto* rf_desc = pool_alloc<RuntimeFilterBuildDescriptor>(_pool, mp);
                 RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
                 _build_runtime_filters.emplace_back(rf_desc);
             }
@@ -101,8 +103,9 @@ Status CrossJoinNode::init(const TPlanNode& tnode, RuntimeState* state) {
         return Status::OK();
     }
 
+    MemPool* mp = fragment_mem_pool_of(state, _pool);
     for (const auto& desc : tnode.cross_join_node.build_runtime_filters) {
-        auto* rf_desc = _pool->add(new RuntimeFilterBuildDescriptor());
+        auto* rf_desc = pool_alloc<RuntimeFilterBuildDescriptor>(_pool, mp);
         RETURN_IF_ERROR(rf_desc->init(_pool, desc, state));
         _build_runtime_filters.emplace_back(rf_desc);
     }

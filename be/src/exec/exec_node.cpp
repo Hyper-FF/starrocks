@@ -55,6 +55,7 @@
 #include "gutil/strings/substitute.h"
 #include "runtime/current_thread.h"
 #include "runtime/descriptors.h"
+#include "runtime/mem_pool_alloc.h"
 #include "runtime/runtime_filter_cache.h"
 #include "runtime/runtime_state.h"
 #include "runtime/service_contexts.h"
@@ -142,8 +143,9 @@ void ExecNode::register_runtime_filter_descriptor(RuntimeState* state, RuntimeFi
 Status ExecNode::init_join_runtime_filters(const TPlanNode& tnode, RuntimeState* state) {
     _runtime_filter_collector.set_plan_node_id(_id);
     if (state != nullptr && tnode.__isset.probe_runtime_filters) {
+        MemPool* mp = fragment_mem_pool_of(state, _pool);
         for (const auto& desc : tnode.probe_runtime_filters) {
-            RuntimeFilterProbeDescriptor* rf_desc = _pool->add(new RuntimeFilterProbeDescriptor());
+            RuntimeFilterProbeDescriptor* rf_desc = pool_alloc<RuntimeFilterProbeDescriptor>(_pool, mp);
             RETURN_IF_ERROR(rf_desc->init(_pool, desc, _id, state));
             register_runtime_filter_descriptor(state, rf_desc);
         }

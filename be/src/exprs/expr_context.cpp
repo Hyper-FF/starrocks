@@ -41,29 +41,9 @@
 
 #include "column/chunk.h"
 #include "column/column_helper.h"
-#include "common/object_pool.h"
 #include "common/statusor.h"
 #include "exprs/expr.h"
-#include "runtime/mem_pool.h"
-#include "runtime/runtime_state.h"
-
-namespace starrocks {
-
-namespace {
-
-// Use the fragment-level MemPool only when |pool| belongs to the same fragment;
-// otherwise fall back to heap allocation.
-MemPool* get_fragment_mem_pool(RuntimeState* state, ObjectPool* pool) {
-    return (state != nullptr && pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
-}
-
-ExprContext* alloc_expr_context(ObjectPool* pool, MemPool* mp, Expr* root) {
-    if (mp != nullptr) {
-        void* buf = mp->allocate_aligned(sizeof(ExprContext), alignof(ExprContext));
-        return pool->emplace<ExprContext>(buf, root);
-    }
-    return pool->add(new ExprContext(root));
-}
+#include "runtime/mem_pool_alloc.h"
 
 ChunkPtr create_dummy_chunk() {
     auto dummy_chunk = std::make_shared<Chunk>();
@@ -166,7 +146,7 @@ Status ExprContext::clone(RuntimeState* state, ObjectPool* pool, ExprContext** n
     DCHECK(_opened);
     DCHECK(*new_ctx == nullptr);
 
-    *new_ctx = alloc_expr_context(pool, get_fragment_mem_pool(state, pool), _root);
+    *new_ctx = pool_alloc<ExprContext>(pool, fragment_mem_pool_of(state, pool), _root);
     for (auto* fn_context : _fn_contexts) {
         (*new_ctx)->_fn_contexts.push_back((*new_ctx)->alloc_fn_context_clone(fn_context));
     }

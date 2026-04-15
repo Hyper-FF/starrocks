@@ -34,6 +34,7 @@
 #include "gen_cpp/Metrics_types.h"
 #include "pipeline/hashjoin/hash_joiner_fwd.h"
 #include "runtime/current_thread.h"
+#include "runtime/mem_pool_alloc.h"
 #include "runtime/runtime_filter.h"
 #include "runtime/runtime_filter_builder.h"
 #include "runtime/runtime_filter_factory.h"

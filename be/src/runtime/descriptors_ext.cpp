@@ -29,8 +29,7 @@
 #include "exprs/expr_factory.h"
 #include "gen_cpp/Descriptors_types.h"
 #include "gen_cpp/PlanNodes_types.h"
-#include "runtime/mem_pool.h"
-#include "runtime/runtime_state.h"
+#include "runtime/mem_pool_alloc.h"
 #include "util/compression/block_compression.h"
 
 namespace starrocks {
@@ -471,21 +470,11 @@ std::string JDBCTableDescriptor::debug_string() const {
 
 Status DescriptorTbl::create(RuntimeState* state, ObjectPool* pool, const TDescriptorTable& thrift_tbl,
                              DescriptorTbl** tbl, int32_t chunk_size) {
-    // Only use fragment MemPool when pool is the fragment-level ObjectPool.
-    // When pool is query-level (e.g. _query_ctx->object_pool()), descriptors may
-    // outlive the fragment, so they must be heap-allocated to avoid use-after-free.
-    MemPool* mp = (state != nullptr && pool == state->obj_pool()) ? state->fragment_mem_pool() : nullptr;
+    MemPool* mp = fragment_mem_pool_of(state, pool);
 
-// Placement-new T into fragment MemPool; fall back to heap when unavailable.
-#define ALLOC_DESC(T, ...)                                                                      \
-    (mp != nullptr ? pool->emplace<T>(mp->allocate_aligned(sizeof(T), alignof(T)), __VA_ARGS__) \
-                   : pool->add(new T(__VA_ARGS__)))
+#define ALLOC_DESC(T, ...) pool_alloc<T>(pool, mp, __VA_ARGS__)
 
-    if (mp != nullptr) {
-        *tbl = pool->emplace<DescriptorTbl>(mp->allocate_aligned(sizeof(DescriptorTbl), alignof(DescriptorTbl)));
-    } else {
-        *tbl = pool->add(new DescriptorTbl());
-    }
+    *tbl = pool_alloc<DescriptorTbl>(pool, mp);
 
     // deserialize table descriptors first, they are being referenced by tuple descriptors
     for (const auto& tdesc : thrift_tbl.tableDescriptors) {
