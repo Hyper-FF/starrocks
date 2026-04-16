@@ -112,6 +112,13 @@ struct TKeyRange {
   2: required i64 end_key
   3: required Types.TPrimitiveType column_type
   4: required string column_name
+}
+
+struct TPartitionColumnRange {
+  1: optional i64 begin_key
+  2: optional i64 end_key
+  3: optional Types.TPrimitiveType column_type
+  4: optional string column_name
   5: optional bool has_null
   6: optional list<Exprs.TExpr> list_values
 }
@@ -145,6 +152,7 @@ struct TInternalScanRange {
   // skip local disk data cache when access page data
   15: optional bool skip_disk_cache = false;
   16: optional i64 gtid
+  17: optional list<TPartitionColumnRange> dynamic_partition_column_ranges
 }
 
 enum TFileFormatType {

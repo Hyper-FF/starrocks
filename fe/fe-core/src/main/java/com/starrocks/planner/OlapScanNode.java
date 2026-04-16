@@ -99,7 +99,7 @@ import com.starrocks.thrift.TColumn;
 import com.starrocks.thrift.TExplainLevel;
 import com.starrocks.thrift.TExpr;
 import com.starrocks.thrift.TInternalScanRange;
-import com.starrocks.thrift.TKeyRange;
+import com.starrocks.thrift.TPartitionColumnRange;
 import com.starrocks.thrift.TLakeScanNode;
 import com.starrocks.thrift.TNetworkAddress;
 import com.starrocks.thrift.TNormalOlapScanNode;
@@ -1728,11 +1728,11 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
 
     /**
      * Compute partition key ranges for dynamic partition pruning.
-     * Returns a list of TKeyRange describing the value ranges of each used partition column.
+     * Returns a list of TPartitionColumnRange describing the value ranges of each used partition column.
      * Returns empty if the partition has too many values (exceeding the session limit) or
      * if the partition type is unsupported.
      */
-    private List<TKeyRange> computePartitionRange(OlapTable table, Partition partition,
+    private List<TPartitionColumnRange> computePartitionRange(OlapTable table, Partition partition,
                                                   Collection<Column> usedPartitionCols, SessionVariable session) {
         PartitionInfo partitionInfo = table.getPartitionInfo();
         if (usedPartitionCols.isEmpty() || !partition.hasData()
@@ -1751,7 +1751,7 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
         }
     }
 
-    private List<TKeyRange> computeRangePartitionKeyRanges(PartitionInfo partitionInfo, Partition partition,
+    private List<TPartitionColumnRange> computeRangePartitionKeyRanges(PartitionInfo partitionInfo, Partition partition,
                                                            List<Column> partitionCols,
                                                            Collection<Column> usedPartitionCols, long limit) {
         RangePartitionInfo rangeInfo = (RangePartitionInfo) partitionInfo;
@@ -1762,7 +1762,7 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
 
         boolean isNullPartition = keyRange.lowerEndpoint().isMinValue();
         long partitionValues = 1;
-        List<TKeyRange> result = Lists.newArrayList();
+        List<TPartitionColumnRange> result = Lists.newArrayList();
 
         for (int i = 0; i < partitionCols.size(); i++) {
             Column col = partitionCols.get(i);
@@ -1770,7 +1770,7 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
                 continue;
             }
 
-            TKeyRange kr = new TKeyRange();
+            TPartitionColumnRange kr = new TPartitionColumnRange();
             long rangeSize;
 
             if (col.getType().isDate()) {
@@ -1809,7 +1809,7 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
         return result;
     }
 
-    private List<TKeyRange> computeListPartitionKeyRanges(PartitionInfo partitionInfo, Partition partition,
+    private List<TPartitionColumnRange> computeListPartitionKeyRanges(PartitionInfo partitionInfo, Partition partition,
                                                           List<Column> partitionCols,
                                                           Collection<Column> usedPartitionCols, long limit) {
         ListPartitionInfo listInfo = (ListPartitionInfo) partitionInfo;
@@ -1822,13 +1822,13 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
         }
     }
 
-    private List<TKeyRange> computeSingleColumnListKeyRanges(ListPartitionInfo listInfo, Partition partition,
+    private List<TPartitionColumnRange> computeSingleColumnListKeyRanges(ListPartitionInfo listInfo, Partition partition,
                                                              List<Column> partitionCols,
                                                              Collection<Column> usedPartitionCols, long limit) {
         Preconditions.checkState(partitionCols.size() == 1);
         List<LiteralExpr> partitionValuesList = listInfo.getLiteralExprValues().get(partition.getId());
         long partitionValues = 1;
-        List<TKeyRange> result = Lists.newArrayList();
+        List<TPartitionColumnRange> result = Lists.newArrayList();
 
         for (Column col : partitionCols) {
             if (!usedPartitionCols.contains(col)) {
@@ -1841,7 +1841,7 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
             }
             partitionValues *= listSize;
 
-            TKeyRange kr = new TKeyRange();
+            TPartitionColumnRange kr = new TPartitionColumnRange();
             kr.setColumn_type(TypeSerializer.toThrift(col.getType().getPrimitiveType()));
             kr.setColumn_name(col.getName());
             List<TExpr> l = Lists.newArrayList();
@@ -1853,12 +1853,12 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
         return result;
     }
 
-    private List<TKeyRange> computeMultiColumnListKeyRanges(ListPartitionInfo listInfo, Partition partition,
+    private List<TPartitionColumnRange> computeMultiColumnListKeyRanges(ListPartitionInfo listInfo, Partition partition,
                                                             List<Column> partitionCols,
                                                             Collection<Column> usedPartitionCols, long limit) {
         List<List<LiteralExpr>> partitionValuesList = listInfo.getMultiLiteralExprValues().get(partition.getId());
         long partitionValues = 1;
-        List<TKeyRange> result = Lists.newArrayList();
+        List<TPartitionColumnRange> result = Lists.newArrayList();
 
         for (int i = 0; i < partitionCols.size(); i++) {
             Column col = partitionCols.get(i);
@@ -1872,7 +1872,7 @@ public class OlapScanNode extends AbstractOlapTableScanNode {
             }
             partitionValues *= listSize;
 
-            TKeyRange kr = new TKeyRange();
+            TPartitionColumnRange kr = new TPartitionColumnRange();
             kr.setColumn_type(TypeSerializer.toThrift(col.getType().getPrimitiveType()));
             kr.setColumn_name(col.getName());
             List<TExpr> l = Lists.newArrayList();
