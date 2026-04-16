@@ -746,3 +746,121 @@ drop table t_null_combined force;
 drop database test_dyn_prune_${uuid0} force;
 -- result:
 -- !result
+
+
+-- name: test_nondeterministic_func_not_pruned
+create database test_dyn_prune_${uuid0};
+-- result:
+-- !result
+use test_dyn_prune_${uuid0};
+-- result:
+-- !result
+CREATE TABLE t_rand_prune (
+    k INT NOT NULL,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(k)
+PARTITION BY RANGE(k) (
+    PARTITION p1 VALUES [('0'), ('100')),
+    PARTITION p2 VALUES [('100'), ('200')),
+    PARTITION p3 VALUES [('200'), ('300'))
+)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO t_rand_prune VALUES
+    (10, 1), (50, 2), (99, 3),
+    (100, 4), (150, 5), (199, 6),
+    (200, 7), (250, 8), (299, 9);
+-- result:
+-- !result
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= rand() * 0;
+-- result:
+9
+-- !result
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= rand() * 0;
+-- result:
+9
+-- !result
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= rand() * 0;
+-- result:
+9
+-- !result
+SELECT COUNT(*) FROM t_rand_prune WHERE k > rand() * (-1);
+-- result:
+9
+-- !result
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= random() * 0;
+-- result:
+9
+-- !result
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= 0 AND uuid() != '';
+-- result:
+9
+-- !result
+SELECT v FROM t_rand_prune WHERE k = abs(50);
+-- result:
+2
+-- !result
+SELECT COUNT(*) FROM t_rand_prune WHERE k < 300 AND rand() > -1;
+-- result:
+9
+-- !result
+drop table t_rand_prune force;
+-- result:
+-- !result
+drop database test_dyn_prune_${uuid0} force;
+-- result:
+-- !result
+
+
+-- name: test_nondeterministic_func_list_partition
+create database test_dyn_prune_${uuid0};
+-- result:
+-- !result
+use test_dyn_prune_${uuid0};
+-- result:
+-- !result
+CREATE TABLE t_rand_list (
+    k INT NOT NULL,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(k)
+PARTITION BY LIST(k) (
+    PARTITION p1 VALUES IN (1, 2, 3),
+    PARTITION p2 VALUES IN (4, 5, 6),
+    PARTITION p3 VALUES IN (7, 8, 9)
+)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO t_rand_list VALUES
+    (1, 1), (2, 2), (3, 3),
+    (4, 4), (5, 5), (6, 6),
+    (7, 7), (8, 8), (9, 9);
+-- result:
+-- !result
+SELECT COUNT(*) FROM t_rand_list WHERE k >= rand() * 0;
+-- result:
+9
+-- !result
+SELECT COUNT(*) FROM t_rand_list WHERE k >= rand() * 0;
+-- result:
+9
+-- !result
+SELECT COUNT(*) FROM t_rand_list WHERE k >= rand() * 0;
+-- result:
+9
+-- !result
+SELECT COUNT(*) FROM t_rand_list WHERE k > 0 AND rand() > -1;
+-- result:
+9
+-- !result
+drop table t_rand_list force;
+-- result:
+-- !result
+drop database test_dyn_prune_${uuid0} force;
+-- result:
+-- !result

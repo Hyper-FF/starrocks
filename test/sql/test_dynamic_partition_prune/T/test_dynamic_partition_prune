@@ -545,3 +545,93 @@ SELECT COUNT(*) FROM t_null_combined WHERE dt IS NOT NULL AND category = 1;
 
 drop table t_null_combined force;
 drop database test_dyn_prune_${uuid0} force;
+
+
+-- name: test_nondeterministic_func_not_pruned
+-- Non-deterministic functions (rand, random, uuid) must NOT participate in
+-- BE-side dynamic partition pruning. Pruning evaluates predicates against
+-- materialized partition values separately from actual scanning, so
+-- different random values at the two stages can silently drop data.
+create database test_dyn_prune_${uuid0};
+use test_dyn_prune_${uuid0};
+
+CREATE TABLE t_rand_prune (
+    k INT NOT NULL,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(k)
+PARTITION BY RANGE(k) (
+    PARTITION p1 VALUES [('0'), ('100')),
+    PARTITION p2 VALUES [('100'), ('200')),
+    PARTITION p3 VALUES [('200'), ('300'))
+)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO t_rand_prune VALUES
+    (10, 1), (50, 2), (99, 3),
+    (100, 4), (150, 5), (199, 6),
+    (200, 7), (250, 8), (299, 9);
+
+-- rand() in predicate: every row must still be reachable
+-- Run multiple times to increase chance of catching non-determinism bug.
+-- If pruning incorrectly uses rand(), some runs would return fewer than 9 rows.
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= rand() * 0;
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= rand() * 0;
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= rand() * 0;
+
+-- rand() with multiplication that could cause false pruning:
+-- k > rand() * -1 is always true for k >= 0, so all 9 rows must be returned.
+SELECT COUNT(*) FROM t_rand_prune WHERE k > rand() * (-1);
+
+-- random() synonym
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= random() * 0;
+
+-- uuid() in a predicate (always true comparison with non-empty string)
+SELECT COUNT(*) FROM t_rand_prune WHERE k >= 0 AND uuid() != '';
+
+-- Verify that deterministic functions still allow pruning to work correctly.
+-- This should return only 1 row (only k=50 satisfies).
+SELECT v FROM t_rand_prune WHERE k = abs(50);
+
+-- Compound: rand() mixed with deterministic filter.
+-- k < 300 is always true, rand() > -1 is always true, so all 9 rows.
+SELECT COUNT(*) FROM t_rand_prune WHERE k < 300 AND rand() > -1;
+
+drop table t_rand_prune force;
+drop database test_dyn_prune_${uuid0} force;
+
+
+-- name: test_nondeterministic_func_list_partition
+-- Same test for LIST partitions with non-deterministic functions.
+create database test_dyn_prune_${uuid0};
+use test_dyn_prune_${uuid0};
+
+CREATE TABLE t_rand_list (
+    k INT NOT NULL,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(k)
+PARTITION BY LIST(k) (
+    PARTITION p1 VALUES IN (1, 2, 3),
+    PARTITION p2 VALUES IN (4, 5, 6),
+    PARTITION p3 VALUES IN (7, 8, 9)
+)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO t_rand_list VALUES
+    (1, 1), (2, 2), (3, 3),
+    (4, 4), (5, 5), (6, 6),
+    (7, 7), (8, 8), (9, 9);
+
+-- rand() * 0 = 0, so k >= 0 always true for positive k, all 9 rows.
+SELECT COUNT(*) FROM t_rand_list WHERE k >= rand() * 0;
+SELECT COUNT(*) FROM t_rand_list WHERE k >= rand() * 0;
+SELECT COUNT(*) FROM t_rand_list WHERE k >= rand() * 0;
+
+-- always true: rand() > -1 is always true
+SELECT COUNT(*) FROM t_rand_list WHERE k > 0 AND rand() > -1;
+
+drop table t_rand_list force;
+drop database test_dyn_prune_${uuid0} force;
