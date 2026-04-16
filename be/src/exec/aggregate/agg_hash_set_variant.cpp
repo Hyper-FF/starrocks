@@ -16,90 +16,12 @@
 
 #include <variant>
 
+#include "exec/aggregate/agg_hash_variant_type_traits.h"
 #include "runtime/runtime_state.h"
-
-#define APPLY_FOR_AGG_VARIANT_ALL(M) \
-    M(phase1_uint8)                  \
-    M(phase1_int8)                   \
-    M(phase1_int16)                  \
-    M(phase1_int32)                  \
-    M(phase1_int64)                  \
-    M(phase1_int128)                 \
-    M(phase1_decimal32)              \
-    M(phase1_decimal64)              \
-    M(phase1_decimal128)             \
-    M(phase1_decimal256)             \
-    M(phase1_date)                   \
-    M(phase1_timestamp)              \
-    M(phase1_string)                 \
-    M(phase1_slice)                  \
-    M(phase1_null_uint8)             \
-    M(phase1_null_int8)              \
-    M(phase1_null_int16)             \
-    M(phase1_null_int32)             \
-    M(phase1_null_int64)             \
-    M(phase1_null_int128)            \
-    M(phase1_null_decimal32)         \
-    M(phase1_null_decimal64)         \
-    M(phase1_null_decimal128)        \
-    M(phase1_null_decimal256)        \
-    M(phase1_null_date)              \
-    M(phase1_null_timestamp)         \
-    M(phase1_null_string)            \
-    M(phase1_slice_two_level)        \
-    M(phase1_int32_two_level)        \
-    M(phase1_null_string_two_level)  \
-    M(phase1_string_two_level)       \
-                                     \
-    M(phase2_uint8)                  \
-    M(phase2_int8)                   \
-    M(phase2_int16)                  \
-    M(phase2_int32)                  \
-    M(phase2_int64)                  \
-    M(phase2_int128)                 \
-    M(phase2_decimal32)              \
-    M(phase2_decimal64)              \
-    M(phase2_decimal128)             \
-    M(phase2_decimal256)             \
-    M(phase2_date)                   \
-    M(phase2_timestamp)              \
-    M(phase2_string)                 \
-    M(phase2_slice)                  \
-    M(phase2_null_uint8)             \
-    M(phase2_null_int8)              \
-    M(phase2_null_int16)             \
-    M(phase2_null_int32)             \
-    M(phase2_null_int64)             \
-    M(phase2_null_int128)            \
-    M(phase2_null_decimal32)         \
-    M(phase2_null_decimal64)         \
-    M(phase2_null_decimal128)        \
-    M(phase2_null_decimal256)        \
-    M(phase2_null_date)              \
-    M(phase2_null_timestamp)         \
-    M(phase2_null_string)            \
-    M(phase2_slice_two_level)        \
-    M(phase2_int32_two_level)        \
-    M(phase2_null_string_two_level)  \
-    M(phase2_string_two_level)       \
-                                     \
-    M(phase1_slice_fx4)              \
-    M(phase1_slice_fx8)              \
-    M(phase1_slice_fx16)             \
-    M(phase2_slice_fx4)              \
-    M(phase2_slice_fx8)              \
-    M(phase2_slice_fx16)             \
-    M(phase1_slice_cx1)              \
-    M(phase1_slice_cx4)              \
-    M(phase1_slice_cx8)              \
-    M(phase1_slice_cx16)             \
-    M(phase2_slice_cx1)              \
-    M(phase2_slice_cx4)              \
-    M(phase2_slice_cx8)              \
-    M(phase2_slice_cx16)
 
 namespace starrocks {
 namespace detail {
+
 template <AggHashSetVariant::Type>
 struct AggHashSetVariantTypeTraits;
 
@@ -107,87 +29,9 @@ struct AggHashSetVariantTypeTraits;
     template <>                                      \
     struct AggHashSetVariantTypeTraits<enum_value> { \
         using HashSetWithKeyType = type;             \
-    }
-
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_uint8, UInt8AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_int8, Int8AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_int16, Int16AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_int32, Int32AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_int64, Int64AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_int128, Int128AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_decimal32, Decimal32AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_decimal64, Decimal64AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_decimal128, Decimal128AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_decimal256, Decimal256AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_date, DateAggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_timestamp, TimeStampAggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_string, OneStringAggHashSet<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_uint8, NullUInt8AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_int8, NullInt8AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_int16, NullInt16AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_int32, NullInt32AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_int64, NullInt64AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_int128, NullInt128AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_decimal32, NullDecimal32AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_decimal64, NullDecimal64AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_decimal128, NullDecimal128AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_decimal256, NullDecimal256AggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_date, NullDateAggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_timestamp, NullTimeStampAggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_string, NullOneStringAggHashSet<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice, SerializedKeyAggHashSet<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice_two_level, SerializedTwoLevelKeyAggHashSet<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_int32_two_level, Int32TwoLevelAggHashSetOfOneNumberKey<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_string_two_level, OneStringTwoLevelAggHashSet<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_null_string_two_level, NullOneStringTwoLevelAggHashSet<PhmapSeed1>);
-
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_uint8, UInt8AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_int8, Int8AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_int16, Int16AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_int32, Int32AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_int64, Int64AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_int128, Int128AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_decimal32, Decimal32AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_decimal64, Decimal64AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_decimal128, Decimal128AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_decimal256, Decimal256AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_date, DateAggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_timestamp, TimeStampAggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_string, OneStringAggHashSet<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_uint8, NullUInt8AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_int8, NullInt8AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_int16, NullInt16AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_int32, NullInt32AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_int64, NullInt64AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_int128, NullInt128AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_decimal32, NullDecimal32AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_decimal64, NullDecimal64AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_decimal128, NullDecimal128AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_decimal256, NullDecimal256AggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_date, NullDateAggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_timestamp, NullTimeStampAggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_string, NullOneStringAggHashSet<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice, SerializedKeyAggHashSet<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice_two_level, SerializedTwoLevelKeyAggHashSet<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_int32_two_level, Int32TwoLevelAggHashSetOfOneNumberKey<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_string_two_level, OneStringTwoLevelAggHashSet<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_null_string_two_level, NullOneStringTwoLevelAggHashSet<PhmapSeed2>);
-
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice_fx4, SerializedKeyAggHashSetFixedSize4<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice_fx8, SerializedKeyAggHashSetFixedSize8<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice_fx16, SerializedKeyAggHashSetFixedSize16<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice_fx4, SerializedKeyAggHashSetFixedSize4<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice_fx8, SerializedKeyAggHashSetFixedSize8<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice_fx16, SerializedKeyAggHashSetFixedSize16<PhmapSeed2>);
-
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice_cx1, CompressedAggHashSetFixedSize1<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice_cx4, CompressedAggHashSetFixedSize4<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice_cx8, CompressedAggHashSetFixedSize8<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase1_slice_cx16, CompressedAggHashSetFixedSize16<PhmapSeed1>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice_cx1, CompressedAggHashSetFixedSize1<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice_cx4, CompressedAggHashSetFixedSize4<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice_cx8, CompressedAggHashSetFixedSize8<PhmapSeed2>);
-DEFINE_SET_TYPE(AggHashSetVariant::Type::phase2_slice_cx16, CompressedAggHashSetFixedSize16<PhmapSeed2>);
+    };
+APPLY_FOR_AGG_SET_VARIANT_TYPES(DEFINE_SET_TYPE)
+#undef DEFINE_SET_TYPE
 
 } // namespace detail
 
