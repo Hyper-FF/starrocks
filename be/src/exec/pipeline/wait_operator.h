@@ -56,8 +56,6 @@ public:
               _wait_time_ns(wait_times_ms * 1000L * 1000L),
               _action(action) {}
 
-    ~WaitSourceOperator() override;
-
     Status prepare(RuntimeState* state) override;
 
     StatusOr<ChunkPtr> pull_chunk(RuntimeState* state) override;
