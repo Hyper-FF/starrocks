@@ -34,9 +34,22 @@ ADD_BE_LIB(ExecCore
 
 target_link_libraries(ExecCore PUBLIC ExprCore RuntimeCore)
 
+set(SPILL_CORE_FILES
+    spill/dir_manager.cpp
+    spill/block_reader.cpp
+    spill/log_block_manager.cpp
+    spill/file_block_manager.cpp
+    spill/hybird_block_manager.cpp
+)
+
+ADD_BE_LIB(SpillCore
+    ${SPILL_CORE_FILES}
+)
+
+target_link_libraries(SpillCore PUBLIC FSCore IOCore Common Base Gutil StarRocksGen)
+
 set(PIPELINE_PRIMITIVES_SRCS
     pipeline/operator.cpp
-    pipeline/source_operator.cpp
 )
 
 set(PIPELINE_GRAPH_SRCS
@@ -56,6 +69,8 @@ set(PIPELINE_RUNTIME_SRCS
     pipeline/driver_limiter.cpp
     pipeline/fragment_context.cpp
     pipeline/query_context.cpp
+    pipeline/operator_factory.cpp
+    pipeline/source_operator.cpp
     pipeline/schedule/timeout_tasks.cpp
     pipeline/schedule/event_scheduler.cpp
     pipeline/schedule/observer.cpp
@@ -63,6 +78,8 @@ set(PIPELINE_RUNTIME_SRCS
     pipeline/runtime_filter_types.cpp
     workgroup/pipeline_executor_set.cpp
     workgroup/pipeline_executor_set_manager.cpp
+    spill/operator_mem_resource_manager.cpp
+    spill/query_spill_manager.cpp
 )
 
 set(PIPELINE_ADAPTERS_SRCS
@@ -169,12 +186,9 @@ set(PIPELINE_OPERATORS_BATCH_SRCS
 )
 
 set(PIPELINE_EXTENSIONS_SRCS
-    stream/scan/stream_scan_operator.cpp
     pipeline/nljoin/spillable_nljoin_build_operator.cpp
     pipeline/nljoin/spillable_nljoin_probe_operator.cpp
     pipeline/sort/spillable_partition_sort_sink_operator.cpp
-    pipeline/stream_epoch_manager.cpp
-    pipeline/stream_pipeline_driver.cpp
     pipeline/hashjoin/spillable_hash_join_build_operator.cpp
     pipeline/hashjoin/spillable_hash_join_probe_operator.cpp
     pipeline/adaptive/collect_stats_sink_operator.cpp
@@ -196,25 +210,13 @@ set(PIPELINE_EXTENSIONS_SRCS
     spill/spiller_factory.cpp
     spill/spill_components.cpp
     spill/mem_table.cpp
-    spill/dir_manager.cpp
     spill/serde.cpp
     spill/input_stream.cpp
     spill/data_stream.cpp
-    spill/block_reader.cpp
-    spill/log_block_manager.cpp
-    spill/file_block_manager.cpp
-    spill/hybird_block_manager.cpp
-    spill/operator_mem_resource_manager.cpp
-    spill/query_spill_manager.cpp
-    stream/state/mem_state_table.cpp
-    stream/aggregate/agg_state_data.cpp
-    stream/aggregate/agg_group_state.cpp
-    stream/aggregate/stream_aggregator.cpp
-    stream/aggregate/stream_aggregate_operator.cpp
-    stream/stream_aggregate_node.cpp
 )
 
 set(EXEC_NON_PIPELINE_FILES
+    spill/spill_dir_manager_bootstrap.cpp
     fetch_node.cpp
     lookup_node.cpp
     capture_version_node.cpp
@@ -450,4 +452,4 @@ ADD_BE_LIB(Exec
     $<TARGET_OBJECTS:join_hash_map_inst_objs>
 )
 
-target_link_libraries(Exec PUBLIC ExecCore)
+target_link_libraries(Exec PUBLIC ExecCore SpillCore)
