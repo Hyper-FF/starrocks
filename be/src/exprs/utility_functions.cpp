@@ -602,7 +602,7 @@ StatusOr<ColumnPtr> UtilityFunctions::encode_sort_key(FunctionContext* context, 
 }
 
 StatusOr<ColumnPtr> UtilityFunctions::materialize(FunctionContext* context, const Columns& columns) {
-    return columns[0];
+    return columns[0]->clone();
 }
 
 } // namespace starrocks
