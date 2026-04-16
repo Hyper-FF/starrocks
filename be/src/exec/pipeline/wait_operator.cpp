@@ -41,10 +41,6 @@ Status WaitSourceOperator::prepare(RuntimeState* state) {
     return Status::OK();
 }
 
-WaitSourceOperator::~WaitSourceOperator() {
-    close(runtime_state());
-}
-
 void WaitSourceOperator::close(RuntimeState* state) {
     if (_wait_timer_task != nullptr) {
         state->fragment_ctx()->pipeline_timer()->unschedule(_wait_timer_task.get());
