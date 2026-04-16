@@ -1013,6 +1013,18 @@ under the License.
                 </configuration>
                 <executions>
 
+                    <!-- Restore any previously instrumented classes before re-instrumenting.
+                         Without this, running "mvn test" twice without "clean" fails because
+                         restore-instrumented-classes is bound to prepare-package, which does
+                         not execute during "mvn test". -->
+                    <execution>
+                        <id>pre-instrument-restore</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>restore-instrumented-classes</goal>
+                        </goals>
+                    </execution>
+
                     <execution>
                         <id>instrument</id>
                         <phase>process-classes</phase>
