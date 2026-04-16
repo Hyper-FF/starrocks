@@ -285,6 +285,10 @@ public class CoordinatorPreprocessor {
         for (FragmentInstance instance : execFragment.getInstances()) {
             instance.resetAllScanRanges();
         }
+        ColocatedBackendSelector.Assignment colocatedAssignment = execFragment.getColocatedAssignment();
+        if (colocatedAssignment != null) {
+            colocatedAssignment.getSeqToScanRange().clear();
+        }
         fragmentAssignmentStrategyFactory.create(execFragment, lazyWorkerProvider.get()).assignFragmentToWorker(execFragment);
     }
 
