@@ -1,0 +1,141 @@
+-- name: test_create_range_partition_table_smallint
+create database db_${uuid0};
+-- result:
+-- !result
+use db_${uuid0};
+-- result:
+-- !result
+CREATE TABLE t_range_null_smallint (
+    k SMALLINT,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(k)
+PARTITION BY RANGE(k) (
+    PARTITION p1 VALUES LESS THAN ('-3200'),
+    PARTITION p2 VALUES LESS THAN ('0'),
+    PARTITION p3 VALUES LESS THAN ('32000')
+)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO t_range_null_smallint VALUES (-5000, 1), (-100, 2), (0, 3), (100, 4), (31000, 5);
+-- result:
+-- !result
+SELECT * FROM t_range_null_smallint ORDER BY k;
+-- result:
+-5000	1
+-100	2
+0	3
+100	4
+31000	5
+-- !result
+[UC]SHOW PARTITIONS FROM t_range_null_smallint;
+-- result:
+-- !result
+SELECT * FROM t_range_null_smallint PARTITION(p1) ORDER BY k;
+-- result:
+-5000	1
+-- !result
+SELECT * FROM t_range_null_smallint PARTITION(p2) ORDER BY k;
+-- result:
+-100	2
+-- !result
+SELECT * FROM t_range_null_smallint PARTITION(p3) ORDER BY k;
+-- result:
+0	3
+100	4
+31000	5
+-- !result
+-- test NULL value insert into range partition
+INSERT INTO t_range_null_smallint VALUES (NULL, 6);
+-- result:
+E: (1064, 'Insert has filtered data in strict mode')
+-- !result
+drop table t_range_null_smallint;
+-- result:
+-- !result
+-- name: test_create_range_partition_table_int
+use db_${uuid0};
+-- result:
+-- !result
+CREATE TABLE t_range_int (
+    k INT,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(k)
+PARTITION BY RANGE(k) (
+    PARTITION p1 VALUES LESS THAN ('-100'),
+    PARTITION p2 VALUES LESS THAN ('0'),
+    PARTITION p3 VALUES LESS THAN ('100'),
+    PARTITION p4 VALUES LESS THAN ('1000')
+)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO t_range_int VALUES (-200, 1), (-50, 2), (0, 3), (50, 4), (500, 5);
+-- result:
+-- !result
+SELECT * FROM t_range_int ORDER BY k;
+-- result:
+-200	1
+-50	2
+0	3
+50	4
+500	5
+-- !result
+SELECT * FROM t_range_int PARTITION(p1) ORDER BY k;
+-- result:
+-200	1
+-- !result
+SELECT * FROM t_range_int PARTITION(p2) ORDER BY k;
+-- result:
+-50	2
+-- !result
+SELECT * FROM t_range_int PARTITION(p3) ORDER BY k;
+-- result:
+0	3
+50	4
+-- !result
+SELECT * FROM t_range_int PARTITION(p4) ORDER BY k;
+-- result:
+500	5
+-- !result
+drop table t_range_int;
+-- result:
+-- !result
+-- name: test_create_range_partition_table_bigint
+use db_${uuid0};
+-- result:
+-- !result
+CREATE TABLE t_range_bigint (
+    k BIGINT,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(k)
+PARTITION BY RANGE(k) (
+    PARTITION p1 VALUES LESS THAN ('-1000000'),
+    PARTITION p2 VALUES LESS THAN ('0'),
+    PARTITION p3 VALUES LESS THAN ('1000000')
+)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO t_range_bigint VALUES (-2000000, 1), (-500, 2), (0, 3), (999999, 4);
+-- result:
+-- !result
+SELECT * FROM t_range_bigint ORDER BY k;
+-- result:
+-2000000	1
+-500	2
+0	3
+999999	4
+-- !result
+drop table t_range_bigint;
+-- result:
+-- !result
+drop database db_${uuid0};
+-- result:
+-- !result
