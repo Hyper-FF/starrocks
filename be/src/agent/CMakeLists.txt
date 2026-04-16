@@ -19,6 +19,8 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_DIR}/src/agent")
 
 ADD_BE_LIB(Agent
         agent_server.cpp
+        agent_server_submit.cpp
+        agent_server_util.cpp
         heartbeat_server.cpp
         task_worker_pool.cpp
         utils.cpp
