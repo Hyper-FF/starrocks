@@ -862,6 +862,28 @@ vectorized_functions = [
     [100025, 'uuid_v7', True, False, 'VARCHAR', [], "UtilityFunctions::uuid_v7"],
     [100026, 'uuid_v7_numeric', True, False, 'LARGEINT', [], "UtilityFunctions::uuid_v7_numeric"],
 
+    # debug: identity function that acts as an optimization barrier.
+    # Returns the input unchanged but is opaque to the FE optimizer,
+    # preventing constant folding, partition pruning, and other rewrites.
+    [100030, 'debug', True, False, 'BOOLEAN', ['BOOLEAN'], "UtilityFunctions::debug"],
+    [100031, 'debug', True, False, 'TINYINT', ['TINYINT'], "UtilityFunctions::debug"],
+    [100032, 'debug', True, False, 'SMALLINT', ['SMALLINT'], "UtilityFunctions::debug"],
+    [100033, 'debug', True, False, 'INT', ['INT'], "UtilityFunctions::debug"],
+    [100034, 'debug', True, False, 'BIGINT', ['BIGINT'], "UtilityFunctions::debug"],
+    [100035, 'debug', True, False, 'LARGEINT', ['LARGEINT'], "UtilityFunctions::debug"],
+    [100036, 'debug', True, False, 'FLOAT', ['FLOAT'], "UtilityFunctions::debug"],
+    [100037, 'debug', True, False, 'DOUBLE', ['DOUBLE'], "UtilityFunctions::debug"],
+    [100038, 'debug', True, False, 'VARCHAR', ['VARCHAR'], "UtilityFunctions::debug"],
+    [100039, 'debug', True, False, 'DATE', ['DATE'], "UtilityFunctions::debug"],
+    [100040, 'debug', True, False, 'DATETIME', ['DATETIME'], "UtilityFunctions::debug"],
+    [100041, 'debug', True, False, 'DECIMALV2', ['DECIMALV2'], "UtilityFunctions::debug"],
+    [100042, 'debug', True, False, 'DECIMAL32', ['DECIMAL32'], "UtilityFunctions::debug"],
+    [100043, 'debug', True, False, 'DECIMAL64', ['DECIMAL64'], "UtilityFunctions::debug"],
+    [100044, 'debug', True, False, 'DECIMAL128', ['DECIMAL128'], "UtilityFunctions::debug"],
+    [100045, 'debug', True, False, 'DECIMAL256', ['DECIMAL256'], "UtilityFunctions::debug"],
+    [100046, 'debug', True, False, 'JSON', ['JSON'], "UtilityFunctions::debug"],
+    [100047, 'debug', True, False, 'VARBINARY', ['VARBINARY'], "UtilityFunctions::debug"],
+
     # json string function
     [110022, "get_json_int", False, False, "BIGINT", ["VARCHAR", "VARCHAR"], "JsonFunctions::get_json_bigint",
      "JsonFunctions::native_json_path_prepare", "JsonFunctions::native_json_path_close", False],
