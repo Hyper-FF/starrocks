@@ -94,10 +94,6 @@ Status WaitSinkOperator::prepare(RuntimeState* state) {
     return Status::OK();
 }
 
-WaitSinkOperator::~WaitSinkOperator() {
-    close(runtime_state());
-}
-
 void WaitSinkOperator::close(RuntimeState* state) {
     if (_wait_timer_task != nullptr) {
         state->fragment_ctx()->pipeline_timer()->unschedule(_wait_timer_task.get());
