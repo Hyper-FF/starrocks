@@ -602,7 +602,8 @@ StatusOr<ColumnPtr> UtilityFunctions::encode_sort_key(FunctionContext* context, 
 }
 
 StatusOr<ColumnPtr> UtilityFunctions::materialize(FunctionContext* context, const Columns& columns) {
-    return columns[0]->clone();
+    ColumnPtr col = columns[0];
+    return Column::mutate(std::move(col));
 }
 
 } // namespace starrocks
