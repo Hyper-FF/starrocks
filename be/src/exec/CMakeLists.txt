@@ -264,6 +264,8 @@ set(EXEC_NON_PIPELINE_FILES
     aggregator.cpp
     sorted_streaming_aggregator.cpp
     aggregate/agg_hash_variant.cpp
+    aggregate/agg_hash_map_variant.cpp
+    aggregate/agg_hash_set_variant.cpp
     aggregate/compress_serializer.cpp
     aggregate/aggregate_base_node.cpp
     aggregate/aggregate_blocking_node.cpp
