@@ -407,13 +407,26 @@ public class RangePartitionInfo extends PartitionInfo {
     /**
      * For RangePartition, NULL value would be put in the MIN_VALUE partition but not a real NULL.
      * It's a little bit tricky, as that partition might contain NULL, or might not.
+     *
+     * When no partition has a MIN_VALUE lower bound, NULL values are routed to the
+     * partition with the smallest lower bound (the first partition). This is consistent
+     * with the BE behavior that routes all-NULL partition key rows to the first partition.
      */
     @Override
     public Set<Long> getNullValuePartitions() {
-        return idToRange.entrySet().stream()
+        Set<Long> result = idToRange.entrySet().stream()
                 .filter(x -> x.getValue().lowerEndpoint().isMinValue())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
+        if (result.isEmpty() && !idToRange.isEmpty()) {
+            // No partition has a MIN_VALUE lower bound. Route NULLs to the first
+            // partition (smallest lower bound) since the BE routes NULL partition
+            // key rows there during INSERT.
+            idToRange.entrySet().stream()
+                    .min(RangeUtils.RANGE_MAP_ENTRY_COMPARATOR)
+                    .ifPresent(e -> result.add(e.getKey()));
+        }
+        return result;
     }
 
     // get a sorted range list, exclude partitions which ids are in 'excludePartitionIds'

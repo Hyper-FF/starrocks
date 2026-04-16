@@ -1,0 +1,61 @@
+-- name: test_range_partition_null_insert
+create database test_range_null_${uuid0};
+use test_range_null_${uuid0};
+CREATE TABLE t_range_null_date (
+    dt DATE,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(dt)
+PARTITION BY RANGE(dt) (
+    PARTITION p0 VALUES [('2023-01-01'), ('2024-01-01')),
+    PARTITION p1 VALUES [('2024-01-01'), ('2024-02-01')),
+    PARTITION p2 VALUES [('2024-02-01'), ('2024-03-01'))
+)
+DISTRIBUTED BY HASH(dt) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO t_range_null_date VALUES (NULL, 1), (NULL, 2), ('2024-01-15', 3), ('2024-02-15', 4);
+select * from t_range_null_date order by v;
+select * from t_range_null_date where dt is null order by v;
+select * from t_range_null_date where dt is not null order by v;
+drop database test_range_null_${uuid0};
+
+-- name: test_range_partition_null_less_than
+create database test_range_null_lt_${uuid0};
+use test_range_null_lt_${uuid0};
+CREATE TABLE t_range_null_lt (
+    dt DATE,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(dt)
+PARTITION BY RANGE(dt) (
+    PARTITION p0 VALUES LESS THAN ('2024-01-01'),
+    PARTITION p1 VALUES LESS THAN ('2024-02-01'),
+    PARTITION p2 VALUES LESS THAN ('2024-03-01')
+)
+DISTRIBUTED BY HASH(dt) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO t_range_null_lt VALUES (NULL, 1), (NULL, 2), ('2024-01-15', 3), ('2024-02-15', 4);
+select * from t_range_null_lt order by v;
+select * from t_range_null_lt where dt is null order by v;
+select * from t_range_null_lt where dt is not null order by v;
+drop database test_range_null_lt_${uuid0};
+
+-- name: test_range_partition_null_int_key
+create database test_range_null_int_${uuid0};
+use test_range_null_int_${uuid0};
+CREATE TABLE t_range_null_int (
+    k INT,
+    v INT
+) ENGINE=OLAP
+DUPLICATE KEY(k)
+PARTITION BY RANGE(k) (
+    PARTITION p0 VALUES [('10'), ('20')),
+    PARTITION p1 VALUES [('20'), ('30')),
+    PARTITION p2 VALUES [('30'), ('40'))
+)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO t_range_null_int VALUES (NULL, 1), (15, 2), (25, 3);
+select * from t_range_null_int order by v;
+select * from t_range_null_int where k is null order by v;
+drop database test_range_null_int_${uuid0};

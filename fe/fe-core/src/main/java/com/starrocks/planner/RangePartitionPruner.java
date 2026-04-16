@@ -44,6 +44,7 @@ import com.google.common.collect.TreeRangeMap;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.PartitionKey;
 import com.starrocks.common.AnalysisException;
+import com.starrocks.common.util.RangeUtils;
 import com.starrocks.connector.PartitionUtil;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.sql.ast.expression.LiteralExpr;
@@ -125,7 +126,8 @@ public class RangePartitionPruner implements PartitionPruner {
                     && 0 == lowerBound.compareLiteral(upperBound)) {
 
                 // eg: [10, 10], [null, null]
-                if (lowerBound instanceof NullLiteral && upperBound instanceof NullLiteral) {
+                boolean isNullFilter = lowerBound instanceof NullLiteral && upperBound instanceof NullLiteral;
+                if (isNullFilter) {
                     // replace Null with min value
                     LiteralExpr minKeyValue = LiteralExprFactory.createInfinity(
                             TypeFactory.createType(keyColumn.getPrimitiveType()), false);
@@ -140,6 +142,15 @@ public class RangePartitionPruner implements PartitionPruner {
                 List<Long> result = prune(rangeMap, columnIdx + 1, minKey, maxKey, complex);
                 minKey.popColumn();
                 maxKey.popColumn();
+                // When filtering for NULL and no partition covers MIN_VALUE, select
+                // the first partition (smallest lower bound). The BE routes NULL
+                // partition key rows there during INSERT, so we must scan it for
+                // SELECT with IS NULL predicates.
+                if (result.isEmpty() && isNullFilter && !partitionRangeMap.isEmpty()) {
+                    partitionRangeMap.entrySet().stream()
+                            .min(RangeUtils.RANGE_MAP_ENTRY_COMPARATOR)
+                            .ifPresent(e -> result.add(e.getKey()));
+                }
                 return result;
             }
 

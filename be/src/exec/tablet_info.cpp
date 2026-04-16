@@ -663,8 +663,30 @@ Status OlapTablePartitionParam::_find_tablets_with_range_partition(
         row.index = i;
         // range partition
         auto it = _partitions_map.upper_bound(&row);
-        if (it != _partitions_map.end() && (part = _partitions[it->second[hashes[i] % it->second.size()]]) != nullptr &&
-            _part_contains(part, &row)) {
+        bool matched = false;
+        if (it != _partitions_map.end() &&
+            (part = _partitions[it->second[hashes[i] % it->second.size()]]) != nullptr) {
+            if (_part_contains(part, &row)) {
+                matched = true;
+            } else {
+                // NULL values are treated as less than any non-NULL value by the
+                // partition key comparator, so they fall before the first partition's
+                // start key. Route rows with all-NULL partition keys to the first
+                // partition (the one upper_bound selects), consistent with the
+                // convention that NULL sorts to the minimum end of range partitions.
+                bool all_null = true;
+                for (const auto& col : partition_columns) {
+                    if (!col->is_null(i)) {
+                        all_null = false;
+                        break;
+                    }
+                }
+                if (all_null) {
+                    matched = true;
+                }
+            }
+        }
+        if (matched) {
             (*partitions)[i] = part;
         } else {
             if (partition_not_exist_row_values) {

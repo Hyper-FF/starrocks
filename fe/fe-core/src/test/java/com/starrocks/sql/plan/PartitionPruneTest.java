@@ -675,4 +675,62 @@ public class PartitionPruneTest extends PlanTestBase {
         FeConstants.runningUnitTest = true;
 
     }
+
+    @Test
+    public void testNullValueInRangePartitionWithExplicitLowerBound() throws Exception {
+        // Range partition with explicit lower bounds (no MIN_VALUE partition).
+        // NULL values should be routed to the first partition (smallest lower bound).
+        starRocksAssert.withTable("create table t_range_null_date " +
+                "(dt date, v int) " +
+                "partition by range(dt) (" +
+                "  partition p0 values [('2023-01-01'), ('2024-01-01'))," +
+                "  partition p1 values [('2024-01-01'), ('2024-02-01'))," +
+                "  partition p2 values [('2024-02-01'), ('2024-03-01'))" +
+                ") " +
+                "distributed by hash(dt) buckets 1 " +
+                "properties('replication_num'='1')");
+
+        // getNullValuePartitions should return the first partition (p0)
+        // even though no partition has a MIN_VALUE lower bound
+        OlapTable table = (OlapTable) starRocksAssert.getTable("test", "t_range_null_date");
+        PartitionInfo partitionInfo = table.getPartitionInfo();
+        Set<Long> nullValuePartitions = partitionInfo.getNullValuePartitions();
+        Assertions.assertEquals(1, nullValuePartitions.size());
+        // The returned partition should be p0 (the first partition)
+        long p0Id = table.getPartition("p0").getId();
+        Assertions.assertTrue(nullValuePartitions.contains(p0Id));
+
+        // SELECT with IS NULL should prune to the first partition
+        starRocksAssert.query("select * from t_range_null_date where dt is null")
+                .explainContains("partitions=1/3");
+
+        starRocksAssert.dropTable("t_range_null_date");
+    }
+
+    @Test
+    public void testNullValueInRangePartitionWithMinValueBound() throws Exception {
+        // Range partition with VALUES LESS THAN has MIN_VALUE lower bound for the
+        // first partition. This should continue to work as before.
+        starRocksAssert.withTable("create table t_range_null_less_than " +
+                "(dt date, v int) " +
+                "partition by range(dt) (" +
+                "  partition p0 values less than ('2024-01-01')," +
+                "  partition p1 values less than ('2024-02-01')," +
+                "  partition p2 values less than ('2024-03-01')" +
+                ") " +
+                "distributed by hash(dt) buckets 1 " +
+                "properties('replication_num'='1')");
+
+        OlapTable table = (OlapTable) starRocksAssert.getTable("test", "t_range_null_less_than");
+        PartitionInfo partitionInfo = table.getPartitionInfo();
+        Set<Long> nullValuePartitions = partitionInfo.getNullValuePartitions();
+        Assertions.assertEquals(1, nullValuePartitions.size());
+        long p0Id = table.getPartition("p0").getId();
+        Assertions.assertTrue(nullValuePartitions.contains(p0Id));
+
+        starRocksAssert.query("select * from t_range_null_less_than where dt is null")
+                .explainContains("partitions=1/3");
+
+        starRocksAssert.dropTable("t_range_null_less_than");
+    }
 }
