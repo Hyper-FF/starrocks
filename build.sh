@@ -130,6 +130,7 @@ Usage: $0 <options>
                         build without vector index tenann library
      --configure-only   run CMake configure only for Backend/Format Lib and skip compilation
                         (used by ci-tool changed-file clang-tidy mode)
+     --with-split-dwarf  build with -gsplit-dwarf to reduce link-time memory (default: $WITH_SPLIT_DWARF)
      --with-compress-debug-symbol {ON|OFF}
                         build with compressing debug symbol. (default: $WITH_COMPRESS)
      --with-source-file-relative-path {ON|OFF}
@@ -208,6 +209,7 @@ WITH_GCOV=OFF
 WITH_BENCH=OFF
 WITH_CLANG_TIDY=OFF
 WITH_COMPRESS=ON
+WITH_SPLIT_DWARF=OFF
 THIN_ARCHIVE=OFF
 if starrocks_is_darwin; then
     WITH_STARCACHE=OFF
@@ -336,6 +338,7 @@ else
             --module) BUILD_BE_MODULE=$2; shift 2 ;;
             --with-clang-tidy) WITH_CLANG_TIDY=ON; shift ;;
             --without-java-ext) BUILD_JAVA_EXT=OFF; shift ;;
+            --with-split-dwarf) WITH_SPLIT_DWARF=ON; shift ;;
             --with-thin-archive) THIN_ARCHIVE=ON; shift ;;
             --without-pch) WITH_PCH=OFF; shift ;;
             --without-starcache) WITH_STARCACHE=OFF; shift ;;
@@ -397,6 +400,7 @@ echo "Get params:
     WITH_BENCH                  -- $WITH_BENCH
     WITH_CLANG_TIDY             -- $WITH_CLANG_TIDY
     WITH_COMPRESS_DEBUG_SYMBOL  -- $WITH_COMPRESS
+    WITH_SPLIT_DWARF            -- $WITH_SPLIT_DWARF
     THIN_ARCHIVE                -- $THIN_ARCHIVE
     WITH_STARCACHE              -- $WITH_STARCACHE
     WITH_PCH                    -- $WITH_PCH
@@ -548,6 +552,7 @@ if [ ${BUILD_BE} -eq 1 ] || [ ${BUILD_FORMAT_LIB} -eq 1 ] ; then
                   -DENABLE_MULTI_DYNAMIC_LIBS=${ENABLE_MULTI_DYNAMIC_LIBS}\
                   -DWITH_CLANG_TIDY=${WITH_CLANG_TIDY}                  \
                   -DWITH_COMPRESS=${WITH_COMPRESS}                      \
+                  -DWITH_SPLIT_DWARF=${WITH_SPLIT_DWARF}                \
                   -DTHIN_ARCHIVE=${THIN_ARCHIVE}                        \
                   -DWITH_STARCACHE=${WITH_STARCACHE}                    \
                   -DWITH_PCH=${WITH_PCH}                                \

@@ -182,6 +182,8 @@ option(WITH_GCOV "Build binary with gcov to get code coverage" OFF)
 
 option(WITH_COMPRESS "Build binary with compresss debug section" ON)
 
+option(WITH_SPLIT_DWARF "Build with -gsplit-dwarf to reduce link-time memory usage" OFF)
+
 option(THIN_ARCHIVE "Build binary with thin archive" OFF)
 
 set(WITH_STARCACHE_DEFAULT ON)
@@ -431,19 +433,28 @@ if (BUILD_FORMAT_LIB)
     message(STATUS "enable build format library")
 endif()
 
+# -gsplit-dwarf moves debug info into separate .dwo files so the linker does
+# not have to read or merge them, cutting link-time memory by 30-50%.
+if (WITH_SPLIT_DWARF)
+    set(CXX_SPLIT_DWARF_FLAGS "-gsplit-dwarf")
+    message(STATUS "split-dwarf: ON (debug info goes to .dwo files)")
+else()
+    set(CXX_SPLIT_DWARF_FLAGS "")
+endif()
+
 # For CMAKE_BUILD_TYPE=Debug
 #   -ggdb: Enable gdb debugging
 #   -Werror: compile warnings should be errors when using the toolchain compiler.
 # Only enable for debug builds because this is what we test in pre-commit tests.
-set(CXX_FLAGS_DEBUG "${CXX_GCC_FLAGS} -ggdb -O0 -gdwarf-5 -DDEBUG")
+set(CXX_FLAGS_DEBUG "${CXX_GCC_FLAGS} -ggdb -O0 -gdwarf-5 ${CXX_SPLIT_DWARF_FLAGS} -DDEBUG")
 
 # For CMAKE_BUILD_TYPE=Release
 #   -O3: Enable all compiler optimizations
 #   -DNDEBUG: Turn off dchecks/asserts/debug only code.
-set(CXX_FLAGS_RELEASE "${CXX_GCC_FLAGS} -O3 -gdwarf-4 -DNDEBUG")
+set(CXX_FLAGS_RELEASE "${CXX_GCC_FLAGS} -O3 -gdwarf-4 ${CXX_SPLIT_DWARF_FLAGS} -DNDEBUG")
 
-SET(CXX_FLAGS_ASAN "${CXX_GCC_FLAGS} -ggdb3 -O0 -gdwarf-5 -fsanitize=address -DADDRESS_SANITIZER")
-SET(CXX_FLAGS_LSAN "${CXX_GCC_FLAGS} -ggdb3 -O0 -gdwarf-5 -fsanitize=leak -DLEAK_SANITIZER")
+SET(CXX_FLAGS_ASAN "${CXX_GCC_FLAGS} -ggdb3 -O0 -gdwarf-5 ${CXX_SPLIT_DWARF_FLAGS} -fsanitize=address -DADDRESS_SANITIZER")
+SET(CXX_FLAGS_LSAN "${CXX_GCC_FLAGS} -ggdb3 -O0 -gdwarf-5 ${CXX_SPLIT_DWARF_FLAGS} -fsanitize=leak -DLEAK_SANITIZER")
 
 # Set the flags to the undefined behavior sanitizer, also known as "ubsan"
 # Turn on sanitizer and debug symbols to get stack traces:
@@ -455,7 +466,7 @@ SET(CXX_FLAGS_UBSAN "${CXX_FLAGS_RELEASE} -fsanitize=undefined")
 
 # Set the flags to the thread sanitizer, also known as "tsan"
 # Turn on sanitizer and debug symbols to get stack traces:
-SET(CXX_FLAGS_TSAN "${CXX_GCC_FLAGS} -O0 -ggdb3 -fsanitize=thread -DTHREAD_SANITIZER")
+SET(CXX_FLAGS_TSAN "${CXX_GCC_FLAGS} -O0 -ggdb3 ${CXX_SPLIT_DWARF_FLAGS} -fsanitize=thread -DTHREAD_SANITIZER")
 
 # Set compile flags based on the build type.
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")

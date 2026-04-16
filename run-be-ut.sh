@@ -148,6 +148,7 @@ else
     WITH_STARCACHE=ON
 fi
 WITH_DEBUG_SYMBOL_SPLIT=ON
+WITH_SPLIT_DWARF=OFF
 BUILD_JAVA_EXT=ON
 BUILD_TARGET=
 if [[ -z ${WITH_DYNAMIC} ]]; then
@@ -173,6 +174,7 @@ while true; do
         --enable-shared-data|--use-staros) USE_STAROS=ON; shift ;;
         --build-target) BUILD_TARGET=$2; shift 2;;
         --without-debug-symbol-split) WITH_DEBUG_SYMBOL_SPLIT=OFF; shift ;;
+        --with-split-dwarf) WITH_SPLIT_DWARF=ON; shift ;;
         --without-java-ext) BUILD_JAVA_EXT=OFF; shift ;;
         -j) PARALLEL=$2; shift 2 ;;
         --) shift ;  break ;;
@@ -280,6 +282,7 @@ ${CMAKE_CMD}  -G "${CMAKE_GENERATOR}" \
             -DSTARROCKS_JIT_ENABLE=${ENABLE_JIT} \
             -DWITH_RELATIVE_SRC_PATH=OFF \
             -DENABLE_MULTI_DYNAMIC_LIBS=${WITH_DYNAMIC} \
+            -DWITH_SPLIT_DWARF=${WITH_SPLIT_DWARF} \
             -DTHIN_ARCHIVE=${THIN_ARCHIVE} \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             ${STARROCKS_HOME}/be
