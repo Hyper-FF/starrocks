@@ -989,7 +989,7 @@ under the License.
                 <artifactId>jprotobuf-precompile-plugin</artifactId>
                 <version>${jprotobuf-precompile-plugin.version}</version>
                 <configuration>
-                    <filterClassPackage>com.starrocks.proto;com.starrocks.rpc;com.starrocks.server</filterClassPackage>
+                    <filterClassPackage>com.starrocks.proto;com.starrocks.rpc</filterClassPackage>
                     <generateProtoFile>true</generateProtoFile>
                     <compileDependencies>true</compileDependencies>
                 </configuration>
