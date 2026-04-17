@@ -14,22 +14,35 @@
 
 #pragma once
 
-#include <map>
 #include <memory>
-#include <mutex>
 #include <string>
+#include <string_view>
 
 #include "base/metrics.h"
 
 namespace starrocks {
 
-// Per-query spill metrics labeled by operator_type and storage_type.
-// Labels are registered lazily on first access to keep the label set
-// restricted to operator/storage pairs that actually spill.
+// Closed set of spillable operator types. The enum exists so hot paths
+// can index into the metric bucket array in O(1), avoiding any string
+// comparison or label map lookup.
+enum class SpillOperatorType : uint8_t {
+    kUnknown = 0,
+    kHashJoinBuild,
+    kHashJoinProbe,
+    kNestloopJoinBuild,
+    kAggBlocking,
+    kAggDistinctBlocking,
+    kDistinctBlocking,
+    kLocalSort,
+    kMcastLocalExchange,
+    // keep last
+    kCount,
+};
+
 class SpillMetrics {
 public:
-    static constexpr const char* kStorageTypeLocal = "local";
-    static constexpr const char* kStorageTypeRemote = "remote";
+    static constexpr size_t kOperatorCount = static_cast<size_t>(SpillOperatorType::kCount);
+    static constexpr size_t kStorageCount = 2; // local, remote
 
     struct LabeledCounters {
         std::unique_ptr<IntCounter> trigger_total;
@@ -44,35 +57,25 @@ public:
     SpillMetrics(MetricRegistry* registry);
     ~SpillMetrics() = default;
 
-    // Fetch (and lazily register) the counter bucket for a given
-    // (operator_type, storage_type) pair. Prefer this when multiple
-    // counters from the same bucket are updated together - it avoids
-    // re-taking the registration mutex for each accessor.
-    LabeledCounters* get(const std::string& operator_type, const std::string& storage_type);
+    // O(1) array indexing, no allocation, no locking. Safe on hot paths.
+    LabeledCounters* get(SpillOperatorType op, bool is_remote) {
+        return &_buckets[static_cast<size_t>(op)][is_remote ? 1 : 0];
+    }
 
-    // Convenience single-counter accessors.
-    IntCounter* trigger_total(const std::string& operator_type, const std::string& storage_type);
-    IntCounter* bytes_write_total(const std::string& operator_type, const std::string& storage_type);
-    IntCounter* bytes_read_total(const std::string& operator_type, const std::string& storage_type);
-    IntCounter* blocks_write_total(const std::string& operator_type, const std::string& storage_type);
-    IntCounter* blocks_read_total(const std::string& operator_type, const std::string& storage_type);
-    IntCounter* write_io_duration_ns_total(const std::string& operator_type, const std::string& storage_type);
-    IntCounter* read_io_duration_ns_total(const std::string& operator_type, const std::string& storage_type);
+    IntGauge* local_disk_bytes_used() { return _local_disk_bytes_used.get(); }
+    IntGauge* remote_disk_bytes_used() { return _remote_disk_bytes_used.get(); }
 
-    // spill_disk_bytes_used gauge, labeled by storage_type only. The
-    // GlobalMetricsRegistry update hook refreshes these from the spill
-    // DirManagers.
-    IntGauge* disk_bytes_used(const std::string& storage_type);
+    // Map SpilledOptions::name to a SpillOperatorType. Returns kUnknown
+    // for unrecognized names. Callers should invoke this once at Spiller
+    // setup time and cache the result.
+    static SpillOperatorType parse_operator_type(std::string_view name);
+
+    // Exposed for tests and label construction.
+    static const char* operator_type_label(SpillOperatorType op);
+    static const char* storage_type_label(bool is_remote) { return is_remote ? "remote" : "local"; }
 
 private:
-    LabeledCounters* _get_or_register(const std::string& operator_type, const std::string& storage_type);
-
-    MetricRegistry* _registry;
-
-    std::mutex _mutex;
-    // key = operator_type + "\0" + storage_type
-    std::map<std::string, std::unique_ptr<LabeledCounters>> _counters;
-
+    LabeledCounters _buckets[kOperatorCount][kStorageCount];
     std::unique_ptr<IntGauge> _local_disk_bytes_used;
     std::unique_ptr<IntGauge> _remote_disk_bytes_used;
 };

@@ -783,7 +783,7 @@ Status ExecEnv::init(const std::vector<StorePath>& store_paths, bool as_cn) {
                     for (auto& dir : dir_mgr->dirs()) {
                         local_bytes += dir->get_current_size();
                     }
-                    spill_metrics->disk_bytes_used(SpillMetrics::kStorageTypeLocal)->set_value(local_bytes);
+                    spill_metrics->local_disk_bytes_used()->set_value(local_bytes);
                 });
     }
 

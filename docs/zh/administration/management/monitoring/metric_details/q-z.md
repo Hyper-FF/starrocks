@@ -70,7 +70,7 @@ description: "Alphabetical q - z"
 
 - 单位：计数
 - 标签：`operator_type`、`storage_type`
-- 描述：按算子类型（例如 `hash-join-build`、`agg-blocking-spill`）和存储后端（`local`、`remote`）细分的、触发过至少一次落盘的 spillable 算子实例数量。每个算子实例首次执行 flush 回调时累加一次。
+- 描述：按算子类型（例如 `hash-join-build`、`agg-blocking`、`local-sort`）和存储后端（`local`、`remote`）细分的、触发过至少一次落盘的 spillable 算子实例数量。每个算子实例首次执行 flush 回调时累加一次。
 
 ## `query_spill_bytes_write_total`
 

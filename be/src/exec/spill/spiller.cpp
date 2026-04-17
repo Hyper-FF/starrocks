@@ -138,8 +138,9 @@ Status Spiller::prepare(RuntimeState* state) {
     // once up-front so hot paths can update them without going through
     // the global registry or the label map on every IO event.
     if (auto* sm = GlobalMetricsRegistry::instance()->spill_metrics(); sm != nullptr) {
-        _metrics.global_local = sm->get(_opts.name, SpillMetrics::kStorageTypeLocal);
-        _metrics.global_remote = sm->get(_opts.name, SpillMetrics::kStorageTypeRemote);
+        auto op = SpillMetrics::parse_operator_type(_opts.name);
+        _metrics.global_local = sm->get(op, /*is_remote=*/false);
+        _metrics.global_remote = sm->get(op, /*is_remote=*/true);
     }
 
     ASSIGN_OR_RETURN(_serde, Serde::create_serde(this));

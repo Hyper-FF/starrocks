@@ -70,7 +70,7 @@ For more information on how to build a monitoring service for your StarRocks clu
 
 - Unit: Count
 - Labels: `operator_type`, `storage_type`
-- Description: Number of spillable operator instances that triggered at least one spill, broken down by operator type (for example `hash-join-build`, `agg-blocking-spill`) and storage backend (`local`, `remote`). Incremented once per operator instance at the first flush callback.
+- Description: Number of spillable operator instances that triggered at least one spill, broken down by operator type (for example `hash-join-build`, `agg-blocking`, `local-sort`) and storage backend (`local`, `remote`). Incremented once per operator instance at the first flush callback.
 
 ## `query_spill_bytes_write_total`
 
