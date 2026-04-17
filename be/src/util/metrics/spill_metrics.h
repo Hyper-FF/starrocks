@@ -15,35 +15,16 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <string_view>
 
 #include "base/metrics.h"
 
 namespace starrocks {
 
-// Closed set of spillable operator types. The enum exists so hot paths
-// can index into the metric bucket array in O(1), avoiding any string
-// comparison or label map lookup.
-enum class SpillOperatorType : uint8_t {
-    kUnknown = 0,
-    kHashJoinBuild,
-    kHashJoinProbe,
-    kNestloopJoinBuild,
-    kAggBlocking,
-    kAggDistinctBlocking,
-    kDistinctBlocking,
-    kLocalSort,
-    kMcastLocalExchange,
-    // keep last
-    kCount,
-};
-
+// Server-level spill counters aggregated across all spillable operators.
+// Only split by storage_type (local vs. remote); per-operator breakdown
+// already lives in each operator's RuntimeProfile.
 class SpillMetrics {
 public:
-    static constexpr size_t kOperatorCount = static_cast<size_t>(SpillOperatorType::kCount);
-    static constexpr size_t kStorageCount = 2; // local, remote
-
     struct LabeledCounters {
         std::unique_ptr<IntCounter> trigger_total;
         std::unique_ptr<IntCounter> bytes_write_total;
@@ -57,21 +38,14 @@ public:
     SpillMetrics(MetricRegistry* registry);
     ~SpillMetrics() = default;
 
-    // O(1) array indexing, no allocation, no locking. Safe on hot paths.
-    LabeledCounters* get(SpillOperatorType op, bool is_remote) {
-        return &_buckets[static_cast<size_t>(op)][is_remote ? 1 : 0];
-    }
+    LabeledCounters* get(bool is_remote) { return is_remote ? &_remote : &_local; }
 
     IntGauge* local_disk_bytes_used() { return _local_disk_bytes_used.get(); }
     IntGauge* remote_disk_bytes_used() { return _remote_disk_bytes_used.get(); }
 
-    // Map SpilledOptions::name to a SpillOperatorType. Returns kUnknown
-    // for unrecognized names. Callers should invoke this once at Spiller
-    // setup time and cache the result.
-    static SpillOperatorType parse_operator_type(std::string_view name);
-
 private:
-    LabeledCounters _buckets[kOperatorCount][kStorageCount];
+    LabeledCounters _local;
+    LabeledCounters _remote;
     std::unique_ptr<IntGauge> _local_disk_bytes_used;
     std::unique_ptr<IntGauge> _remote_disk_bytes_used;
 };

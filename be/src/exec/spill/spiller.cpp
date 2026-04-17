@@ -134,13 +134,12 @@ Status Spiller::prepare(RuntimeState* state) {
     DCHECK(_opts.wg != nullptr) << "workgroup must be set";
 #endif
 
-    // Resolve the server-level spill counter buckets for this operator
-    // once up-front so hot paths can update them without going through
-    // the global registry or the label map on every IO event.
+    // Resolve the server-level spill counter buckets once up-front so
+    // hot paths can update them without going through the global
+    // registry on every IO event.
     if (auto* sm = GlobalMetricsRegistry::instance()->spill_metrics(); sm != nullptr) {
-        auto op = SpillMetrics::parse_operator_type(_opts.name);
-        _metrics.global_local = sm->get(op, /*is_remote=*/false);
-        _metrics.global_remote = sm->get(op, /*is_remote=*/true);
+        _metrics.global_local = sm->get(/*is_remote=*/false);
+        _metrics.global_remote = sm->get(/*is_remote=*/true);
     }
 
     ASSIGN_OR_RETURN(_serde, Serde::create_serde(this));
