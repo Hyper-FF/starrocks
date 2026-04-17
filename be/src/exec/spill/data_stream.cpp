@@ -21,8 +21,6 @@
 #include "exec/spill/serde.h"
 #include "exec/spill/spiller.h"
 #include "runtime/runtime_state.h"
-#include "util/global_metrics_registry.h"
-#include "util/metrics/spill_metrics.h"
 
 namespace starrocks::spill {
 // spill output stream. output serialized chunk data to BlockManager and add handle to block group.
@@ -71,13 +69,10 @@ Status BlockSpillOutputDataStream::_prepare_block(RuntimeState* state, size_t wr
         bool is_remote = block->is_remote();
         auto block_count = GET_METRICS(is_remote, _spiller->metrics(), block_count);
         COUNTER_UPDATE(block_count, 1);
-        if (auto* spill_metrics = GlobalMetricsRegistry::instance()->spill_metrics(); spill_metrics != nullptr) {
-            const std::string& op = _spiller->options().name;
-            const char* storage = is_remote ? SpillMetrics::kStorageTypeRemote : SpillMetrics::kStorageTypeLocal;
-            auto* bucket = spill_metrics->get(op, storage);
-            bucket->blocks_write_total->increment(1);
-            if (_spiller->mark_spill_triggered()) {
-                bucket->trigger_total->increment(1);
+        if (auto* g = _spiller->metrics().global(is_remote); g != nullptr) {
+            g->blocks_write_total->increment(1);
+            if (!_spiller->metrics().global_spill_triggered.exchange(true)) {
+                g->trigger_total->increment(1);
             }
         }
         TRACE_SPILL_LOG << fmt::format("allocate block [{}], affinity group[{}]", block->debug_string(),
@@ -102,22 +97,16 @@ Status BlockSpillOutputDataStream::append(RuntimeState* state, const std::vector
         TRACE_SPILL_LOG << fmt::format("append block[{}], size[{}]", _cur_block->debug_string(), total_write_size);
         append_st = _cur_block->append(data);
     }
-    auto write_io_timer = GET_METRICS(is_remote, _spiller->metrics(), write_io_timer);
-    COUNTER_UPDATE(write_io_timer, io_ns);
-    if (auto* spill_metrics = GlobalMetricsRegistry::instance()->spill_metrics(); spill_metrics != nullptr) {
-        const std::string& op = _spiller->options().name;
-        const char* storage = is_remote ? SpillMetrics::kStorageTypeRemote : SpillMetrics::kStorageTypeLocal;
-        spill_metrics->write_io_duration_ns_total(op, storage)->increment(io_ns);
+    COUNTER_UPDATE(GET_METRICS(is_remote, _spiller->metrics(), write_io_timer), io_ns);
+    if (auto* g = _spiller->metrics().global(is_remote); g != nullptr) {
+        g->write_io_duration_ns_total->increment(io_ns);
     }
     RETURN_IF_ERROR(append_st);
     _cur_block->inc_num_rows(write_num_rows);
-    auto flush_bytes = GET_METRICS(is_remote, _spiller->metrics(), flush_bytes);
-    COUNTER_UPDATE(flush_bytes, total_write_size);
+    COUNTER_UPDATE(GET_METRICS(is_remote, _spiller->metrics(), flush_bytes), total_write_size);
     (*_spiller->metrics().total_spill_bytes) += total_write_size;
-    if (auto* spill_metrics = GlobalMetricsRegistry::instance()->spill_metrics(); spill_metrics != nullptr) {
-        const std::string& op = _spiller->options().name;
-        const char* storage = is_remote ? SpillMetrics::kStorageTypeRemote : SpillMetrics::kStorageTypeLocal;
-        spill_metrics->bytes_write_total(op, storage)->increment(total_write_size);
+    if (auto* g = _spiller->metrics().global(is_remote); g != nullptr) {
+        g->bytes_write_total->increment(total_write_size);
     }
     return Status::OK();
 }
@@ -134,12 +123,9 @@ Status BlockSpillOutputDataStream::flush() {
         flush_st = _cur_block->flush();
         TRACE_SPILL_LOG << fmt::format("flush block[{}]", _cur_block->debug_string());
     }
-    auto write_io_timer = GET_METRICS(is_remote, _spiller->metrics(), write_io_timer);
-    COUNTER_UPDATE(write_io_timer, io_ns);
-    if (auto* spill_metrics = GlobalMetricsRegistry::instance()->spill_metrics(); spill_metrics != nullptr) {
-        const std::string& op = _spiller->options().name;
-        const char* storage = is_remote ? SpillMetrics::kStorageTypeRemote : SpillMetrics::kStorageTypeLocal;
-        spill_metrics->write_io_duration_ns_total(op, storage)->increment(io_ns);
+    COUNTER_UPDATE(GET_METRICS(is_remote, _spiller->metrics(), write_io_timer), io_ns);
+    if (auto* g = _spiller->metrics().global(is_remote); g != nullptr) {
+        g->write_io_duration_ns_total->increment(io_ns);
     }
     RETURN_IF_ERROR(flush_st);
 

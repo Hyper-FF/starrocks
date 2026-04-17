@@ -40,6 +40,7 @@
 #include "runtime/mem_tracker.h"
 #include "runtime/runtime_state_fwd.h"
 #include "util/compression/block_compression.h"
+#include "util/metrics/spill_metrics.h"
 
 #define GET_METRICS(remote, metrics, key) (remote ? metrics.remote_##key : metrics.local_##key)
 
@@ -141,6 +142,16 @@ public:
     RuntimeProfile::Counter* skew_mem_table_output_rows = nullptr;
     RuntimeProfile::Counter* skew_mem_table_input_bytes = nullptr;
     RuntimeProfile::Counter* skew_mem_table_output_bytes = nullptr;
+
+    // Server-level counters pre-resolved by Spiller::prepare() based on the
+    // Spiller's operator name. The bucket pointers stay stable for the
+    // lifetime of the GlobalMetricsRegistry, so hot-path callers just use
+    // `global(is_remote)` instead of looking up by label on every IO.
+    SpillMetrics::LabeledCounters* global_local = nullptr;
+    SpillMetrics::LabeledCounters* global_remote = nullptr;
+    std::atomic_bool global_spill_triggered = false;
+
+    SpillMetrics::LabeledCounters* global(bool is_remote) const { return is_remote ? global_remote : global_local; }
 };
 
 // major spill interfaces
@@ -247,14 +258,6 @@ public:
     BlockManager* block_manager() { return _block_manager; }
     const ChunkBuilder& chunk_builder() { return _chunk_builder; }
 
-    // Returns true on the first call, false afterwards. Used to drive the
-    // global "spill triggered" counter so each operator instance is counted
-    // at most once.
-    bool mark_spill_triggered() {
-        bool expected = false;
-        return _spill_triggered.compare_exchange_strong(expected, true);
-    }
-
     Status reset_state(RuntimeState* state);
 
     size_t max_sorted_block_cnt() const { return _max_sorted_block_cnt; }
@@ -292,7 +295,6 @@ private:
     spill::BlockManager* _block_manager = nullptr;
     size_t _max_sorted_block_cnt = 0;
     std::atomic_bool _is_cancel = false;
-    std::atomic_bool _spill_triggered = false;
 };
 
 } // namespace starrocks::spill

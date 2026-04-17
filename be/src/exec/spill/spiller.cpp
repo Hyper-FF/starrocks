@@ -38,6 +38,8 @@
 #include "gutil/port.h"
 #include "runtime/runtime_state.h"
 #include "serde/column_array_serde.h"
+#include "util/global_metrics_registry.h"
+#include "util/metrics/spill_metrics.h"
 
 namespace starrocks::spill {
 DEFINE_FAIL_POINT(spill_restore_sleep);
@@ -131,6 +133,14 @@ Status Spiller::prepare(RuntimeState* state) {
 #ifndef BE_TEST
     DCHECK(_opts.wg != nullptr) << "workgroup must be set";
 #endif
+
+    // Resolve the server-level spill counter buckets for this operator
+    // once up-front so hot paths can update them without going through
+    // the global registry or the label map on every IO event.
+    if (auto* sm = GlobalMetricsRegistry::instance()->spill_metrics(); sm != nullptr) {
+        _metrics.global_local = sm->get(_opts.name, SpillMetrics::kStorageTypeLocal);
+        _metrics.global_remote = sm->get(_opts.name, SpillMetrics::kStorageTypeRemote);
+    }
 
     ASSIGN_OR_RETURN(_serde, Serde::create_serde(this));
 
