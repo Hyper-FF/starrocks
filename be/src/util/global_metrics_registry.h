@@ -35,10 +35,6 @@ namespace starrocks {
 
 class StarRocksMetrics;
 
-namespace spill {
-class DirManager;
-}
-
 class GlobalMetricsRegistry {
 public:
     static GlobalMetricsRegistry* instance();
@@ -56,10 +52,6 @@ public:
     FileScanMetrics* file_scan_metrics() { return _file_scan_metrics.get(); }
     CatalogScanMetrics* catalog_scan_metrics() { return _catalog_scan_metrics.get(); }
     SpillMetrics* spill_metrics() { return _spill_metrics.get(); }
-    // Register the DirManager whose disk usage should be reported via the
-    // spill_disk_bytes_used gauge. The caller retains ownership; the pointer
-    // must outlive the GlobalMetricsRegistry (typically the process).
-    void set_spill_local_dir_manager(spill::DirManager* mgr) { _spill_local_dir_mgr = mgr; }
     pipeline::PipelineExecutorMetrics* pipeline_executor_metrics() { return &_pipeline_executor_metrics; }
 
 private:
@@ -68,7 +60,6 @@ private:
     void _update();
     void _update_process_thread_num();
     void _update_process_fd_num();
-    void _update_spill_disk_bytes_used();
 
 private:
     static const std::string _s_registry_name;
@@ -84,7 +75,6 @@ private:
     std::unique_ptr<FileScanMetrics> _file_scan_metrics;
     std::unique_ptr<CatalogScanMetrics> _catalog_scan_metrics;
     std::unique_ptr<SpillMetrics> _spill_metrics;
-    spill::DirManager* _spill_local_dir_mgr = nullptr;
     pipeline::PipelineExecutorMetrics _pipeline_executor_metrics;
 };
 

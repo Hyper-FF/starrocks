@@ -17,7 +17,6 @@
 #include <unistd.h>
 
 #include "exec/pipeline/pipeline_metrics.h"
-#include "exec/spill/dir_manager.h"
 #include "fs/fs.h"
 #include "runtime/starrocks_metrics.h"
 #include "util/system_metrics.h"
@@ -318,23 +317,6 @@ void GlobalMetricsRegistry::initialize(const std::vector<std::string>& paths, bo
 void GlobalMetricsRegistry::_update() {
     _update_process_thread_num();
     _update_process_fd_num();
-    _update_spill_disk_bytes_used();
-}
-
-void GlobalMetricsRegistry::_update_spill_disk_bytes_used() {
-    if (_spill_metrics == nullptr) {
-        return;
-    }
-    int64_t local_bytes = 0;
-    if (_spill_local_dir_mgr != nullptr) {
-        for (auto& dir : _spill_local_dir_mgr->dirs()) {
-            local_bytes += dir->get_current_size();
-        }
-    }
-    _spill_metrics->disk_bytes_used(SpillMetrics::kStorageTypeLocal)->set_value(local_bytes);
-    // Remote spill storage is managed per-query, so there is no single
-    // global counter to report. Leave the remote gauge at zero until a
-    // global remote directory tracker exists.
 }
 
 // get num of thread of starrocks_be process
