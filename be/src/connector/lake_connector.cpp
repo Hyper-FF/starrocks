@@ -18,17 +18,21 @@
 
 #include "base/string/string_parser.hpp"
 #include "base/testutil/sync_point.h"
+#include "column/chunk.h"
 #include "column/column_access_path.h"
+#include "column/column_helper.h"
 #include "common/config_lake_fwd.h"
 #include "common/config_scan_io_fwd.h"
 #include "common/config_starlet_fwd.h"
 #include "common/config_storage_fwd.h"
+#include "common/object_pool.h"
 #include "exec/connector_scan_node.h"
 #include "exec/olap_scan_prepare.h"
 #include "exec/pipeline/fragment_context.h"
 #include "exec/pipeline/query_context.h"
 #include "exec/pipeline/scan/glm_manager.h"
 #include "exprs/chunk_predicate_evaluator.h"
+#include "exprs/expr_executor.h"
 #include "exprs/expr_factory.h"
 #include "exprs/jsonpath.h"
 #include "fs/fs.h"
@@ -1225,6 +1229,14 @@ Status LakeDataSourceProvider::init(ObjectPool* pool, RuntimeState* state) {
             RETURN_IF_ERROR(ExprFactory::create_expr_tree(pool, bucket_exprs[i], &_partition_exprs[i], state));
         }
     }
+    if (_t_lake_scan_node.__isset.partition_conjuncts) {
+        const auto& partition_conjuncts = _t_lake_scan_node.partition_conjuncts;
+        _partition_conjunct_ctxs.resize(partition_conjuncts.size());
+        for (int i = 0; i < partition_conjuncts.size(); ++i) {
+            RETURN_IF_ERROR(
+                    ExprFactory::create_expr_tree(pool, partition_conjuncts[i], &_partition_conjunct_ctxs[i], state));
+        }
+    }
     return Status::OK();
 }
 
@@ -1243,24 +1255,118 @@ StatusOr<pipeline::MorselQueuePtr> LakeDataSourceProvider::convert_scan_range_to
         const std::vector<TScanRangeParams>& scan_ranges, int node_id, int32_t pipeline_dop,
         bool enable_tablet_internal_parallel, TTabletInternalParallelMode::type tablet_internal_parallel_mode,
         size_t num_total_scan_ranges, size_t scan_parallelism) {
+    // Dynamic partition pruning: drop scan ranges whose partition values cannot satisfy the
+    // single-column partition predicates. Safe to fall back on any error.
+    auto* state = _scan_node != nullptr ? _scan_node->runtime_state() : nullptr;
+    std::vector<TScanRangeParams> pruned_scan_ranges;
+    const std::vector<TScanRangeParams>* effective_scan_ranges = &scan_ranges;
+    if (!_partition_conjunct_ctxs.empty() && state != nullptr) {
+        if (ExprExecutor::prepare(_partition_conjunct_ctxs, state).ok() &&
+            ExprExecutor::open(_partition_conjunct_ctxs, state).ok()) {
+            if (_prune_scan_ranges(state, scan_ranges, &pruned_scan_ranges).ok()) {
+                effective_scan_ranges = &pruned_scan_ranges;
+            }
+        }
+        ExprExecutor::close(_partition_conjunct_ctxs, state);
+    }
+
     int64_t lake_scan_parallelism = 0;
-    if (!scan_ranges.empty() && enable_tablet_internal_parallel) {
-        ASSIGN_OR_RETURN(_could_split, _could_tablet_internal_parallel(scan_ranges, pipeline_dop, num_total_scan_ranges,
-                                                                       tablet_internal_parallel_mode,
-                                                                       &lake_scan_parallelism, &splitted_scan_rows));
+    if (!effective_scan_ranges->empty() && enable_tablet_internal_parallel) {
+        ASSIGN_OR_RETURN(_could_split,
+                         _could_tablet_internal_parallel(*effective_scan_ranges, pipeline_dop, num_total_scan_ranges,
+                                                         tablet_internal_parallel_mode, &lake_scan_parallelism,
+                                                         &splitted_scan_rows));
         if (_could_split) {
-            ASSIGN_OR_RETURN(_could_split_physically, _could_split_tablet_physically(scan_ranges));
+            ASSIGN_OR_RETURN(_could_split_physically, _could_split_tablet_physically(*effective_scan_ranges));
         }
     }
 
     ASSIGN_OR_RETURN(auto morsel_queue,
                      DataSourceProvider::convert_scan_range_to_morsel_queue(
-                             scan_ranges, node_id, pipeline_dop, enable_tablet_internal_parallel,
+                             *effective_scan_ranges, node_id, pipeline_dop, enable_tablet_internal_parallel,
                              tablet_internal_parallel_mode, num_total_scan_ranges, (size_t)lake_scan_parallelism));
     if (_could_split) {
         morsel_queue->set_has_more_from_split(true);
     }
     return morsel_queue;
+}
+
+Status LakeDataSourceProvider::_prune_scan_ranges(RuntimeState* state,
+                                                  const std::vector<TScanRangeParams>& scan_ranges,
+                                                  std::vector<TScanRangeParams>* pruned_scan_ranges) {
+    if (_partition_conjunct_ctxs.empty()) {
+        *pruned_scan_ranges = scan_ranges;
+        return Status::OK();
+    }
+
+    auto* tuple_desc = state->desc_tbl().get_tuple_descriptor(_t_lake_scan_node.tuple_id);
+    if (tuple_desc == nullptr) {
+        *pruned_scan_ranges = scan_ranges;
+        return Status::OK();
+    }
+
+    std::unordered_map<std::string, SlotDescriptor*> column_name_to_slot;
+    for (auto* slot : tuple_desc->slots()) {
+        column_name_to_slot[slot->col_name()] = slot;
+    }
+
+    ObjectPool obj_pool;
+    std::vector<TScanRangeParams> temp;
+    temp.reserve(scan_ranges.size());
+    for (const auto& scan_range : scan_ranges) {
+        const auto& lake_range = scan_range.scan_range.internal_scan_range;
+        if (!lake_range.__isset.partition_column_ranges || lake_range.partition_column_ranges.empty()) {
+            temp.emplace_back(scan_range);
+            continue;
+        }
+
+        bool is_pruned = false;
+        for (const auto& partition_column_range : lake_range.partition_column_ranges) {
+            auto it = column_name_to_slot.find(partition_column_range.column_name);
+            if (it == column_name_to_slot.end()) {
+                continue;
+            }
+            auto* slot = it->second;
+            ASSIGN_OR_RETURN(auto col,
+                             build_partition_col_values(slot, partition_column_range, &obj_pool, state));
+
+            Chunk partition_cols_chunk;
+            Filter filter(col->size(), 1);
+            partition_cols_chunk.append_column(std::move(col), slot->id());
+
+            std::vector<SlotId> slot_ids;
+            for (auto* ctx : _partition_conjunct_ctxs) {
+                slot_ids.clear();
+                if (ctx->root()->get_slot_ids(&slot_ids) != 1 || slot_ids[0] != slot->id()) {
+                    continue;
+                }
+                ASSIGN_OR_RETURN(ColumnPtr column, ctx->evaluate(&partition_cols_chunk, filter.data()));
+                size_t true_count = ColumnHelper::count_true_with_notnull(column);
+                if (true_count == column->size()) {
+                    continue;
+                } else if (0 == true_count) {
+                    is_pruned = true;
+                    break;
+                } else {
+                    bool all_zero = false;
+                    ColumnHelper::merge_two_filters(column, &filter, &all_zero);
+                    if (all_zero) {
+                        is_pruned = true;
+                        break;
+                    }
+                }
+            }
+            if (is_pruned) {
+                break;
+            }
+        }
+
+        if (!is_pruned) {
+            temp.emplace_back(scan_range);
+        }
+    }
+    pruned_scan_ranges->swap(temp);
+    return Status::OK();
 }
 
 StatusOr<bool> LakeDataSourceProvider::_could_tablet_internal_parallel(

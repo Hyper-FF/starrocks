@@ -296,6 +296,13 @@ private:
                                                    TTabletInternalParallelMode::type tablet_internal_parallel_mode,
                                                    int64_t* scan_dop, int64_t* splitted_scan_rows) const;
     StatusOr<bool> _could_split_tablet_physically(const std::vector<TScanRangeParams>& scan_ranges) const;
+
+    Status _prune_scan_ranges(RuntimeState* state, const std::vector<TScanRangeParams>& scan_ranges,
+                              std::vector<TScanRangeParams>* pruned_scan_ranges);
+
+    // Partition conjuncts used for BE-side dynamic partition pruning. Distinct from the
+    // inherited `_partition_exprs` in DataSourceProvider which stores bucket expressions.
+    std::vector<ExprContext*> _partition_conjunct_ctxs;
 };
 
 } // namespace starrocks::connector

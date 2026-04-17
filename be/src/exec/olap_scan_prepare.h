@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "exec/olap_common.h"
 #include "exprs/expr.h"
@@ -27,6 +28,7 @@
 
 namespace starrocks {
 
+class TKeyRange;
 class RuntimeState;
 
 class RuntimeFilterProbeCollector;
@@ -35,6 +37,13 @@ class ColumnPredicate;
 class VectorizedLiteral;
 using ColumnPredicatePtr = std::unique_ptr<ColumnPredicate>;
 using ColumnPredicatePtrs = std::vector<ColumnPredicatePtr>;
+
+// Materialize partition column candidate values described by `column_range` into a Column.
+// Supports either a list of literal `list_values` or an inclusive integer/date `[begin_key, end_key]` range.
+// Used by the backend-side dynamic partition pruning path in both the shared-nothing OlapScanNode and
+// the shared-data LakeDataSourceProvider.
+StatusOr<ColumnPtr> build_partition_col_values(const SlotDescriptor* slot_desc, const TKeyRange& column_range,
+                                               ObjectPool* obj_pool, RuntimeState* state);
 
 struct ScanConjunctsManagerOptions {
     // fields from olap scan node
