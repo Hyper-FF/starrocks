@@ -143,13 +143,12 @@ public:
     RuntimeProfile::Counter* skew_mem_table_input_bytes = nullptr;
     RuntimeProfile::Counter* skew_mem_table_output_bytes = nullptr;
 
-    // Server-level counters pre-resolved by Spiller::prepare() based on the
-    // Spiller's operator name. The bucket pointers stay stable for the
-    // lifetime of the GlobalMetricsRegistry, so hot-path callers just use
-    // `global(is_remote)` instead of looking up by label on every IO.
+    // Server-level counters pre-resolved by Spiller::prepare(). The
+    // bucket pointers stay stable for the lifetime of the
+    // GlobalMetricsRegistry, so hot-path callers use `global(is_remote)`
+    // instead of looking up by label on every IO event.
     SpillMetrics::LabeledCounters* global_local = nullptr;
     SpillMetrics::LabeledCounters* global_remote = nullptr;
-    std::atomic_bool global_spill_triggered = false;
 
     SpillMetrics::LabeledCounters* global(bool is_remote) const { return is_remote ? global_remote : global_local; }
 };
@@ -258,6 +257,12 @@ public:
     BlockManager* block_manager() { return _block_manager; }
     const ChunkBuilder& chunk_builder() { return _chunk_builder; }
 
+    // Shared flag used to bump the global query_spill_trigger_total
+    // counter at most once per Spiller instance. Lives on Spiller itself
+    // (not SpillProcessMetrics) because std::atomic_bool would break
+    // SpillProcessMetrics copy-assignment in set_metrics().
+    std::atomic_bool& global_spill_triggered() { return _global_spill_triggered; }
+
     Status reset_state(RuntimeState* state);
 
     size_t max_sorted_block_cnt() const { return _max_sorted_block_cnt; }
@@ -295,6 +300,7 @@ private:
     spill::BlockManager* _block_manager = nullptr;
     size_t _max_sorted_block_cnt = 0;
     std::atomic_bool _is_cancel = false;
+    std::atomic_bool _global_spill_triggered{false};
 };
 
 } // namespace starrocks::spill

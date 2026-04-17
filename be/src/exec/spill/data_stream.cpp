@@ -71,7 +71,7 @@ Status BlockSpillOutputDataStream::_prepare_block(RuntimeState* state, size_t wr
         COUNTER_UPDATE(block_count, 1);
         if (auto* g = _spiller->metrics().global(is_remote); g != nullptr) {
             g->blocks_write_total->increment(1);
-            if (!_spiller->metrics().global_spill_triggered.exchange(true)) {
+            if (!_spiller->global_spill_triggered().exchange(true)) {
                 g->trigger_total->increment(1);
             }
         }
