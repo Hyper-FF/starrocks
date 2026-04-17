@@ -777,8 +777,7 @@ Status ExecEnv::init(const std::vector<StorePath>& store_paths, bool as_cn) {
     // DirManager lives for the lifetime of ExecEnv.
     if (auto* spill_metrics = GlobalMetricsRegistry::instance()->spill_metrics(); spill_metrics != nullptr) {
         GlobalMetricsRegistry::instance()->metrics()->register_hook(
-                "spill_disk_bytes_used",
-                [dir_mgr = _spill_dir_mgr.get(), spill_metrics]() {
+                "spill_disk_bytes_used", [dir_mgr = _spill_dir_mgr.get(), spill_metrics]() {
                     int64_t local_bytes = 0;
                     for (auto& dir : dir_mgr->dirs()) {
                         local_bytes += dir->get_current_size();
