@@ -247,6 +247,14 @@ public:
     BlockManager* block_manager() { return _block_manager; }
     const ChunkBuilder& chunk_builder() { return _chunk_builder; }
 
+    // Returns true on the first call, false afterwards. Used to drive the
+    // global "spill triggered" counter so each operator instance is counted
+    // at most once.
+    bool mark_spill_triggered() {
+        bool expected = false;
+        return _spill_triggered.compare_exchange_strong(expected, true);
+    }
+
     Status reset_state(RuntimeState* state);
 
     size_t max_sorted_block_cnt() const { return _max_sorted_block_cnt; }
@@ -284,6 +292,7 @@ private:
     spill::BlockManager* _block_manager = nullptr;
     size_t _max_sorted_block_cnt = 0;
     std::atomic_bool _is_cancel = false;
+    std::atomic_bool _spill_triggered = false;
 };
 
 } // namespace starrocks::spill

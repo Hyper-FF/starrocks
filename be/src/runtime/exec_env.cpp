@@ -770,6 +770,7 @@ Status ExecEnv::init(const std::vector<StorePath>& store_paths, bool as_cn) {
 
     _spill_dir_mgr = std::make_shared<spill::DirManager>();
     RETURN_IF_ERROR(_spill_dir_mgr->init(config::spill_local_storage_dir));
+    GlobalMetricsRegistry::instance()->set_spill_local_dir_manager(_spill_dir_mgr.get());
 
     _global_spill_manager = std::make_shared<spill::GlobalSpillManager>();
 

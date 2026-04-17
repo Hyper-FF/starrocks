@@ -33,6 +33,8 @@
 #include "exec/workgroup/work_group.h"
 #include "runtime/runtime_state.h"
 #include "runtime/sorted_chunks_merger.h"
+#include "util/global_metrics_registry.h"
+#include "util/metrics/spill_metrics.h"
 
 namespace starrocks::spill {
 
@@ -291,6 +293,16 @@ StatusOr<ChunkUniquePtr> SequenceInputStream::get_next(workgroup::YieldContext& 
             _options.read_io_bytes = GET_METRICS(is_remote, _serde->parent()->metrics(), restore_bytes);
             _options.read_io_timer = GET_METRICS(is_remote, _serde->parent()->metrics(), read_io_timer);
             _options.read_io_count = GET_METRICS(is_remote, _serde->parent()->metrics(), read_io_count);
+            _options.global_read_bytes = nullptr;
+            _options.global_read_io_duration_ns = nullptr;
+            if (auto* spill_metrics = GlobalMetricsRegistry::instance()->spill_metrics(); spill_metrics != nullptr) {
+                const std::string& op = _serde->parent()->options().name;
+                const char* storage =
+                        is_remote ? SpillMetrics::kStorageTypeRemote : SpillMetrics::kStorageTypeLocal;
+                _options.global_read_bytes = spill_metrics->bytes_read_total(op, storage);
+                _options.global_read_io_duration_ns = spill_metrics->read_io_duration_ns_total(op, storage);
+                spill_metrics->blocks_read_total(op, storage)->increment(1);
+            }
             _current_reader = _input_blocks[_current_idx]->get_reader(_options);
         }
         auto& block = _input_blocks[_current_idx];
