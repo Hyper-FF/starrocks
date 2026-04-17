@@ -10,8 +10,6 @@ displayed_sidebar: docs
 
 该函数主要用于测试和调试查询执行行为。例如，您可以使用它来验证在不依赖分区裁剪的情况下查询是否返回正确的结果。
 
-类似于 ClickHouse 的 `materialize()` 函数。
-
 ## 语法
 
 ```Haskell
