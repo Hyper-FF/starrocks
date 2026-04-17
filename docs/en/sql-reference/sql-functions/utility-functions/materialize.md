@@ -10,8 +10,6 @@ Returns the input value unchanged but acts as an optimization barrier for the FE
 
 This function is useful for testing and debugging query execution behavior. For example, you can use it to verify that a query returns correct results without relying on partition pruning.
 
-Similar to ClickHouse's `materialize()` function.
-
 ## Syntax
 
 ```Haskell
