@@ -143,10 +143,12 @@ public:
     RuntimeProfile::Counter* skew_mem_table_input_bytes = nullptr;
     RuntimeProfile::Counter* skew_mem_table_output_bytes = nullptr;
 
-    // Server-level counters pre-resolved by Spiller::prepare(). The
-    // bucket pointers stay stable for the lifetime of the
-    // GlobalMetricsRegistry, so hot-path callers use `global(is_remote)`
-    // instead of looking up by label on every IO event.
+    // Server-level counters pre-resolved in the SpillProcessMetrics
+    // constructor so the pointers travel with the value (operators may
+    // reassign SpillProcessMetrics via Spiller::set_metrics after prepare,
+    // which would lose pointers cached on Spiller itself). Stable for the
+    // lifetime of the GlobalMetricsRegistry; callers use `global(is_remote)`
+    // and skip updates when null (e.g. in unit tests without a registry).
     SpillMetrics::LabeledCounters* global_local = nullptr;
     SpillMetrics::LabeledCounters* global_remote = nullptr;
 
