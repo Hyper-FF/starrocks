@@ -70,10 +70,6 @@ public:
     // setup time and cache the result.
     static SpillOperatorType parse_operator_type(std::string_view name);
 
-    // Exposed for tests and label construction.
-    static const char* operator_type_label(SpillOperatorType op);
-    static const char* storage_type_label(bool is_remote) { return is_remote ? "remote" : "local"; }
-
 private:
     LabeledCounters _buckets[kOperatorCount][kStorageCount];
     std::unique_ptr<IntGauge> _local_disk_bytes_used;

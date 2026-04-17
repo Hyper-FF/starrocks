@@ -14,39 +14,37 @@
 
 #include "util/metrics/spill_metrics.h"
 
+#include <array>
 #include <unordered_map>
 
 namespace starrocks {
 
-const char* SpillMetrics::operator_type_label(SpillOperatorType op) {
-    switch (op) {
-    case SpillOperatorType::kHashJoinBuild:
-        return "hash-join-build";
-    case SpillOperatorType::kHashJoinProbe:
-        return "hash-join-probe";
-    case SpillOperatorType::kNestloopJoinBuild:
-        return "nestloop-join-build";
-    case SpillOperatorType::kAggBlocking:
-        return "agg-blocking";
-    case SpillOperatorType::kAggDistinctBlocking:
-        return "agg-distinct-blocking";
-    case SpillOperatorType::kDistinctBlocking:
-        return "distinct-blocking";
-    case SpillOperatorType::kLocalSort:
-        return "local-sort";
-    case SpillOperatorType::kMcastLocalExchange:
-        return "mcast-local-exchange";
-    case SpillOperatorType::kUnknown:
-    case SpillOperatorType::kCount:
-        break;
-    }
-    return "unknown";
-}
+namespace {
+
+// Keep aligned with enum SpillOperatorType; index = enum value.
+constexpr std::array<const char*, SpillMetrics::kOperatorCount> kOperatorTypeLabels = {
+        "unknown",                // kUnknown
+        "hash-join-build",        // kHashJoinBuild
+        "hash-join-probe",        // kHashJoinProbe
+        "nestloop-join-build",    // kNestloopJoinBuild
+        "agg-blocking",           // kAggBlocking
+        "agg-distinct-blocking",  // kAggDistinctBlocking
+        "distinct-blocking",      // kDistinctBlocking
+        "local-sort",             // kLocalSort
+        "mcast-local-exchange",   // kMcastLocalExchange
+};
+
+constexpr const char* kStorageTypeLabels[SpillMetrics::kStorageCount] = {
+        "local",  // is_remote == false
+        "remote", // is_remote == true
+};
+
+} // namespace
 
 SpillOperatorType SpillMetrics::parse_operator_type(std::string_view name) {
     // Keyed by the string literals assigned to SpilledOptions::name in each
-    // spillable operator. Kept alongside operator_type_label so it is easy
-    // to spot when a new operator is added.
+    // spillable operator. Update this table (and kOperatorTypeLabels above)
+    // when a new spillable operator is introduced.
     static const std::unordered_map<std::string_view, SpillOperatorType> kMap = {
             {"hash-join-build", SpillOperatorType::kHashJoinBuild},
             {"hash-join-probe", SpillOperatorType::kHashJoinProbe},
@@ -63,21 +61,19 @@ SpillOperatorType SpillMetrics::parse_operator_type(std::string_view name) {
 
 SpillMetrics::SpillMetrics(MetricRegistry* registry) {
     _local_disk_bytes_used = std::make_unique<IntGauge>(MetricUnit::BYTES);
-    registry->register_metric("spill_disk_bytes_used", MetricLabels().add("storage_type", storage_type_label(false)),
+    registry->register_metric("spill_disk_bytes_used", MetricLabels().add("storage_type", kStorageTypeLabels[0]),
                               _local_disk_bytes_used.get());
 
     _remote_disk_bytes_used = std::make_unique<IntGauge>(MetricUnit::BYTES);
-    registry->register_metric("spill_disk_bytes_used", MetricLabels().add("storage_type", storage_type_label(true)),
+    registry->register_metric("spill_disk_bytes_used", MetricLabels().add("storage_type", kStorageTypeLabels[1]),
                               _remote_disk_bytes_used.get());
 
     for (size_t op_idx = 0; op_idx < kOperatorCount; ++op_idx) {
-        auto op = static_cast<SpillOperatorType>(op_idx);
         for (size_t storage_idx = 0; storage_idx < kStorageCount; ++storage_idx) {
-            bool is_remote = storage_idx == 1;
             auto& bucket = _buckets[op_idx][storage_idx];
             MetricLabels labels;
-            labels.add("operator_type", operator_type_label(op));
-            labels.add("storage_type", storage_type_label(is_remote));
+            labels.add("operator_type", kOperatorTypeLabels[op_idx]);
+            labels.add("storage_type", kStorageTypeLabels[storage_idx]);
 
             bucket.trigger_total = std::make_unique<IntCounter>(MetricUnit::OPERATIONS);
             registry->register_metric("query_spill_trigger_total", labels, bucket.trigger_total.get());
