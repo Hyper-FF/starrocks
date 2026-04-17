@@ -28,8 +28,13 @@ select materialize(1 + 2);
 select materialize(concat('hello', ' ', 'world'));
 select materialize(cast('2024-06-15' as date) > cast('2024-01-01' as date));
 
--- name: test_materialize_in_predicate
--- Test materialize() used in WHERE clause
+-- name: test_materialize_nested
+-- Test nested materialize() calls
+select materialize(materialize(42));
+select materialize(materialize('nested'));
+
+-- name: test_materialize_on_table
+-- Test materialize() against table columns (predicate / select / aggregate)
 create database test_db_${uuid0};
 use test_db_${uuid0};
 create table t1 (c1 int, c2 varchar(64), c3 date) properties("replication_num" = "1");
@@ -38,18 +43,6 @@ select * from t1 where materialize(c1) > 1 order by c1;
 select * from t1 where materialize(c2) = 'bbb';
 select * from t1 where materialize(c3) >= '2024-06-01' order by c1;
 select * from t1 where materialize(c1) in (1, 3) order by c1;
-
--- name: test_materialize_in_select
--- Test materialize() in SELECT list
-select materialize(c1), materialize(c2), materialize(c3) from test_db_${uuid0}.t1 order by c1;
-
--- name: test_materialize_nested
--- Test nested materialize() calls
-select materialize(materialize(42));
-select materialize(materialize('nested'));
-
--- name: test_materialize_with_agg
--- Test materialize() with aggregate functions
-select sum(materialize(c1)), count(materialize(c2)) from test_db_${uuid0}.t1;
-
+select materialize(c1), materialize(c2), materialize(c3) from t1 order by c1;
+select sum(materialize(c1)), count(materialize(c2)) from t1;
 drop database test_db_${uuid0};
