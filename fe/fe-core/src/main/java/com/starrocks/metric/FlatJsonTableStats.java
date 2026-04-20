@@ -24,73 +24,30 @@ import com.starrocks.server.LocalMetastore;
 
 import java.util.List;
 
-// Incremental counter of OlapTables with flat_json.enable = true.
+// Count of OlapTables with flat_json.enable = true.
 //
-// Seeded from a single catalog walk on leader transition — by then
-// the replayer has been stopped and the journal has been fully caught
-// up, so the walk sees a committed, quiescent catalog. Must NOT seed
-// on followers/observers: replay there is still running and the walk
-// would read partially-replayed state. The gauge is leader-only so
-// non-leaders don't need a value anyway.
-//
-// After seeding, the counter is maintained incrementally by
-// OlapTable.setFlatJsonConfig()/onDrop() and CatalogRecycleBin
-// onRecover hooks. Hooks skip when running on the checkpoint thread
-// (GlobalStateMgr.isCheckpointThread()): the checkpoint worker
-// replays the journal against a separate CHECKPOINT GlobalStateMgr
-// instance, and without this guard the same edit would be counted
-// twice (once on the serving catalog, once on the checkpoint copy).
-// Hooks before the first seed are also dropped (the gauge reads 0 on
-// non-leader); hooks after a re-seed on failover are applied on top
-// of the freshly-seeded value.
+// Backed by a simple TTL cache: get() returns the cached value and
+// recomputes via a full catalog walk at most once per REFRESH_INTERVAL_MS.
+// The gauge is leader-only (LeaderAwareGaugeMetricLong), so the walk only
+// ever runs on the leader. Intentionally avoids hooking DDL lifecycle
+// paths (setFlatJsonConfig, onDrop, recoverTable, checkpoint replay)
+// — that style drifts when any new code path is added or missed.
 public final class FlatJsonTableStats {
-    private static long value;
-    private static boolean seeded;
+    private static final long REFRESH_INTERVAL_MS = 5 * 60 * 1000L;
+
+    private static long cachedValue;
+    private static long lastRefreshMs;
 
     private FlatJsonTableStats() {
     }
 
-    // Recomputes the counter from the catalog. Call only from a quiescent
-    // leader-transition point (after replayer stop + journal catch-up,
-    // before user DDL is admitted). Safe to call on every leader
-    // transition, so the counter is re-seeded after failover.
-    public static synchronized void seed() {
-        value = compute();
-        seeded = true;
-    }
-
     public static synchronized long get() {
-        return value;
-    }
-
-    public static synchronized void onConfigChange(FlatJsonConfig oldCfg, FlatJsonConfig newCfg) {
-        if (!seeded || GlobalStateMgr.isCheckpointThread()) {
-            return;
+        long now = System.currentTimeMillis();
+        if (lastRefreshMs == 0L || now - lastRefreshMs >= REFRESH_INTERVAL_MS) {
+            cachedValue = compute();
+            lastRefreshMs = now;
         }
-        boolean was = oldCfg != null && oldCfg.getFlatJsonEnable();
-        boolean now = newCfg != null && newCfg.getFlatJsonEnable();
-        if (was == now) {
-            return;
-        }
-        value += now ? 1 : -1;
-    }
-
-    public static synchronized void onTableDrop(FlatJsonConfig cfg) {
-        if (!seeded || GlobalStateMgr.isCheckpointThread()) {
-            return;
-        }
-        if (cfg != null && cfg.getFlatJsonEnable()) {
-            value -= 1;
-        }
-    }
-
-    public static synchronized void onTableRecover(FlatJsonConfig cfg) {
-        if (!seeded || GlobalStateMgr.isCheckpointThread()) {
-            return;
-        }
-        if (cfg != null && cfg.getFlatJsonEnable()) {
-            value += 1;
-        }
+        return cachedValue;
     }
 
     private static long compute() {
