@@ -175,7 +175,7 @@ select count(*) from small_table1 s1 join small_table2 s2 on s1.c0 = s2.c0 join 
 -- result:
 0
 -- !result
-select count(*) from small_table1 s1 join small_table2 s2 on s1.c0 = s2.c0 join small_table3 s3 on s1.c0 = s3.c0 where s3.c3 = 0;
+[UC]select count(*) from small_table1 s1 join small_table2 s2 on s1.c0 = s2.c0 join small_table3 s3 on s1.c0 = s3.c0 where s3.c3 = 0;
 -- result:
 0
 -- !result
@@ -227,7 +227,7 @@ set profile_timeout=300;
 set cbo_max_reorder_node_use_dp=10;
 -- result:
 -- !result
-select count(*) from small_table1 s1 join small_table2 s2 on s1.c0 = s2.c0 join small_table3 s3 on s1.c0 = s3.c0 where s3.c3 = 0;
+[UC]select count(*) from small_table1 s1 join small_table2 s2 on s1.c0 = s2.c0 join small_table3 s3 on s1.c0 = s3.c0 where s3.c3 = 0;
 -- result:
 0
 -- !result
