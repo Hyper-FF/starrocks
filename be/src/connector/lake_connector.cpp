@@ -1269,12 +1269,11 @@ StatusOr<pipeline::MorselQueuePtr> LakeDataSourceProvider::convert_scan_range_to
         size_t num_total_scan_ranges, size_t scan_parallelism) {
     // Dynamic partition pruning. The partition conjunct contexts were prepared and opened once
     // in LakeDataSourceProvider::init and will be closed in the provider destructor.
-    auto* state = _scan_node != nullptr ? _scan_node->runtime_state() : nullptr;
     std::vector<TScanRangeParams> pruned_scan_ranges;
     const std::vector<TScanRangeParams>* effective_scan_ranges = &scan_ranges;
-    if (!_partition_conjunct_ctxs.empty() && state != nullptr) {
-        const auto* tuple_desc = state->desc_tbl().get_tuple_descriptor(_t_lake_scan_node.tuple_id);
-        if (prune_scan_ranges_by_partition_conjuncts(state, tuple_desc, _partition_conjunct_ctxs, scan_ranges,
+    if (!_partition_conjunct_ctxs.empty() && _runtime_state != nullptr) {
+        const auto* tuple_desc = _runtime_state->desc_tbl().get_tuple_descriptor(_t_lake_scan_node.tuple_id);
+        if (prune_scan_ranges_by_partition_conjuncts(_runtime_state, tuple_desc, _partition_conjunct_ctxs, scan_ranges,
                                                      &pruned_scan_ranges)
                     .ok()) {
             effective_scan_ranges = &pruned_scan_ranges;
