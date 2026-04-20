@@ -26,15 +26,18 @@ import java.util.List;
 
 // Incremental counter of OlapTables with flat_json.enable = true.
 //
-// Seeded once via a single catalog walk (triggered lazily on first read
-// or explicitly by MetricRepo.init()), then maintained incrementally by
-// OlapTable.setFlatJsonConfig()/onDrop() hooks so that scrapes are O(1).
+// Seeded from a single catalog walk on leader transition — by then
+// the replayer has been stopped and the journal has been fully caught
+// up, so the walk sees a committed, quiescent catalog. Must NOT seed
+// on followers/observers: replay there is still running and the walk
+// would read partially-replayed state. The gauge is leader-only so
+// non-leaders don't need a value anyway.
 //
-// All entry points are serialized on the class monitor: incremental
-// updates that arrive during the seed walk block briefly so that the
-// seed result is consistent with the committed catalog state. Updates
-// before seeding are dropped because the eventual seed walk observes
-// the same committed state.
+// After seeding, the counter is maintained incrementally by
+// OlapTable.setFlatJsonConfig()/onDrop() and CatalogRecycleBin
+// onRecover hooks. Hooks before the first seed are dropped (the gauge
+// reads 0 on non-leader); hooks after a re-seed on failover are
+// applied on top of the freshly-seeded value.
 public final class FlatJsonTableStats {
     private static long value;
     private static boolean seeded;
@@ -42,19 +45,16 @@ public final class FlatJsonTableStats {
     private FlatJsonTableStats() {
     }
 
+    // Recomputes the counter from the catalog. Call only from a quiescent
+    // leader-transition point (after replayer stop + journal catch-up,
+    // before user DDL is admitted). Safe to call on every leader
+    // transition, so the counter is re-seeded after failover.
     public static synchronized void seed() {
-        if (seeded) {
-            return;
-        }
         value = compute();
         seeded = true;
     }
 
     public static synchronized long get() {
-        if (!seeded) {
-            value = compute();
-            seeded = true;
-        }
         return value;
     }
 

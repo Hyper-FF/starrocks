@@ -173,6 +173,7 @@ import com.starrocks.memory.ProcProfileCollector;
 import com.starrocks.memory.estimate.IgnoreMemoryTrack;
 import com.starrocks.meta.SqlBlackList;
 import com.starrocks.meta.SqlDigestBlackList;
+import com.starrocks.metric.FlatJsonTableStats;
 import com.starrocks.metric.MetricRepo;
 import com.starrocks.persist.BackendIdsUpdateInfo;
 import com.starrocks.persist.EditLog;
@@ -1371,6 +1372,12 @@ public class GlobalStateMgr {
             insertOverwriteJobMgr.cancelRunningJobs();
 
             MetricRepo.init();
+
+            // Replayer is stopped and the journal has been fully replayed above; no user
+            // DDL is admitted until isReady below. Seed the flat-json table stats here so
+            // the counter reflects committed state, and so a follower-that-becomes-leader
+            // (where MetricRepo.init was already a no-op) still gets a fresh count.
+            FlatJsonTableStats.seed();
 
             isReady.set(true);
 
