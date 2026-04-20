@@ -22,7 +22,6 @@
 #include "column/column_helper.h"
 #include "column/raw_data_visitor.h"
 #include "column/runtime_type_traits.h"
-#include "common/object_pool.h"
 #include "common/config_scan_io_fwd.h"
 #include "common/object_pool.h"
 #include "exprs/binary_predicate.h"
