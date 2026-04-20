@@ -300,6 +300,9 @@ private:
     // Partition conjuncts used for BE-side dynamic partition pruning. Distinct from the
     // inherited `_partition_exprs` in DataSourceProvider which stores bucket expressions.
     std::vector<ExprContext*> _partition_conjunct_ctxs;
+    // RuntimeState captured during init(); used by the destructor to close
+    // _partition_conjunct_ctxs without reaching back through _scan_node.
+    RuntimeState* _runtime_state = nullptr;
 };
 
 } // namespace starrocks::connector

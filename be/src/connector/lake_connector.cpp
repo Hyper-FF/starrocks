@@ -1247,6 +1247,7 @@ Status LakeDataSourceProvider::init(ObjectPool* pool, RuntimeState* state) {
         // repeat calls, so re-opening after an inline close would leave function state stale.
         RETURN_IF_ERROR(ExprExecutor::prepare(_partition_conjunct_ctxs, state));
         RETURN_IF_ERROR(ExprExecutor::open(_partition_conjunct_ctxs, state));
+        _runtime_state = state;
     }
     return Status::OK();
 }
