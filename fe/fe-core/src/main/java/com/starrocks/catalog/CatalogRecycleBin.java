@@ -54,6 +54,7 @@ import com.starrocks.common.io.Writable;
 import com.starrocks.common.util.FrontendDaemon;
 import com.starrocks.memory.MemoryTrackable;
 import com.starrocks.memory.estimate.Estimator;
+import com.starrocks.metric.FlatJsonTableStats;
 import com.starrocks.persist.ImageWriter;
 import com.starrocks.persist.RecoverInfo;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
@@ -893,6 +894,9 @@ public class CatalogRecycleBin extends FrontendDaemon implements Writable, Memor
             idToTableInfo.row(dbId).remove(table.getId());
             removeRecycleMarkers(table.getId());
         });
+        if (table instanceof OlapTable) {
+            FlatJsonTableStats.onTableRecover(((OlapTable) table).getFlatJsonConfig());
+        }
         LOG.info("recover db[{}] with table[{}]: {}", dbId, table.getId(), table.getName());
         return true;
     }
@@ -908,6 +912,9 @@ public class CatalogRecycleBin extends FrontendDaemon implements Writable, Memor
         nameToTableInfo.row(dbId).remove(table.getName());
         idToTableInfoDbLevel.remove(tableId);
         idToRecycleTime.remove(tableInfo.getTable().getId());
+        if (table instanceof OlapTable) {
+            FlatJsonTableStats.onTableRecover(((OlapTable) table).getFlatJsonConfig());
+        }
         LOG.info("replay recover table[{}-{}] finished", tableId, tableInfo.getTable().getName());
     }
 

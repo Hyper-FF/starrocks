@@ -79,6 +79,15 @@ public final class FlatJsonTableStats {
         }
     }
 
+    public static synchronized void onTableRecover(FlatJsonConfig cfg) {
+        if (!seeded) {
+            return;
+        }
+        if (cfg != null && cfg.getFlatJsonEnable()) {
+            value += 1;
+        }
+    }
+
     private static long compute() {
         GlobalStateMgr gsm = GlobalStateMgr.getCurrentState();
         if (gsm == null) {
