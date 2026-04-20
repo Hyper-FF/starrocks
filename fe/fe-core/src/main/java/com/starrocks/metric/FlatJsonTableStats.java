@@ -35,11 +35,11 @@ import java.util.List;
 // seed result is consistent with the committed catalog state. Updates
 // before seeding are dropped because the eventual seed walk observes
 // the same committed state.
-public final class FlatJsonEnabledTableCounter {
+public final class FlatJsonTableStats {
     private static long value;
     private static boolean seeded;
 
-    private FlatJsonEnabledTableCounter() {
+    private FlatJsonTableStats() {
     }
 
     public static synchronized void seed() {
