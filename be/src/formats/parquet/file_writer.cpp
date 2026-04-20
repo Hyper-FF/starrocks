@@ -27,6 +27,7 @@
 #include <ostream>
 
 #include "base/concurrency/stopwatch.hpp"
+#include "base/failpoint/fail_point.h"
 #include "base/string/slice.h"
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
@@ -41,6 +42,8 @@
 #include "util/priority_thread_pool.hpp"
 
 namespace starrocks::parquet {
+
+DEFINE_FAIL_POINT(parquet_async_file_writer_close_sleep);
 
 ParquetOutputStream::ParquetOutputStream(std::unique_ptr<starrocks::WritableFile> wfile) : _wfile(std::move(wfile)) {
     set_mode(arrow::io::FileMode::WRITE);
@@ -579,6 +582,12 @@ Status AsyncFileWriter::close(RuntimeState* state,
         DeferOp defer([&]() {
             // set closed to true anyway
             _closed.store(true);
+            // NOTE(repro): this failpoint makes the use-after-free reliably reproducible:
+            // once `_closed` is true, the pipeline driver can finalize the fragment and
+            // destroy RuntimeState + instance_mem_tracker. Sleeping here keeps this
+            // lambda scope alive, so SCOPED_THREAD_LOCAL_MEM_TRACKER_SETTER destructs
+            // AFTER the tracker has been freed.
+            FAIL_POINT_TRIGGER_EXECUTE(parquet_async_file_writer_close_sleep, { sleep(2); });
         });
         try {
             _writer->Close();

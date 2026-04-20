@@ -1,0 +1,45 @@
+-- name: test_async_parquet_file_writer_close @sequential
+
+-- Reproduces a use-after-free in starrocks::parquet::AsyncFileWriter::close
+-- (be/src/formats/parquet/file_writer.cpp). Inside the async lambda submitted
+-- to the IO executor pool, SCOPED_THREAD_LOCAL_MEM_TRACKER_SETTER wraps a
+-- DeferOp that sets `_closed.store(true)`. The pipeline driver polls
+-- `AsyncFileWriter::closed()` (via RollingAsyncParquetWriter::closed() and
+-- TableFunctionTableSinkOperator::is_finished()) and, once it sees the flag
+-- set, tears down the fragment / RuntimeState -- freeing the instance mem
+-- tracker that the SCOPED setter is about to touch in its destructor.
+--
+-- The `parquet_async_file_writer_close_sleep` failpoint pauses the IO lambda
+-- AFTER `_closed=true` but BEFORE the SCOPED setter destructs, making the
+-- race deterministic. On ASAN/LSAN builds the UAF fires here; on a clean
+-- (fixed) build the insert finishes normally and the data is readable.
+
+shell: ossutil64 mkdir oss://${oss_bucket}/test_async_parquet_file_writer_close/${uuid0}/ >/dev/null || echo "exit 0" >/dev/null
+
+admin enable failpoint 'parquet_async_file_writer_close_sleep';
+
+insert into files
+(
+    "path" = "oss://${oss_bucket}/test_async_parquet_file_writer_close/${uuid0}/000/",
+    "format" = "parquet",
+    "aws.s3.access_key" = "${oss_ak}",
+    "aws.s3.secret_key" = "${oss_sk}",
+    "aws.s3.endpoint" = "${oss_endpoint}"
+)
+select repeat(cast(generate_series as string), 100) from table(generate_series(0,50000));
+
+admin disable failpoint 'parquet_async_file_writer_close_sleep';
+
+select count(*) from files(
+    "path" = "oss://${oss_bucket}/test_async_parquet_file_writer_close/${uuid0}/000/*",
+    "format" = "parquet",
+    "aws.s3.access_key" = "${oss_ak}",
+    "aws.s3.secret_key" = "${oss_sk}",
+    "aws.s3.endpoint" = "${oss_endpoint}"
+);
+
+shell: ossutil64 rm -rf oss://${oss_bucket}/test_async_parquet_file_writer_close/${uuid0}/ >/dev/null || echo "exit 0" >/dev/null
+
+CLEANUP {
+    admin disable failpoint 'parquet_async_file_writer_close_sleep';
+} END CLEANUP
