@@ -18,6 +18,7 @@
 #include <variant>
 
 #include "base/orlp/pdqsort.h"
+#include "base/phmap/phmap.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "column/raw_data_visitor.h"
@@ -122,7 +123,7 @@ Status prune_scan_ranges_by_partition_conjuncts(RuntimeState* state, const Tuple
         return Status::OK();
     }
 
-    std::unordered_map<std::string, SlotDescriptor*> column_name_to_slot;
+    phmap::flat_hash_map<std::string, SlotDescriptor*> column_name_to_slot;
     for (auto* slot : tuple_desc->slots()) {
         column_name_to_slot[slot->col_name()] = slot;
     }
