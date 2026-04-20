@@ -18,9 +18,11 @@
 #include <variant>
 
 #include "base/orlp/pdqsort.h"
+#include "column/chunk.h"
 #include "column/column_helper.h"
 #include "column/raw_data_visitor.h"
 #include "column/runtime_type_traits.h"
+#include "common/object_pool.h"
 #include "common/config_scan_io_fwd.h"
 #include "exprs/binary_predicate.h"
 #include "exprs/compound_predicate.h"
@@ -109,6 +111,79 @@ StatusOr<ColumnPtr> build_partition_col_values(const SlotDescriptor* slot_desc, 
         DCHECK(false) << "Unsupported partition column range, column name: " << column_range.column_name;
         return Status::InternalError("Unsupported partition column range");
     }
+}
+
+Status prune_scan_ranges_by_partition_conjuncts(RuntimeState* state, const TupleDescriptor* tuple_desc,
+                                                const std::vector<ExprContext*>& partition_conjunct_ctxs,
+                                                const std::vector<TScanRangeParams>& scan_ranges,
+                                                std::vector<TScanRangeParams>* pruned_scan_ranges) {
+    if (partition_conjunct_ctxs.empty() || tuple_desc == nullptr) {
+        *pruned_scan_ranges = scan_ranges;
+        return Status::OK();
+    }
+
+    std::unordered_map<std::string, SlotDescriptor*> column_name_to_slot;
+    for (auto* slot : tuple_desc->slots()) {
+        column_name_to_slot[slot->col_name()] = slot;
+    }
+
+    ObjectPool obj_pool;
+    std::vector<TScanRangeParams> temp;
+    temp.reserve(scan_ranges.size());
+    for (const auto& scan_range : scan_ranges) {
+        const auto& internal_range = scan_range.scan_range.internal_scan_range;
+        if (!internal_range.__isset.partition_column_ranges || internal_range.partition_column_ranges.empty()) {
+            temp.emplace_back(scan_range);
+            continue;
+        }
+
+        bool is_pruned = false;
+        for (const auto& partition_column_range : internal_range.partition_column_ranges) {
+            auto it = column_name_to_slot.find(partition_column_range.column_name);
+            if (it == column_name_to_slot.end()) {
+                continue;
+            }
+            auto* slot = it->second;
+            ASSIGN_OR_RETURN(auto col, build_partition_col_values(slot, partition_column_range, &obj_pool, state));
+
+            Chunk partition_cols_chunk;
+            Filter filter(col->size(), 1);
+            partition_cols_chunk.append_column(std::move(col), slot->id());
+
+            std::vector<SlotId> slot_ids;
+            for (auto* ctx : partition_conjunct_ctxs) {
+                slot_ids.clear();
+                if (ctx->root()->get_slot_ids(&slot_ids) != 1 || slot_ids[0] != slot->id()) {
+                    continue;
+                }
+                ASSIGN_OR_RETURN(ColumnPtr column, ctx->evaluate(&partition_cols_chunk, filter.data()));
+                size_t true_count = ColumnHelper::count_true_with_notnull(column);
+                if (true_count == column->size()) {
+                    // all hit, skip
+                    continue;
+                } else if (0 == true_count) {
+                    is_pruned = true;
+                    break;
+                } else {
+                    bool all_zero = false;
+                    ColumnHelper::merge_two_filters(column, &filter, &all_zero);
+                    if (all_zero) {
+                        is_pruned = true;
+                        break;
+                    }
+                }
+            }
+            if (is_pruned) {
+                break;
+            }
+        }
+
+        if (!is_pruned) {
+            temp.emplace_back(scan_range);
+        }
+    }
+    pruned_scan_ranges->swap(temp);
+    return Status::OK();
 }
 
 // ------------------------------------------------------------------------------------

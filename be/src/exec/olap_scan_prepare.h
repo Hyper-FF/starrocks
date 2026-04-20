@@ -29,6 +29,7 @@
 namespace starrocks {
 
 class TKeyRange;
+class TScanRangeParams;
 class RuntimeState;
 
 class RuntimeFilterProbeCollector;
@@ -44,6 +45,15 @@ using ColumnPredicatePtrs = std::vector<ColumnPredicatePtr>;
 // the shared-data LakeDataSourceProvider.
 StatusOr<ColumnPtr> build_partition_col_values(const SlotDescriptor* slot_desc, const TKeyRange& column_range,
                                                ObjectPool* obj_pool, RuntimeState* state);
+
+// Drop scan ranges whose partition values cannot satisfy any of the single-column
+// `partition_conjunct_ctxs`. The conjunct contexts must have been prepared and opened by the
+// caller. The tuple descriptor is used to resolve partition column names to slots. On success
+// `pruned_scan_ranges` is populated with the retained scan ranges.
+Status prune_scan_ranges_by_partition_conjuncts(RuntimeState* state, const TupleDescriptor* tuple_desc,
+                                                const std::vector<ExprContext*>& partition_conjunct_ctxs,
+                                                const std::vector<TScanRangeParams>& scan_ranges,
+                                                std::vector<TScanRangeParams>* pruned_scan_ranges);
 
 struct ScanConjunctsManagerOptions {
     // fields from olap scan node
