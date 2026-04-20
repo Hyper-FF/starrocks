@@ -35,9 +35,14 @@ import java.util.List;
 //
 // After seeding, the counter is maintained incrementally by
 // OlapTable.setFlatJsonConfig()/onDrop() and CatalogRecycleBin
-// onRecover hooks. Hooks before the first seed are dropped (the gauge
-// reads 0 on non-leader); hooks after a re-seed on failover are
-// applied on top of the freshly-seeded value.
+// onRecover hooks. Hooks skip when running on the checkpoint thread
+// (GlobalStateMgr.isCheckpointThread()): the checkpoint worker
+// replays the journal against a separate CHECKPOINT GlobalStateMgr
+// instance, and without this guard the same edit would be counted
+// twice (once on the serving catalog, once on the checkpoint copy).
+// Hooks before the first seed are also dropped (the gauge reads 0 on
+// non-leader); hooks after a re-seed on failover are applied on top
+// of the freshly-seeded value.
 public final class FlatJsonTableStats {
     private static long value;
     private static boolean seeded;
@@ -59,7 +64,7 @@ public final class FlatJsonTableStats {
     }
 
     public static synchronized void onConfigChange(FlatJsonConfig oldCfg, FlatJsonConfig newCfg) {
-        if (!seeded) {
+        if (!seeded || GlobalStateMgr.isCheckpointThread()) {
             return;
         }
         boolean was = oldCfg != null && oldCfg.getFlatJsonEnable();
@@ -71,7 +76,7 @@ public final class FlatJsonTableStats {
     }
 
     public static synchronized void onTableDrop(FlatJsonConfig cfg) {
-        if (!seeded) {
+        if (!seeded || GlobalStateMgr.isCheckpointThread()) {
             return;
         }
         if (cfg != null && cfg.getFlatJsonEnable()) {
@@ -80,7 +85,7 @@ public final class FlatJsonTableStats {
     }
 
     public static synchronized void onTableRecover(FlatJsonConfig cfg) {
-        if (!seeded) {
+        if (!seeded || GlobalStateMgr.isCheckpointThread()) {
             return;
         }
         if (cfg != null && cfg.getFlatJsonEnable()) {
