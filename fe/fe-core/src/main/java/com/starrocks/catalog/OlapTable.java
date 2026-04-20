@@ -82,6 +82,7 @@ import com.starrocks.lake.DataCacheInfo;
 import com.starrocks.lake.StarOSAgent;
 import com.starrocks.lake.StorageInfo;
 import com.starrocks.memory.estimate.IgnoreMemoryTrack;
+import com.starrocks.metric.FlatJsonEnabledTableCounter;
 import com.starrocks.persist.ColocatePersistInfo;
 import com.starrocks.persist.OriginStatementInfo;
 import com.starrocks.planner.DescriptorTable.ReferencedPartitionInfo;
@@ -485,8 +486,10 @@ public class OlapTable extends Table {
     }
 
     public void setFlatJsonConfig(FlatJsonConfig flatJsonConfig) {
+        FlatJsonConfig oldConfig = tableProperty.getFlatJsonConfig();
         tableProperty.modifyTableProperties(flatJsonConfig.toProperties());
         tableProperty.setFlatJsonConfig(flatJsonConfig);
+        FlatJsonEnabledTableCounter.onConfigChange(oldConfig, flatJsonConfig);
     }
 
     public FlatJsonConfig getFlatJsonConfig() {
@@ -2857,6 +2860,8 @@ public class OlapTable extends Table {
     @Override
     public void onDrop(Database db, boolean force, boolean replay) {
         super.onDrop(db, force, replay);
+
+        FlatJsonEnabledTableCounter.onTableDrop(getFlatJsonConfig());
 
         // drop all temp partitions of this table, so that there is no temp partitions
         // in recycle bin,

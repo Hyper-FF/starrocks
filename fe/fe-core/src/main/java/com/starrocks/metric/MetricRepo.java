@@ -540,7 +540,8 @@ public final class MetricRepo {
         routineLoadUnstableJobsGauge.addLabel(new MetricLabel("state", "UNSTABLE"));
         STARROCKS_METRIC_REGISTER.addMetric(routineLoadUnstableJobsGauge);
 
-        // flat json enabled table count; cached to avoid a full catalog walk on every scrape.
+        // flat json enabled table count; maintained incrementally — scrape is O(1).
+        FlatJsonEnabledTableCounter.seed();
         Metric<Long> flatJsonEnabledTableCount = new LeaderAwareGaugeMetricLong("flat_json_enabled_table_count",
                 MetricUnit.NOUNIT, "count of olap tables with flat json enabled") {
             @Override

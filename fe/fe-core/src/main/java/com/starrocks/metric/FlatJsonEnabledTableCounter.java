@@ -23,26 +23,60 @@ import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.LocalMetastore;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
-// Counts OlapTables with flat_json.enable = true. The catalog walk is cached so that
-// metric scrapes do not trigger a full iteration on every request.
-final class FlatJsonEnabledTableCounter {
-    private static final long REFRESH_INTERVAL_MS = 60_000L;
-
-    private static final AtomicLong CACHED_VALUE = new AtomicLong(0L);
-    private static final AtomicLong LAST_REFRESH_MS = new AtomicLong(0L);
+// Incremental counter of OlapTables with flat_json.enable = true.
+//
+// Seeded once via a single catalog walk (triggered lazily on first read
+// or explicitly by MetricRepo.init()), then maintained incrementally by
+// OlapTable.setFlatJsonConfig()/onDrop() hooks so that scrapes are O(1).
+//
+// All entry points are serialized on the class monitor: incremental
+// updates that arrive during the seed walk block briefly so that the
+// seed result is consistent with the committed catalog state. Updates
+// before seeding are dropped because the eventual seed walk observes
+// the same committed state.
+public final class FlatJsonEnabledTableCounter {
+    private static long value;
+    private static boolean seeded;
 
     private FlatJsonEnabledTableCounter() {
     }
 
-    static long get() {
-        long now = System.currentTimeMillis();
-        long last = LAST_REFRESH_MS.get();
-        if (now - last >= REFRESH_INTERVAL_MS && LAST_REFRESH_MS.compareAndSet(last, now)) {
-            CACHED_VALUE.set(compute());
+    public static synchronized void seed() {
+        if (seeded) {
+            return;
         }
-        return CACHED_VALUE.get();
+        value = compute();
+        seeded = true;
+    }
+
+    public static synchronized long get() {
+        if (!seeded) {
+            value = compute();
+            seeded = true;
+        }
+        return value;
+    }
+
+    public static synchronized void onConfigChange(FlatJsonConfig oldCfg, FlatJsonConfig newCfg) {
+        if (!seeded) {
+            return;
+        }
+        boolean was = oldCfg != null && oldCfg.getFlatJsonEnable();
+        boolean now = newCfg != null && newCfg.getFlatJsonEnable();
+        if (was == now) {
+            return;
+        }
+        value += now ? 1 : -1;
+    }
+
+    public static synchronized void onTableDrop(FlatJsonConfig cfg) {
+        if (!seeded) {
+            return;
+        }
+        if (cfg != null && cfg.getFlatJsonEnable()) {
+            value -= 1;
+        }
     }
 
     private static long compute() {
