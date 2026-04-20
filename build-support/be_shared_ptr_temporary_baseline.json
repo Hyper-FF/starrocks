@@ -1,0 +1,17 @@
+{
+  "_comment": "Pre-existing occurrences of the shared_ptr temporary UAF anti-pattern detected by check_be_shared_ptr_temporaries.py. See https://github.com/StarRocks/starrocks/pull/71843. This list must only shrink.",
+  "violations": [
+    {
+      "path": "be/src/common/cow.h",
+      "line": 467,
+      "snippet": "MutablePtr try_mutate() const { return MutablePtr(down_cast<Derived*>(Base::try_mutate().get())); }",
+      "reviewed_safe_reason": "Intrusive-ptr CoW idiom: the enclosing MutablePtr(raw) constructor increments the intrusive refcount before the source temporary returned by Base::try_mutate() is destroyed at the end of the full-expression, so the pointee stays alive."
+    },
+    {
+      "path": "be/src/runtime/load_channel.cpp",
+      "line": 488,
+      "snippet": "auto local_tablets_channel = dynamic_cast<LocalTabletsChannel*>(get_tablets_channel(key).get());",
+      "reviewed_safe_reason": "Known bug; fix is in flight via https://github.com/StarRocks/starrocks/pull/71843. Remove this entry once that PR merges."
+    }
+  ]
+}
