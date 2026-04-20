@@ -129,12 +129,7 @@ Status OlapScanNode::init(const TPlanNode& tnode, RuntimeState* state) {
         for (int i = 0; i < partition_conjuncts.size(); ++i) {
             RETURN_IF_ERROR(ExprFactory::create_expr_tree(_pool, partition_conjuncts[i], &_partition_exprs[i], state));
         }
-        // Prepare+open here because convert_scan_range_to_morsel_queue runs during fragment
-        // preparation (FragmentExecutor::_prepare_exec_plan), before ExecNode::prepare() is
-        // invoked in the pipeline path. Close is deferred to OlapScanNode::close; closing
-        // inline in convert_scan_range_to_morsel_queue would free the FunctionContext
-        // FRAGMENT_LOCAL state, while ExprContext::_opened short-circuits the next open() and
-        // leaves subsequent evaluations reading freed state (e.g. DateTruncCtx::function).
+
         RETURN_IF_ERROR(ExprExecutor::prepare(_partition_exprs, state));
         RETURN_IF_ERROR(ExprExecutor::open(_partition_exprs, state));
     }
@@ -171,13 +166,6 @@ Status OlapScanNode::prepare(RuntimeState* state) {
     if (_olap_scan_node.__isset.sql_predicates) {
         _runtime_profile->add_info_string("Predicates", _olap_scan_node.sql_predicates);
     }
-
-    // Prepare and open the partition conjunct contexts once here. convert_scan_range_to_morsel_queue
-    // may run multiple times per fragment (once per driver sequence in the colocate/bucket-shuffle
-    // path), and ExprContext::open short-circuits on repeat calls, so re-opening after close would
-    // leave FunctionContext state stale.
-    RETURN_IF_ERROR(ExprExecutor::prepare(_partition_exprs, state));
-    RETURN_IF_ERROR(ExprExecutor::open(_partition_exprs, state));
 
     return Status::OK();
 }
