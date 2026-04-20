@@ -48,7 +48,6 @@ import com.starrocks.backup.AbstractJob;
 import com.starrocks.backup.BackupJob;
 import com.starrocks.backup.RestoreJob;
 import com.starrocks.catalog.Database;
-import com.starrocks.catalog.FlatJsonConfig;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Table;
 import com.starrocks.catalog.TabletInvertedIndex;
@@ -541,32 +540,12 @@ public final class MetricRepo {
         routineLoadUnstableJobsGauge.addLabel(new MetricLabel("state", "UNSTABLE"));
         STARROCKS_METRIC_REGISTER.addMetric(routineLoadUnstableJobsGauge);
 
-        // flat json enabled table count
+        // flat json enabled table count; cached to avoid a full catalog walk on every scrape.
         Metric<Long> flatJsonEnabledTableCount = new LeaderAwareGaugeMetricLong("flat_json_enabled_table_count",
                 MetricUnit.NOUNIT, "count of olap tables with flat json enabled") {
             @Override
             public Long getValueLeader() {
-                GlobalStateMgr gsm = GlobalStateMgr.getCurrentState();
-                if (gsm == null || gsm.getLocalMetastore() == null) {
-                    return 0L;
-                }
-                long count = 0L;
-                List<String> dbNames = gsm.getLocalMetastore().listDbNames(new ConnectContext());
-                for (String dbName : dbNames) {
-                    Database db = gsm.getLocalMetastore().getDb(dbName);
-                    if (db == null) {
-                        continue;
-                    }
-                    for (Table table : gsm.getLocalMetastore().getTables(db.getId())) {
-                        if (table instanceof OlapTable) {
-                            FlatJsonConfig cfg = ((OlapTable) table).getFlatJsonConfig();
-                            if (cfg != null && cfg.getFlatJsonEnable()) {
-                                count++;
-                            }
-                        }
-                    }
-                }
-                return count;
+                return FlatJsonEnabledTableCounter.get();
             }
         };
         STARROCKS_METRIC_REGISTER.addMetric(flatJsonEnabledTableCount);
