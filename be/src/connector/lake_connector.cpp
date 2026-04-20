@@ -1214,8 +1214,8 @@ LakeDataSourceProvider::LakeDataSourceProvider(ConnectorScanNode* scan_node, con
         : _scan_node(scan_node), _t_lake_scan_node(plan_node.lake_scan_node) {}
 
 LakeDataSourceProvider::~LakeDataSourceProvider() {
-    if (!_partition_conjunct_ctxs.empty() && _scan_node != nullptr) {
-        ExprExecutor::close(_partition_conjunct_ctxs, _scan_node->runtime_state());
+    if (!_partition_conjunct_ctxs.empty() && _runtime_state != nullptr) {
+        ExprExecutor::close(_partition_conjunct_ctxs, _runtime_state);
     }
 }
 
