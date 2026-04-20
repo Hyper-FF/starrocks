@@ -129,6 +129,14 @@ Status OlapScanNode::init(const TPlanNode& tnode, RuntimeState* state) {
         for (int i = 0; i < partition_conjuncts.size(); ++i) {
             RETURN_IF_ERROR(ExprFactory::create_expr_tree(_pool, partition_conjuncts[i], &_partition_exprs[i], state));
         }
+        // Prepare+open here because convert_scan_range_to_morsel_queue runs during fragment
+        // preparation (FragmentExecutor::_prepare_exec_plan), before ExecNode::prepare() is
+        // invoked in the pipeline path. Close is deferred to OlapScanNode::close; closing
+        // inline in convert_scan_range_to_morsel_queue would free the FunctionContext
+        // FRAGMENT_LOCAL state, while ExprContext::_opened short-circuits the next open() and
+        // leaves subsequent evaluations reading freed state (e.g. DateTruncCtx::function).
+        RETURN_IF_ERROR(ExprExecutor::prepare(_partition_exprs, state));
+        RETURN_IF_ERROR(ExprExecutor::open(_partition_exprs, state));
     }
 
     if (tnode.olap_scan_node.__isset.enable_topn_filter_back_pressure &&
@@ -443,7 +451,7 @@ StatusOr<pipeline::MorselQueuePtr> OlapScanNode::convert_scan_range_to_morsel_qu
         bool enable_tablet_internal_parallel, TTabletInternalParallelMode::type tablet_internal_parallel_mode,
         size_t num_total_scan_ranges) {
     // Dynamic partition pruning. Partition conjunct contexts were prepared/opened in
-    // OlapScanNode::prepare and are closed in OlapScanNode::close.
+    // OlapScanNode::init and are closed in OlapScanNode::close.
     std::vector<TScanRangeParams> pruned_scan_ranges;
     auto* tuple_desc = runtime_state()->desc_tbl().get_tuple_descriptor(_olap_scan_node.tuple_id);
     if (!prune_scan_ranges_by_partition_conjuncts(runtime_state(), tuple_desc, _partition_exprs, scan_ranges,
