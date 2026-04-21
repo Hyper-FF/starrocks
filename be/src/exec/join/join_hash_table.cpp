@@ -404,6 +404,9 @@ std::string JoinHashTable::get_hash_map_type() const {
 }
 
 void JoinHashTable::close() {
+    // Must destroy _hash_map first: it caches raw pointers into _table_items and _probe_state.
+    _hash_map = {};
+    _is_empty_map = true;
     _table_items.reset();
     _probe_state.reset();
     _probe_state = nullptr;
@@ -635,6 +638,7 @@ Status JoinHashTable::build(RuntimeState* state, bool allow_build_empty_table) {
         _table_items->key_columns.clear();
         _table_items->build_chunk->columns().clear();
         _hash_map = {};
+        _is_empty_map = true; // keep in sync with the default variant slot restored above
     });
 
     RETURN_IF_ERROR(_table_items->build_chunk->upgrade_if_overflow());
