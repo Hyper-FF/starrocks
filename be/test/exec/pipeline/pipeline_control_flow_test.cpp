@@ -444,7 +444,8 @@ TEST_F(TestPipelineControlFlow, test_two_operatories) {
         op_factories.push_back(
                 std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
-        _pipelines.push_back(std::make_shared<Pipeline>(next_pipeline_id(), op_factories, exec_group.get()));
+        _pipelines.push_back(
+                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
     };
 
     start_test();
@@ -473,7 +474,8 @@ TEST_F(TestPipelineControlFlow, test_three_operatories) {
         op_factories.push_back(
                 std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
-        _pipelines.push_back(std::make_shared<Pipeline>(next_pipeline_id(), op_factories, exec_group.get()));
+        _pipelines.push_back(
+                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
     };
 
     start_test();
@@ -511,7 +513,8 @@ TEST_F(TestPipelineControlFlow, test_multi_operators) {
             op_factories.push_back(
                     std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
-            _pipelines.push_back(std::make_shared<Pipeline>(next_pipeline_id(), op_factories, exec_group.get()));
+            _pipelines.push_back(
+                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
         };
 
         start_test();
@@ -543,7 +546,8 @@ TEST_F(TestPipelineControlFlow, test_full_chunk_size) {
         op_factories.push_back(
                 std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
-        _pipelines.push_back(std::make_shared<Pipeline>(next_pipeline_id(), op_factories, exec_group.get()));
+        _pipelines.push_back(
+                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
     };
 
     start_test();
@@ -573,7 +577,8 @@ TEST_F(TestPipelineControlFlow, test_multi_chunks) {
         op_factories.push_back(
                 std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
-        _pipelines.push_back(std::make_shared<Pipeline>(next_pipeline_id(), op_factories, exec_group.get()));
+        _pipelines.push_back(
+                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
     };
 
     start_test();

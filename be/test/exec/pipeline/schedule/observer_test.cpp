@@ -193,7 +193,7 @@ public:
 struct SimpleTestContext {
     SimpleTestContext(OpFactories factories, ExecutionGroup* exec_group, FragmentContext* fragment_ctx,
                       QueryContext* query_ctx)
-            : pipeline(0, std::move(factories), exec_group) {
+            : pipeline(fragment_ctx->runtime_state()->obj_pool(), 0, std::move(factories), exec_group) {
         auto operators = pipeline.create_operators(1, 0);
         driver = std::make_unique<PipelineDriver>(operators, query_ctx, fragment_ctx, &pipeline, 1);
         driver->assign_observer();

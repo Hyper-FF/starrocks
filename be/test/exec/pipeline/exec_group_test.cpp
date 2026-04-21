@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "base/testutil/assert.h"
+#include "common/object_pool.h"
 #include "common/thread/threadpool.h"
 #include "exec/chunk_buffer_memory_manager.h"
 #include "exec/pipeline/exchange/local_exchange_source_operator.h"
@@ -73,7 +74,8 @@ TEST(ExecutionGroupTest, SubmitRaceConditionTest) {
     source->set_degree_of_parallelism(100);
     factories.emplace_back(source);
     factories.emplace_back(std::make_shared<NoopSinkOperatorFactory>(2, 0));
-    Pipeline pipeline(0, factories, &group);
+    ObjectPool obj_pool;
+    Pipeline pipeline(&obj_pool, 0, factories, &group);
 
     for (size_t i = 0; i < 100; ++i) {
         Operators ops_with_sink;
