@@ -555,7 +555,7 @@ void FragmentMgr::close() {
         _closed = true;
         frag_instance_ids.reserve(_fragment_map.size());
         for (auto& it : _fragment_map) {
-            frag_instance_ids.push_back(it.first);
+            frag_instance_ids.push_back(it.first.to_thrift());
         }
     }
     // cancel all the fragments without lock.

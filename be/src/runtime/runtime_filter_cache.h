@@ -82,9 +82,9 @@ private:
     const size_t _num_slots;
     const size_t _slot_mask;
     std::vector<std::shared_mutex> _mutexes;
-    std::vector<std::unordered_map<TUniqueId, RfCacheValuePtr>> _filter_maps;
+    std::vector<std::unordered_map<UniqueId, RfCacheValuePtr>> _filter_maps;
     std::vector<std::shared_mutex> _event_mutexes;
-    std::vector<std::unordered_map<TUniqueId, RfEventValuePtr>> _event_maps;
+    std::vector<std::unordered_map<UniqueId, RfEventValuePtr>> _event_maps;
     mutable std::atomic<bool> _enable_trace{false};
     std::atomic<size_t> _cache_times{0};
     std::atomic<size_t> _use_times{0};

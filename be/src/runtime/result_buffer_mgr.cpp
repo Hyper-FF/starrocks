@@ -159,7 +159,7 @@ Status ResultBufferMgr::cancel_at_time(time_t cancel_time, const TUniqueId& quer
     auto iter = _timeout_map.find(cancel_time);
 
     if (_timeout_map.end() == iter) {
-        _timeout_map.insert(std::pair<time_t, std::vector<TUniqueId> >(cancel_time, std::vector<TUniqueId>()));
+        _timeout_map.insert(std::pair<time_t, std::vector<UniqueId>>(cancel_time, std::vector<UniqueId>()));
         iter = _timeout_map.find(cancel_time);
     }
 
@@ -172,7 +172,7 @@ void ResultBufferMgr::cancel_thread() {
 
     while (!_is_stop) {
         // get query
-        std::vector<TUniqueId> query_to_cancel;
+        std::vector<UniqueId> query_to_cancel;
         time_t now_time = time(nullptr);
         {
             std::lock_guard<std::mutex> l(_timeout_lock);
@@ -189,7 +189,7 @@ void ResultBufferMgr::cancel_thread() {
 
         // cancel query
         for (auto& i : query_to_cancel) {
-            (void)cancel(i);
+            (void)cancel(i.to_thrift());
         }
         nap_sleep(1, [this] { return _is_stop; });
     }

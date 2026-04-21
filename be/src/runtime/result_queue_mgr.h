@@ -54,7 +54,7 @@ public:
 
 private:
     std::mutex _lock;
-    std::unordered_map<TUniqueId, BlockQueueSharedPtr> _fragment_queue_map;
+    std::unordered_map<UniqueId, BlockQueueSharedPtr> _fragment_queue_map;
 };
 
 } // namespace starrocks

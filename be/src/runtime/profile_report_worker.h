@@ -94,7 +94,7 @@ private:
             _pipeline_report_tasks;
     std::mutex _pipeline_report_mutex;
 
-    std::unordered_map<TUniqueId, NonPipelineReportTask> _non_pipeline_report_tasks;
+    std::unordered_map<UniqueId, NonPipelineReportTask> _non_pipeline_report_tasks;
     std::mutex _non_pipeline_report_mutex;
 
     FragmentMgr* _fragment_mgr;

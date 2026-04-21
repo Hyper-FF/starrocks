@@ -83,9 +83,9 @@ public:
     std::shared_ptr<arrow::Schema> get_arrow_schema(const TUniqueId& query_id);
 
 private:
-    typedef std::unordered_map<TUniqueId, std::shared_ptr<BufferControlBlock>> BufferMap;
-    typedef std::map<time_t, std::vector<TUniqueId>> TimeoutMap;
-    typedef std::unordered_map<TUniqueId, std::shared_ptr<arrow::Schema>> ArrowSchemaMap;
+    typedef std::unordered_map<UniqueId, std::shared_ptr<BufferControlBlock>> BufferMap;
+    typedef std::map<time_t, std::vector<UniqueId>> TimeoutMap;
+    typedef std::unordered_map<UniqueId, std::shared_ptr<arrow::Schema>> ArrowSchemaMap;
 
     std::shared_ptr<BufferControlBlock> find_control_block(const TUniqueId& query_id);
 

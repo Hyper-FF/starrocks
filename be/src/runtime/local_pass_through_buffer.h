@@ -31,7 +31,7 @@ class PassThroughChannel;
 
 class PassThroughChunkBuffer {
 public:
-    using Key = std::tuple<TUniqueId, PlanNodeId>;
+    using Key = std::tuple<UniqueId, PlanNodeId>;
 
     struct KeyHash {
         size_t operator()(const Key& key) const {
@@ -53,7 +53,7 @@ public:
 
 private:
     std::mutex _mutex;
-    const TUniqueId _query_id;
+    const UniqueId _query_id;
     std::unordered_map<Key, PassThroughChannel*, KeyHash> _key_to_channel;
     int _ref_count{1};
 };
@@ -70,7 +70,7 @@ public:
 private:
     // hold this chunk buffer to avoid early deallocation.
     PassThroughChunkBuffer* _chunk_buffer;
-    TUniqueId _fragment_instance_id;
+    UniqueId _fragment_instance_id;
     PlanNodeId _node_id;
     PassThroughChannel* _channel = nullptr;
 };
@@ -88,7 +88,7 @@ public:
 
 private:
     std::mutex _mutex;
-    std::unordered_map<TUniqueId, PassThroughChunkBuffer*> _query_id_to_buffer;
+    std::unordered_map<UniqueId, PassThroughChunkBuffer*> _query_id_to_buffer;
 };
 
 } // namespace starrocks

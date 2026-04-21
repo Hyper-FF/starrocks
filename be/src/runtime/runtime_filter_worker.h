@@ -262,7 +262,7 @@ private:
     bool _reach_queue_limit();
 
     UnboundedBlockingQueue<RuntimeFilterWorkerEvent> _queue;
-    std::unordered_map<TUniqueId, RuntimeFilterMerger> _mergers;
+    std::unordered_map<UniqueId, RuntimeFilterMerger> _mergers;
     const RuntimeServices* _runtime_services;
     const RpcServices* _rpc_services;
     std::thread _thread;

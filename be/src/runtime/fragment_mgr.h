@@ -124,7 +124,7 @@ private:
     mutable std::mutex _lock;
 
     // Make sure that remove this before no data reference FragmentExecState
-    std::unordered_map<TUniqueId, std::shared_ptr<FragmentExecState>> _fragment_map;
+    std::unordered_map<UniqueId, std::shared_ptr<FragmentExecState>> _fragment_map;
 
     // Cancel thread
     bool _stop{false};

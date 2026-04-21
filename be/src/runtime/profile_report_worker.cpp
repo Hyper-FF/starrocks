@@ -78,7 +78,7 @@ void ProfileReportWorker::_start_report_profile() {
             }
             const int64_t last_report_ms = iter.second.last_report_time;
             if (cur_ms - last_report_ms >= config::profile_report_interval * 1000) {
-                non_pipeline_need_report_fragment_ids.push_back(iter.first);
+                non_pipeline_need_report_fragment_ids.push_back(iter.first.to_thrift());
             }
         }
     }
