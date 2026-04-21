@@ -392,8 +392,7 @@ Status SingleHashJoinBuilder::do_append_chunk(RuntimeState* state, const ChunkPt
 
 Status SingleHashJoinBuilder::build(RuntimeState* state) {
     SCOPED_TIMER(_hash_joiner.build_metrics().build_ht_timer);
-    // Empty sub-partitions must use JoinHashMapForEmpty so outer/anti probes still emit unmatched rows.
-    TRY_CATCH_BAD_ALLOC(RETURN_IF_ERROR(_ht.build(state, /*allow_build_empty_table=*/true)));
+    TRY_CATCH_BAD_ALLOC(RETURN_IF_ERROR(_ht.build(state, !_is_sub_partition)));
     _ready = true;
     return Status::OK();
 }
@@ -961,6 +960,7 @@ Status AdaptivePartitionHashJoinBuilder::build(RuntimeState* state) {
     }
 
     for (auto& builder : _builders) {
+        builder->set_is_sub_partition(_partition_num > 1);
         RETURN_IF_ERROR(builder->build(state));
     }
     _ready = true;
