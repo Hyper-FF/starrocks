@@ -419,11 +419,26 @@ add_library(pipeline_extensions_exec_objs OBJECT
 )
 
 add_library(join_hash_map_inst_objs OBJECT
-    join/join_hash_map_mapping_inst.cpp
-    join/join_hash_map_linear_chained_inst.cpp
-    join/join_hash_map_linear_chained_set_inst.cpp
-    join/join_hash_map_bucket_chained_inst.cpp
-    join/join_hash_map_asof_inst.cpp
+    join/join_hash_map_mapping_direct_inst.cpp
+    join/join_hash_map_mapping_range_inst.cpp
+    join/join_hash_map_mapping_range_set_inst.cpp
+    join/join_hash_map_mapping_dense_range_inst.cpp
+    join/join_hash_map_linear_chained_int_inst.cpp
+    join/join_hash_map_linear_chained_real_inst.cpp
+    join/join_hash_map_linear_chained_decimal_inst.cpp
+    join/join_hash_map_linear_chained_string_inst.cpp
+    join/join_hash_map_linear_chained_set_int_inst.cpp
+    join/join_hash_map_linear_chained_set_real_inst.cpp
+    join/join_hash_map_linear_chained_set_decimal_inst.cpp
+    join/join_hash_map_linear_chained_set_string_inst.cpp
+    join/join_hash_map_bucket_chained_int_inst.cpp
+    join/join_hash_map_bucket_chained_real_inst.cpp
+    join/join_hash_map_bucket_chained_decimal_inst.cpp
+    join/join_hash_map_bucket_chained_string_inst.cpp
+    join/join_hash_map_asof_int_inst.cpp
+    join/join_hash_map_asof_real_inst.cpp
+    join/join_hash_map_asof_decimal_inst.cpp
+    join/join_hash_map_asof_string_inst.cpp
 )
 
 IF(ENABLE_MULTI_DYNAMIC_LIBS)
