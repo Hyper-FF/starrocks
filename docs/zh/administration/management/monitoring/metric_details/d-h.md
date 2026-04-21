@@ -406,13 +406,6 @@ description: "Alphabetical d - h"
 - 类型: 累积值
 - 描述: `FlatJsonColumnCompactor` 执行 JSON 列扁平化的 compaction 调用次数。
 
-## `flat_json_enabled_table_count`
-
-- 单位: 计数
-- 类型: 瞬时值
-- 采集位置: FE Leader
-- 描述: 启用 flat JSON (`flat_json.enable = true`) 的 OLAP 表数量。
-
 ## `flat_json_flatten_duration_ns_total`
 
 - 单位: 纳秒

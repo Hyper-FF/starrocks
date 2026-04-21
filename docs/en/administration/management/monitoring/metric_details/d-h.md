@@ -406,13 +406,6 @@ For more information on how to build a monitoring service for your StarRocks clu
 - Type: Cumulative
 - Description: Total number of compaction invocations that flatten JSON columns via `FlatJsonColumnCompactor`.
 
-## `flat_json_enabled_table_count`
-
-- Unit: Count
-- Type: Instantaneous
-- Exposed on: FE leader
-- Description: Number of OLAP tables with flat JSON enabled (`flat_json.enable = true`).
-
 ## `flat_json_flatten_duration_ns_total`
 
 - Unit: Nanosecond

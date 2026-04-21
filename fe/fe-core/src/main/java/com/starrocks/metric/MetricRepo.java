@@ -540,16 +540,6 @@ public final class MetricRepo {
         routineLoadUnstableJobsGauge.addLabel(new MetricLabel("state", "UNSTABLE"));
         STARROCKS_METRIC_REGISTER.addMetric(routineLoadUnstableJobsGauge);
 
-        // flat json enabled table count; backed by a TTL cache on the leader.
-        Metric<Long> flatJsonEnabledTableCount = new LeaderAwareGaugeMetricLong("flat_json_enabled_table_count",
-                MetricUnit.NOUNIT, "count of olap tables with flat json enabled") {
-            @Override
-            public Long getValueLeader() {
-                return FlatJsonTableStats.get();
-            }
-        };
-        STARROCKS_METRIC_REGISTER.addMetric(flatJsonEnabledTableCount);
-
         // qps, rps, error rate and query latency
         // these metrics should be set an init value, in case that metric calculator is not running
         GAUGE_QUERY_PER_SECOND = new GaugeMetricImpl<>("qps", MetricUnit.NOUNIT, "query per second");
