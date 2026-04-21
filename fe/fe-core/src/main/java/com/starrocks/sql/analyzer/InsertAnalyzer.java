@@ -284,6 +284,10 @@ public class InsertAnalyzer {
                 if (column.isGeneratedColumn()) {
                     throw new SemanticException("generated column '%s' can not be specified", colName);
                 }
+                if (column.isNonModifiable()) {
+                    throw new SemanticException(
+                            "nonmodifiable column '%s' can not be specified in INSERT target columns", colName);
+                }
                 if (!mentionedColumns.add(colName)) {
                     ErrorReport.reportSemanticException(ErrorCode.ERR_DUP_FIELDNAME, colName);
                 }

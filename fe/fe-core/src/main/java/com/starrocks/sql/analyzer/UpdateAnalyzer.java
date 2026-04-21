@@ -143,6 +143,10 @@ public class UpdateAnalyzer {
                     throw new SemanticException("primary key column cannot be updated: " + col.getName());
                 }
 
+                if (col.isNonModifiable()) {
+                    throw new SemanticException("nonmodifiable column cannot be updated: " + col.getName());
+                }
+
                 if (col.isAutoIncrement()) {
                     autoIncrementColumn = col;
                 }

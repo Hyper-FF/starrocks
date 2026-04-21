@@ -91,6 +91,10 @@ public class ColumnDef implements ParseNode {
     private boolean isAllowNullImplicit = false;
     private Boolean isAllowNull;
     private Boolean isAutoIncrement;
+    // NONMODIFIABLE column attribute: the column cannot be referenced as a target
+    // of INSERT or UPDATE statements. Combined with AUTO_INCREMENT this enforces
+    // server-assigned values only.
+    private boolean isNonModifiable;
     private Expr generatedColumnExpr;
     private DefaultValueDef defaultValueDef;
     private final String comment;
@@ -152,6 +156,7 @@ public class ColumnDef implements ParseNode {
         } else {
             this.isAutoIncrement = true;
         }
+        this.isNonModifiable = false;
         this.generatedColumnExpr = generatedColumnExpr;
         this.comment = comment;
     }
@@ -166,6 +171,14 @@ public class ColumnDef implements ParseNode {
 
     public boolean isAutoIncrement() {
         return isAutoIncrement;
+    }
+
+    public boolean isNonModifiable() {
+        return isNonModifiable;
+    }
+
+    public void setNonModifiable(boolean nonModifiable) {
+        this.isNonModifiable = nonModifiable;
     }
 
     public boolean isGeneratedColumn() {

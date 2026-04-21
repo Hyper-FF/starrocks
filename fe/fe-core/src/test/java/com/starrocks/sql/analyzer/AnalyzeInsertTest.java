@@ -98,6 +98,13 @@ public class AnalyzeInsertTest {
         analyzeFail("insert into tmc values (1,2,3)",
                 "Inserted target column count: 2 doesn't match select/value column count: 3");
         analyzeFail("insert into tmc (id,name,mc) values (1,2,3)", "generated column 'mc' can not be specified.");
+
+        // NONMODIFIABLE column: cannot be specified as an INSERT target column.
+        analyzeFail("insert into test_nonmodifiable (id, name) values (1, 'a')",
+                "nonmodifiable column 'id' can not be specified in INSERT target columns");
+        analyzeFail("insert into test_nonmodifiable (name, ts) values ('a', 1)",
+                "nonmodifiable column 'ts' can not be specified in INSERT target columns");
+        analyzeSuccess("insert into test_nonmodifiable (name) values ('a')");
     }
 
     @Test

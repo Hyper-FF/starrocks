@@ -356,6 +356,14 @@ public class AnalyzeTestUtil {
                 "PRIMARY KEY (`id`) " +
                 "DISTRIBUTED BY HASH(`id`) BUCKETS 1 " +
                 "PROPERTIES(\"replication_num\" = \"1\");");
+        starRocksAssert.withTable("CREATE TABLE test_nonmodifiable (" +
+                "id BIGINT NOT NULL AUTO_INCREMENT NONMODIFIABLE," +
+                "name VARCHAR(100)," +
+                "ts BIGINT NOT NULL DEFAULT \"0\" NONMODIFIABLE" +
+                ") " +
+                "PRIMARY KEY (`id`) " +
+                "DISTRIBUTED BY HASH(`id`) BUCKETS 1 " +
+                "PROPERTIES(\"replication_num\" = \"1\");");
         starRocksAssert.withTable("CREATE TABLE test_laglead (\n" +
                 "  `ta` int(11) NULL COMMENT \"\",\n" +
                 "  `tb` int(11) NULL COMMENT \"\",\n" +

@@ -35,6 +35,7 @@ public class ColumnBuilder {
                 columnDef.getComment(),
                 Column.COLUMN_UNIQUE_ID_INIT_VALUE);
         col.setIsAutoIncrement(columnDef.isAutoIncrement());
+        col.setIsNonModifiable(columnDef.isNonModifiable());
         return col;
     }
 
@@ -52,6 +53,7 @@ public class ColumnBuilder {
                 columnDef.getComment(),
                 Column.COLUMN_UNIQUE_ID_INIT_VALUE);
         col.setIsAutoIncrement(columnDef.isAutoIncrement());
+        col.setIsNonModifiable(columnDef.isNonModifiable());
 
         Expr generatedColumnExpr = columnDef.getGeneratedColumnExpr();
         if (generatedColumnExpr != null) {

@@ -69,6 +69,9 @@ public class AnalyzeUpdateTest {
         analyzeSuccess("update tprimary set v2 = v2 + 1 where v1 = 'aaa'");
 
         analyzeSuccess("update tprimary set v3 = [231,4321,42] where pk = 1");
+
+        analyzeFail("update test_nonmodifiable set ts = 1 where id = 1",
+                "nonmodifiable column cannot be updated: ts");
     }
 
     @Test

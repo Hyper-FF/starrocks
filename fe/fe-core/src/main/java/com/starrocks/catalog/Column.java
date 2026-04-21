@@ -139,6 +139,11 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
     private boolean isAllowNull;
     @SerializedName(value = "isAutoIncrement")
     private boolean isAutoIncrement;
+    // NONMODIFIABLE: column cannot be directly referenced in INSERT/UPDATE target list.
+    // When applied to AUTO_INCREMENT, it prevents users from supplying their own values
+    // and forces the system-assigned value.
+    @SerializedName(value = "isNonModifiable")
+    private boolean isNonModifiable;
     @SerializedName(value = "defaultValue")
     private String defaultValue;
     // this handle function like now() or simple expression
@@ -277,6 +282,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
             }
         }
         this.isAutoIncrement = false;
+        this.isNonModifiable = false;
         this.comment = comment;
         this.generatedColumnExpr = null;
         this.uniqueId = columnUniqId;
@@ -309,6 +315,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
     public Column deepCopy() {
         Column col = new Column(this);
         col.setIsAutoIncrement(this.isAutoIncrement);
+        col.setIsNonModifiable(this.isNonModifiable);
         Type newType = type.clone();
         col.setType(newType);
         return col;
@@ -325,10 +332,12 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
                 defaultValueDef = new ColumnDef.DefaultValueDef(false, null);
             }
         }
-        return new ColumnDef(name, new TypeDef(type), null, isKey, aggregationType, aggStateDesc, isAllowNull,
+        ColumnDef columnDef = new ColumnDef(name, new TypeDef(type), null, isKey, aggregationType, aggStateDesc, isAllowNull,
                 defaultValueDef, isAutoIncrement,
                 generatedColumnExpr != null ? generatedColumnExpr.convertToColumnNameExpr(table.getIdToColumn()) : null,
                 comment);
+        columnDef.setNonModifiable(isNonModifiable);
+        return columnDef;
     }
 
     public void setName(String newName) {
@@ -411,12 +420,20 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
         return isAutoIncrement;
     }
 
+    public boolean isNonModifiable() {
+        return isNonModifiable;
+    }
+
     public void setIsAllowNull(boolean isAllowNull) {
         this.isAllowNull = isAllowNull;
     }
 
     public void setIsAutoIncrement(boolean isAutoIncrement) {
         this.isAutoIncrement = isAutoIncrement;
+    }
+
+    public void setIsNonModifiable(boolean isNonModifiable) {
+        this.isNonModifiable = isNonModifiable;
     }
 
     public DefaultExpr getDefaultExpr() {
@@ -739,6 +756,9 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
                 generatedColumnSql = generatedColumnExpr.toSql();
             }
             sb.append("AS ").append(generatedColumnSql).append(" ");
+        }
+        if (isNonModifiable) {
+            sb.append("NONMODIFIABLE ");
         }
         sb.append("COMMENT \"").append(getDisplayComment()).append("\"");
 

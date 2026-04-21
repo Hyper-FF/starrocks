@@ -1255,6 +1255,9 @@ public class AstBuilder extends com.starrocks.sql.parser.StarRocksBaseVisitor<Pa
         ColumnDef columnDef = new ColumnDef(columnName, typeDef, charsetName, isKey, aggregateType, aggStateDesc,
                 isAllowNull, defaultValueDef, isAutoIncrement, expr, comment, createPos(context));
         columnDef.setExplicitSqlType(true);
+        if (context.NONMODIFIABLE() != null) {
+            columnDef.setNonModifiable(true);
+        }
         return columnDef;
     }
 
