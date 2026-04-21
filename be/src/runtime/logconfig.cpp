@@ -79,7 +79,7 @@ static bool iequals(const std::string& a, const std::string& b) {
 size_t get_build_version(char* buffer, size_t max_size);
 
 // avoid to allocate extra memory
-static int print_unique_id(char* buffer, const TUniqueId& uid) {
+static int print_unique_id(char* buffer, const UniqueId& uid) {
     char buff[32];
     struct {
         int64_t hi;
