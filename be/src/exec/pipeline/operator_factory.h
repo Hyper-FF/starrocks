@@ -127,6 +127,6 @@ protected:
 };
 
 using OpFactoryPtr = std::shared_ptr<OperatorFactory>;
-using OpFactories = std::vector<OpFactoryPtr>;
+using OpFactories = std::pmr::vector<OpFactoryPtr>;
 
 } // namespace starrocks::pipeline

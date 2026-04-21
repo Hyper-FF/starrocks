@@ -57,7 +57,7 @@ OpFactories PipelineTestBase::maybe_interpolate_local_passthrough_exchange(OpFac
         // Add LocalExchangeSinkOperator to predecessor pipeline.
         pred_operators.emplace_back(std::move(local_exchange_sink));
         // predecessor pipeline comes to end.
-        _pipelines.emplace_back(std::make_unique<Pipeline>(_fragment_ctx->runtime_state()->obj_pool(),
+        _pipelines.emplace_back(std::make_unique<Pipeline>(_fragment_ctx->runtime_state()->mem_resource(),
                                                            next_pipeline_id(), pred_operators,
                                                            _fragment_ctx->_execution_groups[0].get()));
 

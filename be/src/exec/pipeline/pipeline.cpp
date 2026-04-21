@@ -14,7 +14,6 @@
 
 #include "exec/pipeline/pipeline.h"
 
-#include "common/object_pool.h"
 #include "exec/pipeline/adaptive/event.h"
 #include "exec/pipeline/fragment_context.h"
 #include "exec/pipeline/group_execution/execution_group.h"
@@ -26,18 +25,14 @@
 
 namespace starrocks::pipeline {
 
-static_assert(std::is_trivially_destructible_v<Pipeline>,
-              "Pipeline must stay trivially destructible so it can be allocated from a MemPool");
-
-Pipeline::Pipeline(ObjectPool* obj_pool, uint32_t id, OpFactories op_factories, ExecutionGroupRawPtr execution_group)
-        : _id(id), _execution_group(execution_group) {
-    DCHECK(obj_pool != nullptr);
-    _runtime_profile = obj_pool->add(new RuntimeProfile(strings::Substitute("Pipeline (id=$0)", _id)));
-    _op_factories = obj_pool->add(new OpFactories(std::move(op_factories)));
-    _drivers = obj_pool->add(new Drivers());
-    // Event uses enable_shared_from_this; keep the shared_ptr alive in obj_pool.
-    auto* event_holder = obj_pool->add(new EventPtr(Event::create_event()));
-    _pipeline_event = event_holder->get();
+Pipeline::Pipeline(std::pmr::memory_resource* mr, uint32_t id, const OpFactories& op_factories,
+                   ExecutionGroupRawPtr execution_group)
+        : _id(id),
+          _op_factories(op_factories.begin(), op_factories.end(), mr),
+          _drivers(mr),
+          _pipeline_event(Event::create_event()),
+          _execution_group(execution_group) {
+    _runtime_profile = std::make_shared<RuntimeProfile>(strings::Substitute("Pipeline (id=$0)", _id));
 }
 
 size_t Pipeline::degree_of_parallelism() const {
@@ -46,7 +41,7 @@ size_t Pipeline::degree_of_parallelism() const {
 }
 
 void Pipeline::count_down_driver(RuntimeState* state) {
-    size_t num_drivers = _drivers->size();
+    size_t num_drivers = _drivers.size();
     bool all_drivers_finished = ++_num_finished_drivers >= num_drivers;
     if (all_drivers_finished) {
         _pipeline_event->finish(state);
@@ -55,15 +50,15 @@ void Pipeline::count_down_driver(RuntimeState* state) {
 }
 
 void Pipeline::clear_drivers() {
-    _drivers->clear();
+    _drivers.clear();
 }
 
 Drivers& Pipeline::drivers() {
-    return *_drivers;
+    return _drivers;
 }
 
 const Drivers& Pipeline::drivers() const {
-    return *_drivers;
+    return _drivers;
 }
 
 void Pipeline::instantiate_drivers(RuntimeState* state) {
@@ -77,7 +72,7 @@ void Pipeline::instantiate_drivers(RuntimeState* state) {
              << " fragment_instance_id=" << print_id(fragment_ctx->fragment_instance_id());
 
     setup_pipeline_profile(state);
-    _drivers->reserve(dop);
+    _drivers.reserve(dop);
     MemPool* driver_pool = fragment_ctx->fragment_mem_pool();
     for (size_t i = 0; i < dop; ++i) {
         auto&& operators = create_operators(dop, i);
@@ -90,10 +85,10 @@ void Pipeline::instantiate_drivers(RuntimeState* state) {
 
         setup_drivers_profile(driver);
         driver->set_workgroup(workgroup);
-        _drivers->emplace_back(std::move(driver));
+        _drivers.emplace_back(std::move(driver));
     }
 
-    query_ctx->query_trace()->register_drivers(fragment_ctx->fragment_instance_id(), *_drivers);
+    query_ctx->query_trace()->register_drivers(fragment_ctx->fragment_instance_id(), _drivers);
 
     if (!source_operator_factory()->with_morsels()) {
         return;
@@ -103,7 +98,7 @@ void Pipeline::instantiate_drivers(RuntimeState* state) {
     DCHECK(morsel_queue_factory != nullptr);
     DCHECK(dop == 1 || dop == morsel_queue_factory->size());
     for (size_t i = 0; i < dop; ++i) {
-        auto& driver = (*_drivers)[i];
+        auto& driver = _drivers[i];
         driver->set_morsel_queue(morsel_queue_factory->create(i));
         if (auto* scan_operator = driver->source_scan_operator()) {
             scan_operator->set_workgroup(workgroup);
@@ -162,16 +157,16 @@ size_t calculate_output_amplification(const Drivers& drivers) {
 }
 
 size_t Pipeline::output_amplification_factor() const {
-    if (_drivers->empty()) {
+    if (_drivers.empty()) {
         return 1;
     }
 
-    auto* first_sink = (*_drivers)[0]->sink_operator();
+    auto* first_sink = _drivers[0]->sink_operator();
     switch (first_sink->intra_pipeline_amplification_type()) {
     case Operator::OutputAmplificationType::ADD:
-        return calculate_output_amplification<OutputAmplificationAddCalculator>(*_drivers);
+        return calculate_output_amplification<OutputAmplificationAddCalculator>(_drivers);
     case Operator::OutputAmplificationType::MAX:
-        return calculate_output_amplification<OutputAmplificationMaxCalculator>(*_drivers);
+        return calculate_output_amplification<OutputAmplificationMaxCalculator>(_drivers);
     }
 
     return 1;

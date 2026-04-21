@@ -17,6 +17,7 @@
 #include <chrono>
 #include <cmath>
 #include <memory>
+#include <memory_resource>
 #include <thread>
 #include <utility>
 
@@ -223,7 +224,7 @@ Tasks create_test_pipelines(const query_cache::CacheParam& cache_param, size_t d
     auto per_tablet_reduce_source = std::make_shared<ReduceSourceOperatorFactory>(++id, per_tablet_reducer);
     auto conjugate_op =
             std::make_shared<query_cache::ConjugateOperatorFactory>(per_tablet_reduce_sink, per_tablet_reduce_source);
-    std::vector<OperatorFactoryPtr> opFactories;
+    pipeline::OpFactories opFactories;
     opFactories.push_back(mul2);
     opFactories.push_back(plus1);
     opFactories.push_back(conjugate_op);
@@ -243,7 +244,7 @@ Tasks create_test_pipelines(const query_cache::CacheParam& cache_param, size_t d
     Tasks tasks;
     tasks.resize(dop);
     for (auto i = 0; i < dop; ++i) {
-        pipeline::Pipeline pipeline(0, opFactories, nullptr);
+        pipeline::Pipeline pipeline(std::pmr::get_default_resource(), 0, opFactories, nullptr);
         auto upstream_operators = pipeline.create_operators(dop, i);
         auto downstream_operator = reduce_source->create(dop, i);
         tasks[i].upstream = std::move(upstream_operators);

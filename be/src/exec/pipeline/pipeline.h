@@ -15,7 +15,7 @@
 #pragma once
 
 #include <ctime>
-#include <type_traits>
+#include <memory_resource>
 #include <utility>
 
 #include "exec/pipeline/adaptive/adaptive_fwd.h"
@@ -27,27 +27,26 @@
 
 namespace starrocks {
 
-class ObjectPool;
 class RuntimeState;
 
 namespace pipeline {
 
-// Pipeline is a trivially destructible handle. Its non-trivial resources
-// (RuntimeProfile, OpFactories vector, Drivers vector, Event shared_ptr) live
-// in the ObjectPool supplied at construction. Destruction of those resources
-// happens when the owning ObjectPool is cleared/destroyed, so allocating a
-// Pipeline out of a MemPool is safe — skipping ~Pipeline leaks nothing.
+// Pipeline's two vector members (_op_factories, _drivers) use a pmr allocator
+// backed by the fragment's MemPool, so their storage comes from the pool and
+// deallocation is a no-op. The destructor still runs element destructors
+// (shared_ptr refcount decrements), which is cheap and safe.
 class Pipeline {
 public:
     Pipeline() = delete;
-    Pipeline(ObjectPool* obj_pool, uint32_t id, OpFactories op_factories, ExecutionGroupRawPtr execution_group);
+    Pipeline(std::pmr::memory_resource* mr, uint32_t id, const OpFactories& op_factories,
+             ExecutionGroupRawPtr execution_group);
 
     uint32_t get_id() const { return _id; }
 
     Operators create_operators(int32_t degree_of_parallelism, int32_t i) {
         Operators operators;
-        operators.reserve(_op_factories->size());
-        for (const auto& factory : *_op_factories) {
+        operators.reserve(_op_factories.size());
+        for (const auto& factory : _op_factories) {
             operators.emplace_back(factory->create(degree_of_parallelism, i));
         }
         return operators;
@@ -59,37 +58,37 @@ public:
     void clear_drivers();
 
     SourceOperatorFactory* source_operator_factory() {
-        DCHECK(!_op_factories->empty());
-        return down_cast<SourceOperatorFactory*>((*_op_factories)[0].get());
+        DCHECK(!_op_factories.empty());
+        return down_cast<SourceOperatorFactory*>(_op_factories[0].get());
     }
     const SourceOperatorFactory* source_operator_factory() const {
-        DCHECK(!_op_factories->empty());
-        return down_cast<SourceOperatorFactory*>((*_op_factories)[0].get());
+        DCHECK(!_op_factories.empty());
+        return down_cast<SourceOperatorFactory*>(_op_factories[0].get());
     }
     OperatorFactory* sink_operator_factory() {
-        DCHECK(!_op_factories->empty());
-        return (*_op_factories)[_op_factories->size() - 1].get();
+        DCHECK(!_op_factories.empty());
+        return _op_factories[_op_factories.size() - 1].get();
     }
     size_t degree_of_parallelism() const;
 
-    RuntimeProfile* runtime_profile() { return _runtime_profile; }
+    RuntimeProfile* runtime_profile() { return _runtime_profile.get(); }
     void setup_pipeline_profile(RuntimeState* runtime_state);
     void setup_drivers_profile(const DriverPtr& driver);
 
     Status prepare(RuntimeState* state) {
-        for (auto& op : *_op_factories) {
+        for (auto& op : _op_factories) {
             RETURN_IF_ERROR(op->prepare(state));
         }
         return Status::OK();
     }
     void close(RuntimeState* state) {
-        for (auto& op : *_op_factories) {
+        for (auto& op : _op_factories) {
             op->close(state);
         }
     }
 
     void acquire_runtime_filter(RuntimeState* state) {
-        for (auto& op : *_op_factories) {
+        for (auto& op : _op_factories) {
             op->acquire_runtime_filter(state);
         }
     }
@@ -97,11 +96,11 @@ public:
     std::string to_readable_string() const {
         std::stringstream ss;
         ss << "operator-chain: [";
-        for (size_t i = 0; i < _op_factories->size(); ++i) {
+        for (size_t i = 0; i < _op_factories.size(); ++i) {
             if (i == 0) {
-                ss << (*_op_factories)[i]->get_name();
+                ss << _op_factories[i]->get_name();
             } else {
-                ss << " -> " << (*_op_factories)[i]->get_name();
+                ss << " -> " << _op_factories[i]->get_name();
             }
         }
         ss << "]";
@@ -109,16 +108,16 @@ public:
     }
 
     size_t output_amplification_factor() const;
-    Event* pipeline_event() const { return _pipeline_event; }
+    Event* pipeline_event() const { return _pipeline_event.get(); }
 
 private:
     uint32_t _id = 0;
-    RuntimeProfile* _runtime_profile = nullptr;  // obj_pool-owned
-    OpFactories* _op_factories = nullptr;        // obj_pool-owned
-    Drivers* _drivers = nullptr;                 // obj_pool-owned
+    std::shared_ptr<RuntimeProfile> _runtime_profile;
+    OpFactories _op_factories; // pmr-backed, buffer lives in fragment MemPool
+    Drivers _drivers;          // pmr-backed, buffer lives in fragment MemPool
     std::atomic<size_t> _num_finished_drivers = 0;
 
-    Event* _pipeline_event = nullptr; // raw ptr; shared_ptr lives in obj_pool
+    EventPtr _pipeline_event;
     ExecutionGroupRawPtr _execution_group = nullptr;
 };
 

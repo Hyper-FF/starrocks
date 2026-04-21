@@ -164,8 +164,12 @@ public:
     // Owned by RuntimeState so it outlives all PipelineDrivers.
     MemPool* fragment_mem_pool() { return _fragment_mem_pool.get(); }
 
-    // PMR memory resource backed by the fragment MemPool.
-    std::pmr::memory_resource* mem_resource() { return _mem_resource.get(); }
+    // PMR memory resource backed by the fragment MemPool. Falls back to the
+    // default heap resource if the fragment MemPool has not been initialized
+    // (e.g. in unit tests that skip fragment_executor setup).
+    std::pmr::memory_resource* mem_resource() {
+        return _mem_resource ? _mem_resource.get() : std::pmr::get_default_resource();
+    }
 
     // Create the fragment-level MemPool. Called once during fragment preparation.
     void init_fragment_mem_pool();

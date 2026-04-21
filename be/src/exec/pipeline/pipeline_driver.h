@@ -52,7 +52,7 @@ namespace pipeline {
 
 class PipelineDriver;
 using DriverPtr = std::shared_ptr<PipelineDriver>;
-using Drivers = std::vector<DriverPtr>;
+using Drivers = std::pmr::vector<DriverPtr>;
 using ConstDriverConsumer = std::function<void(DriverConstRawPtr)>;
 class DriverQueue;
 

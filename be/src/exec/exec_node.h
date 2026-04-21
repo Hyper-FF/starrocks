@@ -69,7 +69,7 @@ using OperatorFactory = starrocks::pipeline::OperatorFactory;
 using OperatorFactoryPtr = std::shared_ptr<OperatorFactory>;
 using SourceOperatorFactory = starrocks::pipeline::SourceOperatorFactory;
 using SourceOperatorFactoryPtr = std::shared_ptr<SourceOperatorFactory>;
-using OpFactories = std::vector<OperatorFactoryPtr>;
+using OpFactories = std::pmr::vector<OperatorFactoryPtr>;
 using RcRfProbeCollector = starrocks::pipeline::RefCountedRuntimeFilterProbeCollector;
 using RcRfProbeCollectorPtr = std::shared_ptr<RcRfProbeCollector>;
 using std::string;

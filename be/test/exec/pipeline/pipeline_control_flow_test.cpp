@@ -445,7 +445,7 @@ TEST_F(TestPipelineControlFlow, test_two_operatories) {
                 std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
         _pipelines.push_back(
-                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
+                std::make_shared<Pipeline>(state->mem_resource(), next_pipeline_id(), op_factories, exec_group.get()));
     };
 
     start_test();
@@ -475,7 +475,7 @@ TEST_F(TestPipelineControlFlow, test_three_operatories) {
                 std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
         _pipelines.push_back(
-                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
+                std::make_shared<Pipeline>(state->mem_resource(), next_pipeline_id(), op_factories, exec_group.get()));
     };
 
     start_test();
@@ -514,7 +514,7 @@ TEST_F(TestPipelineControlFlow, test_multi_operators) {
                     std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
             _pipelines.push_back(
-                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
+                std::make_shared<Pipeline>(state->mem_resource(), next_pipeline_id(), op_factories, exec_group.get()));
         };
 
         start_test();
@@ -547,7 +547,7 @@ TEST_F(TestPipelineControlFlow, test_full_chunk_size) {
                 std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
         _pipelines.push_back(
-                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
+                std::make_shared<Pipeline>(state->mem_resource(), next_pipeline_id(), op_factories, exec_group.get()));
     };
 
     start_test();
@@ -578,7 +578,7 @@ TEST_F(TestPipelineControlFlow, test_multi_chunks) {
                 std::make_shared<TestSinkOperatorFactory>(next_operator_id(), next_plan_node_id(), sinkCounter));
 
         _pipelines.push_back(
-                std::make_shared<Pipeline>(state->obj_pool(), next_pipeline_id(), op_factories, exec_group.get()));
+                std::make_shared<Pipeline>(state->mem_resource(), next_pipeline_id(), op_factories, exec_group.get()));
     };
 
     start_test();

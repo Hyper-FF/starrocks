@@ -16,6 +16,7 @@
 
 #include <future>
 #include <memory>
+#include <memory_resource>
 #include <vector>
 
 namespace starrocks::pipeline {
@@ -38,10 +39,10 @@ class PipelineDriver;
 using DriverPtr = std::shared_ptr<PipelineDriver>;
 using DriverRawPtr = PipelineDriver*;
 using DriverConstRawPtr = const PipelineDriver*;
-using Drivers = std::vector<DriverPtr>;
+using Drivers = std::pmr::vector<DriverPtr>;
 class OperatorFactory;
 using OpFactoryPtr = std::shared_ptr<OperatorFactory>;
-using OpFactories = std::vector<OpFactoryPtr>;
+using OpFactories = std::pmr::vector<OpFactoryPtr>;
 class SourceOperatorFactory;
 using SourceOperatorFactoryPtr = std::shared_ptr<SourceOperatorFactory>;
 class Operator;

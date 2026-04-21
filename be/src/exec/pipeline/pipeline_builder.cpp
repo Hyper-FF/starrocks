@@ -78,8 +78,8 @@ ExecutionGroupRawPtr PipelineBuilderContext::find_exec_group_by_plan_node_id(int
 
 void PipelineBuilderContext::add_pipeline(const OpFactories& operators, ExecutionGroupRawPtr execution_group) {
     // TODO: refactor Pipelines to PipelineRawPtrs
-    auto* obj_pool = _fragment_context->runtime_state()->obj_pool();
-    _pipelines.emplace_back(std::make_shared<Pipeline>(obj_pool, next_pipe_id(), operators, execution_group));
+    auto* mr = _fragment_context->runtime_state()->mem_resource();
+    _pipelines.emplace_back(std::make_shared<Pipeline>(mr, next_pipe_id(), operators, execution_group));
     execution_group->add_pipeline(_pipelines.back().get());
     _subscribe_pipeline_event(_pipelines.back().get());
 }

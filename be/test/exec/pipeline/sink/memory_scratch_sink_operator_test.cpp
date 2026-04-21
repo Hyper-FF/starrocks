@@ -107,7 +107,7 @@ TEST(MemoryScratchSinkOperatorTest, test_cancel) {
 
     Operators ops = {factory1.create(1, 1), factory2.create(1, 2)};
     auto exec_group = ExecutionGroupBuilder::create_normal_exec_group();
-    auto pipeline = std::make_shared<Pipeline>(_runtime_state->obj_pool(), 0, OpFactories(), exec_group.get());
+    auto pipeline = std::make_shared<Pipeline>(_runtime_state->mem_resource(), 0, OpFactories(), exec_group.get());
     auto driver = std::make_shared<PipelineDriver>(ops, _query_ctx, _fragment_ctx, pipeline.get(), 0);
 
     driver->prepare(_runtime_state);
