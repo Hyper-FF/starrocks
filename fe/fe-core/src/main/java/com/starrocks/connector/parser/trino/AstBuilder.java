@@ -1356,25 +1356,29 @@ public class AstBuilder extends AstVisitor<ParseNode, ParseTreeContext> {
     @Override
     protected ParseNode visitProperty(Property node, ParseTreeContext context) {
         String key = node.getName().getValue();
-        String value;
         if (node.isSetToDefault()) {
-            value = "";
+            // StarRocks' property map has no representation for "unset/use default"
+            // distinct from the empty string. Reject explicitly so callers don't get
+            // silently coerced to "" and bypass connector defaults.
+            throw trinoParserUnsupportedException(String.format(
+                    "SET DEFAULT is not supported for property [%s]; omit the property to use the default",
+                    key));
+        }
+        Expression valueExpr = node.getNonDefaultValue();
+        String value;
+        if (valueExpr instanceof StringLiteral) {
+            value = ((StringLiteral) valueExpr).getValue();
+        } else if (valueExpr instanceof Identifier) {
+            value = ((Identifier) valueExpr).getValue();
+        } else if (valueExpr instanceof LongLiteral) {
+            value = Long.toString(((LongLiteral) valueExpr).getValue());
+        } else if (valueExpr instanceof BooleanLiteral) {
+            value = Boolean.toString(((BooleanLiteral) valueExpr).getValue());
+        } else if (valueExpr instanceof DoubleLiteral) {
+            value = Double.toString(((DoubleLiteral) valueExpr).getValue());
         } else {
-            Expression valueExpr = node.getNonDefaultValue();
-            if (valueExpr instanceof StringLiteral) {
-                value = ((StringLiteral) valueExpr).getValue();
-            } else if (valueExpr instanceof Identifier) {
-                value = ((Identifier) valueExpr).getValue();
-            } else if (valueExpr instanceof LongLiteral) {
-                value = Long.toString(((LongLiteral) valueExpr).getValue());
-            } else if (valueExpr instanceof BooleanLiteral) {
-                value = Boolean.toString(((BooleanLiteral) valueExpr).getValue());
-            } else if (valueExpr instanceof DoubleLiteral) {
-                value = Double.toString(((DoubleLiteral) valueExpr).getValue());
-            } else {
-                throw trinoParserUnsupportedException(String.format(
-                        "Unsupported property value expression [%s] for property [%s]", valueExpr, key));
-            }
+            throw trinoParserUnsupportedException(String.format(
+                    "Unsupported property value expression [%s] for property [%s]", valueExpr, key));
         }
         return new com.starrocks.sql.ast.Property(key, value);
     }

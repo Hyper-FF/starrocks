@@ -98,4 +98,24 @@ public class TrinoCtasTest extends TrinoTestBase {
             connectContext.getSessionVariable().setSqlDialect("trino");
         }
     }
+
+    @Test
+    public void testCtasWithPropertySetToDefaultIsRejected() throws Exception {
+        // Trino's "key = DEFAULT" asks the connector to use its built-in default.
+        // StarRocks' property map has no unset-vs-empty distinction, so silently
+        // mapping DEFAULT to "" would override connector defaults with the empty
+        // string. Ensure the parser rejects this case explicitly.
+        String ctasSql = "create table test.t_default_prop "
+                + "with (replication_num = DEFAULT) "
+                + "as select 1";
+        try {
+            connectContext.getSessionVariable().setSqlDialect("trino");
+            Exception ex = Assertions.assertThrows(Exception.class,
+                    () -> SqlParser.parse(ctasSql, connectContext.getSessionVariable()));
+            Assertions.assertTrue(ex.getMessage().toLowerCase().contains("default"),
+                    "expected error about SET DEFAULT, got: " + ex.getMessage());
+        } finally {
+            connectContext.getSessionVariable().setSqlDialect("trino");
+        }
+    }
 }
