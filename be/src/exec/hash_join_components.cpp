@@ -270,10 +270,10 @@ Status PartitionedHashJoinProberImpl::push_probe_chunk(RuntimeState* state, Chun
         }
 
         if (_partition_input_channels[i].back()->num_rows() + size <= state->chunk_size()) {
-            _partition_input_channels[i].back()->append_selective(*chunk, selection.data(), from, size);
+            _partition_input_channels[i].append_selective_to_back(*chunk, selection.data(), from, size);
         } else {
             _partition_input_channels[i].push(chunk->clone_empty());
-            _partition_input_channels[i].back()->append_selective(*chunk, selection.data(), from, size);
+            _partition_input_channels[i].append_selective_to_back(*chunk, selection.data(), from, size);
         }
 
         if (_partition_input_channels[i].is_full()) {
@@ -906,7 +906,7 @@ Status AdaptivePartitionHashJoinBuilder::do_append_chunk(RuntimeState* state, co
         RETURN_IF_ERROR(_convert_to_single_partition(state));
     }
 
-    if (_partition_num > 1 && ++_pushed_chunks % 8 == 0) {
+    if (_partition_num > 1 && ++_pushed_chunks % 8 == 0 && hash_table_row_count() > 0) {
         const size_t build_row_size = (ht_mem_usage() + _mem_tracker.consumption()) / hash_table_row_count();
         _adjust_partition_rows(build_row_size, _hash_table_probing_bytes_per_row);
         if (_partition_num == 1) {
@@ -1002,7 +1002,6 @@ void AdaptivePartitionHashJoinBuilder::clone_readable(HashJoinBuilder* other_bui
     other->_partition_join_l2_min_rows = _partition_join_l2_min_rows;
     other->_partition_join_l2_max_rows = _partition_join_l2_max_rows;
     other->_partition_join_l3_min_rows = _partition_join_l3_min_rows;
-    other->_partition_join_l3_max_rows = _partition_join_l3_max_rows;
     other->_partition_join_l3_max_rows = _partition_join_l3_max_rows;
     other->_ready = _ready;
     for (size_t i = 0; i < _partition_num; ++i) {
