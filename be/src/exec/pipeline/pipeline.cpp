@@ -71,10 +71,11 @@ void Pipeline::instantiate_drivers(RuntimeState* state) {
 
     setup_pipeline_profile(state);
     _drivers.reserve(dop);
+    MemPool* driver_pool = fragment_ctx->fragment_mem_pool();
     for (size_t i = 0; i < dop; ++i) {
         auto&& operators = create_operators(dop, i);
-        DriverPtr driver = std::make_shared<PipelineDriver>(std::move(operators), query_ctx, fragment_ctx, this,
-                                                            fragment_ctx->next_driver_id());
+        DriverPtr driver = PipelineDriver::create_in_pool(driver_pool, operators, query_ctx, fragment_ctx, this,
+                                                         fragment_ctx->next_driver_id());
 
         if (state->enable_event_scheduler()) {
             driver->assign_observer();

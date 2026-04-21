@@ -40,6 +40,8 @@
 
 namespace starrocks {
 
+class MemPool;
+
 namespace query_cache {
 class MultilaneOperator;
 using MultilaneOperatorRawPtr = MultilaneOperator*;
@@ -233,6 +235,12 @@ public:
             : PipelineDriver(driver._operators, driver._query_ctx, driver._fragment_ctx, driver._pipeline,
                              driver._driver_id) {}
 
+    // Placement-new construct a PipelineDriver into the fragment-scoped MemPool.
+    // The returned shared_ptr only runs the destructor — the backing memory is reclaimed
+    // when the MemPool is freed (i.e. when the owning RuntimeState is destroyed).
+    static DriverPtr create_in_pool(MemPool* pool, const Operators& operators, QueryContext* query_ctx,
+                                    FragmentContext* fragment_ctx, Pipeline* pipeline, int32_t driver_id);
+
     virtual ~PipelineDriver() noexcept;
     void check_operator_close_states(const std::string& func_name);
 
@@ -242,7 +250,7 @@ public:
     const FragmentContext* fragment_ctx() const { return _fragment_ctx; }
     int32_t source_node_id() { return _source_node_id; }
     int32_t driver_id() const { return _driver_id; }
-    DriverPtr clone() { return std::make_shared<PipelineDriver>(*this); }
+    DriverPtr clone();
     void set_morsel_queue(MorselQueue* morsel_queue) { _morsel_queue = morsel_queue; }
     Status prepare(RuntimeState* runtime_state);
     virtual StatusOr<DriverState> process(RuntimeState* runtime_state, int worker_id);

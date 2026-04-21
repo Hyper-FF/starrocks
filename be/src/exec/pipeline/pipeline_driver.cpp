@@ -42,6 +42,7 @@
 #include "gutil/casts.h"
 #include "runtime/current_thread.h"
 #include "runtime/exec_env.h"
+#include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
 #include "runtime/starrocks_metrics.h"
 #include "util/debug/query_trace.h"
@@ -49,6 +50,23 @@
 namespace starrocks::pipeline {
 DEFINE_FAIL_POINT(operator_return_large_column);
 DEFINE_FAIL_POINT(global_runtime_filter_sync_A);
+
+DriverPtr PipelineDriver::create_in_pool(MemPool* pool, const Operators& operators, QueryContext* query_ctx,
+                                         FragmentContext* fragment_ctx, Pipeline* pipeline, int32_t driver_id) {
+    DCHECK(pool != nullptr);
+    void* buf = pool->allocate_aligned(sizeof(PipelineDriver), alignof(PipelineDriver));
+    auto* raw = new (buf) PipelineDriver(operators, query_ctx, fragment_ctx, pipeline, driver_id);
+    // Custom deleter: run destructor only. The slab is reclaimed with the MemPool.
+    return DriverPtr(raw, [](PipelineDriver* p) { p->~PipelineDriver(); });
+}
+
+DriverPtr PipelineDriver::clone() {
+    MemPool* pool = _fragment_ctx != nullptr ? _fragment_ctx->fragment_mem_pool() : nullptr;
+    if (pool == nullptr) {
+        return std::make_shared<PipelineDriver>(*this);
+    }
+    return create_in_pool(pool, _operators, _query_ctx, _fragment_ctx, _pipeline, _driver_id);
+}
 
 PipelineDriver::~PipelineDriver() noexcept {
     if (_workgroup != nullptr) {
