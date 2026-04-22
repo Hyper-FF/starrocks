@@ -66,7 +66,7 @@ bool strtox(const std::string& valstr, bool& retval) {
 
 template <typename T>
 bool strtointeger(const std::string& valstr, T& retval) {
-    if (valstr.length() == 0) {
+    if (valstr.empty()) {
         return false; // empty-string is only allowed for string type.
     }
     char* end;
@@ -98,7 +98,7 @@ bool strtox(const std::string& valstr, int64_t& retval) {
 }
 
 bool strtox(const std::string& valstr, double& retval) {
-    if (valstr.length() == 0) {
+    if (valstr.empty()) {
         return false; // empty-string is only allowed for string type.
     }
     char* end = nullptr;

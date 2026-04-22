@@ -240,7 +240,7 @@ void TaskWorkerPool<AgentTaskRequest>::submit_tasks(const std::vector<const TAge
             }
         }
     }
-    if (fail_ss.str().length() > 0) {
+    if (!fail_ss.str().empty()) {
         LOG(INFO) << "fail to register task. type=" << type_str << ", signatures=[" << fail_ss.str() << "]";
     }
 
@@ -267,7 +267,7 @@ void TaskWorkerPool<AgentTaskRequest>::submit_tasks(const std::vector<const TAge
         _worker_thread_condition_variable->notify_all();
     }
 
-    if (succ_ss.str().length() > 0) {
+    if (!succ_ss.str().empty()) {
         LOG(INFO) << "success to submit task. type=" << type_str << ", signature=[" << succ_ss.str()
                   << "], task_count_in_queue=" << queue_size;
     }

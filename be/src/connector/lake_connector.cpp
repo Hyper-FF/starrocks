@@ -704,7 +704,7 @@ Status LakeDataSource::init_column_access_paths(Schema* schema) {
 }
 
 Status prune_field_by_access_paths(Field* field, ColumnAccessPath* path) {
-    if (path->children().size() < 1) {
+    if (path->children().empty()) {
         return Status::OK();
     }
     if (field->type()->type() == LogicalType::TYPE_ARRAY) {

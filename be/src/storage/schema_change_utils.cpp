@@ -791,7 +791,7 @@ Status SchemaChangeUtils::parse_request_for_sort_key(const TabletSchemaCSPtr& ba
 
 Status SchemaChangeUtils::init_column_mapping(ColumnMapping* column_mapping, const TabletColumn& column_schema,
                                               const std::string& value) {
-    if (column_schema.is_nullable() && value.length() == 0) {
+    if (column_schema.is_nullable() && value.empty()) {
         column_mapping->default_value_datum.set_null();
     } else {
         auto field_type = column_schema.type();

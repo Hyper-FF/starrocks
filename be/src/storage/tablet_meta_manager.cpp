@@ -274,7 +274,7 @@ Status TabletMetaManager::get_primary_meta(KVStore* meta, TTabletId tablet_id, T
         decode_del_vector_key(key, &tid, &segment_id, &version);
 
         if (tid == tablet_id) {
-            if (value.length() == 0) {
+            if (value.empty()) {
                 st = Status::Corruption("bad del vector data");
                 return false;
             }

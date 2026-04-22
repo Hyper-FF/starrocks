@@ -319,7 +319,7 @@ private:
             return result;
         }
 
-        if (_json_slice.length() == 0) {
+        if (_json_slice.empty()) {
             DatumMap datum_map;
             Datum result;
             result.set<DatumMap>(datum_map);

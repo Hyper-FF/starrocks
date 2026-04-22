@@ -220,7 +220,7 @@ struct ScalarTypeInfoImplBase {
 
     static Status from_string(void* buf, const std::string& scan_key) {
         CppType value = 0;
-        if (scan_key.length() > 0) {
+        if (!scan_key.empty()) {
             value = static_cast<CppType>(strtol(scan_key.c_str(), nullptr, 10));
         }
         unaligned_store<CppType>(buf, value);
@@ -548,7 +548,7 @@ template <>
 struct ScalarTypeInfoImpl<TYPE_FLOAT> : public ScalarTypeInfoImplBase<TYPE_FLOAT> {
     static Status from_string(void* buf, const std::string& scan_key) {
         CppType value = 0.0f;
-        if (scan_key.length() > 0) {
+        if (!scan_key.empty()) {
             value = static_cast<CppType>(atof(scan_key.c_str()));
         }
         unaligned_store<CppType>(buf, value);
@@ -566,7 +566,7 @@ template <>
 struct ScalarTypeInfoImpl<TYPE_DOUBLE> : public ScalarTypeInfoImplBase<TYPE_DOUBLE> {
     static Status from_string(void* buf, const std::string& scan_key) {
         CppType value = 0.0;
-        if (scan_key.length() > 0) {
+        if (!scan_key.empty()) {
             value = atof(scan_key.c_str());
         }
         unaligned_store<CppType>(buf, value);

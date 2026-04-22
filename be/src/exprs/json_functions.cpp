@@ -977,7 +977,7 @@ StatusOr<ColumnPtr> JsonFunctions::json_object(FunctionContext* context, const C
                     ok = false;
                     break;
                 }
-                if (field_name_slice.stringRef().length() == 0) {
+                if (field_name_slice.stringRef().empty()) {
                     VLOG(2) << "json field name could not be empty string" << field_name->to_string().value();
                     ok = false;
                     break;

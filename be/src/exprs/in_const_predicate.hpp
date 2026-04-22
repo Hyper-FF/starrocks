@@ -122,7 +122,7 @@ public:
             return Status::InternalError("Unknown NULL Type column.");
         }
 
-        if (_children.size() < 1) {
+        if (_children.empty()) {
             return Status::InternalError("VectorizedInPredicate has no arguments.");
         }
 

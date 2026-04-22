@@ -387,7 +387,7 @@ Status SegmentMetaCollecter::_collect_flat_json(ColumnId cid, Column* column) {
         return Status::InternalError("column type mismatch");
     }
 
-    if (col_reader->sub_readers() == nullptr || col_reader->sub_readers()->size() < 1) {
+    if (col_reader->sub_readers() == nullptr || col_reader->sub_readers()->empty()) {
         column->append_datum(DatumArray());
         return Status::OK();
     }
@@ -443,7 +443,7 @@ Status SegmentMetaCollecter::_collect_dict_for_column(ColumnIterator* column_ite
     }
 
     // array<string> has none dict, return directly
-    if (words.size() < 1) {
+    if (words.empty()) {
         return Status::OK();
     }
 

@@ -541,7 +541,7 @@ static Status sort_and_tie_column(const std::atomic<bool>& cancel, const Column*
 
 Status sort_and_tie_columns(const std::atomic<bool>& cancel, const Columns& columns, const SortDescs& sort_desc,
                             Permutation* permutation) {
-    if (columns.size() < 1) {
+    if (columns.empty()) {
         return Status::OK();
     }
     size_t num_rows = columns[0]->size();
@@ -554,7 +554,7 @@ Status sort_and_tie_columns(const std::atomic<bool>& cancel, const Columns& colu
 
 Status sort_and_tie_columns(const std::atomic<bool>& cancel, const Columns& columns, const SortDescs& sort_desc,
                             SmallPermutation& permutation) {
-    if (columns.size() < 1) {
+    if (columns.empty()) {
         return Status::OK();
     }
     const size_t num_rows = columns.at(0)->size();
@@ -636,7 +636,7 @@ Status sort_and_tie_columns(const std::atomic<bool>& cancel, const std::vector<c
 
 Status stable_sort_and_tie_columns(const std::atomic<bool>& cancel, const Columns& columns, const SortDescs& sort_desc,
                                    SmallPermutation* small_perm) {
-    if (columns.size() < 1) {
+    if (columns.empty()) {
         return Status::OK();
     }
     size_t num_rows = columns[0]->size();
