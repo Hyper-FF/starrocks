@@ -256,7 +256,9 @@ public class ImplicitCastRuleTest {
         try {
             ImplicitCastRule rule = new ImplicitCastRule();
 
-            // Cross-family cast (varchar -> int) must be rejected.
+            // Cross-family cast (varchar -> int) must be rejected even though
+            // optimizeConstantAndVariable would otherwise fold the literal
+            // into an INT constant without ever building a CastOperator.
             BinaryPredicateOperator crossFamily = new BinaryPredicateOperator(BinaryType.EQ,
                     new ColumnRefOperator(1, IntegerType.INT, "c_int", true),
                     ConstantOperator.createVarchar("1"));
@@ -269,6 +271,25 @@ public class ImplicitCastRuleTest {
             ScalarOperator result = rule.apply(sameFamily, null);
             assertTrue(result.getChild(0).getType().isBigint());
             assertTrue(result.getChild(1).getType().isBigint());
+        } finally {
+            ConnectContext.remove();
+        }
+    }
+
+    @Test
+    public void testForbidInvalidImplicitCastModeInPredicateLiteralFold() {
+        ConnectContext ctx = new ConnectContext(null);
+        ctx.getSessionVariable().setSqlMode(SqlModeHelper.MODE_FORBID_INVALID_IMPLICIT_CAST);
+        ctx.setThreadLocalInfo();
+        try {
+            // int_col IN ('1', '2') also takes a literal-fold fast path in
+            // castForBetweenAndIn; strict mode must reject it.
+            InPredicateOperator op = new InPredicateOperator(
+                    new ColumnRefOperator(1, IntegerType.INT, "c_int", true),
+                    ConstantOperator.createVarchar("1"),
+                    ConstantOperator.createVarchar("2"));
+            ImplicitCastRule rule = new ImplicitCastRule();
+            assertThrows(SemanticException.class, () -> rule.apply(op, null));
         } finally {
             ConnectContext.remove();
         }

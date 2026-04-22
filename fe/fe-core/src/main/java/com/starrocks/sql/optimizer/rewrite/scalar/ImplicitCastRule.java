@@ -260,6 +260,11 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
                 (typeVariable.isBoolean() && typeConstant.isStringType()) ||
                 checkStringCastToNumber) {
 
+            // Folding the constant directly into the variable's type is an
+            // implicit coercion even though no CastOperator is produced, so
+            // the strict-mode guard must run here too.
+            checkImplicitCastAllowed(typeConstant, typeVariable);
+
             Optional<ScalarOperator> op = Utils.tryCastConstant(constant, variable.getType());
             if (op.isPresent()) {
                 predicate.getChildren().set(constantIndex, op.get());
@@ -366,6 +371,12 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
         List<Type> types = predicate.getChildren().stream().map(ScalarOperator::getType).collect(Collectors.toList());
         if (predicate.getChild(0).isVariable() && predicate.getChildren().stream().skip(1)
                 .allMatch(ScalarOperator::isConstantRef)) {
+            // Same strict-mode concern as optimizeConstantAndVariable: each
+            // constant will be folded into firstType without producing a
+            // CastOperator, so validate before we start the fold.
+            for (int i = 1; i < types.size(); i++) {
+                checkImplicitCastAllowed(types.get(i), firstType);
+            }
             List<ScalarOperator> newChild = Lists.newArrayList();
             newChild.add(predicate.getChild(0));
             for (int i = 1; i < types.size(); i++) {
