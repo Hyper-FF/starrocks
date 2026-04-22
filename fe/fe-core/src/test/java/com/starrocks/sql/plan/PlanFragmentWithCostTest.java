@@ -1609,6 +1609,19 @@ public class PlanFragmentWithCostTest extends PlanWithCostTestBase {
                     "  |  group by: 2: v2\n" +
                     "  |  \n" +
                     "  2:EXCHANGE");
+
+            // case 10: Exchange carrying an OFFSET (from an outer `LIMIT m, n`) must NOT be removed
+            // by removeExchangeNodeForLocalShuffleAgg. The OFFSET is enforced once on the consolidated
+            // stream, so dropping the Exchange would silently lose the OFFSET slice and yield a count
+            // computed over the full 30-row scan instead of the 20-row slice after skipping 10 rows.
+            isSingleBackendAndComputeNode.setRef(true);
+            cardinality.setRef(avgHighCardinality);
+            sql = "select count(*) from (select * from t0 limit 10, 20) xx";
+            execPlan = getExecPlan(sql);
+            plan = execPlan.getExplainString(TExplainLevel.NORMAL);
+            assertContains(plan, "EXCHANGE\n" +
+                    "     offset: 10\n" +
+                    "     limit: 20");
         } finally {
             connectContext.getSessionVariable().setEnableLocalShuffleAgg(prevEnableLocalShuffleAgg);
             connectContext.getSessionVariable().setEnableEliminateAgg(prevEliminateAgg);

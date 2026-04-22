@@ -2132,6 +2132,14 @@ public class PlanFragmentBuilder {
                 return inputFragment;
             }
 
+            // The ExchangeNode can carry an OFFSET forwarded from an outer `LIMIT m, n` clause
+            // (see visitPhysicalLimit), and that OFFSET is enforced once on the consolidated
+            // stream. Removing the ExchangeNode and replacing it with a per-driver Local Shuffle
+            // would silently drop the OFFSET slice. Keep the ExchangeNode in that case.
+            if (node.getOffset() > 0) {
+                return inputFragment;
+            }
+
             // SourceFragment should match "[ProjectNode->]ScanNode" pattern.
             PlanNode sourceFragmentRoot = inputFragment.getPlanRoot().getChild(0);
             if (!onlyContainNodeTypes(sourceFragmentRoot, ImmutableList.of(ScanNode.class, ProjectNode.class))) {
