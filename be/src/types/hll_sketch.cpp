@@ -35,13 +35,9 @@ bool DataSketchesHll::is_valid(const Slice& slice) {
     }
 
     const uint8_t preInts = static_cast<const uint8_t*>((uint8_t*)slice.data)[0];
-    if (preInts == datasketches::hll_constants::HLL_PREINTS ||
-        preInts == datasketches::hll_constants::HASH_SET_PREINTS ||
-        preInts == datasketches::hll_constants::LIST_PREINTS) {
-        return true;
-    } else {
-        return false;
-    }
+    return preInts == datasketches::hll_constants::HLL_PREINTS ||
+           preInts == datasketches::hll_constants::HASH_SET_PREINTS ||
+           preInts == datasketches::hll_constants::LIST_PREINTS;
 }
 
 void DataSketchesHll::update(uint64_t hash_value) {

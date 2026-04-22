@@ -236,7 +236,7 @@ void ColumnValueRange<T>::to_olap_filter(std::vector<ConditionType>& filters) {
     // If we have fixed range value, we generate in/not-in predicates.
     if (is_fixed_value_range()) {
         DCHECK(_fixed_op == FILTER_IN || _fixed_op == FILTER_NOT_IN);
-        bool filter_in = (_fixed_op == FILTER_IN) ? true : false;
+        bool filter_in = _fixed_op == FILTER_IN;
         if constexpr (Negative) {
             filter_in = !filter_in;
         }

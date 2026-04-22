@@ -16,7 +16,7 @@
 
 namespace starrocks {
 // IS LITTLE ENDIAN?
-bool Sm3::is_little_endian = (*(char*)&Sm3::ENDIAN_TEST_VALUE == 1) ? true : false;
+bool Sm3::is_little_endian = *(char*)&Sm3::ENDIAN_TEST_VALUE == 1;
 
 // Cyclic shift left k-bit operation
 unsigned int Sm3::left_rotate(unsigned int word, int k) {

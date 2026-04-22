@@ -308,7 +308,7 @@ Status EsPredicate::_build_functioncall_predicate(const Expr* conjunct, bool* ha
             if (slot_desc == nullptr) {
                 return Status::InternalError("build disjuncts failed: no SLOT_REF child");
             }
-            bool is_not_null = fname == "is_not_null_pred" ? true : false;
+            bool is_not_null = fname == "is_not_null_pred";
             std::string col{slot_desc->col_name()};
             if (_field_context.find(col) != _field_context.end()) {
                 col = _field_context[col];

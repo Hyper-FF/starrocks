@@ -593,7 +593,7 @@ public:
             Status st;
             RETURN_IF_ERROR(iterate_dir(dirname, [&](std::string_view name) -> bool {
                 st = delete_dir_recursive(fmt::format("{}/{}", dirname, name));
-                return st.ok() ? true : false;
+                return st.ok();
             }));
             RETURN_IF_ERROR(st);
             return delete_dir(dirname);

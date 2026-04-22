@@ -476,7 +476,7 @@ bool DecimalV2Value::greater_than_scale(int scale) {
 
     int frac_val = frac_value();
     if (scale == 0) {
-        bool ret = frac_val == 0 ? false : true;
+        bool ret = frac_val != 0;
         return ret;
     }
 

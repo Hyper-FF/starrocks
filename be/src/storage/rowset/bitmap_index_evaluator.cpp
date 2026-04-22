@@ -57,7 +57,7 @@ struct BitmapIndexInitializer {
                               CompoundNodeType) const {
         auto& node_ctx = parent->_ctx.compound_node_to_context.emplace(&node, BitmapContext::CompoundNodeContext{})
                                  .first->second;
-        bool has_bitmap_index = Type == CompoundNodeType::AND ? false : true;
+        bool has_bitmap_index = Type != CompoundNodeType::AND;
         for (const auto& child : node.children()) {
             ASSIGN_OR_RETURN(const auto child_has_bitmap_index, child.visit(*this, &node_ctx, Type));
             if constexpr (Type == CompoundNodeType::AND) {

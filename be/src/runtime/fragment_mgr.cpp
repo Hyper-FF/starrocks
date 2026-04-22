@@ -629,7 +629,7 @@ void FragmentMgr::report_fragments_with_same_host(
         const TNetworkAddress& last_coord_addr, std::vector<TReportExecStatusParams>& report_exec_status_params_vector,
         std::vector<int32_t>& cur_batch_report_indexes) {
     for (int i = 0; i < need_report_exec_states.size(); i++) {
-        if (reported[i] == false) {
+        if (!reported[i]) {
             FragmentExecState* fragment_exec_state = need_report_exec_states[i].get();
             PlanFragmentExecutor* executor = fragment_exec_state->executor();
 
@@ -694,7 +694,7 @@ void FragmentMgr::report_fragments(const std::vector<TUniqueId>& non_pipeline_ne
 
     std::vector<bool> reported(need_report_exec_states.size(), false);
     for (int i = 0; i < need_report_exec_states.size(); i++) {
-        if (reported[i] == false) {
+        if (!reported[i]) {
             reported[i] = true;
 
             FragmentExecState* fragment_exec_state = need_report_exec_states[i].get();

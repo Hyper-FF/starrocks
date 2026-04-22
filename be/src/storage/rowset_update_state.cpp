@@ -377,7 +377,7 @@ Status RowsetUpdateState::_prepare_partial_update_states(Tablet* tablet, Rowset*
         _partial_update_states.resize(rowset->num_segments());
     }
 
-    if (_partial_update_states[idx].inited == true) {
+    if (_partial_update_states[idx].inited) {
         return Status::OK();
     }
 

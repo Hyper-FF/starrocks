@@ -159,7 +159,7 @@ void LZ4F_DCtx_Deleter::operator()(LZ4FDecompressContext* context) const noexcep
 
 Status LZ4F_CCtx_Resetter::operator()(LZ4FCompressContext* context) const noexcept {
     context->compression_count++;
-    if (context->compression_fail == true) {
+    if (context->compression_fail) {
         LZ4F_freeCompressionContext(context->ctx);
         LZ4F_compressionContext_t new_ctx = nullptr;
         auto res = LZ4F_createCompressionContext(&new_ctx, LZ4F_VERSION);
@@ -179,7 +179,7 @@ Status LZ4F_CCtx_Resetter::operator()(LZ4FCompressContext* context) const noexce
 Status LZ4F_DCtx_Resetter::operator()(LZ4FDecompressContext* context) const noexcept {
     context->decompression_count++;
     LZ4F_resetDecompressionContext(context->ctx);
-    if (context->decompression_fail == true) {
+    if (context->decompression_fail) {
         context->decompression_fail = false;
     }
     return Status::OK();

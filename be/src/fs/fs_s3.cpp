@@ -597,7 +597,7 @@ Status S3FileSystem::iterate_dir(const std::string& dir, const std::function<boo
         uri.key().push_back('/');
     }
     // `uri.key().empty()` is true means this is a root directory.
-    bool directory_exist = uri.key().empty() ? true : false;
+    bool directory_exist = uri.key().empty();
     auto client = new_s3client(uri, _options);
     Aws::S3::Model::ListObjectsV2Request request;
     Aws::S3::Model::ListObjectsV2Result result;
@@ -656,7 +656,7 @@ Status S3FileSystem::iterate_dir_v1(const std::string& dir, const std::function<
         uri.key().push_back('/');
     }
     // `uri.key().empty()` is true means this is a root directory.
-    bool directory_exist = uri.key().empty() ? true : false;
+    bool directory_exist = uri.key().empty();
     auto client = new_s3client(uri, _options);
     Aws::S3::Model::ListObjectsRequest request;
     Aws::S3::Model::ListObjectsResult result;
@@ -719,7 +719,7 @@ Status S3FileSystem::iterate_dir2(const std::string& dir, const std::function<bo
         uri.key().push_back('/');
     }
     // `uri.key().empty()` is true means this is a root directory.
-    bool directory_exist = uri.key().empty() ? true : false;
+    bool directory_exist = uri.key().empty();
     auto client = new_s3client(uri, _options);
     Aws::S3::Model::ListObjectsV2Request request;
     Aws::S3::Model::ListObjectsV2Result result;
@@ -788,7 +788,7 @@ Status S3FileSystem::iterate_dir2_v1(const std::string& dir, const std::function
         uri.key().push_back('/');
     }
     // `uri.key().empty()` is true means this is a root directory.
-    bool directory_exist = uri.key().empty() ? true : false;
+    bool directory_exist = uri.key().empty();
     auto client = new_s3client(uri, _options);
     Aws::S3::Model::ListObjectsRequest request;
     Aws::S3::Model::ListObjectsResult result;

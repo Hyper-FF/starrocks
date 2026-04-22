@@ -122,7 +122,7 @@ Status ColumnChunkReader::_parse_page_header() {
         _opts.stats->has_page_statistics |=
                 (page_header.__isset.statistics &&
                  (page_header.statistics.__isset.min_value || page_header.statistics.__isset.min));
-        _current_page_no_null = (page_header.num_nulls == 0) ? true : false;
+        _current_page_no_null = page_header.num_nulls == 0;
     }
 
     return Status::OK();

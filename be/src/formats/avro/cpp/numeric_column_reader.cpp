@@ -170,13 +170,13 @@ Status BooleanColumnReader::read_datum(const avro::GenericDatum& datum, Column* 
 Status BooleanColumnReader::read_numeric_value(const avro::GenericDatum& datum, FixedLengthColumn<uint8_t>* column) {
     switch (datum.type()) {
     case avro::AVRO_INT: {
-        bool from = datum.value<int32_t>() != 0 ? true : false;
+        bool from = datum.value<int32_t>() != 0;
         column->append(from);
         return Status::OK();
     }
 
     case avro::AVRO_LONG: {
-        bool from = datum.value<int64_t>() != 0 ? true : false;
+        bool from = datum.value<int64_t>() != 0;
         column->append(from);
         return Status::OK();
     }

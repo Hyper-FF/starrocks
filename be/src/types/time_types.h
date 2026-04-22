@@ -325,11 +325,7 @@ Timestamp date::to_timestamp(JulianDate date) {
 // else return false;
 bool date::char_to_digit(const char* value, int i, uint8_t* v) {
     *v = *(value + i) - '0';
-    if (*v > 9) {
-        return true;
-    } else {
-        return false;
-    }
+    return *v > 9;
 }
 
 bool date::check(int year, int month, int day) {

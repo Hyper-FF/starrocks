@@ -967,7 +967,7 @@ public:
     }
 
     type_of_iterator& operator++() { // ++i, must returned inc. value
-        if (i.has_value == true) roaring_uint32_iterator_advance(&i);
+        if (i.has_value) roaring_uint32_iterator_advance(&i);
         while (!i.has_value) {
             map_iter++;
             if (map_iter == map_end) return *this;

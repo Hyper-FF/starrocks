@@ -450,11 +450,8 @@ bool CacheOperator::probe_cache(int64_t tablet_id, int64_t version) {
     if (buffer->state == PLBS_HIT_TOTAL) {
         _lane_arbiter->mark_processed(tablet_id);
         return true;
-    } else if (buffer->state == PLBS_HIT_PARTIAL) {
-        return true;
-    } else {
-        return false;
     }
+    return buffer->state == PLBS_HIT_PARTIAL;
 }
 
 void CacheOperator::populate_cache(int64_t tablet_id) {
