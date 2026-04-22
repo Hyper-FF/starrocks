@@ -1416,6 +1416,7 @@ JDBC 接続プール C3P0 との互換性のために使用されます。実際
 * `SORT_NULLS_LAST`: ソート後に NULL 値を最後に配置します。
 * `ERROR_IF_OVERFLOW`: 算術オーバーフローが発生した場合に NULL の代わりにエラーを返します。現在、このオプションは DECIMAL データ型にのみ対応しています。
 * `GROUP_CONCAT_LEGACY`: v2.5 およびそれ以前の `group_concat` 構文を使用します。このオプションは v3.0.9 および v3.1.6 からサポートされています。
+* `FORBID_INVALID_IMPLICIT_CAST`: プラン時に、互換性のない型ファミリ間の暗黙的なキャスト（例: `numeric` と `string`、`numeric` と `date`、`string` と `date`）を拒否します。Trino の厳格な型チェック動作に似ています。同一ファミリ内の変換（`INT` から `BIGINT`、`VARCHAR(5)` から `VARCHAR(10)` など）は引き続き許可されます。無効な暗黙的キャストが必要な場合、クエリはセマンティックエラーで失敗します。明示的な `CAST` を使用して変換してください。
 
 1 つの SQL モードのみを設定できます。例：
 

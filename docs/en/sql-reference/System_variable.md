@@ -1706,6 +1706,7 @@ Used to specify the SQL mode to accommodate certain SQL dialects. Valid values i
 * `SORT_NULLS_LAST`: places NULL values at the end after sorting.
 * `ERROR_IF_OVERFLOW`: returns an error instead of NULL in the case of arithmetic overflow. Currently, only the DECIMAL data type supports this option.
 * `GROUP_CONCAT_LEGACY`: uses the `group_concat` syntax of v2.5 and earlier. This option is supported from v3.0.9 and v3.1.6.
+* `FORBID_INVALID_IMPLICIT_CAST`: rejects implicit casts between incompatible type families (for example, `numeric` and `string`, `numeric` and `date`, `string` and `date`) at plan time, similar to Trino's strict type-checking behavior. Same-family conversions such as `INT` to `BIGINT` or `VARCHAR(5)` to `VARCHAR(10)` remain allowed. When an invalid implicit cast is required, the query fails with a semantic error; use an explicit `CAST` to perform the conversion.
 
 You can set only one SQL mode, for example:
 
