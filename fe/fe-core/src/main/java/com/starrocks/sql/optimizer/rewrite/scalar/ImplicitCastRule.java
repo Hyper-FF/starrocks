@@ -437,7 +437,10 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
             return isNumericWidening(from, to);
         }
         if (from.isStringType() && to.isStringType()) {
-            return isStringWidening(from, to);
+            // VARCHAR/CHAR length is a declared maximum in StarRocks and is
+            // not treated as a strict type bound, so we allow any implicit
+            // cast within the string family regardless of length.
+            return true;
         }
         if (from.isDateType() && to.isDateType()) {
             // DATE -> DATETIME is widening; DATETIME -> DATE is narrowing.
@@ -507,26 +510,4 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
         return -1;
     }
 
-    // Trino allows VARCHAR/CHAR to VARCHAR/CHAR only when the target length is
-    // >= the source length (unbounded VARCHAR has length -1, which is treated
-    // as the largest possible length).
-    private static boolean isStringWidening(Type from, Type to) {
-        if (!(from instanceof ScalarType) || !(to instanceof ScalarType)) {
-            return false;
-        }
-        // CHAR -> VARCHAR widening is allowed; VARCHAR -> CHAR is not.
-        if (from.isVarchar() && to.isChar()) {
-            return false;
-        }
-        int fromLen = ((ScalarType) from).getLength();
-        int toLen = ((ScalarType) to).getLength();
-        // -1 on VARCHAR means "unbounded".
-        if (toLen == -1) {
-            return true;
-        }
-        if (fromLen == -1) {
-            return false;
-        }
-        return toLen >= fromLen;
-    }
 }
