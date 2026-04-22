@@ -102,7 +102,7 @@ public:
         DCHECK_EQ(footer.uncompressed_size(), Slice::compute_total_size(body));
         faststring compressed_body;
         RETURN_IF_ERROR(compress_page_body(codec, min_space_saving, body, &compressed_body));
-        if (compressed_body.size() == 0) { // uncompressed
+        if (compressed_body.empty()) { // uncompressed
             return write_page(wfile, body, footer, result);
         }
         return write_page(wfile, {Slice(compressed_body)}, footer, result);

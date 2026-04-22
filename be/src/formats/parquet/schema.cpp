@@ -51,7 +51,7 @@ std::string ParquetField::debug_string() const {
     std::stringstream ss;
     ss << "ParquetField(name=" << name << ",type=" << column_type_to_string(type) << ",physical_type=" << physical_type
        << ",physical_column_index=" << physical_column_index << ",levels_info=" << level_info.debug_string();
-    if (children.size() > 0) {
+    if (!children.empty()) {
         ss << ",children=[";
         for (int i = 0; i < children.size(); ++i) {
             if (i != 0) {
@@ -377,7 +377,7 @@ Status SchemaDescriptor::node_to_field(const std::vector<tparquet::SchemaElement
 
 // The schema resolve logic is copied from https://github.com/apache/arrow/blob/main/cpp/src/parquet/arrow/schema.cc
 Status SchemaDescriptor::from_thrift(const std::vector<tparquet::SchemaElement>& t_schemas, bool case_sensitive) {
-    if (t_schemas.size() == 0) {
+    if (t_schemas.empty()) {
         return Status::InvalidArgument("Empty parquet Schema");
     }
     auto* root_schema = &t_schemas[0];

@@ -195,7 +195,7 @@ Status EngineCloneTask::_do_clone(Tablet* tablet) {
 
         std::vector<Version> missed_versions;
         tablet->calc_missed_versions(_clone_req.committed_version, &missed_versions);
-        if (missed_versions.size() == 0) {
+        if (missed_versions.empty()) {
             LOG(INFO) << "Cloning existing tablet skipped, no missing version. tablet:" << tablet->tablet_id()
                       << " type:" << KeysType_Name(tablet->keys_type()) << " version:" << _clone_req.committed_version;
             return Status::OK();
@@ -302,7 +302,7 @@ Status EngineCloneTask::_do_clone(Tablet* tablet) {
                     RETURN_IF_ERROR(
                             DeltaColumnGroupListSerializer::deserialize_delta_column_group_list(dcg_list_pb, &dcgs));
 
-                    if (dcgs.size() == 0) {
+                    if (dcgs.empty()) {
                         ++idx;
                         continue;
                     }
@@ -775,7 +775,7 @@ Status EngineCloneTask::_finish_clone(Tablet* tablet, const string& clone_dir, i
         }
 
         // recover dcg meta
-        if (has_dcgs_snapshot_file && rs_to_clone.size() != 0) {
+        if (has_dcgs_snapshot_file && !rs_to_clone.empty()) {
             auto data_dir = tablet->data_dir();
             rocksdb::WriteBatch wb;
             for (const auto& rs_meta : rs_to_clone) {
@@ -791,7 +791,7 @@ Status EngineCloneTask::_finish_clone(Tablet* tablet, const string& clone_dir, i
                     RETURN_IF_ERROR(
                             DeltaColumnGroupListSerializer::deserialize_delta_column_group_list(dcg_list_pb, &dcgs));
 
-                    if (dcgs.size() == 0) {
+                    if (dcgs.empty()) {
                         ++idx;
                         continue;
                     }

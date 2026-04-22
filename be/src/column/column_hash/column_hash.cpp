@@ -313,7 +313,7 @@ public:
     }
 
     Status do_visit(const ConstColumn& column) {
-        DCHECK(column.size() > 0);
+        DCHECK(!column.empty());
         const ColumnPtr& data = column.data_column();
         _selector.for_each([&](uint32_t idx) {
             uint32_t* slot_ptr = slot(idx);

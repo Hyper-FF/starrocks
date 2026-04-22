@@ -251,7 +251,7 @@ void HiveDataSource::_init_global_late_materialization_context(RuntimeState* sta
 
 void HiveDataSource::_update_has_any_predicate() {
     auto f = [&]() {
-        if (_runtime_filters != nullptr && _runtime_filters->size() > 0) return true;
+        if (_runtime_filters != nullptr && !_runtime_filters->empty()) return true;
         return false;
     };
     _has_any_predicate = f();

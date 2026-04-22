@@ -129,7 +129,7 @@ struct MergeEntry {
                 chunk_pk_column =
                         chunk->get_column_raw_ptr_by_index(chunk->schema()->sort_key_idxes()[0])->as_mutable_ptr();
             }
-            DCHECK(chunk_pk_column->size() > 0);
+            DCHECK(!chunk_pk_column->empty());
             DCHECK(chunk_pk_column->size() == chunk->num_rows());
             // 2. setup pk cursor
             if constexpr (std::is_same_v<T, Slice>) {

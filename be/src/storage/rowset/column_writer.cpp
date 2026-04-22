@@ -542,7 +542,7 @@ inline Status ScalarColumnWriter::set_encoding(const EncodingTypePB& encoding) {
     if (_encoding_info != nullptr && _encoding_info->encoding() == encoding) {
         return Status::OK();
     }
-    if (_page_builder != nullptr && _page_builder->size() != 0) {
+    if (_page_builder != nullptr && !_page_builder->empty()) {
         return Status::InternalError("reset encoding failed.");
     }
     PageBuilder* page_builder = nullptr;
@@ -659,7 +659,7 @@ Status ScalarColumnWriter::finish_current_page() {
     faststring compressed_body;
     RETURN_IF_ERROR(
             PageIO::compress_page_body(_compress_codec, _opts.compression_min_space_saving, body, &compressed_body));
-    if (compressed_body.size() == 0) {
+    if (compressed_body.empty()) {
         // page body is uncompressed
         double space_saving =
                 1.0 - static_cast<double>(encoded_values->size()) / static_cast<double>(encoded_values->capacity());

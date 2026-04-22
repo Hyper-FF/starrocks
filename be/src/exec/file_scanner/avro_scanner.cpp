@@ -115,7 +115,7 @@ std::string AvroScanner::preprocess_jsonpaths(std::string jsonpaths) {
 }
 
 Status AvroScanner::open() {
-    if (_scan_range.ranges.size() == 0) {
+    if (_scan_range.ranges.empty()) {
         return Status::EndOfFile("EOF of reading protobuf file");
     }
     const TBrokerRangeDesc& range_desc = _scan_range.ranges[0];

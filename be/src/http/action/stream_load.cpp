@@ -532,10 +532,10 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req, StreamLoadContext* 
             return Status::InvalidArgument("Invalid trim space format. Must be bool type");
         }
     }
-    if (!http_req->header(HTTP_ENCLOSE).empty() && http_req->header(HTTP_ENCLOSE).size() > 0) {
+    if (!http_req->header(HTTP_ENCLOSE).empty() && !http_req->header(HTTP_ENCLOSE).empty()) {
         request.__set_enclose(http_req->header(HTTP_ENCLOSE)[0]);
     }
-    if (!http_req->header(HTTP_ESCAPE).empty() && http_req->header(HTTP_ESCAPE).size() > 0) {
+    if (!http_req->header(HTTP_ESCAPE).empty() && !http_req->header(HTTP_ESCAPE).empty()) {
         request.__set_escape(http_req->header(HTTP_ESCAPE)[0]);
     }
     if (!http_req->header(HTTP_PARTITIONS).empty()) {

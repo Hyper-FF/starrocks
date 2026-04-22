@@ -73,7 +73,7 @@ public:
     explicit AdaptiveNullableColumn(MutableColumnPtr&& data_column, MutableColumnPtr&& null_column)
             : SuperClass(std::move(data_column), std::move(null_column)) {
         DCHECK_EQ(_null_column->size(), _data_column->size());
-        if (_data_column->size() == 0) {
+        if (_data_column->empty()) {
             _state = State::kUninitialized;
             _size = 0;
         } else {

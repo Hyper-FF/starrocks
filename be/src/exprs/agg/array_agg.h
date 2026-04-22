@@ -67,7 +67,7 @@ struct ArrayAggAggregateState {
 
     ColumnType* get_data_column() {
         auto size = set.size();
-        if (data_column.size() > 0 || size == 0) {
+        if (!data_column.empty() || size == 0) {
             return &data_column;
         }
         data_column.reserve(size);
@@ -151,7 +151,7 @@ struct ArrayAggAggregateState<PT, is_distinct, MyHashSet, StringOrBinaryGuard<PT
 
     ColumnType* get_data_column() {
         auto size = set.size();
-        if (data_column.size() > 0 || size == 0) {
+        if (!data_column.empty() || size == 0) {
             return &data_column;
         }
         data_column.reserve(size);
@@ -633,7 +633,7 @@ public:
         if constexpr (std::is_same_v<AggState, ArrayAggWindowStateV2>) {
             auto& state_impl = this->data(const_cast<AggDataPtr>(state));
             auto* result_column = state_impl.result_column.get();
-            if (result_column->size() == 0) {
+            if (result_column->empty()) {
                 finalize_to_column(ctx, state, result_column);
             }
             DCHECK(result_column->size() == 1);

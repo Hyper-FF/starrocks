@@ -707,7 +707,7 @@ Status TabletReader::to_seek_tuple(const TabletSchema& tablet_schema, const Olap
     const auto& sort_key_idxes = tablet_schema.sort_key_idxes();
     DCHECK(sort_key_idxes.empty() || sort_key_idxes.size() >= input.size());
 
-    if (sort_key_idxes.size() > 0) {
+    if (!sort_key_idxes.empty()) {
         for (auto idx : sort_key_idxes) {
             schema.append_sort_key_idx(idx);
         }

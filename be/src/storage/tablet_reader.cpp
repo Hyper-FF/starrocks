@@ -224,7 +224,7 @@ Status TabletReader::_init_collector_for_pk_index_read() {
                 const auto cid = col_pred->column_id();
                 if (cid < tablet_schema->num_key_columns() && col_pred->type() == PredicateType::kEQ) {
                     auto* column = keys->get_column_raw_ptr_by_id(cid);
-                    if (column->size() != 0) {
+                    if (!column->empty()) {
                         return Status::NotSupported(
                                 strings::Substitute("multiple eq predicates on same pk column columnId=$0", cid));
                     }
@@ -652,7 +652,7 @@ Status TabletReader::_to_seek_tuple(const TabletSchemaCSPtr& tablet_schema, cons
     const auto& sort_key_idxes = tablet_schema->sort_key_idxes();
     DCHECK(sort_key_idxes.empty() || sort_key_idxes.size() >= input.size());
 
-    if (sort_key_idxes.size() > 0) {
+    if (!sort_key_idxes.empty()) {
         for (auto idx : sort_key_idxes) {
             schema.append_sort_key_idx(idx);
         }

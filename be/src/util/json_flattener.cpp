@@ -1542,7 +1542,7 @@ Status HyperJsonTransformer::trans(const Columns& columns) {
 
     size_t rows = columns[0]->size();
     for (size_t i = 0; i < _dst_columns.size(); i++) {
-        if (_dst_columns[i]->size() == 0) {
+        if (_dst_columns[i]->empty()) {
             _dst_columns[i]->append_default(rows);
         } else {
             DCHECK_EQ(rows, _dst_columns[i]->size());

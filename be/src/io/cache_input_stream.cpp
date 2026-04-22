@@ -358,7 +358,7 @@ Status CacheInputStream::read_at_fully(int64_t offset, void* out, int64_t count)
     }
     DCHECK(p == pe);
 
-    if (need_read_from_remote.size() == 0) {
+    if (need_read_from_remote.empty()) {
         return Status::OK();
     }
 

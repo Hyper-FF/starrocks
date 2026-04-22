@@ -179,7 +179,7 @@ StatusOr<size_t> ChunkPredicateEvaluator::eval_conjuncts_into_filter(const std::
 
 void ChunkPredicateEvaluator::eval_filter_null_values(Chunk* chunk,
                                                       const std::vector<SlotId>& filter_null_value_columns) {
-    if (filter_null_value_columns.size() == 0) return;
+    if (filter_null_value_columns.empty()) return;
     size_t before_size = chunk->num_rows();
     if (before_size == 0) return;
 
@@ -195,7 +195,7 @@ void ChunkPredicateEvaluator::eval_filter_null_values(Chunk* chunk,
         }
         const NullableColumn* nullable_column = ColumnHelper::as_raw_column<NullableColumn>(c);
         if (!nullable_column->has_null()) continue;
-        if (selection.size() == 0) {
+        if (selection.empty()) {
             selection.assign(before_size, 1);
         }
         // how many data() should we call? I really don't know.
@@ -210,7 +210,7 @@ void ChunkPredicateEvaluator::eval_filter_null_values(Chunk* chunk,
             sel[i] &= !nulls[i];
         }
     }
-    if (selection.size() == 0) return;
+    if (selection.empty()) return;
 
     size_t after_size = SIMD::count_nonzero(selection);
     // Those rows will be filtered out anyway, better to be filtered out here.

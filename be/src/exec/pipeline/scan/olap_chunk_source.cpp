@@ -866,7 +866,7 @@ void OlapChunkSource::_update_counter() {
         COUNTER_UPDATE(c2, _reader->stats().rows_del_filtered);
     }
 
-    if (_reader->stats().flat_json_hits.size() > 0 || _reader->stats().merge_json_hits.size() > 0) {
+    if (!_reader->stats().flat_json_hits.empty() || !_reader->stats().merge_json_hits.empty()) {
         std::string access_path_hits = "AccessPathHits";
         auto _access_path_hits_counter = ADD_COUNTER(_runtime_profile, access_path_hits, TUnit::UNIT);
         int64_t total = 0;
@@ -890,7 +890,7 @@ void OlapChunkSource::_update_counter() {
         }
         COUNTER_UPDATE(_access_path_hits_counter, total);
     }
-    if (_reader->stats().dynamic_json_hits.size() > 0) {
+    if (!_reader->stats().dynamic_json_hits.empty()) {
         std::string access_path_unhits = "AccessPathUnhits";
         RuntimeProfile::Counter* _access_path_unhits_counter =
                 ADD_COUNTER(_runtime_profile, access_path_unhits, TUnit::UNIT);
@@ -906,7 +906,7 @@ void OlapChunkSource::_update_counter() {
         }
         COUNTER_UPDATE(_access_path_unhits_counter, total);
     }
-    if (_reader->stats().extract_json_hits.size() > 0) {
+    if (!_reader->stats().extract_json_hits.empty()) {
         const std::string counter_name = "AccessPathExtract";
         RuntimeProfile::Counter* counter = ADD_COUNTER(_runtime_profile, counter_name, TUnit::UNIT);
         int64_t total = 0;

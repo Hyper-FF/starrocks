@@ -709,7 +709,7 @@ void run_update_schema_task(const std::shared_ptr<UpdateSchemaTaskRequest>& agen
 
     finish_task(finish_task_request);
     remove_task_info(agent_task_req->task_type, agent_task_req->signature);
-    LOG_IF(INFO, error_tablet_ids.size() > 0)
+    LOG_IF(INFO, !error_tablet_ids.empty())
             << "Update schema task signature=" << agent_task_req->signature << " error_tablets["
             << error_tablet_ids.size() << "):" << JoinInts(error_tablet_ids, ",");
 }

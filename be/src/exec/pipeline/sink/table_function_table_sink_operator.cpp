@@ -108,7 +108,7 @@ bool TableFunctionTableSinkOperator::need_input() const {
 }
 
 bool TableFunctionTableSinkOperator::is_finished() const {
-    if (_partition_writers.size() == 0) {
+    if (_partition_writers.empty()) {
         return _is_finished.load();
     }
     for (const auto& writer : _partition_writers) {
@@ -133,7 +133,7 @@ Status TableFunctionTableSinkOperator::set_finishing(RuntimeState* state) {
         }
     }
 
-    if (_partition_writers.size() == 0) {
+    if (_partition_writers.empty()) {
         _is_finished = true;
     }
     return Status::OK();

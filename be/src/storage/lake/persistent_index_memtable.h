@@ -84,7 +84,7 @@ public:
 
     const uint64_t max_rss_rowid() const { return _max_rss_rowid; }
 
-    bool empty() const { return _map.size() == 0; }
+    bool empty() const { return _map.empty(); }
 
     std::unique_ptr<PersistentIndexSstable> release_sstable();
 

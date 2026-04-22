@@ -141,7 +141,7 @@ std::pair<Columns, UInt32Column::Ptr> ListRowsets::process(RuntimeState* runtime
 
         auto count = std::min<int64_t>(max_column_size - result[0]->size(), metadata->rowsets_size() - row_offset);
 
-        if (result[0]->size() == 0) {
+        if (result[0]->empty()) {
             for (auto& col : result) {
                 col->reserve(metadata->rowsets_size());
             }

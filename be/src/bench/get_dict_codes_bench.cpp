@@ -69,7 +69,7 @@ static void BM_GetDictCodesWithMap(benchmark::State& state) {
         std::vector<int32_t> dict_codes;
         state.ResumeTiming();
         column->filter(filter);
-        if (column->size() == 0) {
+        if (column->empty()) {
             continue;
         }
         const auto& null_data = down_cast<NullableColumn*>(column.get())->immutable_null_column_data();

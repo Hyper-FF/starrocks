@@ -468,7 +468,7 @@ void BinaryColumnBase<T>::build_slices(Container& slices) const {
         DCHECK_LT(_total_bytes(), (size_t)UINT32_MAX) << "BinaryColumn size overflow";
     }
 
-    DCHECK(_offsets.size() > 0);
+    DCHECK(!_offsets.empty());
 
     slices.resize(_offsets.size() - 1);
     const uint8_t* data_ptr = _data_base();
@@ -479,7 +479,7 @@ void BinaryColumnBase<T>::build_slices(Container& slices) const {
 
 template <typename T>
 void BinaryColumnBase<T>::_build_german_strings() const {
-    DCHECK(_offsets.size() > 0);
+    DCHECK(!_offsets.empty());
     _german_strings_cache = false;
     _german_strings.clear();
 

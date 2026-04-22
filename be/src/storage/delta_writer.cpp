@@ -246,7 +246,7 @@ Status DeltaWriter::_init() {
     RowsetWriterContext writer_context;
 
     const std::size_t partial_cols_num = [this]() {
-        if (_opt.slots->size() > 0 && _opt.slots->back()->col_name() == "__op") {
+        if (!_opt.slots->empty() && _opt.slots->back()->col_name() == "__op") {
             return _opt.slots->size() - 1;
         } else {
             return _opt.slots->size();

@@ -437,12 +437,12 @@ class PercentileContAggregateFunction final : public PercentileContDiscAggregate
         const double& rate = this->data(state).rate;
 
         // for group by
-        if (grid.size() == 0) {
+        if (grid.empty()) {
             ResultColumnType* column = down_cast<ResultColumnType*>(to);
             auto& items = const_cast<typename PercentileStateTypes<LT>::ItemType&>(this->data(state).items);
             std::sort(items.begin(), items.end());
 
-            if (items.size() == 0) {
+            if (items.empty()) {
                 return;
             }
             if (items.size() == 1 || rate == 1) {

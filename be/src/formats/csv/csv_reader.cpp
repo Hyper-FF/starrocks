@@ -352,7 +352,7 @@ Status CSVReader::more_rows() {
                 column_end = _buff.position_offset();
             }
             // The column has an escape and needs to be stripped of the escape character and copied to a separate storage space.
-            if (UNLIKELY(_escape_pos.size() > 0)) {
+            if (UNLIKELY(!_escape_pos.empty())) {
                 is_escape_column = true;
                 size_t new_column_start = _escape_data.size();
                 for (size_t i = column_start; i < column_end; i++) {
@@ -396,7 +396,7 @@ Status CSVReader::more_rows() {
             // push row
             if (LIKELY(status.ok() || status.is_end_of_file())) {
                 // For empty row, skip it. And restart state machine.
-                if (UNLIKELY(_columns.size() == 0 &&
+                if (UNLIKELY(_columns.empty() &&
                              _buff.position_offset() - _row_delimiter_length - column_start == 0)) {
                     curState = START;
                     is_enclose_column = false;
@@ -414,7 +414,7 @@ Status CSVReader::more_rows() {
                     } else {
                         column_end = _buff.position_offset();
                     }
-                    if (UNLIKELY(_escape_pos.size() > 0)) {
+                    if (UNLIKELY(!_escape_pos.empty())) {
                         is_escape_column = true;
                         size_t new_column_start = _escape_data.size();
                         for (size_t i = column_start; i < column_end; i++) {

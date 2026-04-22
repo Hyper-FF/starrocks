@@ -2435,7 +2435,7 @@ static StatusOr<ColumnPtr> trim_impl(FunctionContext* context, const starrocks::
     auto* state = reinterpret_cast<TrimState*>(context->get_function_state(FunctionContext::FRAGMENT_LOCAL));
     DCHECK(!!state);
     auto& remove_chars = state->remove_chars;
-    DCHECK(remove_chars.size() > 0);
+    DCHECK(!remove_chars.empty());
     if (!state->is_utf8) {
         if (remove_chars.size() == 1) {
             return VectorizedUnaryFunction<AdaptiveTrimFunction<trim_type, 8, true, false>>::template evaluate<
@@ -3505,7 +3505,7 @@ static void extract_whole_matches(const re2::StringPiece& str_sp, const re2::RE2
             index += 1;
             // Move past this match
             pos = matches[0].data() - input.data() + matches[0].size();
-            if (matches[0].size() == 0) {
+            if (matches[0].empty()) {
                 pos++; // Avoid infinite loop on zero-length matches
             }
         } else {
@@ -3974,7 +3974,7 @@ static StatusOr<ColumnPtr> hyperscan_vec_evaluate(const BinaryColumn* src, Strin
 StatusOr<ColumnPtr> StringFunctions::regexp_replace_use_hyperscan_vec(StringFunctionsState* state,
                                                                       const Columns& columns) {
     RETURN_IF_COLUMNS_ONLY_NULL(columns);
-    if (columns[0]->size() == 0) {
+    if (columns[0]->empty()) {
         return ColumnHelper::create_const_null_column(0);
     }
     const auto binary = ColumnHelper::get_binary_column(columns[0].get());
@@ -4356,7 +4356,7 @@ static ColumnPtr regexp_count_const_pattern(re2::RE2* const_re, const Columns& c
         while (start_pos <= input.size() &&
                const_re->Match(input, start_pos, input.size(), re2::RE2::UNANCHORED, &match, 1)) {
             count++;
-            if (match.size() == 0) {
+            if (match.empty()) {
                 start_pos++;
             } else {
                 start_pos = match.data() - input.data() + match.size();
@@ -4422,7 +4422,7 @@ static ColumnPtr regexp_count_general(FunctionContext* context, re2::RE2::Option
         // count
         while (start_pos <= input.size() && re.Match(input, start_pos, input.size(), re2::RE2::UNANCHORED, &match, 1)) {
             count++;
-            if (match.size() == 0) {
+            if (match.empty()) {
                 start_pos++;
             } else {
                 start_pos = match.data() - input.data() + match.size();
@@ -4544,7 +4544,7 @@ static ColumnPtr regexp_position_const_pattern(re2::RE2* const_re, const Columns
                 }
 
                 byte_offset = match.data() - str_value.data + match.size();
-                if (match.size() == 0) {
+                if (match.empty()) {
                     byte_offset++;
                 }
             } else {
@@ -4621,7 +4621,7 @@ static StatusOr<ColumnPtr> regexp_position_general(FunctionContext* context, re2
                 }
 
                 byte_offset = match.data() - str_value.data + match.size();
-                if (match.size() == 0) {
+                if (match.empty()) {
                     byte_offset++;
                 }
             } else {

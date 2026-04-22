@@ -782,7 +782,7 @@ Status ReplicationTxnManager::publish_snapshot(Tablet* tablet, const string& sna
         }
 
         // recover dcg meta
-        if (has_dcgs_snapshot_file && rs_to_clone.size() != 0) {
+        if (has_dcgs_snapshot_file && !rs_to_clone.empty()) {
             auto data_dir = tablet->data_dir();
             rocksdb::WriteBatch wb;
             for (const auto& rs_meta : rs_to_clone) {
@@ -801,7 +801,7 @@ Status ReplicationTxnManager::publish_snapshot(Tablet* tablet, const string& sna
                         break;
                     }
 
-                    if (dcgs.size() == 0) {
+                    if (dcgs.empty()) {
                         ++idx;
                         continue;
                     }

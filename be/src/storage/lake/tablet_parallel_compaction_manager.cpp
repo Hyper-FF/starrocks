@@ -2328,7 +2328,7 @@ Status TabletParallelCompactionManager::_merge_subtask_lcrm_files(int64_t tablet
             RowsMapperIterator iter;
             FileInfo info;
             ASSIGN_OR_RETURN(info.path, lake_rows_mapper_filename(_tablet_mgr, tablet_id, lcrm_file.name()));
-            if (lcrm_file.size() > 0) {
+            if (!lcrm_file.empty()) {
                 info.size = lcrm_file.size();
             }
             RETURN_IF_ERROR(iter.open(info));

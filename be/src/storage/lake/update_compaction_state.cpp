@@ -45,12 +45,12 @@ Status CompactionState::load_segments(Rowset* rowset, UpdateManager* update_mana
     }
     _update_manager = update_manager;
     _tablet_id = rowset->tablet_id();
-    if (segment_id >= pk_cols.size() && pk_cols.size() != 0) {
+    if (segment_id >= pk_cols.size() && !pk_cols.empty()) {
         std::string msg = strings::Substitute("Error segment id: $0 vs $1", segment_id, pk_cols.size());
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     }
-    if (pk_cols.size() == 0 || pk_cols[segment_id] != nullptr) {
+    if (pk_cols.empty() || pk_cols[segment_id] != nullptr) {
         return Status::OK();
     }
     return _load_segments(rowset, tablet_schema, segment_id);

@@ -295,7 +295,7 @@ BooleanQueryBuilder::BooleanQueryBuilder(const std::vector<ExtPredicate*>& predi
 void BooleanQueryBuilder::to_json(rapidjson::Document* document, rapidjson::Value* query) {
     rapidjson::Document::AllocatorType& allocator = document->GetAllocator();
     rapidjson::Value root_node_object(rapidjson::kObjectType);
-    if (_filter_clauses.size() > 0) {
+    if (!_filter_clauses.empty()) {
         rapidjson::Value filter_node(rapidjson::kArrayType);
         for (auto must_clause : _filter_clauses) {
             rapidjson::Value must_clause_query(rapidjson::kObjectType);
@@ -306,7 +306,7 @@ void BooleanQueryBuilder::to_json(rapidjson::Document* document, rapidjson::Valu
         root_node_object.AddMember("filter", filter_node, allocator);
     }
 
-    if (_should_clauses.size() > 0) {
+    if (!_should_clauses.empty()) {
         rapidjson::Value should_node(rapidjson::kArrayType);
         for (auto should_clause : _should_clauses) {
             rapidjson::Value should_clause_query(rapidjson::kObjectType);
@@ -317,7 +317,7 @@ void BooleanQueryBuilder::to_json(rapidjson::Document* document, rapidjson::Valu
         root_node_object.AddMember("should", should_node, allocator);
     }
 
-    if (_must_not_clauses.size() > 0) {
+    if (!_must_not_clauses.empty()) {
         rapidjson::Value must_not_node(rapidjson::kArrayType);
         for (auto must_not_clause : _must_not_clauses) {
             rapidjson::Value must_not_clause_query(rapidjson::kObjectType);
@@ -436,7 +436,7 @@ void BooleanQueryBuilder::validate(const std::vector<EsPredicate*>& espredicates
 
 void BooleanQueryBuilder::to_query(const std::vector<EsPredicate*>& predicates, rapidjson::Document* root,
                                    rapidjson::Value* query) {
-    if (predicates.size() == 0) {
+    if (predicates.empty()) {
         MatchAllQueryBuilder match_all_query;
         match_all_query.to_json(root, query);
         return;

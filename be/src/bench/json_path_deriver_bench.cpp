@@ -77,7 +77,7 @@ static void BM_JsonPathDeriver(benchmark::State& state) {
     bench.SetUp(path);
 
     const JsonColumn* json_col = bench.get_column();
-    if (json_col->size() == 0) {
+    if (json_col->empty()) {
         state.SkipWithError("No data to benchmark");
         return;
     }

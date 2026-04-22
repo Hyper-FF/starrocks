@@ -93,7 +93,7 @@ Status PersistentIndexSstable::init(std::unique_ptr<RandomAccessFile> rf, const 
     _rf = std::move(rf);
     _sstable_pb.CopyFrom(sstable_pb);
     // load delvec
-    if (_sstable_pb.has_delvec() && _sstable_pb.delvec().size() > 0) {
+    if (_sstable_pb.has_delvec() && !_sstable_pb.delvec().empty()) {
         if (delvec) {
             // If delvec is already provided, use it directly.
             _delvec = std::move(delvec);

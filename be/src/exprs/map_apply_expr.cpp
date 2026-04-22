@@ -159,7 +159,7 @@ StatusOr<ColumnPtr> MapApplyExpr::evaluate_checked(ExprContext* context, Chunk* 
                                      std::move(*map_col->values_column()).mutate(),
                                      ColumnHelper::as_column<UInt32Column>(input_map->offsets_column()->clone()));
 
-    if (_maybe_duplicated_keys && res_map->size() > 0) {
+    if (_maybe_duplicated_keys && !res_map->empty()) {
         down_cast<MapColumn*>(res_map->as_mutable_raw_ptr())->remove_duplicated_keys();
     }
     // attach null info

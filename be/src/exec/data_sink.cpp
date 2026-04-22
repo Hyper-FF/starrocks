@@ -168,7 +168,7 @@ Status DataSink::create_data_sink(RuntimeState* state, const TDataSink& thrift_s
         break;
     }
     case TDataSinkType::MULTI_CAST_DATA_STREAM_SINK: {
-        DCHECK(thrift_sink.__isset.multi_cast_stream_sink || thrift_sink.multi_cast_stream_sink.sinks.size() == 0)
+        DCHECK(thrift_sink.__isset.multi_cast_stream_sink || thrift_sink.multi_cast_stream_sink.sinks.empty())
                 << "Missing mcast stream sink.";
 
         auto mcast_data_stream_sink = std::make_unique<MultiCastDataStreamSink>(state);
@@ -184,7 +184,7 @@ Status DataSink::create_data_sink(RuntimeState* state, const TDataSink& thrift_s
         break;
     }
     case TDataSinkType::SPLIT_DATA_STREAM_SINK: {
-        DCHECK(thrift_sink.__isset.split_stream_sink || thrift_sink.split_stream_sink.sinks.size() == 0)
+        DCHECK(thrift_sink.__isset.split_stream_sink || thrift_sink.split_stream_sink.sinks.empty())
                 << "Missing split stream sink.";
 
         auto split_data_stream_sink = std::make_unique<SplitDataStreamSink>(state);

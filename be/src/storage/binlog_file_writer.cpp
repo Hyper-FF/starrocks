@@ -419,7 +419,7 @@ Status BinlogFileWriter::_append_page(bool end_of_version) {
     PageHeaderPB& page_header = _pending_page_context->page_header;
     page_header.set_page_type(NORMAL);
     page_header.set_uncompressed_size(serialized_page_content.size());
-    if (compressed_body.size() == 0) {
+    if (compressed_body.empty()) {
         page_header.set_compress_type(NO_COMPRESSION);
         page_header.set_compressed_size(serialized_page_content.size());
         uint32_t crc = crc32c::Value(serialized_page_content.c_str(), serialized_page_content.size());
@@ -463,7 +463,7 @@ Status BinlogFileWriter::_append_page(bool end_of_version) {
     uint32_t checksum = crc32c::Value(serialized_page_header.data(), serialized_page_header.size());
     put_fixed32_le(&header_fixed_buf, checksum);
     std::vector<Slice> data{header_fixed_buf, serialized_page_header};
-    if (compressed_body.size() == 0) {
+    if (compressed_body.empty()) {
         data.emplace_back(serialized_page_content);
     } else {
         data.emplace_back(compressed_body);

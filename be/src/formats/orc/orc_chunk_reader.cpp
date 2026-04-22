@@ -87,7 +87,7 @@ void OrcChunkReader::build_column_name_set(std::unordered_set<std::string>* name
                                            const std::vector<std::string>* hive_column_names,
                                            const orc::Type& root_type, bool case_sensitive, bool use_orc_column_names) {
     name_set->clear();
-    if (hive_column_names != nullptr && hive_column_names->size() > 0 && !use_orc_column_names) {
+    if (hive_column_names != nullptr && !hive_column_names->empty() && !use_orc_column_names) {
         // build hive column names index.
         size_t size = std::min(hive_column_names->size(), static_cast<size_t>(root_type.getSubtypeCount()));
         for (size_t i = 0; i < size; i++) {
@@ -1237,7 +1237,7 @@ size_t OrcChunkReader::get_row_delete_number(const SkipRowsContextPtr& skip_rows
 
 Status OrcChunkReader::apply_dict_filter_eval_cache(const std::unordered_map<SlotId, FilterPtr>& dict_filter_eval_cache,
                                                     Filter* filter) {
-    if (dict_filter_eval_cache.size() == 0) {
+    if (dict_filter_eval_cache.empty()) {
         return Status::OK();
     }
 

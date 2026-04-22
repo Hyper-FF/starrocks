@@ -286,8 +286,8 @@ Status LinkedSchemaChange::generate_delta_column_group_and_cols(const Tablet* ne
                                                                 const TabletSchemaCSPtr& base_tablet_schema) {
     // This function is just used for adding generated column if src_rowset
     // contain some segment files
-    bool no_segment_file = (last_dcg_counts.size() == 0);
-    if (chunk_changer->get_gc_exprs()->size() == 0 || no_segment_file) {
+    bool no_segment_file = (last_dcg_counts.empty());
+    if (chunk_changer->get_gc_exprs()->empty() || no_segment_file) {
         return Status::OK();
     }
 
@@ -311,7 +311,7 @@ Status LinkedSchemaChange::generate_delta_column_group_and_cols(const Tablet* ne
 
     // If all expression is constant, all_ref_columns_ids will be empty.
     // we just append 0 into it to construct the read schema for simplicity.
-    if (all_ref_columns_ids.size() == 0) {
+    if (all_ref_columns_ids.empty()) {
         all_ref_columns_ids.emplace_back(0);
     }
 
@@ -774,7 +774,7 @@ Status SchemaChangeHandler::_do_process_alter_tablet(const TAlterTabletReqV2& re
 
     // generated column index in new schema
     std::unordered_set<int> generated_column_idxs;
-    if (request.materialized_column_req.mc_exprs.size() != 0) {
+    if (!request.materialized_column_req.mc_exprs.empty()) {
         for (const auto& it : request.materialized_column_req.mc_exprs) {
             generated_column_idxs.insert(it.first);
         }
@@ -793,7 +793,7 @@ Status SchemaChangeHandler::_do_process_alter_tablet(const TAlterTabletReqV2& re
         return status;
     }
 
-    if (request.__isset.materialized_column_req && request.materialized_column_req.mc_exprs.size() != 0) {
+    if (request.__isset.materialized_column_req && !request.materialized_column_req.mc_exprs.empty()) {
         // Currently, a schema change task for generated column is just
         // ADD/DROP/MODIFY a single generated column, so it is impossible
         // that sc_sorting == true, for generated column can not be a KEY.
@@ -1129,7 +1129,7 @@ Status SchemaChangeHandler::_convert_historical_rowsets(SchemaChangeParams& sc_p
             RETURN_IF_ERROR(TabletMetaManager::get_delta_column_group(new_tablet->data_dir()->get_meta(), tablet_id,
                                                                       rowsetid, j, INT64_MAX, &historical_dcgs[j]));
         }
-        if (!sc_params.sc_sorting && !sc_params.sc_directly && chunk_changer->get_gc_exprs()->size() != 0) {
+        if (!sc_params.sc_sorting && !sc_params.sc_directly && !chunk_changer->get_gc_exprs()->empty()) {
             // new added dcgs info for every segment in rowset.
             DeltaColumnGroupList dcgs;
             std::vector<int> last_dcg_counts;
@@ -1148,7 +1148,7 @@ Status SchemaChangeHandler::_convert_historical_rowsets(SchemaChangeParams& sc_p
                     sc_params.version.second, chunk_changer, dcgs, last_dcg_counts, sc_params.base_tablet_schema));
 
             // merge dcg info if necessary
-            if (dcgs.size() != 0) {
+            if (!dcgs.empty()) {
                 if (dcgs.size() != sc_params.rowsets_to_change[i]->num_segments()) {
                     std::stringstream ss;
                     ss << "The size of dcgs and segment file in src rowset is different, "

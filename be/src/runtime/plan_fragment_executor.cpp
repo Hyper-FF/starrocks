@@ -130,7 +130,7 @@ Status PlanFragmentExecutor::prepare(const TExecPlanFragmentParams& request) {
         RETURN_IF_ERROR(fragment_dict_state->init_load_global_dict(_runtime_state, request.fragment.load_global_dicts));
     }
 
-    if (params.__isset.runtime_filter_params && params.runtime_filter_params.id_to_prober_params.size() != 0) {
+    if (params.__isset.runtime_filter_params && !params.runtime_filter_params.id_to_prober_params.empty()) {
         _is_runtime_filter_merge_node = true;
         runtime_services(_query_execution_services)
                 .runtime_filter_worker->open_query(_query_id, request.query_options, params.runtime_filter_params,
@@ -399,7 +399,7 @@ void PlanFragmentExecutor::cancel() {
         runtime_services(_query_execution_services)
                 .profile_report_worker->unregister_non_pipeline_load(_runtime_state->fragment_instance_id());
     }
-    if (_stream_load_contexts.size() > 0) {
+    if (!_stream_load_contexts.empty()) {
         for (const auto& stream_load_context : _stream_load_contexts) {
             if (stream_load_context->body_sink) {
                 Status st;
@@ -467,7 +467,7 @@ void PlanFragmentExecutor::close() {
                     .profile_report_worker->unregister_non_pipeline_load(_runtime_state->fragment_instance_id());
         }
 
-        if (_stream_load_contexts.size() > 0) {
+        if (!_stream_load_contexts.empty()) {
             for (const auto& stream_load_context : _stream_load_contexts) {
                 if (stream_load_context->body_sink) {
                     Status st;
@@ -517,11 +517,11 @@ void PlanFragmentExecutor::close() {
 
 Status PlanFragmentExecutor::_prepare_stream_load_pipe(const TExecPlanFragmentParams& request) {
     const auto& scan_range_map = request.params.per_node_scan_ranges;
-    if (scan_range_map.size() == 0) {
+    if (scan_range_map.empty()) {
         return Status::OK();
     }
     auto iter = scan_range_map.begin();
-    if (iter->second.size() == 0) {
+    if (iter->second.empty()) {
         return Status::OK();
     }
     if (!iter->second[0].scan_range.__isset.broker_scan_range) {

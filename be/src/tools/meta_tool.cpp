@@ -1071,7 +1071,7 @@ void check_meta_consistency(DataDir* data_dir) {
         return true;
     };
     Status load_tablet_status = TabletMetaManager::walk(data_dir->get_meta(), check_meta_func);
-    if (tablet_ids.size() > 0) {
+    if (!tablet_ids.empty()) {
         std::cout << "inconsistency tablet:";
     }
     for (long tablet_id : tablet_ids) {

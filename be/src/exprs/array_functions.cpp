@@ -446,7 +446,7 @@ private:
     template <bool nullable, bool element_nullable>
     static void cumu_sum(ArrayColumn* arr_col, NullColumn* null_column) {
         auto* element = arr_col->elements_column_raw_ptr();
-        if (element->size() == 0) {
+        if (element->empty()) {
             return;
         }
 

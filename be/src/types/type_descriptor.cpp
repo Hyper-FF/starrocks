@@ -392,7 +392,7 @@ size_t TypeDescriptor::get_flat_size() const {
 size_t TypeDescriptor::get_array_depth_limit() const {
     int depth = 1;
     const TypeDescriptor* type = this;
-    while (type->children.size() > 0) {
+    while (!type->children.empty()) {
         type = &type->children[0];
         depth++;
     }

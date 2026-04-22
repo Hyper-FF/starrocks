@@ -64,7 +64,7 @@ Status AggregateDistinctStreamingSinkOperator::set_finishing(RuntimeState* state
         return Status::OK();
     }
 
-    if (_aggregator->hash_set_variant().size() == 0) {
+    if (_aggregator->hash_set_variant().empty()) {
         _aggregator->set_ht_eos();
     }
 

@@ -188,7 +188,7 @@ SearchArgumentBuilder& SearchArgumentBuilderImpl::addChildForIn(T column, Predic
     if (isInvalidColumn(column)) {
         parent->addChild(std::make_shared<ExpressionTree>((TruthValue::YES_NO_NULL)));
     } else {
-        if (literals.size() == 0) {
+        if (literals.empty()) {
             throw std::invalid_argument("Can't create in expression with no arguments");
         }
         PredicateLeaf leaf(PredicateLeaf::Operator::IN, type, column, literals);

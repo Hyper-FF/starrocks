@@ -51,7 +51,7 @@ struct VectorCompare {
 std::string ChunkRow::debug_string() {
     std::stringstream os;
     os << "index " << index << " [";
-    if (columns && columns->size() > 0) {
+    if (columns && !columns->empty()) {
         for (size_t col = 0; col < columns->size() - 1; ++col) {
             os << (*columns)[col]->debug_item(index);
             os << ", ";
@@ -280,7 +280,7 @@ Status OlapTablePartitionParam::init(RuntimeState* state) {
     }
     _distributed_columns.resize(_distributed_slot_descs.size());
 
-    if (_t_param.__isset.partition_exprs && _t_param.partition_exprs.size() > 0) {
+    if (_t_param.__isset.partition_exprs && !_t_param.partition_exprs.empty()) {
         if (state == nullptr) {
             return Status::InternalError("state is null when partition_exprs is not empty");
         }

@@ -1031,7 +1031,7 @@ Status TabletManager::report_all_tablets_info(std::map<TTabletId, TTablet>* tabl
     // build the expired txn map first, outside the tablet map lock
     std::map<TabletInfo, std::vector<int64_t>> expire_txn_map;
     StorageEngine::instance()->txn_manager()->build_expire_txn_map(&expire_txn_map);
-    if (expire_txn_map.size() > 0) {
+    if (!expire_txn_map.empty()) {
         LOG(INFO) << "Found " << expire_txn_map.size() << " expired tablet transactions";
     }
 

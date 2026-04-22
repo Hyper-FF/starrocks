@@ -239,7 +239,7 @@ bool RestoreTabletAction::_get_latest_tablet_path_from_trash(int64_t tablet_id, 
             schema_hash_paths.emplace_back(std::move(schema_hash_path));
         }
     }
-    if (schema_hash_paths.size() == 0) {
+    if (schema_hash_paths.empty()) {
         LOG(WARNING) << "can not find tablet_id:" << tablet_id << ", schema_hash:" << schema_hash;
         return false;
     } else if (schema_hash_paths.size() == 1) {

@@ -69,10 +69,10 @@ Status RowsetUpdateState::_load_deletes(Rowset* rowset, uint32_t idx, Column* pk
     CHECK_MEM_LIMIT("RowsetUpdateState::_load_deletes");
     DCHECK(_deletes.size() >= idx);
     // always one file for now.
-    if (_deletes.size() == 0) {
+    if (_deletes.empty()) {
         _deletes.resize(rowset->num_delete_files());
     }
-    if (_deletes.size() == 0 || _deletes[idx] != nullptr) {
+    if (_deletes.empty() || _deletes[idx] != nullptr) {
         return Status::OK();
     }
 
@@ -100,10 +100,10 @@ Status RowsetUpdateState::_load_upserts(Rowset* rowset, uint32_t idx, Column* pk
     CHECK_MEM_LIMIT("RowsetUpdateState::_load_upserts");
     RowsetReleaseGuard guard(rowset->shared_from_this());
     DCHECK(_upserts.size() >= idx);
-    if (_upserts.size() == 0) {
+    if (_upserts.empty()) {
         _upserts.resize(rowset->num_segments());
     }
-    if (_upserts.size() == 0 || _upserts[idx] != nullptr) {
+    if (_upserts.empty() || _upserts[idx] != nullptr) {
         return Status::OK();
     }
 
@@ -295,7 +295,7 @@ void RowsetUpdateState::plan_read_by_rssid(const vector<uint64_t>& rowids, size_
     *num_default = defaults.size();
     idxes->resize(rowids.size());
     size_t ridx = 0;
-    if (defaults.size() > 0) {
+    if (!defaults.empty()) {
         // set defaults idxes to 0
         for (uint32_t e : defaults) {
             (*idxes)[e] = ridx;
@@ -373,7 +373,7 @@ Status RowsetUpdateState::_prepare_partial_update_value_columns(Tablet* tablet, 
 Status RowsetUpdateState::_prepare_partial_update_states(Tablet* tablet, Rowset* rowset, uint32_t idx, bool need_lock,
                                                          const TabletSchemaCSPtr& tablet_schema) {
     CHECK_MEM_LIMIT("RowsetUpdateState::_prepare_partial_update_states");
-    if (_partial_update_states.size() == 0) {
+    if (_partial_update_states.empty()) {
         _partial_update_states.resize(rowset->num_segments());
     }
 
@@ -465,7 +465,7 @@ Status RowsetUpdateState::_prepare_auto_increment_partial_update_states(Tablet* 
                                                                         EditVersion latest_applied_version,
                                                                         const std::vector<uint32_t>& column_id,
                                                                         const TabletSchemaCSPtr& tablet_schema) {
-    if (_auto_increment_partial_update_states.size() == 0) {
+    if (_auto_increment_partial_update_states.empty()) {
         _auto_increment_partial_update_states.resize(rowset->num_segments());
     }
     DCHECK_EQ(column_id.size(), 1);
@@ -560,7 +560,7 @@ Status RowsetUpdateState::_prepare_auto_increment_partial_update_states(Tablet* 
         }
     }
 
-    if (delete_idxes.size() != 0) {
+    if (!delete_idxes.empty()) {
         _auto_increment_partial_update_states[idx].delete_pks->append_selective(*_upserts[idx], delete_idxes.data(), 0,
                                                                                 delete_idxes.size());
     }
@@ -750,7 +750,7 @@ Status RowsetUpdateState::apply(Tablet* tablet, const TabletSchemaCSPtr& tablet_
         }
 
         DCHECK(_upserts[segment_id] != nullptr);
-        if (_partial_update_states.size() == 0 || !_partial_update_states[segment_id].inited) {
+        if (_partial_update_states.empty() || !_partial_update_states[segment_id].inited) {
             RETURN_IF_ERROR(_prepare_partial_update_states(tablet, rowset, segment_id, false, _tablet_schema));
         } else {
             // reslove conflict of segment
@@ -795,8 +795,8 @@ Status RowsetUpdateState::apply(Tablet* tablet, const TabletSchemaCSPtr& tablet_
         !_auto_increment_partial_update_states[segment_id].skip_rewrite) {
         RETURN_IF_ERROR(SegmentRewriter::rewrite_auto_increment(
                 src_path, dest_path, _tablet_schema, _auto_increment_partial_update_states[segment_id], read_column_ids,
-                _partial_update_states.size() != 0 ? &_partial_update_states[segment_id].write_columns : nullptr));
-    } else if (_partial_update_states.size() != 0) {
+                !_partial_update_states.empty() ? &_partial_update_states[segment_id].write_columns : nullptr));
+    } else if (!_partial_update_states.empty()) {
         FooterPointerPB partial_rowset_footer = txn_meta.partial_rowset_footers(segment_id);
         FileInfo src{.path = src_path};
         FileInfo dest{.path = dest_path};
@@ -824,7 +824,7 @@ Status RowsetUpdateState::apply(Tablet* tablet, const TabletSchemaCSPtr& tablet_
         _partial_update_states[segment_id].release();
     }
     if (txn_meta.has_auto_increment_partial_update_column_id()) {
-        if (_auto_increment_partial_update_states[segment_id].delete_pks->size() != 0) {
+        if (_auto_increment_partial_update_states[segment_id].!delete_pks->empty()) {
             delete_pks.swap(_auto_increment_partial_update_states[segment_id].delete_pks);
         }
         _auto_increment_partial_update_states[segment_id].release();

@@ -473,8 +473,8 @@ Status StructColumn::capacity_limit_reached() const {
 
 void StructColumn::check_or_die() const {
     // Struct must have at least one field.
-    DCHECK(_fields.size() > 0);
-    DCHECK(_field_names.size() > 0);
+    DCHECK(!_fields.empty());
+    DCHECK(!_field_names.empty());
 
     // fields and field_names must have the same size.
     DCHECK(_fields.size() == _field_names.size());

@@ -1311,7 +1311,7 @@ void Tablet::get_compaction_status(std::string* json_result) {
         std::lock_guard lock(_compaction_task_lock);
         auto task_set = StorageEngine::instance()->compaction_manager()->get_running_task(
                 std::static_pointer_cast<Tablet>(shared_from_this()));
-        compaction_running = task_set.size() > 0;
+        compaction_running = !task_set.empty();
         rapidjson::Value compaction_detail;
         compaction_detail.SetObject();
 

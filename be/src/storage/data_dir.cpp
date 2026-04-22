@@ -298,7 +298,7 @@ void DataDir::load() {
     Status load_tablet_status = TabletMetaManager::walk_with_compact_on_timeout(_kv_store, load_tablet_func,
                                                                                 config::load_tablet_timeout_seconds);
 
-    if (failed_tablet_ids.size() != 0) {
+    if (!failed_tablet_ids.empty()) {
         LOG(ERROR) << "load tablets from header failed"
                    << ", loaded tablet: " << tablet_ids.size() << ", error tablet: " << failed_tablet_ids.size()
                    << ", path: " << _path;
@@ -512,7 +512,7 @@ void DataDir::perform_path_gc_by_tablet() {
             delete_success_tablet_paths.emplace_back(tablet_id_path.string());
         }
     }
-    if (delete_success_tablet_paths.size() > 0) {
+    if (!delete_success_tablet_paths.empty()) {
         log_tablet_path(delete_success_tablet_paths);
         delete_success_tablet_paths.clear();
     }

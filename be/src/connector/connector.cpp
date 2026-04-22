@@ -90,7 +90,7 @@ void DataSource::update_has_any_predicate() {
 }
 
 Status DataSource::parse_runtime_filters(RuntimeState* state) {
-    if (_runtime_filters == nullptr || _runtime_filters->size() == 0) return Status::OK();
+    if (_runtime_filters == nullptr || _runtime_filters->empty()) return Status::OK();
     for (const auto& item : _runtime_filters->descriptors()) {
         RuntimeFilterProbeDescriptor* probe = item.second;
         DCHECK(runtime_membership_filter_eval_context.driver_sequence != -1);

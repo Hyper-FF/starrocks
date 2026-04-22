@@ -131,7 +131,7 @@ public:
 
 private:
     static void resize_column_uninitialized(Column* column, size_t new_size) {
-        if (column->size() == 0) {
+        if (column->empty()) {
             column->resize_uninitialized(new_size);
         } else {
             column->resize(new_size);

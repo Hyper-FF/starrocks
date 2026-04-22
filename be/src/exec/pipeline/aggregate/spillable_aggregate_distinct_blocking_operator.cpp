@@ -114,7 +114,7 @@ Status SpillableAggregateDistinctBlockingSinkOperator::reset_state(RuntimeState*
 }
 
 Status SpillableAggregateDistinctBlockingSinkOperator::_spill_all_inputs(RuntimeState* state, const ChunkPtr& chunk) {
-    RETURN_IF(_aggregator->hash_set_variant().size() == 0, Status::OK());
+    RETURN_IF(_aggregator->hash_set_variant().empty(), Status::OK());
     _aggregator->hash_set_variant().visit(
             [&](auto& hash_set_with_key) { _aggregator->it_hash() = hash_set_with_key->hash_set.begin(); });
     CHECK(!_aggregator->spill_channel()->has_task());

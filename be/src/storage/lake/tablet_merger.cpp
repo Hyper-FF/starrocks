@@ -592,7 +592,7 @@ Status merge_sstables(const std::vector<TabletMergeContext>& merge_contexts, Tab
                 out->set_max_rss_rowid((static_cast<uint64_t>(mapped_rssid) << 32) | low);
 
                 // delvec projection via new_metadata->delvec_meta()
-                if (sst.has_delvec() && sst.delvec().size() > 0) {
+                if (sst.has_delvec() && !sst.delvec().empty()) {
                     auto dv_it = new_metadata->delvec_meta().delvecs().find(mapped_rssid);
                     if (dv_it == new_metadata->delvec_meta().delvecs().end()) {
                         return Status::Corruption("Delvec page not found for sstable after merge");
@@ -601,7 +601,7 @@ Status merge_sstables(const std::vector<TabletMergeContext>& merge_contexts, Tab
                 }
             } else {
                 // No shared_rssid (legacy format): use rssid_offset
-                if (sst.has_delvec() && sst.delvec().size() > 0) {
+                if (sst.has_delvec() && !sst.delvec().empty()) {
                     return Status::Corruption("Sstable has delvec but no shared_rssid, cannot project delvec");
                 }
                 out->set_rssid_offset(static_cast<int32_t>(ctx.rssid_offset()));

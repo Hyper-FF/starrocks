@@ -180,7 +180,7 @@ void PInternalServiceImplBase<T>::_transmit_chunk(google::protobuf::RpcControlle
         }
         VLOG_ROW << transmit_info << " cost time = " << MonotonicNanos() - begin_ts;
     });
-    if (cntl->request_attachment().size() > 0) {
+    if (!cntl->request_attachment().empty()) {
         butil::IOBuf& io_buf = cntl->request_attachment();
         for (size_t i = 0; i < req->chunks().size(); ++i) {
             auto chunk = req->mutable_chunks(i);
@@ -1369,7 +1369,7 @@ void PInternalServiceImplBase<T>::lookup(google::protobuf::RpcController* cntl_b
         }
     });
 
-    if (cntl->request_attachment().size() > 0) {
+    if (!cntl->request_attachment().empty()) {
         // parse chunk
         butil::IOBuf& io_buf = cntl->request_attachment();
         for (size_t i = 0; i < request->request_columns_size(); i++) {

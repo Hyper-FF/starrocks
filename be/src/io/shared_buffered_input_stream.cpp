@@ -67,7 +67,7 @@ Status SharedBufferedInputStream::_sort_and_check_overlap(std::vector<IORange>& 
 }
 
 void SharedBufferedInputStream::_merge_small_ranges(const std::vector<IORange>& small_ranges) {
-    if (small_ranges.size() > 0) {
+    if (!small_ranges.empty()) {
         auto update_map = [&](size_t from, size_t to) {
             // merge from [unmerge, i-1]
             int64_t ref_count = (to - from + 1);
@@ -98,7 +98,7 @@ void SharedBufferedInputStream::_merge_small_ranges(const std::vector<IORange>& 
 }
 
 Status SharedBufferedInputStream::_set_io_ranges_all_columns(const std::vector<IORange>& ranges) {
-    if (ranges.size() == 0) {
+    if (ranges.empty()) {
         return Status::OK();
     }
 
@@ -122,7 +122,7 @@ Status SharedBufferedInputStream::_set_io_ranges_all_columns(const std::vector<I
 }
 
 Status SharedBufferedInputStream::_set_io_ranges_active_and_lazy_columns(const std::vector<IORange>& ranges) {
-    if (ranges.size() == 0) {
+    if (ranges.empty()) {
         return Status::OK();
     }
 
@@ -149,7 +149,7 @@ Status SharedBufferedInputStream::_set_io_ranges_active_and_lazy_columns(const s
         }
     }
 
-    if (small_active_ranges.size() > 0) {
+    if (!small_active_ranges.empty()) {
         _merge_small_ranges(small_active_ranges);
     }
 

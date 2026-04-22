@@ -127,11 +127,11 @@ struct WindowFunnelState {
 
     void update(TimestampType timestamp, uint8_t event_level) {
         // keep only one as a placeholder for someone group.
-        if (events_list.size() > 0 && event_level == 0) {
+        if (!events_list.empty() && event_level == 0) {
             return;
         }
 
-        if (sorted && events_list.size() > 0) {
+        if (sorted && !events_list.empty()) {
             if (events_list.back().first == timestamp)
                 sorted = events_list.back().second <= event_level;
             else

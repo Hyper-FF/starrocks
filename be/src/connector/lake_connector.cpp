@@ -1125,7 +1125,7 @@ void LakeDataSource::update_counter(RuntimeState* state) {
         _runtime_state->update_num_datacache_count(1);
     }
 
-    if (_reader->stats().flat_json_hits.size() > 0 || _reader->stats().merge_json_hits.size() > 0) {
+    if (!_reader->stats().flat_json_hits.empty() || !_reader->stats().merge_json_hits.empty()) {
         RuntimeProfile::Counter* _access_path_hits_counter =
                 ADD_COUNTER(_runtime_profile, "AccessPathHits", TUnit::UNIT);
         std::string access_path_hits = "AccessPathHits";
@@ -1150,7 +1150,7 @@ void LakeDataSource::update_counter(RuntimeState* state) {
         }
         COUNTER_UPDATE(_access_path_hits_counter, total);
     }
-    if (_reader->stats().dynamic_json_hits.size() > 0) {
+    if (!_reader->stats().dynamic_json_hits.empty()) {
         RuntimeProfile::Counter* _access_path_unhits_counter =
                 ADD_COUNTER(_runtime_profile, "AccessPathUnhits", TUnit::UNIT);
         std::string access_path_unhits = "AccessPathUnhits";
@@ -1166,7 +1166,7 @@ void LakeDataSource::update_counter(RuntimeState* state) {
         }
         COUNTER_UPDATE(_access_path_unhits_counter, total);
     }
-    if (_reader->stats().extract_json_hits.size() > 0) {
+    if (!_reader->stats().extract_json_hits.empty()) {
         const std::string counter_name = "AccessPathExtract";
         RuntimeProfile::Counter* counter = ADD_COUNTER(_runtime_profile, counter_name, TUnit::UNIT);
         int64_t total = 0;

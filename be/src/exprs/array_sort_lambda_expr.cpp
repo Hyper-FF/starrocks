@@ -284,7 +284,7 @@ struct ElemEqual {
 static std::vector<size_t> extract_unique_elements(const ArrayColumn* array_col, size_t max_count) {
     std::vector<size_t> unique_indices;
     const auto& element_col = array_col->elements_column();
-    if (array_col->size() == 0) {
+    if (array_col->empty()) {
         return unique_indices;
     }
     phmap::flat_hash_set<ElemHolder, ElemHash, ElemEqual> unique_map;

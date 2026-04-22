@@ -72,7 +72,7 @@ Status FileReader::init(HdfsScannerContext* ctx) {
         return Status::OK();
     }
     RETURN_IF_ERROR(_build_split_tasks());
-    if (_scanner_ctx->split_tasks.size() > 0) {
+    if (!_scanner_ctx->split_tasks.empty()) {
         _scanner_ctx->has_split_tasks = true;
         _is_file_filtered = true;
         return Status::OK();

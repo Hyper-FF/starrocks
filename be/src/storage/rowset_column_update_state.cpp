@@ -83,13 +83,13 @@ Status RowsetColumnUpdateState::_load_upserts(Rowset* rowset, MemTracker* update
                                               uint32_t* end_idx) {
     CHECK_MEM_LIMIT("RowsetColumnUpdateState::_load_upserts");
     RowsetReleaseGuard guard(rowset->shared_from_this());
-    if (_upserts.size() == 0) {
+    if (_upserts.empty()) {
         _upserts.resize(rowset->num_update_files());
     } else {
         // update files should be immutable
         DCHECK(_upserts.size() == rowset->num_update_files());
     }
-    if (_upserts.size() == 0) {
+    if (_upserts.empty()) {
         return Status::OK();
     }
     if (_upserts[start_idx] != nullptr) {
@@ -180,7 +180,7 @@ Status RowsetColumnUpdateState::_do_load(Tablet* tablet, Rowset* rowset, MemTrac
 Status RowsetColumnUpdateState::_prepare_partial_update_states(Tablet* tablet, Rowset* rowset, uint32_t start_idx,
                                                                uint32_t end_idx, bool need_lock) {
     CHECK_MEM_LIMIT("RowsetColumnUpdateState::_prepare_partial_update_states");
-    if (_partial_update_states.size() == 0) {
+    if (_partial_update_states.empty()) {
         _partial_update_states.resize(rowset->num_update_files());
     } else {
         // update files should be immutable
@@ -293,7 +293,7 @@ Status RowsetColumnUpdateState::_finalize_partial_update_state(Tablet* tablet, R
         RETURN_IF_ERROR(_load_upserts(rowset, update_mem_tracker, i, &end_idx));
         DCHECK(end_idx > i);
         // check and resolve conflict
-        if (_partial_update_states.size() == 0 || !_partial_update_states[i].inited) {
+        if (_partial_update_states.empty() || !_partial_update_states[i].inited) {
             RETURN_IF_ERROR(_prepare_partial_update_states(tablet, rowset, i, end_idx, false));
         } else {
             // reslove conflict
@@ -615,7 +615,7 @@ Status RowsetColumnUpdateState::_insert_new_rows(const TabletSchemaCSPtr& tablet
     OlapReaderStatistics stats;
     Schema partial_schema = ChunkHelper::convert_schema(tablet_schema, read_update_column_ids.second);
     for (int upt_id = 0; upt_id < _partial_update_states.size(); upt_id++) {
-        if (_partial_update_states[upt_id].insert_rowids.size() > 0) {
+        if (_partial_update_states[upt_id].!insert_rowids.empty()) {
             ASSIGN_OR_RETURN(auto update_iterator, rowset->get_update_file_iterator(partial_schema, upt_id, &stats));
             DeferOp iter_defer([&]() {
                 if (update_iterator != nullptr) {

@@ -161,7 +161,7 @@ void RuntimeFilterPort::publish_runtime_filters(const std::list<RuntimeFilterBui
         // maybe shirt-circuited by empty probe side.
         if (filter->type() != RuntimeFilterSerializeType::IN_FILTER &&
             rf_desc->join_mode() == TRuntimeFilterBuildJoinMode::BROADCAST &&
-            filter->get_membership_filter()->size() == 0)
+            filter->get_membership_filter()->empty())
             continue;
 
         auto directly_send_broadcast_grf = rf_desc->join_mode() == TRuntimeFilterBuildJoinMode::BROADCAST &&
@@ -400,7 +400,7 @@ void RuntimeFilterMerger::merge_runtime_filter(PTransmitRuntimeFilterParams& par
         auto it = _targets.find(filter_id);
         if (it == _targets.end()) return;
         target_nodes = &(it->second);
-        if (target_nodes->size() == 0) return;
+        if (target_nodes->empty()) return;
     }
 
     RuntimeFilterMergerStatus* status = nullptr;
@@ -469,7 +469,7 @@ void RuntimeFilterMerger::store_skew_broadcast_join_runtime_filter(PTransmitRunt
         auto it = _targets.find(filter_id);
         if (it == _targets.end()) return;
         target_nodes = &(it->second);
-        if (target_nodes->size() == 0) return;
+        if (target_nodes->empty()) return;
     }
 
     RuntimeFilterMergerStatus* status = nullptr;

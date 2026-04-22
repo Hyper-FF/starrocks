@@ -637,15 +637,15 @@ Status FragmentExecutor::_prepare_stream_load_pipe(ExecEnv* exec_env, const Unif
         return Status::OK();
     }
     const auto& scan_range_map = unique_request.params.node_to_per_driver_seq_scan_ranges;
-    if (scan_range_map.size() == 0) {
+    if (scan_range_map.empty()) {
         return Status::OK();
     }
     auto iter = scan_range_map.begin();
-    if (iter->second.size() == 0) {
+    if (iter->second.empty()) {
         return Status::OK();
     }
     auto iter2 = iter->second.begin();
-    if (iter2->second.size() == 0) {
+    if (iter2->second.empty()) {
         return Status::OK();
     }
     if (!iter2->second[0].scan_range.__isset.broker_scan_range) {
@@ -1057,7 +1057,7 @@ Status FragmentExecutor::append_incremental_scan_ranges(ExecEnv* exec_env, const
     std::vector<int32_t> closed_scan_nodes;
 
     for (const auto& [node_id, scan_ranges] : params.per_node_scan_ranges) {
-        if (scan_ranges.size() == 0) continue;
+        if (scan_ranges.empty()) continue;
         auto iter = fragment_ctx->morsel_queue_factories().find(node_id);
         if (iter == fragment_ctx->morsel_queue_factories().end()) {
             return Status::InternalError(
@@ -1101,7 +1101,7 @@ Status FragmentExecutor::append_incremental_scan_ranges(ExecEnv* exec_env, const
 
             bool has_more_morsel = has_more_per_driver_seq_scan_ranges(per_driver_scan_ranges);
             for (const auto& [driver_seq, scan_ranges] : per_driver_scan_ranges) {
-                if (scan_ranges.size() == 0) continue;
+                if (scan_ranges.empty()) continue;
                 RETURN_IF_ERROR(add_scan_ranges_partition_values(runtime_state, scan_ranges));
                 pipeline::Morsels morsels;
                 [[maybe_unused]] bool local_has_more;
@@ -1116,7 +1116,7 @@ Status FragmentExecutor::append_incremental_scan_ranges(ExecEnv* exec_env, const
             }
         }
 
-        if (closed_scan_nodes.size() > 0) {
+        if (!closed_scan_nodes.empty()) {
             response->__set_closed_scan_nodes(closed_scan_nodes);
         }
     }

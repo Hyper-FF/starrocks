@@ -772,7 +772,7 @@ private:
         ColumnPtr result = output_column.value();
         VLOG_ROW << "JsonExtractIterator extract from: " << _source_chunk.get_column_by_index(0)->debug_string();
         VLOG_ROW << "JsonExtractIterator extract: " << result->debug_string();
-        if ((target->is_nullable() == result->is_nullable()) && (target->size() == 0)) {
+        if ((target->is_nullable() == result->is_nullable()) && (target->empty())) {
             auto result_mut = result->as_mutable_raw_ptr();
             target->swap_column(*result_mut);
         } else if (!target->is_nullable() && result->is_nullable()) {

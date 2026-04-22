@@ -68,7 +68,7 @@ Status CompactionTask::fill_compaction_segment_info(TxnLogPB_OpCompaction* op_co
     }
 
     // check last rowset whether this is a partial compaction
-    if (_tablet_schema->keys_type() != KeysType::PRIMARY_KEYS && _input_rowsets.size() > 0 &&
+    if (_tablet_schema->keys_type() != KeysType::PRIMARY_KEYS && !_input_rowsets.empty() &&
         _input_rowsets.back()->partial_segments_compaction()) {
         uint64_t uncompacted_num_rows = 0;
         uint64_t uncompacted_data_size = 0;

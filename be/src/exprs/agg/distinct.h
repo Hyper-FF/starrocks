@@ -677,7 +677,7 @@ public:
         auto& agg_state = this->data(state);
 
         auto finalize = [](const DictMergeState& agg_state, Column* to) {
-            if (agg_state.set.size() == 0) {
+            if (agg_state.set.empty()) {
                 to->append_default();
                 return;
             }

@@ -61,7 +61,7 @@ struct ContextStack {
 };
 
 TagOperator GetOperator(const string& tag) {
-    if (tag.size() == 0) return SUBSTITUTION;
+    if (tag.empty()) return SUBSTITUTION;
     switch (tag[0]) {
     case '#':
         return SECTION_START;
@@ -227,14 +227,14 @@ int FindNextTag(const string& document, int idx, OpCtx* op, stringstream* out) {
             string key = expr.str();
             trim(key);
             if (key != ".") trim_if(key, is_any_of("."));
-            if (key.size() == 0) continue;
+            if (key.empty()) continue;
             op->op = GetOperator(key);
             if (op->op != SUBSTITUTION) {
                 int len = op->op == INEQUALITY ? 2 : 1;
                 key = key.substr(len);
                 trim(key);
             }
-            if (key.size() == 0) continue;
+            if (key.empty()) continue;
 
             if (op->op == EQUALITY || op->op == INEQUALITY) {
                 // Find an argument
@@ -298,7 +298,7 @@ int EvaluateSection(const string& document, const string& document_root, int idx
     } else {
         values.push_back(skip_contents ? nullptr : context);
     }
-    if (values.size() == 0) {
+    if (values.empty()) {
         skip_contents = true;
         values.push_back(nullptr);
     }

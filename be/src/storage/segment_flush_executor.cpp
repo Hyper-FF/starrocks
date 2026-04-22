@@ -90,7 +90,7 @@ public:
         }
 
         auto st = Status::OK();
-        if (_request->has_segment() && _cntl->request_attachment().size() > 0) {
+        if (_request->has_segment() && !_cntl->request_attachment().empty()) {
             auto& segment_pb = _request->segment();
             st = _writer->write_segment(segment_pb, _cntl->request_attachment());
         } else if (!_request->eos()) {

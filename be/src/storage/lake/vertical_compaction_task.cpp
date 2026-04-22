@@ -140,7 +140,7 @@ Status VerticalCompactionTask::execute(CancelFunc cancel_func, ThreadPool* flush
 
 StatusOr<int32_t> VerticalCompactionTask::calculate_chunk_size_for_column_group(
         const std::vector<uint32_t>& column_group) {
-    if (_input_rowsets.size() > 0 && _input_rowsets.back()->partial_segments_compaction()) {
+    if (!_input_rowsets.empty() && _input_rowsets.back()->partial_segments_compaction()) {
         // can not call `get_read_chunk_size`, for example, if `_total_input_segs` is shrinked to half,
         // read_chunk_size might be doubled, in this case, this optimization will not take effect
         return config::lake_compaction_chunk_size;

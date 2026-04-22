@@ -209,7 +209,7 @@ Status RowsetUpdateState::load_segment(uint32_t segment_id, const RowsetUpdateSt
         _auto_increment_delete_pks.resize(_rowset_ptr->num_segments());
     });
 
-    if (_upserts.size() == 0) {
+    if (_upserts.empty()) {
         // Empty rowset
         return Status::OK();
     }
@@ -292,7 +292,7 @@ void RowsetUpdateState::plan_read_by_rssid(const std::vector<uint64_t>& rowids, 
     *num_default = defaults.size();
     idxes->resize(rowids.size());
     size_t ridx = 0;
-    if (defaults.size() > 0) {
+    if (!defaults.empty()) {
         // set defaults idxes to 0
         for (uint32_t e : defaults) {
             (*idxes)[e] = ridx;
@@ -471,7 +471,7 @@ Status RowsetUpdateState::_prepare_auto_increment_partial_update_states(uint32_t
         }
     }
 
-    if (delete_idxes.size() != 0) {
+    if (!delete_idxes.empty()) {
         TRY_CATCH_BAD_ALLOC(_auto_increment_delete_pks[segment_id]->append_selective(
                 *(_upserts[segment_id]->standalone_pk_column()), delete_idxes.data(), 0, delete_idxes.size()));
         _memory_usage += _auto_increment_delete_pks[segment_id]->memory_usage();
@@ -820,7 +820,7 @@ Status RowsetUpdateState::_resolve_conflict_auto_increment(const RowsetUpdateSta
             }
         }
 
-        if (delete_idxes.size() != 0) {
+        if (!delete_idxes.empty()) {
             TRY_CATCH_BAD_ALLOC(_auto_increment_delete_pks[segment_id]->append_selective(
                     *(_upserts[segment_id]->standalone_pk_column()), delete_idxes.data(), 0, delete_idxes.size()));
         }

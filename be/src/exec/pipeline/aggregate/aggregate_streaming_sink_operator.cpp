@@ -54,7 +54,7 @@ Status AggregateStreamingSinkOperator::set_finishing(RuntimeState* state) {
         return Status::OK();
     }
 
-    if (_aggregator->hash_map_variant().size() == 0) {
+    if (_aggregator->hash_map_variant().empty()) {
         _aggregator->set_ht_eos();
     }
 

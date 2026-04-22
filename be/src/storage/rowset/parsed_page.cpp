@@ -302,7 +302,7 @@ public:
 
     Status read(Column* column, size_t* count) override {
         DCHECK_EQ(_offset_in_page, _data_decoder->current_index());
-        if (_null_flags.size() == 0) {
+        if (_null_flags.empty()) {
             RETURN_IF_ERROR(_data_decoder->next_batch(count, column));
         } else {
             auto nc = down_cast<NullableColumn*>(column);
@@ -317,7 +317,7 @@ public:
     Status read(Column* column, const SparseRange<>& range) override {
         DCHECK_EQ(_offset_in_page, range.begin());
         DCHECK_EQ(_offset_in_page, _data_decoder->current_index());
-        if (_null_flags.size() == 0) {
+        if (_null_flags.empty()) {
             RETURN_IF_ERROR(_data_decoder->next_batch(range, column));
             _offset_in_page = range.end();
         } else {
@@ -345,7 +345,7 @@ public:
 
         size_t original_col_size = column->size();
 
-        if (_null_flags.size() == 0) {
+        if (_null_flags.empty()) {
             RETURN_IF_ERROR(_data_decoder->next_batch_with_filter(column, range, compound_and_predicates, nullptr,
                                                                   selection, selected_idx));
         } else {
@@ -372,7 +372,7 @@ public:
     }
 
     Status read_by_rowids(Column* column, const rowid_t* rowids, size_t* count) override {
-        if (_null_flags.size() == 0) {
+        if (_null_flags.empty()) {
             RETURN_IF_ERROR(_data_decoder->read_by_rowids(_first_ordinal, rowids, count, column));
         } else {
             auto nc = down_cast<NullableColumn*>(column);
@@ -390,7 +390,7 @@ public:
     }
 
     Status read_dict_codes(Column* column, size_t* count) override {
-        if (_null_flags.size() == 0) {
+        if (_null_flags.empty()) {
             RETURN_IF_ERROR(_data_decoder->next_dict_codes(count, column));
         } else {
             auto nc = down_cast<NullableColumn*>(column);
@@ -403,7 +403,7 @@ public:
     }
 
     Status read_dict_codes_by_rowids(Column* column, const rowid_t* rowids, size_t* count) override {
-        if (_null_flags.size() == 0) {
+        if (_null_flags.empty()) {
             RETURN_IF_ERROR(_data_decoder->read_dict_codes_by_rowids(_first_ordinal, rowids, count, column));
         } else {
             auto nc = down_cast<NullableColumn*>(column);
@@ -425,7 +425,7 @@ public:
         DCHECK_EQ(_offset_in_page, range.begin());
         DCHECK_EQ(_offset_in_page, _data_decoder->current_index());
 
-        if (_null_flags.size() == 0) {
+        if (_null_flags.empty()) {
             RETURN_IF_ERROR(_data_decoder->next_dict_codes(range, column));
             _offset_in_page = range.end();
         } else {
@@ -448,7 +448,7 @@ public:
     size_t read_null_count() override {
         DCHECK_EQ(_offset_in_page, 0);
         size_t count = 0;
-        if (_null_flags.size() > 0) {
+        if (!_null_flags.empty()) {
             count = SIMD::count_nonzero(_null_flags.data(), _num_rows);
             _offset_in_page += _num_rows;
         }

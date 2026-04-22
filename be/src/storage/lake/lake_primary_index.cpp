@@ -428,7 +428,7 @@ Status LakePrimaryIndex::parallel_get(ThreadPoolToken* token, SegmentPKIterator*
 
             // Encode primary keys for this segment
             auto pk_column_st = segment_pk_iterator->encoded_pk_column(current.first.get());
-            DCHECK(context_ptr->slots.size() > 0);
+            DCHECK(!context_ptr->slots.empty());
 
             if (pk_column_st.ok()) {
                 // Query index for existing rows with these primary keys

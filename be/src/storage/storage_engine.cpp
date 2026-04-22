@@ -581,7 +581,7 @@ bool StorageEngine::_delete_tablets_on_unused_root_path() {
 
     {
         std::lock_guard<std::mutex> l(_store_lock);
-        if (_store_map.size() == 0) {
+        if (_store_map.empty()) {
             return false;
         }
 

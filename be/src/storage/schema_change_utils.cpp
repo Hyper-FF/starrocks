@@ -387,7 +387,7 @@ bool ChunkChanger::change_chunk_v2(ChunkPtr& base_chunk, ChunkPtr& new_chunk, co
 }
 
 Status ChunkChanger::fill_generated_columns(ChunkPtr& new_chunk) {
-    if (_gc_exprs.size() == 0) {
+    if (_gc_exprs.empty()) {
         return Status::OK();
     }
 
@@ -480,7 +480,7 @@ Status ChunkChanger::prepare() {
 Status ChunkChanger::append_generated_columns(ChunkPtr& read_chunk, ChunkPtr& new_chunk,
                                               const std::vector<uint32_t>& all_ref_columns_ids,
                                               int base_schema_columns) {
-    if (_gc_exprs.size() == 0) {
+    if (_gc_exprs.empty()) {
         return Status::OK();
     }
 

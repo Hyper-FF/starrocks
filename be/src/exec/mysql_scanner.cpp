@@ -162,10 +162,10 @@ Status MysqlScanner::query(const std::string& table, const std::vector<std::stri
     }
 
     // In Filter part.
-    if (filters_in.size() > 0) {
+    if (!filters_in.empty()) {
         std::vector<std::string> conjuncts;
         for (auto& iter : filters_in) {
-            if (iter.second.size() > 0 || filters_null_in_set[iter.first]) {
+            if (!iter.second.empty() || filters_null_in_set[iter.first]) {
                 std::string tmp;
                 tmp += "(" + iter.first + " in (";
                 for (auto& curr : iter.second) {
@@ -186,7 +186,7 @@ Status MysqlScanner::query(const std::string& table, const std::vector<std::stri
             }
         }
 
-        if (conjuncts.size() > 0) {
+        if (!conjuncts.empty()) {
             if (!is_filter_initial) {
                 is_filter_initial = true;
                 _sql_str += " WHERE ";

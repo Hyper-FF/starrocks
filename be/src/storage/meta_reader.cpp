@@ -68,7 +68,7 @@ Status MetaReader::open() {
 }
 
 Status MetaReader::_read(Chunk* chunk, size_t n) {
-    if (_collect_context.seg_collecters.size() == 0) {
+    if (_collect_context.seg_collecters.empty()) {
         // no segment, fill chunk with an empty result
         if (_has_count_agg) {
             _fill_empty_result(chunk);

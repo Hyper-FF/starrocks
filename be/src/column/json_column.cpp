@@ -179,7 +179,7 @@ void JsonColumn::set_flat_columns(const std::vector<std::string>& paths, const s
             DCHECK_EQ(_flat_column_types[i], types[i]);
             DCHECK_EQ(i, _path_to_index[paths[i]]);
         }
-        if (flat_columns.size() != 0) {
+        if (!flat_columns.empty()) {
             for (size_t i = 0; i < _flat_columns.size(); i++) {
                 _flat_columns[i]->append(*flat_columns[i], 0, flat_columns[i]->size());
             }

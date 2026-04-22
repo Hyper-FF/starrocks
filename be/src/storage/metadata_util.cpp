@@ -501,7 +501,7 @@ StatusOr<std::string> convert_default_expr_to_json_string(const TExpr& t_expr) {
     }
     column = eval_result.value();
 
-    if (column == nullptr || column->size() == 0) {
+    if (column == nullptr || column->empty()) {
         ctx->close(state.get());
         return Status::InternalError("Failed to evaluate default expression: empty result");
     }

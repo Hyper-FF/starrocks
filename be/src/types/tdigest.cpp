@@ -125,7 +125,7 @@ TDigest::TDigest(std::vector<Centroid>&& processed, std::vector<Centroid>&& unpr
 
     _processed_weight = weight(_processed);
     _unprocessed_weight = weight(_unprocessed);
-    if (_processed.size() > 0) {
+    if (!_processed.empty()) {
         _min = std::min(_min, _processed[0].mean());
         _max = std::max(_max, (_processed.cend() - 1)->mean());
     }
@@ -211,7 +211,7 @@ Weight TDigest::unprocessedWeight() const {
 }
 
 bool TDigest::haveUnprocessed() const {
-    return _unprocessed.size() > 0;
+    return !_unprocessed.empty();
 }
 
 size_t TDigest::totalSize() const {
@@ -234,7 +234,7 @@ bool TDigest::isDirty() {
 Value TDigest::cdfProcessed(Value x) const {
     VLOG(2) << "cdf value " << x;
     VLOG(2) << "processed size " << _processed.size();
-    if (_processed.size() == 0) {
+    if (_processed.empty()) {
         // no data to examin_e
         VLOG(2) << "no processed values";
 
@@ -320,7 +320,7 @@ Value TDigest::quantileProcessed(Value q) const {
         return NAN;
     }
 
-    if (_processed.size() == 0) {
+    if (_processed.empty()) {
         // no sorted means no data, no way to get a quantile
         return NAN;
     } else if (_processed.size() == 1) {
@@ -491,7 +491,7 @@ Weight TDigest::weight(int i) const noexcept {
 }
 
 void TDigest::mergeUnprocessed(const std::vector<const TDigest*>& tdigests) {
-    if (tdigests.size() == 0) return;
+    if (tdigests.empty()) return;
 
     size_t total = _unprocessed.size();
     for (auto& td : tdigests) {
@@ -506,7 +506,7 @@ void TDigest::mergeUnprocessed(const std::vector<const TDigest*>& tdigests) {
 }
 
 void TDigest::mergeProcessed(const std::vector<const TDigest*>& tdigests) {
-    if (tdigests.size() == 0) return;
+    if (tdigests.empty()) return;
 
     size_t total = 0;
     CentroidListQueue pq(CentroidListComparator{});
@@ -521,7 +521,7 @@ void TDigest::mergeProcessed(const std::vector<const TDigest*>& tdigests) {
     }
     if (total == 0) return;
 
-    if (_processed.size() > 0) {
+    if (!_processed.empty()) {
         pq.emplace(_processed);
         total += _processed.size();
     }
@@ -537,7 +537,7 @@ void TDigest::mergeProcessed(const std::vector<const TDigest*>& tdigests) {
         if (best.advance()) pq.push(best);
     }
     _processed = std::move(sorted);
-    if (_processed.size() > 0) {
+    if (!_processed.empty()) {
         _min = std::min(_min, _processed[0].mean());
         _max = std::max(_max, (_processed.cend() - 1)->mean());
     }

@@ -77,7 +77,7 @@ bool DeltaColumnGroup::merge_by_version(DeltaColumnGroup& dcg, const std::string
     for (size_t suffix = orig_size; suffix < _column_files.size(); ++suffix) {
         _column_files[suffix] =
                 file_name(Rowset::delta_column_group_path(dir, rowset_id, segment_id, _version, suffix));
-        if (dcg.encryption_metas().size() > 0) {
+        if (!dcg.encryption_metas().empty()) {
             _encryption_metas.push_back(dcg.encryption_metas()[suffix - orig_size]);
         }
     }

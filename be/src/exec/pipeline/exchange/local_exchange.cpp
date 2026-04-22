@@ -348,7 +348,7 @@ Status KeyPartitionExchanger::accept(const ChunkPtr& chunk, const int32_t sink_d
             int8_t is_null = 0;
             std::string partition_value;
 
-            if (_transform_exprs.size() > 0) {
+            if (!_transform_exprs.empty()) {
                 ASSIGN_OR_RETURN(partition_value, connector::HiveUtils::iceberg_column_value(
                                                           type, partition_columns[j], i, _transform_exprs[j], is_null));
             } else {

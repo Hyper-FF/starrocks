@@ -105,7 +105,7 @@ starrocks::SchemaPtr ChunkHelper::convert_schema(const std::vector<TabletColumn*
             }
         }
     }
-    return schema->fields().size() != 0 ? schema : nullptr;
+    return !schema->fields().empty() ? schema : nullptr;
 }
 
 starrocks::Schema ChunkHelper::get_short_key_schema(const starrocks::TabletSchemaCSPtr& schema) {
@@ -984,7 +984,7 @@ void SegmentedChunk::append(const SegmentedChunkPtr& chunk, size_t offset) {
 }
 
 void SegmentedChunk::build_columns() {
-    DCHECK(_segments.size() >= 1);
+    DCHECK(!_segments.empty());
     size_t num_columns = _segments[0]->num_columns();
     for (int i = 0; i < num_columns; i++) {
         _columns.emplace_back(std::make_shared<SegmentedColumn>(shared_from_this(), i));

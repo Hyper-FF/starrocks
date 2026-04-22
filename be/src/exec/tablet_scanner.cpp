@@ -411,7 +411,7 @@ void TabletScanner::update_counter() {
         COUNTER_UPDATE(c1, _reader->stats().del_filter_ns);
         COUNTER_UPDATE(c2, _reader->stats().rows_del_filtered);
     }
-    if (_reader->stats().flat_json_hits.size() > 0) {
+    if (!_reader->stats().flat_json_hits.empty()) {
         auto path_profile = _parent->_scan_profile->create_child("FlatJsonHits");
 
         for (const auto& [k, v] : _reader->stats().flat_json_hits) {
@@ -419,14 +419,14 @@ void TabletScanner::update_counter() {
             COUNTER_SET(path_counter, v);
         }
     }
-    if (_reader->stats().dynamic_json_hits.size() > 0) {
+    if (!_reader->stats().dynamic_json_hits.empty()) {
         auto path_profile = _parent->_scan_profile->create_child("FlatJsonUnhits");
         for (const auto& [k, v] : _reader->stats().dynamic_json_hits) {
             RuntimeProfile::Counter* path_counter = ADD_COUNTER(path_profile, k, TUnit::UNIT);
             COUNTER_SET(path_counter, v);
         }
     }
-    if (_reader->stats().merge_json_hits.size() > 0) {
+    if (!_reader->stats().merge_json_hits.empty()) {
         auto path_profile = _parent->_scan_profile->create_child("MergeJsonUnhits");
         for (const auto& [k, v] : _reader->stats().merge_json_hits) {
             RuntimeProfile::Counter* path_counter = ADD_COUNTER(path_profile, k, TUnit::UNIT);

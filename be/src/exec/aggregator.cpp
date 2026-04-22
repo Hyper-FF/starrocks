@@ -1541,7 +1541,7 @@ typename HashVariantType::Type Aggregator::_try_to_apply_compressed_key_opt(type
 
         if (could_apply_bitcompress_opt(_group_by_types, _ranges, bases, used_bits, &new_max_bit_size,
                                         &has_null_column)) {
-            if (_group_by_types.size() > 0) {
+            if (!_group_by_types.empty()) {
                 if (new_max_bit_size <= 8) {
                     type = _aggr_phase == AggrPhase1 ? HashVariantType::Type::phase1_slice_cx1
                                                      : HashVariantType::Type::phase2_slice_cx1;

@@ -29,7 +29,7 @@ Status RuntimeFilterBuildDescriptor::init(ObjectPool* pool, const TRuntimeFilter
     }
     _has_consumer = false;
     _join_mode = desc.build_join_mode;
-    if (desc.__isset.plan_node_id_to_target_expr && desc.plan_node_id_to_target_expr.size() != 0) {
+    if (desc.__isset.plan_node_id_to_target_expr && !desc.plan_node_id_to_target_expr.empty()) {
         _has_consumer = true;
     }
     if (!desc.__isset.build_expr) {

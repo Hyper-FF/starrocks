@@ -123,7 +123,7 @@ Status SpillablePartitionWiseDistinctSinkOperator::push_chunk(RuntimeState* stat
 
 Status SpillablePartitionWiseDistinctSinkOperator::_spill_all_data(RuntimeState* state) {
     auto& aggregator = _distinct_op->aggregator();
-    RETURN_IF(aggregator->hash_set_variant().size() == 0, Status::OK());
+    RETURN_IF(aggregator->hash_set_variant().empty(), Status::OK());
     aggregator->hash_set_variant().visit(
             [&](auto& hash_set_with_key) { aggregator->it_hash() = hash_set_with_key->hash_set.begin(); });
     CHECK(!aggregator->spill_channel()->has_task());

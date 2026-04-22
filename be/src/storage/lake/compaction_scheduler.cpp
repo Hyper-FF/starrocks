@@ -186,7 +186,7 @@ Status CompactionTaskCallback::is_txn_still_valid() {
     // ask FE whether this compaction transaction is still valid
 #ifndef BE_TEST
     TNetworkAddress master_addr = get_master_address();
-    if (master_addr.hostname.size() > 0 && master_addr.port > 0) {
+    if (!master_addr.hostname.empty() && master_addr.port > 0) {
         TReportLakeCompactionRequest request;
         request.__set_txn_id(_request->txn_id());
         TReportLakeCompactionResponse result;

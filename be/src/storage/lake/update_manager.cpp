@@ -351,7 +351,7 @@ Status UpdateManager::publish_primary_key_tablet(const TxnLogPB_OpWrite& op_writ
             RETURN_IF_ERROR(_do_update_with_condition_parallel(params, rowset_id, global_segment_id, condition_column,
                                                                state.upserts(local_id), index, &new_deletes));
             auto itr = new_deletes.find(rowset_id + global_segment_id);
-            if (itr != new_deletes.end() && itr->second.size() > 0) {
+            if (itr != new_deletes.end() && !itr->second.empty()) {
                 // Condition comparison resulted in deleting some newly ingested rows (old value won).
                 // Build deletion vector to mark these rows as deleted in the SST file.
                 dv_generated_during_merge_update = std::make_shared<DelVector>();

@@ -108,7 +108,7 @@ Status ColumnDictFilterContext::rewrite_conjunct_ctxs_to_predicate(StoredColumnR
 
     // eq predicate is faster than in predicate
     // TODO: improve not eq and not in
-    if (dict_codes.size() == 0) {
+    if (dict_codes.empty()) {
         predicate = nullptr;
     } else if (dict_codes.size() == 1) {
         predicate = obj_pool.add(

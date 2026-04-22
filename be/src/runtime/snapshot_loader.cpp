@@ -689,7 +689,7 @@ Status SnapshotLoader::move(const std::string& snapshot_path, const TabletShared
             VLOG(2) << "link file from " << full_src_path << " to " << full_dest_path;
         }
 
-        if (dcg_file.size() != 0) {
+        if (!dcg_file.empty()) {
             DeltaColumnGroupSnapshotPB dcg_snapshot_pb;
             std::string full_path = snapshot_path + "/" + dcg_file;
             auto st = DeltaColumnGroupListHelper::parse_snapshot(full_path, dcg_snapshot_pb);
@@ -697,7 +697,7 @@ Status SnapshotLoader::move(const std::string& snapshot_path, const TabletShared
                 return Status::InternalError("failed to parse dcgs meta");
             }
 
-            if (dcg_snapshot_pb.dcg_lists().size() != 0) {
+            if (!dcg_snapshot_pb.dcg_lists().empty()) {
                 int idx = 0;
                 auto data_dir = tablet->data_dir();
                 rocksdb::WriteBatch wb;
@@ -710,7 +710,7 @@ Status SnapshotLoader::move(const std::string& snapshot_path, const TabletShared
                     RETURN_IF_ERROR(
                             DeltaColumnGroupListSerializer::deserialize_delta_column_group_list(dcg_list_pb, &dcgs));
 
-                    if (dcgs.size() == 0) {
+                    if (dcgs.empty()) {
                         ++idx;
                         continue;
                     }

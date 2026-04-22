@@ -823,7 +823,7 @@ void TabletUpdates::_check_creation_time_increasing() {
 }
 
 void TabletUpdates::_try_commit_pendings_unlocked() {
-    if (_pending_commits.size() > 0) {
+    if (!_pending_commits.empty()) {
         int64_t current_version = _edit_version_infos.back()->version.major_number();
         for (auto itr = _pending_commits.begin(); itr != _pending_commits.end();) {
             int64_t version = itr->first;
@@ -1022,7 +1022,7 @@ void TabletUpdates::do_apply() {
             // we make sure version_info_apply will never be deleted before apply finished
             version_info_apply = _edit_version_infos[_apply_version_idx + 1].get();
         }
-        if (version_info_apply->deltas.size() > 0) {
+        if (!version_info_apply->deltas.empty()) {
             int64_t duration_ns = 0;
             {
                 StarRocksMetrics::instance()->update_rowset_commit_apply_total.increment(1);
@@ -1330,7 +1330,7 @@ bool TabletUpdates::check_delta_column_generate_from_version(EditVersion begin_v
     // check edit version info from latest to begin_version
     std::lock_guard rl(_lock);
     for (auto i = _edit_version_infos.rbegin(); i != _edit_version_infos.rend() && begin_version < (*i)->version; i++) {
-        if ((*i)->deltas.size() != 0) {
+        if ((*i)->!deltas.empty()) {
             uint32_t rowset_id = (*i)->deltas[0];
             RowsetSharedPtr rowset = get_rowset(rowset_id);
             if (rowset->is_column_mode_partial_update()) {
@@ -2169,7 +2169,7 @@ Status TabletUpdates::_check_conflict_with_partial_update(CompactionInfo* info) 
          i++) {
         // check if need to cancel this compaction
         bool need_cancel = false;
-        if ((*i)->deltas.size() == 0) {
+        if ((*i)->deltas.empty()) {
             // meet full clone
             need_cancel = false;
         } else {
@@ -3234,7 +3234,7 @@ Status TabletUpdates::compaction_for_size_tiered(MemTracker* mem_tracker) {
                  candidates_by_level.find(compaction_level) != candidates_by_level.end() && stat.compaction_score > 0);
 
         if (compaction_level_candidate.find(-1) == compaction_level_candidate.end()) {
-            if (candidates_by_level[-1].size() > 0) {
+            if (!candidates_by_level[-1].empty()) {
                 for (auto& e : candidates_by_level[-1]) {
                     info->inputs.emplace_back(e.rowsetid);
                     total_merged_segments += e.num_segments;
@@ -3654,7 +3654,7 @@ void TabletUpdates::get_tablet_info_extra(TTabletInfo* info) {
             auto& last = _edit_version_infos.back();
             version = last->version.major_number();
             rowsets = last->rowsets;
-            has_pending = _pending_commits.size() > 0;
+            has_pending = !_pending_commits.empty();
             // version count in primary key table contains two parts:
             // 1. rowsets in newest version. 2. pending rowsets.
             version_count = rowsets.size() + _pending_commits.size();
@@ -4093,7 +4093,7 @@ Status TabletUpdates::link_from(Tablet* base_tablet, int64_t request_version, Ch
         for (uint32_t j = 0; j < new_rowset_info.num_segments; j++) {
             // check the lastest historical_dcgs version if it is equal to schema change version
             // of the rowset. If it is, we should merge the dcg info.
-            last_dcg_counts.emplace_back((new_rowset_info.dcgs[j].size() != 0 &&
+            last_dcg_counts.emplace_back((!new_rowset_info.dcgs[j].empty() &&
                                           new_rowset_info.dcgs[j].front()->version() == version.major_number())
                                                  ? new_rowset_info.dcgs[j].front()->relative_column_files().size()
                                                  : 0);
@@ -4103,7 +4103,7 @@ Status TabletUpdates::link_from(Tablet* base_tablet, int64_t request_version, Ch
                 base_tablet_schema));
 
         // merge dcg info if necessary
-        if (dcgs.size() != 0) {
+        if (!dcgs.empty()) {
             RETURN_ERROR_IF_FALSE((dcgs.size() == new_rowset_info.num_segments),
                                   "The size of dcgs and segment file in src rowset is different");
             for (uint32_t j = 0; j < dcgs.size(); j++) {
@@ -5864,7 +5864,7 @@ Status TabletUpdates::compaction_random(MemTracker* mem_tracker) {
 void TabletUpdates::_reset_apply_status(const EditVersionInfo& version_info_apply) {
     auto manager = StorageEngine::instance()->update_manager();
     _apply_failed_time++;
-    if (version_info_apply.deltas.size() > 0) {
+    if (!version_info_apply.deltas.empty()) {
         // 1. remove rowset_update_state
         uint32_t rowset_id = version_info_apply.deltas[0];
         RowsetSharedPtr rowset = get_rowset(rowset_id);

@@ -44,7 +44,7 @@ namespace starrocks {
 
 Status KafkaDataConsumerGroup::assign_topic_partitions(StreamLoadContext* ctx) {
     DCHECK(ctx->kafka_info);
-    DCHECK(_consumers.size() >= 1);
+    DCHECK(!_consumers.empty());
 
     // divide partitions
     int consumer_size = _consumers.size();
@@ -265,7 +265,7 @@ void KafkaDataConsumerGroup::actual_consume(const std::shared_ptr<DataConsumer>&
 
 Status PulsarDataConsumerGroup::assign_topic_partitions(StreamLoadContext* ctx) {
     DCHECK(ctx->pulsar_info);
-    DCHECK(_consumers.size() >= 1);
+    DCHECK(!_consumers.empty());
     // Cumulative acknowledgement when consuming partitioned topics is not supported by pulsar
     DCHECK(_consumers.size() == ctx->pulsar_info->partitions.size());
 

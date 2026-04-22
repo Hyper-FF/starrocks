@@ -260,7 +260,7 @@ FutureRuleImpl::~FutureRuleImpl() {
 }
 
 bool FutureRuleImpl::isDefined() const {
-    return ruleString.size() > 0;
+    return !ruleString.empty();
 }
 
 const TimezoneVariant& FutureRuleImpl::getVariant(int64_t clk) const {

@@ -74,7 +74,7 @@ Status JsonFunctions::_get_parsed_paths(const std::vector<std::string>& path_exp
         auto& current = path_exprs[i];
 
         if (i == 0) {
-            if (current.size() == 0 || current[0] != '$') {
+            if (current.empty() || current[0] != '$') {
                 parsed_paths->emplace_back("", -1, true);
                 continue;
             }
@@ -898,7 +898,7 @@ StatusOr<ColumnPtr> JsonFunctions::json_contains(FunctionContext* context, const
 }
 
 StatusOr<ColumnPtr> JsonFunctions::json_array_empty(FunctionContext* context, const Columns& columns) {
-    RETURN_IF(columns.size() != 0, Status::InvalidArgument("json_array_empty requires none parameter"));
+    RETURN_IF(!columns.empty(), Status::InvalidArgument("json_array_empty requires none parameter"));
     ColumnBuilder<TYPE_JSON> result(1);
     JsonValue json(vpack::Slice::emptyArraySlice());
     result.append(std::move(json));

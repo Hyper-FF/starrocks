@@ -270,7 +270,7 @@ StatusOr<std::string> wrap_key(EncryptionAlgorithmPB algorithm, const std::strin
     if (algorithm != EncryptionAlgorithmPB::AES_128) {
         return Status::NotSupported(fmt::format("algorithm not support:{}", algorithm));
     }
-    if (plain_key.size() == 0) {
+    if (plain_key.empty()) {
         return Status::InternalError("wrap empty plain_key");
     }
     uint8_t tag[kGcmTagLength];

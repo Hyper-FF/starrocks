@@ -132,7 +132,7 @@ public:
 private:
     void log_event_msg(const RdKafka::Event& event) {
         std::unique_lock l(_lock);
-        if (_error_msg.empty() && event.str().size() > 0) {
+        if (_error_msg.empty() && !event.str().empty()) {
             _error_msg = "event: " + event.str();
         }
     }

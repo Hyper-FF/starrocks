@@ -89,7 +89,7 @@ void tablet_writer_open_fp_action(const std::string& remote_host, RefCountClosur
 void tablet_writer_add_chunks_fp_action(const std::string& remote_host,
                                         ReusableClosure<PTabletWriterAddBatchResult>* closure,
                                         PTabletWriterAddChunksRequest* request) {
-    DCHECK(request->requests().size() > 0);
+    DCHECK(!request->requests().empty());
     LOG_BRPC_FP(load_tablet_writer_add_chunks, remote_host, request->mutable_requests(0))
             << ", send_id: " << request->mutable_requests(0)->sender_id();
     closure->cntl.SetFailed(

@@ -54,12 +54,12 @@ Status CompactionState::load(Rowset* rowset) {
 }
 
 Status CompactionState::load_segments(Rowset* rowset, uint32_t segment_id) {
-    if (segment_id >= pk_cols.size() && pk_cols.size() != 0) {
+    if (segment_id >= pk_cols.size() && !pk_cols.empty()) {
         std::string msg = strings::Substitute("Error segment id: $0 vs $1", segment_id, pk_cols.size());
         LOG(WARNING) << msg;
         return Status::InternalError(msg);
     }
-    if (pk_cols.size() == 0 || pk_cols[segment_id] != nullptr) {
+    if (pk_cols.empty() || pk_cols[segment_id] != nullptr) {
         return Status::OK();
     }
     return _load_segments(rowset, segment_id);

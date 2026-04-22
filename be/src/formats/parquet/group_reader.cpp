@@ -1276,7 +1276,7 @@ bool GroupReader::_try_to_use_dict_filter(const GroupReaderParam::Column& column
         }
     }
 
-    if (subfields.size() != 0) {
+    if (!subfields.empty()) {
         sub_field_path = subfields[0];
     }
 
@@ -1380,7 +1380,7 @@ Status GroupReader::_rewrite_conjunct_ctxs_to_predicates(bool* is_group_filtered
 }
 
 StatusOr<bool> GroupReader::_filter_chunk_with_dict_filter(ChunkPtr* chunk, Filter* filter) {
-    if (_dict_column_indices.size() == 0) {
+    if (_dict_column_indices.empty()) {
         return false;
     }
     for (int col_idx : _dict_column_indices) {

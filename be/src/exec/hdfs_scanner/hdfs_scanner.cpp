@@ -487,7 +487,7 @@ void HdfsScanner::update_hdfs_counter(HdfsScanProfile* profile) {
     if (!res.ok()) return;
 
     std::unique_ptr<io::NumericStatistics> statistics = std::move(res).value();
-    if (statistics == nullptr || statistics->size() == 0) return;
+    if (statistics == nullptr || statistics->empty()) return;
 
     RuntimeProfile* runtime_profile = profile->runtime_profile;
     ADD_COUNTER(profile->runtime_profile, kHdfsIOProfileSectionPrefix, TUnit::NONE);
@@ -963,7 +963,7 @@ void HdfsScanner::move_split_tasks(std::vector<pipeline::ScanSplitContextPtr>* s
         max_split_size = std::max(max_split_size, size);
         split_tasks->emplace_back(std::move(t));
     }
-    if (split_tasks->size() > 0) {
+    if (!split_tasks->empty()) {
         _scanner_ctx.estimated_mem_usage_per_split_task = 3 * max_split_size / 2;
     }
 }

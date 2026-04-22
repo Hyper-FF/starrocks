@@ -93,7 +93,7 @@ Status SegmentRewriter::rewrite_auto_increment(const std::string& src_path, cons
                                                const TabletSchemaCSPtr& tschema,
                                                AutoIncrementPartialUpdateState& auto_increment_partial_update_state,
                                                std::vector<uint32_t>& column_ids, MutableColumns* columns) {
-    if (column_ids.size() == 0) {
+    if (column_ids.empty()) {
         DCHECK_EQ(columns, nullptr);
     }
 
@@ -185,7 +185,7 @@ Status SegmentRewriter::rewrite_auto_increment_lake(
         starrocks::lake::AutoIncrementPartialUpdateState& auto_increment_partial_update_state,
         const std::vector<uint32_t>& unmodified_column_ids, MutableColumns* unmodified_column_data,
         const starrocks::lake::Tablet* tablet) {
-    if (unmodified_column_ids.size() == 0) {
+    if (unmodified_column_ids.empty()) {
         DCHECK_EQ(unmodified_column_data, nullptr);
     }
 

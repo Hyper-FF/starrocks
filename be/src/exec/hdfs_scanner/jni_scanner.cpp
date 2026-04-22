@@ -440,7 +440,7 @@ static std::string build_fs_options_properties(const FSOptions& options) {
         }
     }
 
-    if (data.size() > 0 && data.back() == PROP_SEPARATOR) {
+    if (!data.empty() && data.back() == PROP_SEPARATOR) {
         data.pop_back();
     }
     return data;

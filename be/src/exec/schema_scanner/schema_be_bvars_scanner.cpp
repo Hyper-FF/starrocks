@@ -86,7 +86,7 @@ Status SchemaBeBvarsScanner::fill_chunk(ChunkPtr* chunk) {
 
     if (slot_id_to_index_map.count(kSlotName) > 0) {
         auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(kSlotName);
-        if (_cur_idx == 0 && copy_size == _columns[0]->size() && column->size() == 0) {
+        if (_cur_idx == 0 && copy_size == _columns[0]->size() && column->empty()) {
             column->swap_column(*_columns[0]);
         } else {
             column->append(*_columns[0], _cur_idx, copy_size);
@@ -95,7 +95,7 @@ Status SchemaBeBvarsScanner::fill_chunk(ChunkPtr* chunk) {
 
     if (slot_id_to_index_map.count(kSlotDesc) > 0) {
         auto* column = (*chunk)->get_column_raw_ptr_by_slot_id(kSlotDesc);
-        if (_cur_idx == 0 && copy_size == _columns[1]->size() && column->size() == 0) {
+        if (_cur_idx == 0 && copy_size == _columns[1]->size() && column->empty()) {
             column->swap_column(*_columns[1]);
         } else {
             column->append(*_columns[1], _cur_idx, copy_size);

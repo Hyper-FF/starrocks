@@ -397,7 +397,7 @@ bool init_glog(const char* basename, bool install_signal_handler) {
         FLAGS_log_split_method = "size";
 #endif
         std::string sizestr = rollmode.substr(sizeflag.size(), rollmode.size() - sizeflag.size());
-        if (sizestr.size() != 0) {
+        if (!sizestr.empty()) {
             char* end = nullptr;
             errno = 0;
             const char* sizecstr = sizestr.c_str();
@@ -423,7 +423,7 @@ bool init_glog(const char* basename, bool install_signal_handler) {
     std::vector<std::string>& verbose_modules = config::sys_log_verbose_modules;
     int32_t vlog_level = config::sys_log_verbose_level;
     for (auto& verbose_module : verbose_modules) {
-        if (verbose_module.size() != 0) {
+        if (!verbose_module.empty()) {
             google::SetVLOGLevel(verbose_module.c_str(), vlog_level);
         }
     }

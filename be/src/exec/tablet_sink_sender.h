@@ -77,7 +77,7 @@ protected:
     bool _is_failed_channel(const NodeChannel* ch) { return _failed_channels.count(ch->node_id()) != 0; }
     bool _has_intolerable_failure() {
         if (_write_quorum_type == TWriteQuorumType::ALL) {
-            return _failed_channels.size() > 0;
+            return !_failed_channels.empty();
         } else if (_write_quorum_type == TWriteQuorumType::ONE) {
             return _failed_channels.size() >= _num_repicas;
         } else {

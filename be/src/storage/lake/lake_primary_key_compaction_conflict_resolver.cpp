@@ -38,7 +38,7 @@ StatusOr<FileInfo> LakePrimaryKeyCompactionConflictResolver::filename() const {
         // get_size() HEAD request to S3/HDFS. This optimization is critical when processing
         // hundreds of mapper files in parallel execution scenarios.
         ASSIGN_OR_RETURN(info.path, lake_rows_mapper_filename(_tablet_mgr, _rowset->tablet_id(), _lcrm_file.name()));
-        if (_lcrm_file.size() > 0) {
+        if (!_lcrm_file.empty()) {
             info.size = _lcrm_file.size();
         }
     } else {

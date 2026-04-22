@@ -541,7 +541,7 @@ bool CacheOperator::_should_passthrough(size_t num_rows, size_t num_bytes) {
 }
 
 Status CacheOperator::reset_lane(RuntimeState* state, LaneOwnerType lane_owner) {
-    DCHECK(_multilane_operators.size() > 0);
+    DCHECK(!_multilane_operators.empty());
     for (auto i = 0; i < _multilane_operators.size() - 1; ++i) {
         RETURN_IF_ERROR(_multilane_operators[i]->reset_lane(state, lane_owner, {}));
     }

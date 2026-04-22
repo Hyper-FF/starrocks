@@ -474,7 +474,7 @@ public:
         }
         if (to->is_nullable()) {
             auto* column = down_cast<NullableColumn*>(to);
-            if (this->data(state).buffer_result.size() == 0 && !State::not_filter_nulls_flag) {
+            if (this->data(state).buffer_result.empty() && !State::not_filter_nulls_flag) {
                 column->append_default();
             } else {
                 down_cast<BinaryColumn*>(column->data_column_raw_ptr())->append(Slice(buffer.data(), buffer.size()));

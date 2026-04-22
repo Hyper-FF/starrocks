@@ -98,7 +98,7 @@ public:
     std::shared_ptr<Filter> get_broker_load_fiter() { return _broker_load_filter; }
 
     void set_hive_column_names(const std::vector<std::string>* v) {
-        if (v != nullptr && v->size() != 0) {
+        if (v != nullptr && !v->empty()) {
             _hive_column_names = v;
         }
     }

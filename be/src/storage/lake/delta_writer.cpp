@@ -693,7 +693,7 @@ Status DeltaWriterImpl::init_write_schema() {
     if (_slots == nullptr) {
         return Status::OK();
     }
-    const auto has_op_column = (this->_slots->size() > 0 && this->_slots->back()->col_name() == "__op");
+    const auto has_op_column = (!this->_slots->empty() && this->_slots->back()->col_name() == "__op");
     const auto write_columns = has_op_column ? _slots->size() - 1 : _slots->size();
 
     // maybe partial update, change to partial tablet schema

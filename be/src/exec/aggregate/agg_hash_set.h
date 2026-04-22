@@ -607,7 +607,7 @@ struct AggHashSetOfSerializedKey : public AggHashSet<HashSet, AggHashSetOfSerial
         // If the length of a row is relatively long and there are multiple columns,
         // deserialization by column will cause the memory locality to deteriorate,
         // resulting in poor performance
-        if (keys.size() > 0 && keys[0].size > 64) {
+        if (!keys.empty() && keys[0].size > 64) {
             // deserialize by row
             for (size_t i = 0; i < chunk_size; i++) {
                 for (auto& key_column : key_columns) {

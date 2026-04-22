@@ -190,11 +190,11 @@ public:
                     VLOG(3) << "remove channel stream load context: " << label << ", table: " << table_name
                             << ", channel_id: " << std::to_string(channel_id);
                 }
-                if (channel_map.size() == 0) {
+                if (channel_map.empty()) {
                     label_map.erase(it_table);
                 }
             }
-            if (label_map.size() == 0) {
+            if (label_map.empty()) {
                 _channel_stream_map.erase(it);
             }
         }

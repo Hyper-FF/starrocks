@@ -506,7 +506,7 @@ Status HdfsOrcScanner::do_open(RuntimeState* runtime_state) {
     std::vector<DiskRange> stripes;
     RETURN_IF_ERROR(build_stripes(reader.get(), &stripes));
     RETURN_IF_ERROR(build_split_tasks(reader.get(), stripes));
-    if (_scanner_ctx.split_tasks.size() > 0) {
+    if (!_scanner_ctx.split_tasks.empty()) {
         _scanner_ctx.has_split_tasks = true;
         _should_skip_file = true;
         return Status::OK();
@@ -532,8 +532,8 @@ Status HdfsOrcScanner::do_open(RuntimeState* runtime_state) {
     _orc_reader->set_use_orc_column_names(_scanner_ctx.orc_use_column_names);
     // for hive table, we set this flag
     _orc_reader->set_invalid_as_null(true);
-    if (config::enable_orc_late_materialization && _lazy_load_ctx.lazy_load_slots.size() != 0 &&
-        _lazy_load_ctx.active_load_slots.size() != 0) {
+    if (config::enable_orc_late_materialization && !_lazy_load_ctx.lazy_load_slots.empty() &&
+        !_lazy_load_ctx.active_load_slots.empty()) {
         _orc_reader->set_lazy_load_context(&_lazy_load_ctx);
     }
 

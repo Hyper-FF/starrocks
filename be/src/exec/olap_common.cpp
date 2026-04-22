@@ -701,7 +701,7 @@ ColumnValueRange<T>::ColumnValueRange(std::string col_name, LogicalType type, T 
 
 template <class T>
 bool ColumnValueRange<T>::is_fixed_value_range() const {
-    return _fixed_values.size() != 0 || _empty_range;
+    return !_fixed_values.empty() || _empty_range;
 }
 
 template <class T>

@@ -653,7 +653,7 @@ Status MetaFileBuilder::_finalize_delvec(int64_t version, int64_t txn_id) {
     }
 
     // 3. write to delvec file
-    if (_buf.size() > 0) {
+    if (!_buf.empty()) {
         TEST_SYNC_POINT_CALLBACK("MetaFileBuilder::_finalize_delvec", &_buf);
         auto delvec_file_name = gen_delvec_filename(txn_id);
         auto delvec_file_path = _tablet.delvec_location(delvec_file_name);
@@ -676,7 +676,7 @@ Status MetaFileBuilder::_finalize_delvec(int64_t version, int64_t txn_id) {
     }
     // collect version from sstable delvecs
     for (const auto& sst : _tablet_meta->sstable_meta().sstables()) {
-        if (sst.has_delvec() && sst.delvec().size() > 0) {
+        if (sst.has_delvec() && !sst.delvec().empty()) {
             refered_versions.insert(sst.delvec().version());
         }
     }

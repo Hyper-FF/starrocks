@@ -178,7 +178,7 @@ struct AggTopRuntimeFilterBuilderImpl {
                 }
             }
         }
-        if (heap_builder->size() > 0) {
+        if (!heap_builder->empty()) {
             down_cast<MinMaxRuntimeFilter<ltype>*>(rf)->template update_min_max<!isAsc>(heap_builder->top());
         }
     }
@@ -235,7 +235,7 @@ struct AggTopNRuntimeFilterUpdaterImpl {
                 }
             }
         }
-        if (heap_builder->size() > 0) {
+        if (!heap_builder->empty()) {
             down_cast<MinMaxRuntimeFilter<ltype>*>(rf)->template update_min_max<!isAsc>(heap_builder->top());
         }
     }

@@ -80,7 +80,7 @@ struct ArrayUnionAggAggregateState {
 
     ColumnType* get_data_column() {
         auto size = set.size();
-        if (data_column.size() > 0 || size == 0) {
+        if (!data_column.empty() || size == 0) {
             return &data_column;
         }
         data_column.reserve(size);

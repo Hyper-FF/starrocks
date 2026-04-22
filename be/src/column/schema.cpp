@@ -199,7 +199,7 @@ void Schema::remove(size_t idx) {
     DCHECK_LT(idx, _fields.size());
     _num_keys -= _fields[idx]->is_key();
     if (_share_name_to_index && idx == _fields.size() - 1 && _name_to_index_append_buffer != nullptr &&
-        _name_to_index_append_buffer->size() > 0) {
+        !_name_to_index_append_buffer->empty()) {
         // fastpath for the filed we want to remove is at the end of the _name_to_index_append_buffer
         _name_to_index_append_buffer->erase(_fields[idx]->name());
         _fields.erase(_fields.begin() + idx);

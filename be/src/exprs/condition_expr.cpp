@@ -391,7 +391,7 @@ public:
             // 2.if there is a column all not null, It at least maybe the choice.
             // 3.don't need check if value is all null
             if (null_count == 0) {
-                if (columns.size() == 0) {
+                if (columns.empty()) {
                     return Column::mutate(std::move(value));
                 }
 
@@ -406,7 +406,7 @@ public:
         }
 
         // return only null
-        if (columns.size() == 0) {
+        if (columns.empty()) {
             return ColumnHelper::create_const_null_column(ptr != nullptr ? ptr->num_rows() : 1);
         }
 

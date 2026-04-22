@@ -471,7 +471,7 @@ public:
     void serialize_to_column(FunctionContext* ctx, ConstAggDataPtr __restrict state, Column* to) const override {
         auto& state_impl = this->data(state);
         DCHECK(state_impl.data_columns == nullptr || !state_impl.data_columns->empty());
-        if (state_impl.data_columns == nullptr || (*state_impl.data_columns)[0]->size() == 0) {
+        if (state_impl.data_columns == nullptr || (*state_impl.data_columns)[0]->empty()) {
             to->append_default();
             return;
         }

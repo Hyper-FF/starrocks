@@ -489,7 +489,7 @@ StatusOr<InputStreamPtr> BlockGroupSet::build_ordered_stream(std::vector<BlockGr
                                                              Spiller* spiller, const SortExecExprs* sort_exprs,
                                                              const SortDescs* sort_descs) {
     BlockReaderOptions read_options;
-    if (spiller->options().enable_buffer_read && block_groups.size() > 0) {
+    if (spiller->options().enable_buffer_read && !block_groups.empty()) {
         size_t max_buffer_bytes = spiller->options().max_read_buffer_bytes / block_groups.size();
         if (max_buffer_bytes > config::spill_read_buffer_min_bytes) {
             read_options.enable_buffer_read = true;

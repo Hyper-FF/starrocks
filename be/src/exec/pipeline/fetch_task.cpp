@@ -87,7 +87,7 @@ Status FetchTask::_submit_remote_task(RuntimeState* state) {
             return;
         }
         DLOG(INFO) << "[GLM] receive a response, response size: " << done->cntl.response_attachment().size();
-        if (done->cntl.response_attachment().size() > 0) {
+        if (!done->cntl.response_attachment().empty()) {
             SCOPED_TIMER(processor->_deserialize_timer);
             butil::IOBuf& io_buf = done->cntl.response_attachment();
             raw::RawString buffer;

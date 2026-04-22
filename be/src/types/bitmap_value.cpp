@@ -595,7 +595,7 @@ std::optional<uint64_t> BitmapValue::max() const {
     case BITMAP:
         return _bitmap->maximum();
     case SET:
-        if (_set->size() == 0) {
+        if (_set->empty()) {
             return {};
         }
         uint64_t max = 0;
@@ -618,7 +618,7 @@ std::optional<uint64_t> BitmapValue::min() const {
     case BITMAP:
         return _bitmap->minimum();
     case SET:
-        if (_set->size() == 0) {
+        if (_set->empty()) {
             return {};
         }
         uint64_t min = std::numeric_limits<uint64_t>::max();

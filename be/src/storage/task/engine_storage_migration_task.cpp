@@ -422,7 +422,7 @@ Status EngineStorageMigrationTask::_finish_migration(const TabletSharedPtr& tabl
             break;
         }
 
-        if (modified_dcg_snapshot_pb.dcg_lists().size() != 0) {
+        if (!modified_dcg_snapshot_pb.dcg_lists().empty()) {
             int idx = 0;
             rocksdb::WriteBatch wb;
 
@@ -434,7 +434,7 @@ Status EngineStorageMigrationTask::_finish_migration(const TabletSharedPtr& tabl
                     break;
                 }
 
-                if (dcgs.size() == 0) {
+                if (dcgs.empty()) {
                     ++idx;
                     continue;
                 }

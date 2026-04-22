@@ -69,7 +69,7 @@ bool LoadSpillOutputDataStream::is_remote() const {
 
 // this function will be called when local disk is full
 Status LoadSpillOutputDataStream::_switch_to_remote_block(size_t block_size) {
-    if (_block->size() > 0) {
+    if (!_block->empty()) {
         // Freeze current block firstly.
         RETURN_IF_ERROR(_freeze_current_block());
     } else {
@@ -278,7 +278,7 @@ StatusOr<SpillBlockInputTasks> LoadChunkSpiller::generate_spill_block_input_task
         //    because we don't want to generate too large segment file.
         // 2. The input chunks memory usage exceed the load_spill_memory_usage_per_merge,
         //    because we don't want each thread cost too much memory.
-        if (merge_inputs.size() > 0 &&
+        if (!merge_inputs.empty() &&
             (current_input_bytes >= target_size ||
              merge_inputs.size() * config::load_spill_max_chunk_bytes >= memory_usage_per_merge)) {
             auto tmp_itr = do_sort ? new_heap_merge_iterator(merge_inputs) : new_union_iterator(merge_inputs);
@@ -445,7 +445,7 @@ StatusOr<LoadSpillPipelineMergeTaskPtr> LoadChunkSpiller::generate_pipeline_merg
         //
         // This batching strategy enables dynamic load balancing: many small tasks for high
         // parallelism vs fewer large tasks for better merge efficiency.
-        if (merge_inputs.size() > 0 &&
+        if (!merge_inputs.empty() &&
             (current_input_bytes >= target_size ||
              merge_inputs.size() * config::load_spill_max_chunk_bytes >= memory_usage_per_merge)) {
             // Build the merge iterator chain based on table type requirements
@@ -461,7 +461,7 @@ StatusOr<LoadSpillPipelineMergeTaskPtr> LoadChunkSpiller::generate_pipeline_merg
     // FINAL ROUND SPECIAL HANDLING: In final merge, consume ALL remaining groups even if
     // they don't reach target_size. This ensures no orphaned blocks are left behind.
     // Non-final rounds can leave partial batches for next iteration.
-    if (final_round && merge_inputs.size() > 0) {
+    if (final_round && !merge_inputs.empty()) {
         auto tmp_itr = do_sort ? new_heap_merge_iterator(merge_inputs) : new_union_iterator(merge_inputs);
         result_task->merge_itr = do_agg ? new_aggregate_iterator(tmp_itr) : tmp_itr;
         RETURN_IF_ERROR(result_task->merge_itr->init_encoded_schema(EMPTY_GLOBAL_DICTMAPS));

@@ -286,7 +286,7 @@ public:
                     merge2.set_use_german_string(sort_desc.is_use_german_string());
                     Status st = left_col->accept(&merge2);
                     CHECK(st.ok());
-                    if (equal_ranges.size() == 0) {
+                    if (equal_ranges.empty()) {
                         break;
                     }
                 }

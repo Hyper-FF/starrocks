@@ -429,7 +429,7 @@ Status SchemaChangeHandler::do_process_alter_tablet(const TAlterTabletReqV2& req
 
     // generated column index in new schema
     std::unordered_set<int> generated_column_idxs;
-    if (request.materialized_column_req.mc_exprs.size() != 0) {
+    if (!request.materialized_column_req.mc_exprs.empty()) {
         for (const auto& it : request.materialized_column_req.mc_exprs) {
             generated_column_idxs.insert(it.first);
         }
@@ -441,7 +441,7 @@ Status SchemaChangeHandler::do_process_alter_tablet(const TAlterTabletReqV2& req
                                                      has_delete_predicates, &sc_params.sc_sorting,
                                                      &sc_params.sc_directly, &generated_column_idxs));
 
-    if (request.__isset.materialized_column_req && request.materialized_column_req.mc_exprs.size() != 0) {
+    if (request.__isset.materialized_column_req && !request.materialized_column_req.mc_exprs.empty()) {
         DCHECK_EQ(sc_params.sc_sorting, false);
         // for cloud native table, schema change for generated column must be in directly mode
         sc_params.sc_directly = true;

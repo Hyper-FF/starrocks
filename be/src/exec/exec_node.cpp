@@ -85,7 +85,7 @@ void ExecNode::push_down_predicate(RuntimeState* state, std::list<ExprContext*>*
     if (_type != TPlanNodeType::AGGREGATION_NODE) {
         for (auto& i : _children) {
             i->push_down_predicate(state, expr_ctxs);
-            if (expr_ctxs->size() == 0) {
+            if (expr_ctxs->empty()) {
                 return;
             }
         }
@@ -123,7 +123,7 @@ void ExecNode::push_down_join_runtime_filter(RuntimeState* state, RuntimeFilterP
 void ExecNode::push_down_join_runtime_filter_to_children(RuntimeState* state, RuntimeFilterProbeCollector* collector) {
     for (auto& i : _children) {
         i->push_down_join_runtime_filter(state, collector);
-        if (collector->size() == 0) {
+        if (collector->empty()) {
             return;
         }
     }

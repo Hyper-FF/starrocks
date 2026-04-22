@@ -90,13 +90,13 @@ void ColumnModePartialUpdateHandler::_release_upserts(uint32_t start_idx, uint32
 Status ColumnModePartialUpdateHandler::_load_upserts(const RowsetUpdateStateParams& params, const Schema& pkey_schema,
                                                      const std::vector<ChunkIteratorPtr>& segment_iters,
                                                      uint32_t start_idx, uint32_t* end_idx) {
-    if (_upserts.size() == 0) {
+    if (_upserts.empty()) {
         _upserts.resize(_rowset_ptr->num_segments());
     } else {
         // update files should be immutable
         DCHECK(_upserts.size() == _rowset_ptr->num_segments());
     }
-    if (_upserts.size() == 0) {
+    if (_upserts.empty()) {
         return Status::OK();
     }
     if (_upserts[start_idx] != nullptr) {
@@ -202,7 +202,7 @@ Status ColumnModePartialUpdateHandler::_load_update_state(const RowsetUpdateStat
 Status ColumnModePartialUpdateHandler::_prepare_partial_update_states(const RowsetUpdateStateParams& params,
                                                                       uint32_t start_idx, uint32_t end_idx,
                                                                       bool need_lock) {
-    if (_partial_update_states.size() == 0) {
+    if (_partial_update_states.empty()) {
         _partial_update_states.resize(_rowset_ptr->num_segments());
     } else {
         // update files should be immutable

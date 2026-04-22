@@ -2485,7 +2485,7 @@ StatusOr<uint16_t> SegmentIterator::_filter_by_compound_and_predicates(
     }
 
     // Check if we need to process this column at all
-    bool has_compound_predicates = and_predicates.size() > 0;
+    bool has_compound_predicates = !and_predicates.empty();
     bool has_runtime_filters = apply_runtime_filter && _opts.enable_join_runtime_filter_pushdown &&
                                _column_to_runtime_filters_map.contains(column_id);
 
@@ -3559,7 +3559,7 @@ void SegmentIterator::_update_stats(io::SeekableInputStream* rfile) {
     }
 
     std::unique_ptr<io::NumericStatistics> stats = std::move(stats_or).value();
-    if (stats == nullptr || stats->size() == 0) {
+    if (stats == nullptr || stats->empty()) {
         return;
     }
 

@@ -179,12 +179,12 @@ Status SpillableAggregateBlockingSinkOperator::_try_to_spill_by_auto(RuntimeStat
     bool always_selection_streaming = false;
 
     FAIL_POINT_TRIGGER_EXECUTE(spill_always_streaming, {
-        if (_aggregator->hash_map_variant().size() != 0) {
+        if (!_aggregator->hash_map_variant().empty()) {
             always_streaming = true;
         }
     });
     FAIL_POINT_TRIGGER_EXECUTE(spill_always_selection_streaming, {
-        if (_aggregator->hash_map_variant().size() != 0) {
+        if (!_aggregator->hash_map_variant().empty()) {
             always_selection_streaming = true;
         }
     });
@@ -272,7 +272,7 @@ Status SpillableAggregateBlockingSinkOperator::_try_to_spill_by_auto(RuntimeStat
 }
 
 Status SpillableAggregateBlockingSinkOperator::_spill_all_data(RuntimeState* state, bool should_spill_hash_table) {
-    RETURN_IF(_aggregator->hash_map_variant().size() == 0, Status::OK());
+    RETURN_IF(_aggregator->hash_map_variant().empty(), Status::OK());
     CHECK(!_aggregator->spill_channel()->has_task());
     RETURN_IF_ERROR(_aggregator->spill_aggregate_data(state, _build_spill_task(state, should_spill_hash_table)));
     return Status::OK();
@@ -286,7 +286,7 @@ std::function<StatusOr<ChunkPtr>()> SpillableAggregateBlockingSinkOperator::_bui
             _streaming_chunks.pop();
             return chunk;
         }
-        if (should_spill_hash_table && _aggregator->hash_map_variant().size() > 0) {
+        if (should_spill_hash_table && !_aggregator->hash_map_variant().empty()) {
             if (!iterator_initialized) {
                 _aggregator->it_hash() = _aggregator->state_allocator().begin();
                 iterator_initialized = true;

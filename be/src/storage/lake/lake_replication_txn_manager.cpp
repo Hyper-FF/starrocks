@@ -244,7 +244,7 @@ Status LakeReplicationTxnManager::replicate_lake_remote_storage(const TReplicate
     ReplicationUtils::calc_column_unique_id_map(source_schema_pb.column(), target_tablet_meta->schema().column(),
                                                 &column_unique_id_map);
 
-    if (column_unique_id_map.size() > 0) {
+    if (!column_unique_id_map.empty()) {
         LOG(INFO) << "Lake replicate storage task, need rebuild column unique id, txn_id: " << txn_id
                   << ", tablet_id: " << target_tablet_id << ", unique_id_map size: " << column_unique_id_map.size();
     }

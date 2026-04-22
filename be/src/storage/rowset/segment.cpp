@@ -304,7 +304,7 @@ bool Segment::_use_segment_zone_map_filter(const SegmentReadOptions& read_option
         st = read_options.dcg_loader->load(tablet_id, rowsetid, segment_id, INT64_MAX, &dcgs);
     }
 
-    return st.ok() && dcgs.size() == 0;
+    return st.ok() && dcgs.empty();
 }
 
 struct SegmentZoneMapPruner {

@@ -66,7 +66,7 @@ void RuntimeFilterProbeCollector::wait(bool on_scan_node) {
         wait_time -= wait_interval;
     }
 
-    if (_descriptors.size() != 0) {
+    if (!_descriptors.empty()) {
         for (const auto& it : _descriptors) {
             auto* rf = it.second;
             int filter_id = rf->filter_id();

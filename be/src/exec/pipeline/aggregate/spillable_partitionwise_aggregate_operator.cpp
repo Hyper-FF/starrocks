@@ -169,12 +169,12 @@ Status SpillablePartitionWiseAggregateSinkOperator::_try_to_spill_by_auto(Runtim
     bool always_selection_streaming = false;
 
     FAIL_POINT_TRIGGER_EXECUTE(spill_always_streaming, {
-        if (_agg_op->aggregator()->hash_map_variant().size() != 0) {
+        if (!_agg_op->aggregator()->hash_map_variant().empty()) {
             always_streaming = true;
         }
     });
     FAIL_POINT_TRIGGER_EXECUTE(spill_always_selection_streaming, {
-        if (_agg_op->aggregator()->hash_map_variant().size() != 0) {
+        if (!_agg_op->aggregator()->hash_map_variant().empty()) {
             always_selection_streaming = true;
         }
     });
@@ -279,7 +279,7 @@ ChunkPtr& SpillablePartitionWiseAggregateSinkOperator::_append_hash_column(Chunk
 }
 
 Status SpillablePartitionWiseAggregateSinkOperator::_spill_all_data(RuntimeState* state, bool should_spill_hash_table) {
-    RETURN_IF(_agg_op->aggregator()->hash_map_variant().size() == 0, Status::OK());
+    RETURN_IF(_agg_op->aggregator()->hash_map_variant().empty(), Status::OK());
     CHECK(!_agg_op->aggregator()->spill_channel()->has_task());
     RETURN_IF_ERROR(
             _agg_op->aggregator()->spill_aggregate_data(state, _build_spill_task(state, should_spill_hash_table)));
@@ -295,7 +295,7 @@ std::function<StatusOr<ChunkPtr>()> SpillablePartitionWiseAggregateSinkOperator:
             _streaming_chunks.pop();
             return chunk;
         }
-        if (should_spill_hash_table && _agg_op->aggregator()->hash_map_variant().size() > 0) {
+        if (should_spill_hash_table && !_agg_op->aggregator()->hash_map_variant().empty()) {
             if (!iterator_initialized) {
                 _agg_op->aggregator()->it_hash() = _agg_op->aggregator()->state_allocator().begin();
                 iterator_initialized = true;

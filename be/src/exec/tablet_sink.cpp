@@ -694,7 +694,7 @@ Status OlapTableSink::_send_chunk(RuntimeState* state, Chunk* chunk, bool nonblo
                                                                     &_validate_selection, &invalid_row_indexs, _txn_id,
                                                                     &_partition_not_exist_row_values));
 
-                if (_partition_not_exist_row_values.size() > 0 && !_partition_not_exist_row_values[0].empty()) {
+                if (!_partition_not_exist_row_values.empty() && !_partition_not_exist_row_values[0].empty()) {
                     _is_automatic_partition_running.store(true, std::memory_order_release);
                     RETURN_IF_ERROR(_automatic_partition_token->submit_func([this] {
                         this->_automatic_partition_status = this->_automatic_create_partition();
@@ -740,10 +740,10 @@ Status OlapTableSink::_send_chunk(RuntimeState* state, Chunk* chunk, bool nonblo
             _validate_select_idx.resize(selected_size);
 
             if (!_ignore_out_of_partition) {
-                if (num_rows_after_validate - _validate_select_idx.size() > 0) {
+                if (num_rows_after_validate - !_validate_select_idx.empty()) {
                     std::stringstream ss;
                     ss << "The row is out of partition ranges. Please add a new partition.";
-                    if (!state->has_reached_max_error_msg_num() && invalid_row_indexs.size() > 0) {
+                    if (!state->has_reached_max_error_msg_num() && !invalid_row_indexs.empty()) {
                         std::string debug_row = chunk->debug_row(invalid_row_indexs.back());
                         RuntimeStateHelper::append_error_msg_to_file(state, debug_row, ss.str());
                     }
