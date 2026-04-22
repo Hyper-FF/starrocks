@@ -182,7 +182,7 @@ Status PushHandler::_do_streaming_ingestion(TabletSharedPtr tablet, const TPushR
 void PushHandler::_get_tablet_infos(const std::vector<TabletVars>& tablet_vars,
                                     std::vector<TTabletInfo>* tablet_info_vec) {
     for (const TabletVars& tablet_var : tablet_vars) {
-        if (tablet_var.tablet.get() == nullptr) {
+        if (tablet_var.tablet == nullptr) {
             continue;
         }
 

@@ -238,7 +238,7 @@ public:
         vec.resize(items_size + 2);
         memcpy(vec.data() + 1, data_ptr, items_size * sizeof(InputCppType));
         vec[0] = RunTimeTypeLimits<LT>::min_value();
-        vec[vec.size() - 1] = RunTimeTypeLimits<LT>::max_value();
+        vec.back() = RunTimeTypeLimits<LT>::max_value();
 
         grid.emplace_back(std::move(vec));
         this->data(state).rate = rate;
@@ -620,7 +620,7 @@ struct LowCardPercentileState {
         size_t target = accumulate * rate;
 
         accumulate = 0;
-        auto res = data[data.size() - 1];
+        auto res = data.back();
         for (auto key : data) {
             accumulate += items.at(key);
             if (accumulate > target) {

@@ -29,7 +29,7 @@
 namespace starrocks::pipeline {
 
 void PipelineDriverPoller::start() {
-    DCHECK(this->_polling_thread.get() == nullptr);
+    DCHECK(this->_polling_thread == nullptr);
     auto status = Thread::create(
             "pipeline", "pip_poll_" + _name, [this]() { run_internal(); }, &this->_polling_thread);
     if (!status.ok()) {
@@ -41,7 +41,7 @@ void PipelineDriverPoller::start() {
 }
 
 void PipelineDriverPoller::shutdown() {
-    if (!this->_is_shutdown.load() && _polling_thread.get() != nullptr) {
+    if (!this->_is_shutdown.load() && _polling_thread != nullptr) {
         this->_is_shutdown.store(true, std::memory_order_release);
         _cond.notify_one();
         _polling_thread->join();

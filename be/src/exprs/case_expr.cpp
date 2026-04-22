@@ -315,7 +315,7 @@ private:
         if (!_has_else_expr) {
             else_column = ColumnHelper::create_const_null_column(chunk != nullptr ? chunk->num_rows() : 1);
         } else {
-            ASSIGN_OR_RETURN(else_column, _children[_children.size() - 1]->evaluate_checked(context, chunk));
+            ASSIGN_OR_RETURN(else_column, _children.back()->evaluate_checked(context, chunk));
         }
 
         ASSIGN_OR_RETURN(ColumnPtr case_column, _children[0]->evaluate_checked(context, chunk));
@@ -469,7 +469,7 @@ private:
         if (!_has_else_expr) {
             else_column = ColumnHelper::create_const_null_column(chunk != nullptr ? chunk->num_rows() : 1);
         } else {
-            ASSIGN_OR_RETURN(else_column, _children[_children.size() - 1]->evaluate_checked(context, chunk));
+            ASSIGN_OR_RETURN(else_column, _children.back()->evaluate_checked(context, chunk));
         }
 
         int loop_end = _children.size() - 1;

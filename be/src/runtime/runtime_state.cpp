@@ -288,7 +288,7 @@ Status RuntimeState::set_mem_limit_exceeded(MemTracker* tracker, int64_t failed_
         }
     }
 
-    DCHECK(_query_mem_tracker.get() != nullptr);
+    DCHECK(_query_mem_tracker != nullptr);
     std::stringstream ss;
     ss << "Memory Limit Exceeded\n";
     if (failed_allocation_size != 0) {

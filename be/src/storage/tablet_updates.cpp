@@ -813,7 +813,7 @@ Status TabletUpdates::_rowset_commit_unlocked(int64_t version, const RowsetShare
 void TabletUpdates::_check_creation_time_increasing() {
     if (_edit_version_infos.size() >= 2) {
         auto last2 = _edit_version_infos[_edit_version_infos.size() - 2].get();
-        auto last1 = _edit_version_infos[_edit_version_infos.size() - 1].get();
+        auto last1 = _edit_version_infos.back().get();
         if (last2->creation_time > last1->creation_time) {
             LOG(ERROR) << strings::Substitute("creation_time decreased tablet:$0 $1:$2 > $3:$4", _tablet.tablet_id(),
                                               last2->version.to_string(), last2->creation_time,
@@ -4420,7 +4420,7 @@ Status TabletUpdates::_convert_from_base_rowset(const Schema& base_schema, const
 
     std::unique_ptr<MemPool> mem_pool(new MemPool());
 
-    if (seg_iterator.get() != nullptr) {
+    if (seg_iterator != nullptr) {
         while (true) {
             base_chunk->reset();
             new_chunk->reset();
@@ -4561,7 +4561,7 @@ Status TabletUpdates::reorder_from(const std::shared_ptr<Tablet>& base_tablet, i
         ChunkPtr base_chunk = ChunkHelper::new_chunk(base_schema, config::vector_chunk_size);
 
         for (auto& seg_iterator : seg_iterators) {
-            if (seg_iterator.get() == nullptr) {
+            if (seg_iterator == nullptr) {
                 continue;
             }
             while (true) {
@@ -4793,7 +4793,7 @@ void TabletUpdates::get_basic_info_extra(TabletBasicInfo& info) {
         }
         info.num_version = _edit_version_infos.size();
         info.min_version = _edit_version_infos[0]->version.major_number();
-        auto& v = _edit_version_infos[_edit_version_infos.size() - 1];
+        auto& v = _edit_version_infos.back();
         info.max_version = v->version.major_number();
         info.num_rowset = v->rowsets.size();
         rowsets = v->rowsets;

@@ -886,10 +886,10 @@ void MergePathCascadeMerger::_init() {
     }
     _levels.push_back(std::move(leaf_nodes));
 
-    while (_levels[_levels.size() - 1].size() > 1) {
+    while (_levels.back().size() > 1) {
         std::vector<detail::NodePtr> next_level;
 
-        auto& current_level = _levels[_levels.size() - 1];
+        auto& current_level = _levels.back();
         const auto current_size = current_level.size();
 
         int32_t i = 0;
@@ -910,7 +910,7 @@ void MergePathCascadeMerger::_init() {
         _levels.push_back(std::move(next_level));
     }
 
-    _root = _levels[_levels.size() - 1][0].get();
+    _root = _levels.back()[0].get();
 
     _finish_current_stage(0, [this]() { _forward_stage(detail::Stage::PREPARE, 1); });
 }

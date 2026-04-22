@@ -126,7 +126,7 @@ public:
 
     const Pipeline* last_pipeline() const {
         DCHECK(!_pipelines.empty());
-        return _pipelines[_pipelines.size() - 1].get();
+        return _pipelines.back().get();
     }
 
     RuntimeState* runtime_state();

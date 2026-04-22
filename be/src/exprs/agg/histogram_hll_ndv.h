@@ -149,7 +149,7 @@ public:
                         ",";
             }
 
-            buckets_json[buckets_json.size() - 1] = ']';
+            buckets_json.back() = ']';
         }
 
         Slice slice(buckets_json);

@@ -69,7 +69,7 @@ public:
         this->_value = nullptr;
         return *this;
     }
-    explicit operator bool() { return _value.get() != nullptr; }
+    explicit operator bool() { return _value != nullptr; }
     type* get() const { return _value.get(); }
     void reset() const { return _value.reset(); }
     void reset(type* ptr) const { return _value.reset(ptr); }

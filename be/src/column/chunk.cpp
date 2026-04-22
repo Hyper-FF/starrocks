@@ -463,7 +463,7 @@ std::string Chunk::debug_row(size_t index) const {
         os << _columns[col]->debug_item(index);
         os << ", ";
     }
-    os << _columns[_columns.size() - 1]->debug_item(index) << "]";
+    os << _columns.back()->debug_item(index) << "]";
     return os.str();
 }
 
@@ -474,7 +474,7 @@ std::string Chunk::rebuild_csv_row(size_t index, const std::string& delimiter) c
         os << delimiter;
     }
     if (!_columns.empty()) {
-        os << _columns[_columns.size() - 1]->debug_item(index);
+        os << _columns.back()->debug_item(index);
     }
     return os.str();
 }
@@ -489,25 +489,25 @@ std::string Chunk::debug_columns() const {
             os << _columns[col]->is_nullable();
             os << ", ";
         }
-        os << _columns[_columns.size() - 1]->is_nullable() << "]";
+        os << _columns.back()->is_nullable() << "]";
         os << " const[";
         for (size_t col = 0; col < _columns.size() - 1; ++col) {
             os << _columns[col]->is_constant();
             os << ", ";
         }
-        os << _columns[_columns.size() - 1]->is_constant() << "]";
+        os << _columns.back()->is_constant() << "]";
         os << " name[";
         for (size_t col = 0; col < _columns.size() - 1; ++col) {
             os << _columns[col]->get_name();
             os << ", ";
         }
-        os << _columns[_columns.size() - 1]->get_name() << "]";
+        os << _columns.back()->get_name() << "]";
         os << " size[";
         for (size_t col = 0; col < _columns.size() - 1; ++col) {
             os << _columns[col]->size();
             os << ", ";
         }
-        os << _columns[_columns.size() - 1]->size() << "]";
+        os << _columns.back()->size() << "]";
         os << " slot_id_to_index[";
         for (const auto& [slot_id, idx] : _slot_id_to_index) {
             os << slot_id << ":" << idx << ", ";
@@ -984,7 +984,7 @@ std::string MutableChunk::debug_row(size_t index) const {
         os << _columns[col]->debug_item(index);
         os << ", ";
     }
-    os << _columns[_columns.size() - 1]->debug_item(index) << "]";
+    os << _columns.back()->debug_item(index) << "]";
     return os.str();
 }
 
@@ -995,7 +995,7 @@ std::string MutableChunk::rebuild_csv_row(size_t index, const std::string& delim
         os << delimiter;
     }
     if (!_columns.empty()) {
-        os << _columns[_columns.size() - 1]->debug_item(index);
+        os << _columns.back()->debug_item(index);
     }
     return os.str();
 }
@@ -1007,13 +1007,13 @@ std::string MutableChunk::debug_columns() const {
         os << _columns[col]->is_nullable();
         os << ", ";
     }
-    os << _columns[_columns.size() - 1]->is_nullable() << "]";
+    os << _columns.back()->is_nullable() << "]";
     os << " const[";
     for (size_t col = 0; col < _columns.size() - 1; ++col) {
         os << _columns[col]->is_constant();
         os << ", ";
     }
-    os << _columns[_columns.size() - 1]->is_constant() << "]";
+    os << _columns.back()->is_constant() << "]";
     return os.str();
 }
 

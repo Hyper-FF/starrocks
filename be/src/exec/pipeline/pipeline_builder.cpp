@@ -481,7 +481,7 @@ OpFactories PipelineBuilderContext::maybe_interpolate_collect_stats(RuntimeState
     CollectStatsContextPtr collect_stats_ctx =
             std::make_shared<CollectStatsContext>(state, dop, _fragment_context->adaptive_dop_param());
 
-    auto last_plan_node_id = pred_operators[pred_operators.size() - 1]->plan_node_id();
+    auto last_plan_node_id = pred_operators.back()->plan_node_id();
     pred_operators.emplace_back(std::make_shared<CollectStatsSinkOperatorFactory>(next_operator_id(), last_plan_node_id,
                                                                                   collect_stats_ctx));
     add_pipeline(pred_operators);

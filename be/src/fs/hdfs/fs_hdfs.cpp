@@ -619,7 +619,7 @@ Status HdfsFileSystem::iterate_dir(const std::string& dir, const std::function<b
     for (int i = 0; i < numEntries && fileinfo; ++i) {
         // obj_key.data() + uri.key().size(), obj_key.size() - uri.key().size()
         int32_t dir_size;
-        if (dir[dir.size() - 1] == '/') {
+        if (dir.back() == '/') {
             dir_size = dir.size();
         } else {
             dir_size = dir.size() + 1;

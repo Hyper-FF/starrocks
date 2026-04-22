@@ -147,7 +147,7 @@ Status ThriftServer::ThriftServerEventProcessor::start_and_wait_for_server() {
 }
 
 void ThriftServer::ThriftServerEventProcessor::supervise() {
-    DCHECK(_thrift_server->_server.get() != nullptr);
+    DCHECK(_thrift_server->_server != nullptr);
 
     // serve() will call preServe() internal to set _started = true before serve loop start
     try {

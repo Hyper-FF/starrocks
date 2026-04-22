@@ -4224,7 +4224,7 @@ bool PersistentIndex::_need_merge_advance() {
     if (_l1_merged_num.empty()) {
         return false;
     }
-    int merged_num = _l1_merged_num[_l1_merged_num.size() - 1];
+    int merged_num = _l1_merged_num.back();
     int merged_candidate_num = 1;
     for (int i = _l1_merged_num.size() - 2; i >= 0; i--) {
         if (_l1_merged_num[i] == merged_num) {

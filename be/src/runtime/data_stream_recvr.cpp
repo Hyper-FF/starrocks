@@ -221,7 +221,7 @@ void DataStreamRecvr::attach_query_ctx(pipeline::QueryContext* query_ctx) {
 }
 
 Status DataStreamRecvr::get_next(ChunkPtr* chunk, bool* eos) {
-    DCHECK(_chunks_merger.get() != nullptr);
+    DCHECK(_chunks_merger != nullptr);
     return _chunks_merger->get_next(chunk, eos);
 }
 

@@ -89,7 +89,7 @@ Status VectorIndexWriter::finish(uint64_t* index_size) {
     {
         SCOPED_RAW_TIMER(&duration);
 
-        if (_index_builder.get() != nullptr) {
+        if (_index_builder != nullptr) {
             // flush with index
             RETURN_IF_ERROR(_index_builder->flush());
         } else {

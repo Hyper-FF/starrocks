@@ -249,7 +249,7 @@ StatusOr<FileEncryptionInfo> KeyCache::unwrap_encryption_meta(const std::string&
     std::vector<const EncryptionKey*> keys(nkey);
     std::vector<std::unique_ptr<EncryptionKey>> owned_keys(nkey);
     RETURN_IF_ERROR(_resolve_encryption_meta(meta_pb, keys, owned_keys, false));
-    auto key = keys[keys.size() - 1];
+    auto key = keys.back();
     FileEncryptionInfo ret;
     ret.algorithm = key->algorithm();
     ASSIGN_OR_RETURN(ret.key, key->get_plain_key());

@@ -75,7 +75,7 @@ Status ExprContext::prepare(RuntimeState* state) {
     if (_prepared) {
         return Status::OK();
     }
-    DCHECK(_pool.get() == nullptr);
+    DCHECK(_pool == nullptr);
     _prepared = true;
     _runtime_state = state;
     _pool = std::make_unique<MemPool>();
@@ -192,7 +192,7 @@ StatusOr<ColumnPtr> ExprContext::evaluate(Expr* e, Chunk* chunk, uint8_t* filter
             ASSIGN_OR_RETURN(ptr, e->evaluate_with_filter(this, chunk, filter));
         }
         DCHECK(ptr != nullptr);
-        if (chunk != nullptr && 0 != chunk->num_columns() && ptr->is_constant() && (dummy_chunk.get() == nullptr)) {
+        if (chunk != nullptr && 0 != chunk->num_columns() && ptr->is_constant() && (dummy_chunk == nullptr)) {
             ptr->as_mutable_raw_ptr()->resize(chunk->num_rows());
         }
         return ptr;

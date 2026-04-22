@@ -177,7 +177,7 @@ Status RangeRouter::_validate_range(const std::vector<TTabletRange>& tablet_rang
     }
     RETURN_IF(lower_inf_count != 1 || upper_inf_count != 1,
               Status::InternalError("lower_inf_count and upper_inf_count must be 1"));
-    RETURN_IF(tablet_ranges[0].__isset.lower_bound || tablet_ranges[tablet_ranges.size() - 1].__isset.upper_bound,
+    RETURN_IF(tablet_ranges[0].__isset.lower_bound || tablet_ranges.back().__isset.upper_bound,
               Status::InternalError("-inf/inf range must be set for the first and last tablet range"));
 
     // 2. check if full range is covered by the tablet ranges and that adjacent

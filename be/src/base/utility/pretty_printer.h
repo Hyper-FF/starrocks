@@ -208,7 +208,7 @@ public:
             if (start == vs.size() - 1) {
                 ss << vs[start];
             } else {
-                ss << vs[start] << "-" << vs[vs.size() - 1];
+                ss << vs[start] << "-" << vs.back();
             }
         }
         return ss.str();

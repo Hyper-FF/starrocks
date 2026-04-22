@@ -491,7 +491,7 @@ Status to_status(const absl::Status& absl_status) {
 }
 
 void init_staros_worker(const std::shared_ptr<starcache::StarCache>& star_cache) {
-    if (g_starlet.get() != nullptr) {
+    if (g_starlet != nullptr) {
         return;
     }
 

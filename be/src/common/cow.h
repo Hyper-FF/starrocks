@@ -235,8 +235,8 @@ protected:
         operator const ImmutPtr<T>&() const { return value; }
         operator ImmutPtr<T>&() & { return value; }
 
-        operator bool() const { return value.get() != nullptr; }
-        bool operator!() const { return value.get() == nullptr; }
+        operator bool() const { return value != nullptr; }
+        bool operator!() const { return value == nullptr; }
 
         bool operator==(const ChameleonPtr& rhs) const { return value == rhs.value; }
         bool operator!=(const ChameleonPtr& rhs) const { return value != rhs.value; }
@@ -358,7 +358,7 @@ public:
 
     // cast base ptr to derived ptr statically, like std::static_pointer_cast; if failed, return nullptr.
     static Ptr static_pointer_cast(const BasePtr& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
         return Ptr(down_cast<const Derived*>(ptr.get()));
     }
@@ -366,7 +366,7 @@ public:
     // cast base ptr to derived ptr statically, like std::static_pointer_cast; if failed, return nullptr.
     // NOTE: ptr will be released if cast success.
     static MutablePtr static_pointer_cast(BaseMutablePtr&& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
         return MutablePtr(down_cast<Derived*>(ptr.detach()), false);
     }
@@ -374,7 +374,7 @@ public:
     // cast base ptr to derived ptr statically, like std::static_pointer_cast; if failed, return nullptr.
     // NOTE: ptr will be released if cast success.
     static Ptr static_pointer_cast(BasePtr&& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
         return Ptr(down_cast<const Derived*>(ptr.detach()), false);
     }
@@ -382,7 +382,7 @@ public:
     // cast base ptr to derived ptr dynamically, like std::dynamic_pointer_cast; if failed, return nullptr.
     // NOTE: ptr will be released if cast success.
     static Ptr dynamic_pointer_cast(BasePtr&& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         if (auto* _ptr = dynamic_cast<const Derived*>(ptr.detach())) {
             return Ptr(_ptr, false);
         } else {
@@ -393,7 +393,7 @@ public:
     // cast base ptr to derived ptr dynamically, like std::dynamic_pointer_cast; if failed, return nullptr.
     // NOTE: ptr will be released if cast success.
     static MutablePtr dynamic_pointer_cast(BaseMutablePtr&& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         if (auto* _p = dynamic_cast<Derived*>(ptr.detach())) {
             return MutablePtr(_p, false);
         } else {
@@ -403,7 +403,7 @@ public:
 
     // cast base ptr to derived ptr dynamically, like std::dynamic_pointer_cast; if failed, return nullptr.
     static Ptr dynamic_pointer_cast(const BasePtr& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         if (auto* _ptr = dynamic_cast<const Derived*>(ptr.get())) {
             return Ptr(_ptr);
         } else {
@@ -414,14 +414,14 @@ public:
     // cast base ptr to derived ptr statically, like std::static_pointer_cast; if failed, return nullptr.
     // NOTE: ptr will be released if cast success.
     static MutablePtr static_pointer_cast(BaseMutablePtr& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
         return MutablePtr(down_cast<Derived*>(ptr), false);
     }
 
     // cast base ptr to derived ptr dynamically, like std::dynamic_pointer_cast; if failed, return nullptr.
     static MutablePtr dynamic_pointer_cast(const BaseMutablePtr& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         if (auto* _p = dynamic_cast<Derived*>(ptr.get())) {
             return MutablePtr(_p);
         } else {
@@ -431,21 +431,21 @@ public:
 
     // cast base wrapped ptr to derived ptr statically
     static Ptr static_pointer_cast(const BaseWrappedPtr& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
         return Ptr(down_cast<const Derived*>(ptr.get()));
     }
 
     // cast base wrapped ptr to derived mutable ptr statically
     static MutablePtr static_pointer_cast(BaseWrappedPtr& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
         return MutablePtr(down_cast<Derived*>(ptr.get()));
     }
 
     // cast base wrapped ptr to derived ptr dynamically
     static Ptr dynamic_pointer_cast(const BaseWrappedPtr& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         if (auto* _ptr = dynamic_cast<const Derived*>(ptr.get())) {
             return Ptr(_ptr);
         } else {
@@ -455,7 +455,7 @@ public:
 
     // cast base wrapped ptr to derived mutable ptr dynamically
     static MutablePtr dynamic_pointer_cast(BaseWrappedPtr& ptr) {
-        DCHECK(ptr.get() != nullptr);
+        DCHECK(ptr != nullptr);
         if (auto* _ptr = dynamic_cast<Derived*>(ptr.get())) {
             return MutablePtr(_ptr);
         } else {

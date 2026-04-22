@@ -335,7 +335,7 @@ Status LinkedSchemaChange::generate_delta_column_group_and_cols(const Tablet* ne
     // Fetch the new columns value into the new_chunk
     for (int idx = 0; idx < seg_iterators.size(); ++idx) {
         const auto& seg_iterator = seg_iterators[idx];
-        if (seg_iterator.get() == nullptr) {
+        if (seg_iterator == nullptr) {
             std::stringstream ss;
             ss << "Failed to get segment iterator, segment id: " << idx;
             LOG(WARNING) << ss.str();

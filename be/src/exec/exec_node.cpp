@@ -178,7 +178,7 @@ Status ExecNode::init(const TPlanNode& tnode, RuntimeState* state) {
 
 Status ExecNode::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(exec_debug_action(TExecNodePhase::PREPARE));
-    DCHECK(_runtime_profile.get() != nullptr);
+    DCHECK(_runtime_profile != nullptr);
     _rows_returned_counter = ADD_COUNTER(_runtime_profile, "RowsReturned", TUnit::UNIT);
     _rows_returned_rate = runtime_profile()->add_derived_counter(
             ROW_THROUGHPUT_COUNTER, TUnit::UNIT_PER_SECOND,

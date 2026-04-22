@@ -229,7 +229,7 @@ private:
                         ",";
             }
 
-            bucket_json[bucket_json.size() - 1] = ']';
+            bucket_json.back() = ']';
         }
 
         Slice slice(bucket_json);
@@ -320,7 +320,7 @@ private:
                                ",";
             }
 
-            bucket_json[bucket_json.size() - 1] = ']';
+            bucket_json.back() = ']';
         }
 
         Slice slice(bucket_json);

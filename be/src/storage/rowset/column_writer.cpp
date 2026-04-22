@@ -314,7 +314,7 @@ private:
 StatusOr<std::unique_ptr<ColumnWriter>> ColumnWriter::create(const ColumnWriterOptions& opts,
                                                              const TabletColumn* column, WritableFile* wfile) {
     TypeInfoPtr type_info = get_type_info(*column);
-    DCHECK(type_info.get() != nullptr);
+    DCHECK(type_info != nullptr);
     if (is_string_type(delegate_type(column->type()))) {
         ColumnWriterOptions str_opts = opts;
         str_opts.need_speculate_encoding = true;

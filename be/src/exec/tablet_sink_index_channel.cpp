@@ -651,7 +651,7 @@ void serialize_to_iobuf(T& proto_obj, butil::IOBuf* iobuf) {
 Status NodeChannel::_send_request(bool eos, bool finished) {
     if (eos || finished) {
         if (_request_queue.empty()) {
-            if (_cur_chunk.get() == nullptr) {
+            if (_cur_chunk == nullptr) {
                 _cur_chunk = std::make_unique<Chunk>();
             }
             _mem_tracker->consume(_cur_chunk->memory_usage());

@@ -1262,7 +1262,7 @@ public:
         } else {
             result_column = CastFn<FromType, ToType, AllowThrowException>::cast_fn(std::move(column));
         }
-        DCHECK(result_column.get() != nullptr);
+        DCHECK(result_column != nullptr);
         if (result_column->is_constant()) {
             result_column->as_mutable_raw_ptr()->resize(col_size);
         }

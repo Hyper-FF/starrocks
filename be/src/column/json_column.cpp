@@ -151,12 +151,12 @@ const ColumnPtr& JsonColumn::get_flat_field(int index) const {
 
 ColumnPtr& JsonColumn::get_remain() {
     DCHECK(_flat_columns.size() == _flat_column_paths.size() + 1);
-    return _flat_columns[_flat_columns.size() - 1];
+    return _flat_columns.back();
 }
 
 const ColumnPtr& JsonColumn::get_remain() const {
     DCHECK(_flat_columns.size() == _flat_column_paths.size() + 1);
-    return _flat_columns[_flat_columns.size() - 1];
+    return _flat_columns.back();
 }
 
 LogicalType JsonColumn::get_flat_field_type(const std::string& path) const {

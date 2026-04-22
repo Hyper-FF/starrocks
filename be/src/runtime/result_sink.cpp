@@ -117,7 +117,7 @@ Status ResultSink::prepare(RuntimeState* state) {
         break;
 #ifndef __APPLE__
     case TResultSinkType::FILE:
-        CHECK(_file_opts.get() != nullptr);
+        CHECK(_file_opts != nullptr);
         _writer.reset(new (std::nothrow) FileResultWriter(_file_opts.get(), _output_expr_ctxs, _profile));
         break;
 #endif

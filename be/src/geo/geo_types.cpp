@@ -82,7 +82,7 @@ static bool is_loop_closed(const std::vector<S2Point>& points) {
     if (points.empty()) {
         return false;
     }
-    if (points[0] != points[points.size() - 1]) {
+    if (points[0] != points.back()) {
         return false;
     }
     return true;

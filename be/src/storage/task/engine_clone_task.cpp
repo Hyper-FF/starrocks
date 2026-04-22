@@ -588,9 +588,9 @@ Status EngineCloneTask::_download_files(DataDir* data_dir, const std::string& re
         }
         StringPiece sp(file_name_list[i]);
         if (sp.ends_with(".hdr")) {
-            std::swap(file_name_list[i], file_name_list[file_name_list.size() - 1]);
+            std::swap(file_name_list[i], file_name_list.back());
             if (use_file_name_and_size_format) {
-                std::swap(file_size_list[i], file_size_list[file_size_list.size() - 1]);
+                std::swap(file_size_list[i], file_size_list.back());
             }
             break;
         }

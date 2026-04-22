@@ -104,7 +104,7 @@ Status ColumnDictFilterContext::rewrite_conjunct_ctxs_to_predicate(StoredColumnR
         batch = batch_run.next_batch();
     }
 
-    bool null_is_ok = filter[filter.size() - 1] == 1;
+    bool null_is_ok = filter.back() == 1;
 
     // eq predicate is faster than in predicate
     // TODO: improve not eq and not in

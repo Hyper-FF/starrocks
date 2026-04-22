@@ -1044,7 +1044,7 @@ NgramBloomFilterReaderOptions ColumnReader::_get_reader_options_for_ngram() cons
     std::shared_ptr<TabletIndex> ngram_bf_index;
 
     Status status = _segment->tablet_schema().get_indexes_for_column(_column_unique_id, NGRAMBF, ngram_bf_index);
-    if (!status.ok() || ngram_bf_index.get() == nullptr) {
+    if (!status.ok() || ngram_bf_index == nullptr) {
         return reader_options;
     }
 

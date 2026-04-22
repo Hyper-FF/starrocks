@@ -189,7 +189,7 @@ void ChunkAggregator::aggregate() {
             _selective_index.emplace_back(row);
             _aggregate_loops.emplace_back(1);
         } else {
-            _aggregate_loops[_aggregate_loops.size() - 1] += 1;
+            _aggregate_loops.back() += 1;
         }
     }
     SCOPED_THREAD_LOCAL_AGG_STATE_ALLOCATOR_SETTER(&kDefaultColumnAggregatorAllocator);
