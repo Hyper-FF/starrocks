@@ -18,6 +18,9 @@ package com.starrocks.sql.optimizer.rewrite.scalar;
 import com.google.common.collect.Lists;
 import com.starrocks.catalog.Function;
 import com.starrocks.catalog.FunctionName;
+import com.starrocks.qe.ConnectContext;
+import com.starrocks.qe.SqlModeHelper;
+import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.ast.expression.BinaryType;
 import com.starrocks.sql.optimizer.operator.OperatorType;
 import com.starrocks.sql.optimizer.operator.scalar.BetweenPredicateOperator;
@@ -46,6 +49,7 @@ import java.time.Month;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ImplicitCastRuleTest {
@@ -242,5 +246,48 @@ public class ImplicitCastRuleTest {
         assertTrue(result.getChild(1).getType().isVarchar());
 
         assertTrue(result.getChild(1).getChild(0).getType().isInt());
+    }
+
+    @Test
+    public void testForbidInvalidImplicitCastMode() {
+        ConnectContext ctx = new ConnectContext(null);
+        ctx.getSessionVariable().setSqlMode(SqlModeHelper.MODE_FORBID_INVALID_IMPLICIT_CAST);
+        ctx.setThreadLocalInfo();
+        try {
+            ImplicitCastRule rule = new ImplicitCastRule();
+
+            // Cross-family cast (varchar -> int) must be rejected.
+            BinaryPredicateOperator crossFamily = new BinaryPredicateOperator(BinaryType.EQ,
+                    new ColumnRefOperator(1, IntegerType.INT, "c_int", true),
+                    ConstantOperator.createVarchar("1"));
+            assertThrows(SemanticException.class, () -> rule.apply(crossFamily, null));
+
+            // Same-family widening (int -> bigint) must still be allowed.
+            BinaryPredicateOperator sameFamily = new BinaryPredicateOperator(BinaryType.EQ,
+                    new ColumnRefOperator(2, IntegerType.BIGINT, "c_bigint", true),
+                    ConstantOperator.createInt(1));
+            ScalarOperator result = rule.apply(sameFamily, null);
+            assertTrue(result.getChild(0).getType().isBigint());
+            assertTrue(result.getChild(1).getType().isBigint());
+        } finally {
+            ConnectContext.remove();
+        }
+    }
+
+    @Test
+    public void testForbidInvalidImplicitCastModeDisabledByDefault() {
+        ConnectContext ctx = new ConnectContext(null);
+        ctx.setThreadLocalInfo();
+        try {
+            // Without the mode, the existing varchar<->int coercion still applies.
+            BinaryPredicateOperator op = new BinaryPredicateOperator(BinaryType.EQ,
+                    new ColumnRefOperator(1, IntegerType.INT, "c_int", true),
+                    ConstantOperator.createVarchar("1"));
+            ScalarOperator result = new ImplicitCastRule().apply(op, null);
+            assertTrue(result.getChild(0) instanceof CastOperator || result.getChild(1) instanceof CastOperator
+                    || result.getChild(1) instanceof ConstantOperator);
+        } finally {
+            ConnectContext.remove();
+        }
     }
 }

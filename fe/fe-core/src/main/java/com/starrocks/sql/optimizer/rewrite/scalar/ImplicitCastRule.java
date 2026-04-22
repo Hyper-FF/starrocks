@@ -21,6 +21,7 @@ import com.starrocks.catalog.Function;
 import com.starrocks.catalog.FunctionSet;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SessionVariableConstants;
+import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.ast.expression.ArithmeticExpr;
 import com.starrocks.sql.ast.expression.BinaryType;
@@ -322,12 +323,12 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
     @Override
     public ScalarOperator visitCaseWhenOperator(CaseWhenOperator operator, ScalarOperatorRewriteContext context) {
         if (operator.hasElse() && !operator.getType().matchesType(operator.getElseClause().getType())) {
-            operator.setElseClause(new CastOperator(operator.getType(), operator.getElseClause()));
+            operator.setElseClause(makeImplicitCast(operator.getType(), operator.getElseClause()));
         }
 
         for (int i = 0; i < operator.getWhenClauseSize(); i++) {
             if (!operator.getType().matchesType(operator.getThenClause(i).getType())) {
-                operator.setThenClause(i, new CastOperator(operator.getType(), operator.getThenClause(i)));
+                operator.setThenClause(i, makeImplicitCast(operator.getType(), operator.getThenClause(i)));
             }
         }
 
@@ -342,13 +343,13 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
             compatibleType = TypeManager.getCompatibleTypeForCaseWhen(whenTypes);
 
             if (!compatibleType.matchesType(operator.getCaseClause().getType())) {
-                operator.setCaseClause(new CastOperator(compatibleType, operator.getCaseClause()));
+                operator.setCaseClause(makeImplicitCast(compatibleType, operator.getCaseClause()));
             }
         }
 
         for (int i = 0; i < operator.getWhenClauseSize(); i++) {
             if (!compatibleType.matchesType(operator.getWhenClause(i).getType())) {
-                operator.setWhenClause(i, new CastOperator(compatibleType, operator.getWhenClause(i)));
+                operator.setWhenClause(i, makeImplicitCast(compatibleType, operator.getWhenClause(i)));
             }
         }
 
@@ -390,6 +391,63 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
     }
 
     private void addCastChild(Type returnType, ScalarOperator node, int index) {
-        node.getChildren().set(index, new CastOperator(returnType, node.getChild(index), true));
+        ScalarOperator child = node.getChild(index);
+        checkImplicitCastAllowed(child.getType(), returnType);
+        node.getChildren().set(index, new CastOperator(returnType, child, true));
+    }
+
+    private CastOperator makeImplicitCast(Type returnType, ScalarOperator child) {
+        checkImplicitCastAllowed(child.getType(), returnType);
+        return new CastOperator(returnType, child, true);
+    }
+
+    // When MODE_FORBID_INVALID_IMPLICIT_CAST is set, reject implicit casts between
+    // incompatible type families (Trino-like strict type checking).
+    private static void checkImplicitCastAllowed(Type from, Type to) {
+        if (ConnectContext.get() == null) {
+            return;
+        }
+        if (!SqlModeHelper.check(ConnectContext.get().getSessionVariable().getSqlMode(),
+                SqlModeHelper.MODE_FORBID_INVALID_IMPLICIT_CAST)) {
+            return;
+        }
+        if (isImplicitCastSafe(from, to)) {
+            return;
+        }
+        throw new SemanticException(String.format(
+                "Implicit cast from %s to %s is not allowed under FORBID_INVALID_IMPLICIT_CAST sql_mode. "
+                        + "Use an explicit CAST.",
+                from, to));
+    }
+
+    private static boolean isImplicitCastSafe(Type from, Type to) {
+        if (from == null || to == null) {
+            return true;
+        }
+        if (from.isNull() || from.isInvalid() || to.isInvalid()) {
+            return true;
+        }
+        if (from.matchesType(to)) {
+            return true;
+        }
+        // Allow widening / narrowing within the same type family.
+        if (from.isNumericType() && to.isNumericType()) {
+            return true;
+        }
+        if (from.isStringType() && to.isStringType()) {
+            return true;
+        }
+        if (from.isDateType() && to.isDateType()) {
+            return true;
+        }
+        if (from.isBoolean() && to.isBoolean()) {
+            return true;
+        }
+        // Complex types (array/map/struct) fall back to their element-level
+        // coercions, which re-enter this rule. Skip the family check here.
+        if (from.isComplexType() || to.isComplexType()) {
+            return true;
+        }
+        return false;
     }
 }
