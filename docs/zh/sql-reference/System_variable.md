@@ -1440,7 +1440,7 @@ ALTER USER 'jack' SET PROPERTIES ('session.query_timeout' = '600');
 * `SORT_NULLS_LAST`：排序后，将 NULL 值放到最后。
 * `ERROR_IF_OVERFLOW`：运算溢出时，报错而不是返回 NULL，目前仅 DECIMAL 支持这一行为。
 * `GROUP_CONCAT_LEGACY`：使用 2.5 及以前的 `group_concat` 的语法。该选项从 3.0.9，3.1.6 开始支持。
-* `FORBID_INVALID_IMPLICIT_CAST`：在计划阶段禁止不同类型族之间的隐式转换（例如 `numeric` 与 `string`、`numeric` 与 `date`、`string` 与 `date`），行为类似 Trino 的严格类型检查。同一类型族内的转换仍然允许（例如 `INT` 转 `BIGINT`、`VARCHAR(5)` 转 `VARCHAR(10)`）。若查询需要被禁止的隐式转换，则会以语义错误失败，用户需使用显式 `CAST` 进行转换。
+* `FORBID_INVALID_IMPLICIT_CAST`：在计划阶段启用类似 Trino 的严格类型检查。仅允许同一类型族内的扩宽（widening）隐式转换，例如 `TINYINT`→`INT`→`BIGINT`→`DECIMAL`→`DOUBLE`、`VARCHAR(5)`→`VARCHAR(10)`、`DATE`→`DATETIME`。跨类型族的转换（例如 `string`↔`numeric`、`string`↔`date`、`numeric`↔`date`、`boolean` 与其他类型之间）以及窄化（narrowing）转换（例如 `BIGINT`→`INT`、`VARCHAR(10)`→`VARCHAR(5)`）会被拒绝并返回语义错误。如需进行此类转换，请使用显式 `CAST`。
 
 不同模式之间可以独立设置，您可以单独开启某一个模式，例如：
 

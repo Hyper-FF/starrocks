@@ -1416,7 +1416,7 @@ JDBC 接続プール C3P0 との互換性のために使用されます。実際
 * `SORT_NULLS_LAST`: ソート後に NULL 値を最後に配置します。
 * `ERROR_IF_OVERFLOW`: 算術オーバーフローが発生した場合に NULL の代わりにエラーを返します。現在、このオプションは DECIMAL データ型にのみ対応しています。
 * `GROUP_CONCAT_LEGACY`: v2.5 およびそれ以前の `group_concat` 構文を使用します。このオプションは v3.0.9 および v3.1.6 からサポートされています。
-* `FORBID_INVALID_IMPLICIT_CAST`: プラン時に、互換性のない型ファミリ間の暗黙的なキャスト（例: `numeric` と `string`、`numeric` と `date`、`string` と `date`）を拒否します。Trino の厳格な型チェック動作に似ています。同一ファミリ内の変換（`INT` から `BIGINT`、`VARCHAR(5)` から `VARCHAR(10)` など）は引き続き許可されます。無効な暗黙的キャストが必要な場合、クエリはセマンティックエラーで失敗します。明示的な `CAST` を使用して変換してください。
+* `FORBID_INVALID_IMPLICIT_CAST`: プラン時に Trino 風の厳格な型チェックを有効にします。暗黙的に許可されるのは同一型ファミリ内の拡張（widening）変換のみです（例: `TINYINT`→`INT`→`BIGINT`→`DECIMAL`→`DOUBLE`、`VARCHAR(5)`→`VARCHAR(10)`、`DATE`→`DATETIME`）。型ファミリをまたぐキャスト（`string`↔`numeric`、`string`↔`date`、`numeric`↔`date`、`boolean` と他の型など）や縮小（narrowing）キャスト（`BIGINT`→`INT`、`VARCHAR(10)`→`VARCHAR(5)` など）はセマンティックエラーとして拒否されます。これらの変換が必要な場合は、明示的な `CAST` を使用してください。
 
 1 つの SQL モードのみを設定できます。例：
 

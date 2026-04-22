@@ -49,6 +49,7 @@ import com.starrocks.sql.optimizer.rewrite.ScalarOperatorRewriteContext;
 import com.starrocks.sql.optimizer.rewrite.ScalarOperatorRewriter;
 import com.starrocks.type.BooleanType;
 import com.starrocks.type.MapType;
+import com.starrocks.type.ScalarType;
 import com.starrocks.type.Type;
 import com.starrocks.type.VarcharType;
 
@@ -401,8 +402,10 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
         return new CastOperator(returnType, child, true);
     }
 
-    // When MODE_FORBID_INVALID_IMPLICIT_CAST is set, reject implicit casts between
-    // incompatible type families (Trino-like strict type checking).
+    // When MODE_FORBID_INVALID_IMPLICIT_CAST is set, reject implicit casts that
+    // Trino would not allow: cross-family casts (e.g. varchar<->int) and
+    // narrowing casts (e.g. bigint->int, varchar(10)->varchar(5)). Only
+    // widening coercions within the same type family pass.
     private static void checkImplicitCastAllowed(Type from, Type to) {
         if (ConnectContext.get() == null) {
             return;
@@ -430,18 +433,15 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
         if (from.matchesType(to)) {
             return true;
         }
-        // Allow widening / narrowing within the same type family.
         if (from.isNumericType() && to.isNumericType()) {
-            return true;
+            return isNumericWidening(from, to);
         }
         if (from.isStringType() && to.isStringType()) {
-            return true;
+            return isStringWidening(from, to);
         }
         if (from.isDateType() && to.isDateType()) {
-            return true;
-        }
-        if (from.isBoolean() && to.isBoolean()) {
-            return true;
+            // DATE -> DATETIME is widening; DATETIME -> DATE is narrowing.
+            return from.isDate() && to.isDatetime();
         }
         // Complex types (array/map/struct) fall back to their element-level
         // coercions, which re-enter this rule. Skip the family check here.
@@ -449,5 +449,84 @@ public class ImplicitCastRule extends TopDownScalarOperatorRewriteRule {
             return true;
         }
         return false;
+    }
+
+    // Trino-like numeric widening rank:
+    //   TINYINT < SMALLINT < INT < BIGINT < LARGEINT < DECIMAL < FLOAT < DOUBLE
+    // A cast is widening iff fromRank <= toRank; DECIMAL -> DECIMAL additionally
+    // requires non-decreasing precision and scale.
+    private static boolean isNumericWidening(Type from, Type to) {
+        int fromRank = numericRank(from);
+        int toRank = numericRank(to);
+        if (fromRank < 0 || toRank < 0) {
+            return false;
+        }
+        if (fromRank > toRank) {
+            return false;
+        }
+        if (from.isDecimalOfAnyVersion() && to.isDecimalOfAnyVersion()) {
+            Integer fromPrecision = from.getPrecision();
+            Integer toPrecision = to.getPrecision();
+            int fromScale = from instanceof ScalarType ? ((ScalarType) from).getScalarScale() : 0;
+            int toScale = to instanceof ScalarType ? ((ScalarType) to).getScalarScale() : 0;
+            if (fromPrecision == null || toPrecision == null) {
+                return true;
+            }
+            int fromIntegralDigits = fromPrecision - fromScale;
+            int toIntegralDigits = toPrecision - toScale;
+            return toScale >= fromScale && toIntegralDigits >= fromIntegralDigits;
+        }
+        return true;
+    }
+
+    private static int numericRank(Type t) {
+        if (t.isTinyint()) {
+            return 1;
+        }
+        if (t.isSmallint()) {
+            return 2;
+        }
+        if (t.isInt()) {
+            return 3;
+        }
+        if (t.isBigint()) {
+            return 4;
+        }
+        if (t.isLargeIntType()) {
+            return 5;
+        }
+        if (t.isDecimalOfAnyVersion()) {
+            return 6;
+        }
+        if (t.isFloat()) {
+            return 7;
+        }
+        if (t.isDouble()) {
+            return 8;
+        }
+        return -1;
+    }
+
+    // Trino allows VARCHAR/CHAR to VARCHAR/CHAR only when the target length is
+    // >= the source length (unbounded VARCHAR has length -1, which is treated
+    // as the largest possible length).
+    private static boolean isStringWidening(Type from, Type to) {
+        if (!(from instanceof ScalarType) || !(to instanceof ScalarType)) {
+            return false;
+        }
+        // CHAR -> VARCHAR widening is allowed; VARCHAR -> CHAR is not.
+        if (from.isVarchar() && to.isChar()) {
+            return false;
+        }
+        int fromLen = ((ScalarType) from).getLength();
+        int toLen = ((ScalarType) to).getLength();
+        // -1 on VARCHAR means "unbounded".
+        if (toLen == -1) {
+            return true;
+        }
+        if (fromLen == -1) {
+            return false;
+        }
+        return toLen >= fromLen;
     }
 }

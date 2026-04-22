@@ -275,6 +275,31 @@ public class ImplicitCastRuleTest {
     }
 
     @Test
+    public void testForbidInvalidImplicitCastModeRejectsNarrowing() {
+        ConnectContext ctx = new ConnectContext(null);
+        ctx.getSessionVariable().setSqlMode(SqlModeHelper.MODE_FORBID_INVALID_IMPLICIT_CAST);
+        ctx.setThreadLocalInfo();
+        try {
+            // A function declared over INT, called with a BIGINT arg, would
+            // need a narrowing implicit cast which Trino forbids.
+            Function fn = new Function(new FunctionName("abs"), new Type[] {IntegerType.INT},
+                    IntegerType.INT, false);
+            CallOperator op = new CallOperator("abs", IntegerType.INT, Lists.newArrayList(
+                    new ColumnRefOperator(1, IntegerType.BIGINT, "c_bigint", true)));
+            new Expectations(op) {{
+                    op.getFunction();
+                    minTimes = 0;
+                    result = fn;
+                }};
+
+            ImplicitCastRule rule = new ImplicitCastRule();
+            assertThrows(SemanticException.class, () -> rule.apply(op, null));
+        } finally {
+            ConnectContext.remove();
+        }
+    }
+
+    @Test
     public void testForbidInvalidImplicitCastModeDisabledByDefault() {
         ConnectContext ctx = new ConnectContext(null);
         ctx.setThreadLocalInfo();
