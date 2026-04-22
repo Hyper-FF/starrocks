@@ -228,13 +228,13 @@ Status ExecFactory::create_vectorized_node(RuntimeState* state, ObjectPool* pool
         return Status::OK();
     case TPlanNodeType::AGGREGATION_NODE:
         if (tnode.agg_node.__isset.use_streaming_preaggregation && tnode.agg_node.use_streaming_preaggregation) {
-            if (tnode.agg_node.aggregate_functions.size() == 0) {
+            if (tnode.agg_node.aggregate_functions.empty()) {
                 CREATE_NODE(DistinctStreamingNode, pool, tnode, descs);
             } else {
                 CREATE_NODE(AggregateStreamingNode, pool, tnode, descs);
             }
         } else {
-            if (tnode.agg_node.aggregate_functions.size() == 0) {
+            if (tnode.agg_node.aggregate_functions.empty()) {
                 CREATE_NODE(DistinctBlockingNode, pool, tnode, descs);
             } else {
                 CREATE_NODE(AggregateBlockingNode, pool, tnode, descs);

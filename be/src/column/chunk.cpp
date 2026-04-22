@@ -473,7 +473,7 @@ std::string Chunk::rebuild_csv_row(size_t index, const std::string& delimiter) c
         os << _columns[col]->debug_item(index);
         os << delimiter;
     }
-    if (_columns.size() > 0) {
+    if (!_columns.empty()) {
         os << _columns[_columns.size() - 1]->debug_item(index);
     }
     return os.str();
@@ -994,7 +994,7 @@ std::string MutableChunk::rebuild_csv_row(size_t index, const std::string& delim
         os << _columns[col]->debug_item(index);
         os << delimiter;
     }
-    if (_columns.size() > 0) {
+    if (!_columns.empty()) {
         os << _columns[_columns.size() - 1]->debug_item(index);
     }
     return os.str();

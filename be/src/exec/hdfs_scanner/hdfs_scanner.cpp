@@ -107,7 +107,7 @@ private:
 bool HdfsScannerParams::is_lazy_materialization_slot(SlotId slot_id) const {
     // if there is no conjuncts, then there is no lazy materialization slot.
     // we have to read up all fields.
-    if (conjunct_ctxs_by_slot.size() == 0 && scanner_conjunct_ctxs.size() == 0) {
+    if (conjunct_ctxs_by_slot.empty() && scanner_conjunct_ctxs.empty()) {
         return false;
     }
     if (conjunct_ctxs_by_slot.find(slot_id) != conjunct_ctxs_by_slot.end()) {
@@ -836,7 +836,7 @@ Status HdfsScannerContext::evaluate_on_conjunct_ctxs_by_slot(ChunkPtr* chunk, Fi
 }
 
 StatusOr<bool> HdfsScannerContext::should_skip_by_evaluating_not_existed_slots() {
-    if (not_existed_slots.size() == 0) return false;
+    if (not_existed_slots.empty()) return false;
 
     // build chunk for evaluation.
     ChunkPtr chunk = std::make_shared<Chunk>();
@@ -860,7 +860,7 @@ void HdfsScannerContext::append_or_update_extended_column_to_chunk(ChunkPtr* chu
 void HdfsScannerContext::append_or_update_column_to_chunk(ChunkPtr* chunk, size_t row_count,
                                                           const std::vector<ColumnInfo>& columns,
                                                           const Columns& values) {
-    if (columns.size() == 0) return;
+    if (columns.empty()) return;
 
     ChunkPtr& ck = (*chunk);
     for (size_t i = 0; i < columns.size(); i++) {

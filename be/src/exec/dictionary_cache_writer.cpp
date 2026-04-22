@@ -50,7 +50,7 @@ Status DictionaryCacheWriter::prepare() {
     }
 
     const auto& nodes = _t_dictionary_cache_sink.nodes;
-    if (nodes.size() == 0) {
+    if (nodes.empty()) {
         auto st = Status::RuntimeError("no avaiable BE nodes for refreshing dictionary cache");
         return st;
     }

@@ -76,7 +76,7 @@ std::string ESScrollQueryBuilder::build(const std::map<std::string, std::string>
         pure_docvalue = atoi(properties.at(ESScanReader::KEY_DOC_VALUES_MODE).c_str());
     } else {
         // check docvalue scan optimization, used for compatibility
-        if (docvalue_context.size() == 0 || docvalue_context.size() < fields.size()) {
+        if (docvalue_context.empty() || docvalue_context.size() < fields.size()) {
             pure_docvalue = false;
         } else {
             for (auto& select_field : fields) {

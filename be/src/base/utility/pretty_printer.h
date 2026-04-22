@@ -193,7 +193,7 @@ public:
     template <typename T>
     static std::string print_unique_int_list_range(const std::vector<T>& vs) {
         std::stringstream ss;
-        if (vs.size() > 0) {
+        if (!vs.empty()) {
             size_t start = 0;
             for (size_t i = 1; i < vs.size(); ++i) {
                 if (vs[i] != vs[i - 1] + 1) {

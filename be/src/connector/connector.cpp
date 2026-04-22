@@ -81,8 +81,8 @@ const std::string DataSource::PROFILE_NAME = "DataSource";
 
 void DataSource::update_has_any_predicate() {
     auto f = [&]() {
-        if (_conjunct_ctxs.size() > 0) return true;
-        if (_runtime_filters != nullptr && _runtime_filters->size() > 0) return true;
+        if (!_conjunct_ctxs.empty()) return true;
+        if (_runtime_filters != nullptr && !_runtime_filters->empty()) return true;
         return false;
     };
     _has_any_predicate = f();

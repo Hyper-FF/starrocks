@@ -677,7 +677,7 @@ void ConnectorScanNode::close(RuntimeState* state) {
 
 Status ConnectorScanNode::set_scan_ranges(const std::vector<TScanRangeParams>& scan_ranges) {
     _scan_ranges = scan_ranges;
-    if (!accept_empty_scan_ranges() && scan_ranges.size() == 0) {
+    if (!accept_empty_scan_ranges() && scan_ranges.empty()) {
         // If scan ranges size is zero,
         // it means data source provider does not support reading by scan ranges.
         // So here we insert a single placeholder, to force data source provider

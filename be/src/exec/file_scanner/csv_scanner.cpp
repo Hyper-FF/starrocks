@@ -362,7 +362,7 @@ Status CSVScanner::_parse_csv_v2(Chunk* chunk) {
         }
 
         // skip empty row
-        if (row.columns.size() == 0) {
+        if (row.columns.empty()) {
             if (status.is_end_of_file()) {
                 break;
             }
