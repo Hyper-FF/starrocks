@@ -202,8 +202,11 @@ TEST_F(PipelineTimerTaskTest, dekker_synchronization_stress) {
 }
 
 // Simulate the real call site: a batch of tasks expires together, and a separate
-// thread per task calls task->unschedule(timer). All waiters must return, even if
-// one task's Run is slow (bthread serializes Run invocations from the same batch).
+// thread per task calls task->unschedule(timer). The head-of-batch task is held
+// inside Run() so its waiter must ride waitUtilFinished, while waiters for the
+// tail race bthread's own cancellation. All waiters must return cleanly; no
+// assertion is made about which of the tail tasks actually run because bthread
+// may cancel them via its versioning mechanism before the callback fires.
 TEST_F(PipelineTimerTaskTest, batched_tasks_all_unblock_eventually) {
     constexpr int kTasks = 16;
     std::vector<std::unique_ptr<ProbeTask>> tasks;
@@ -212,9 +215,10 @@ TEST_F(PipelineTimerTaskTest, batched_tasks_all_unblock_eventually) {
         tasks.emplace_back(std::make_unique<ProbeTask>());
     }
 
-    // The first task holds up the TimerThread briefly so that the rest of the
-    // batch stacks up behind it. This mirrors the production scenario where many
-    // fragments land in the same batch and each finalize thread waits.
+    // The first task holds up the TimerThread so that the head-of-batch waiter
+    // has to go through waitUtilFinished. This mirrors the production scenario
+    // where a fragment finalize thread is stuck waiting for CheckFragmentTimeout
+    // to return.
     tasks[0]->block_until_released = true;
 
     timespec when = past_abstime();
@@ -236,16 +240,26 @@ TEST_F(PipelineTimerTaskTest, batched_tasks_all_unblock_eventually) {
         });
     }
 
-    // Let the head-of-batch task complete; everything behind it should drain.
+    // All tail waiters should return quickly (bthread cancels them); only the
+    // head waiter should still be blocked on waitUtilFinished.
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (finished.load(std::memory_order_acquire) < kTasks - 1) {
+        ASSERT_LT(std::chrono::steady_clock::now(), deadline)
+                << "tail waiters did not return while head-of-batch Run was still blocked";
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Head waiter must still be pending at this point.
+    EXPECT_LT(finished.load(std::memory_order_acquire), kTasks);
+
+    // Release the head; its waiter must now drain via the notify path.
     tasks[0]->run_gate.release();
 
     for (auto& w : waiters) {
         w.join();
     }
     EXPECT_EQ(finished.load(std::memory_order_acquire), kTasks);
-    for (auto& t : tasks) {
-        EXPECT_TRUE(t->ran.load(std::memory_order_acquire));
-    }
+    EXPECT_TRUE(tasks[0]->ran.load(std::memory_order_acquire));
 }
 
 // LightTimerTask goes through a separate schedule/unschedule pair and lacks the
