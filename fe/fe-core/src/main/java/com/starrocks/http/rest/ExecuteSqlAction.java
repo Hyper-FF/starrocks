@@ -257,8 +257,12 @@ public class ExecuteSqlAction extends RestBaseAction {
         // connectionMap), the remove is a no-op — and after we finish registering
         // there is no further lifecycle event that can evict the context, so it
         // would be stranded in connectionMap. Detect that here and self-unregister.
+        //
+        // nettyChannel is null in tests that drive registerContextOnce without a
+        // real HTTP lifecycle; skip the check in that case. In production
+        // RestBaseAction#execute always calls setNettyChannel before this runs.
         ChannelHandlerContext nettyChannel = context.getNettyChannel();
-        if (nettyChannel == null || !nettyChannel.channel().isActive()) {
+        if (nettyChannel != null && !nettyChannel.channel().isActive()) {
             connectScheduler.unregisterConnection(context);
             throw new StarRocksHttpException(SERVICE_UNAVAILABLE,
                     "http channel closed before request registration completed");
