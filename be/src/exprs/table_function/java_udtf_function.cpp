@@ -223,7 +223,8 @@ std::pair<Columns, UInt32Column::Ptr> JavaUDTFFunction::process(RuntimeState* ru
                 state->set_status(st);
                 return {};
             }
-            auto res = append_jvalue(stateUDTF->type_desc(), true, col.get(), {.l = vi});
+            auto res = append_jvalue(stateUDTF->type_desc(), true, col.get(), {.l = vi},
+                                     runtime_state != nullptr && runtime_state->error_if_overflow());
             if (UNLIKELY(!res.ok())) {
                 state->set_status(Status::InternalError(res.to_string()));
                 return {};
