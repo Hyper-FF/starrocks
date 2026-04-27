@@ -47,8 +47,8 @@ static Status build_arrow_to_sr_convert_tree(const arrow::DataType& arrow_type, 
     auto lt = sr_type.type;
     tree->func = get_arrow_converter(at, lt, is_nullable, /*is_strict=*/true);
     if (tree->func == nullptr) {
-        return Status::NotSupported(fmt::format("unsupported arrow type {} to starrocks type {}",
-                                                arrow_type.ToString(), type_to_string(lt)));
+        return Status::NotSupported(fmt::format("unsupported arrow type {} to starrocks type {}", arrow_type.ToString(),
+                                                type_to_string(lt)));
     }
     tree->children.clear();
     tree->field_names.clear();
@@ -56,35 +56,35 @@ static Status build_arrow_to_sr_convert_tree(const arrow::DataType& arrow_type, 
     switch (lt) {
     case TYPE_ARRAY: {
         if (at != ArrowTypeId::LIST && at != ArrowTypeId::LARGE_LIST && at != ArrowTypeId::FIXED_SIZE_LIST) {
-            return Status::InternalError(fmt::format("Arrow type {} does not match StarRocks ARRAY",
-                                                     arrow_type.ToString()));
+            return Status::InternalError(
+                    fmt::format("Arrow type {} does not match StarRocks ARRAY", arrow_type.ToString()));
         }
         auto child = std::make_unique<ConvertFuncTree>();
         const auto& element_arrow_type = *arrow_type.field(0)->type();
         RETURN_IF_ERROR(build_arrow_to_sr_convert_tree(element_arrow_type, sr_type.children[0],
-                                                      /*is_nullable=*/true, child.get()));
+                                                       /*is_nullable=*/true, child.get()));
         tree->children.emplace_back(std::move(child));
         break;
     }
     case TYPE_MAP: {
         if (at != ArrowTypeId::MAP) {
-            return Status::InternalError(fmt::format("Arrow type {} does not match StarRocks MAP",
-                                                     arrow_type.ToString()));
+            return Status::InternalError(
+                    fmt::format("Arrow type {} does not match StarRocks MAP", arrow_type.ToString()));
         }
         const auto* map_type = down_cast<const arrow::MapType*>(&arrow_type);
         const arrow::DataType* sub_types[2] = {map_type->key_type().get(), map_type->item_type().get()};
         for (int i = 0; i < 2; ++i) {
             auto child = std::make_unique<ConvertFuncTree>();
             RETURN_IF_ERROR(build_arrow_to_sr_convert_tree(*sub_types[i], sr_type.children[i],
-                                                          /*is_nullable=*/true, child.get()));
+                                                           /*is_nullable=*/true, child.get()));
             tree->children.emplace_back(std::move(child));
         }
         break;
     }
     case TYPE_STRUCT: {
         if (at != ArrowTypeId::STRUCT) {
-            return Status::InternalError(fmt::format("Arrow type {} does not match StarRocks STRUCT",
-                                                     arrow_type.ToString()));
+            return Status::InternalError(
+                    fmt::format("Arrow type {} does not match StarRocks STRUCT", arrow_type.ToString()));
         }
         tree->field_names = sr_type.field_names;
         for (size_t i = 0; i < sr_type.children.size(); ++i) {
@@ -100,7 +100,7 @@ static Status build_arrow_to_sr_convert_tree(const arrow::DataType& arrow_type, 
             if (idx >= 0) {
                 const auto& child_arrow_type = *arrow_type.field(idx)->type();
                 RETURN_IF_ERROR(build_arrow_to_sr_convert_tree(child_arrow_type, sr_type.children[i],
-                                                              /*is_nullable=*/true, child.get()));
+                                                               /*is_nullable=*/true, child.get()));
             }
             // If the field is missing, leave the child tree empty — the StructGuard converter
             // appends nulls for that column.
