@@ -178,8 +178,12 @@ StatusOr<ColumnPtr> AbstractArrowFuncCallStub::_convert_arrow_to_native(const ar
 
     Filter filter;
     filter.resize(result_num_rows);
-    ArrowConvertContext ctx{};
-    auto status = tree.func(&result_ary, 0, result_num_rows, data_column, 0, null_data, &filter, &ctx, &tree);
+    // Pass nullptr ctx to match the legacy primitive path. Some primitive
+    // converters (e.g. the BINARY/STRING specialization) check `ctx != nullptr`
+    // but then unconditionally deref `ctx->current_slot`, so a stub context
+    // with a null slot would crash. UDF flow has no SlotDescriptor and never
+    // hits the timestamp / non-nullable branches that need a real ctx.
+    auto status = tree.func(&result_ary, 0, result_num_rows, data_column, 0, null_data, &filter, nullptr, &tree);
     RETURN_IF_ERROR(status);
     nullable_column->update_has_null();
 
