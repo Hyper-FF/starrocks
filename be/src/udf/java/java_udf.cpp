@@ -47,7 +47,8 @@
         CHECK(_class_##prim_clazz);                                                                           \
         _value_of_##prim_clazz =                                                                              \
                 _env->GetStaticMethodID(_class_##prim_clazz, "valueOf", "(" #sign ")Ljava/lang/" #clazz ";"); \
-        CHECK(_value_of_##prim_clazz) << "Not Found" << "(" #sign ")Ljava/lang/" #clazz ";";                  \
+        CHECK(_value_of_##prim_clazz) << "Not Found"                                                          \
+                                      << "(" #sign ")Ljava/lang/" #clazz ";";                                 \
         _val_##prim_clazz = _env->GetMethodID(_class_##prim_clazz, #prim_clazz "Value", "()" #sign);          \
         CHECK(_val_##prim_clazz);                                                                             \
     }
