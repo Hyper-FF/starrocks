@@ -7,6 +7,17 @@ public final class MemoryBudget implements AutoCloseable {
 
     private static final ThreadLocal<Deque<MemoryBudget>> STACK = ThreadLocal.withInitial(ArrayDeque::new);
 
+    // soft toggle — flipped at runtime to silence the advice without retransformation
+    public static volatile boolean ENABLED = true;
+
+    public static void setEnabled(boolean enabled) {
+        ENABLED = enabled;
+    }
+
+    public static boolean isEnabled() {
+        return ENABLED;
+    }
+
     private final String name;
     private final long limit;
     private long consumed;
