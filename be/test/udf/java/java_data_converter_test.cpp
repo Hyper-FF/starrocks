@@ -467,8 +467,7 @@ TEST_F(DataConverterTest, convert_to_boxed_array_decimal) {
     run(TYPE_DECIMAL128, 38, 10,
         build_decimal_col<TYPE_DECIMAL128, int128_t>(38, 10, "12345678901234567890.1234567890"));
     run(TYPE_DECIMAL256, 76, 10,
-        build_decimal_col<TYPE_DECIMAL256, int256_t>(
-                76, 10, "1234567890123456789012345678901234567890.1234567890"));
+        build_decimal_col<TYPE_DECIMAL256, int256_t>(76, 10, "1234567890123456789012345678901234567890.1234567890"));
 
     // all-null shortcut path: every row null hits the create_array branch instead of
     // the decimal helper. Keep this case to exercise the early-return.
