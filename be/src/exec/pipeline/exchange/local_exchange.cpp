@@ -63,11 +63,13 @@ Status Partitioner::send_chunk(const ChunkPtr& chunk,
     // the same mutation N times in each downstream add_chunk.
     chunk->unpack_and_duplicate_const_columns();
 
-    // Compute the chunk's memory_usage once and split it among partitions in proportion to row
-    // counts, so the per-partition share sums to chunk->memory_usage() and each source operator
-    // only books its slice's portion.
-    const size_t total_memory_usage = chunk->memory_usage();
-    const size_t total_rows = chunk->num_rows();
+    // Split the chunk's memory_usage across partitions proportionally. We track the unallocated
+    // budget instead of dividing total_memory_usage by total_rows each time: when we reach the
+    // last non-empty partition `size == remaining_rows`, so it naturally absorbs the full
+    // remainder and the per-partition shares sum exactly to chunk->memory_usage() with no
+    // integer-division loss.
+    size_t remaining_memory_usage = chunk->memory_usage();
+    size_t remaining_rows = chunk->num_rows();
 
     for (size_t i = 0; i < num_partitions; ++i) {
         size_t from = partition_begin_offset(i);
@@ -77,7 +79,9 @@ Status Partitioner::send_chunk(const ChunkPtr& chunk,
             continue;
         }
 
-        const size_t memory_usage = total_memory_usage * size / total_rows;
+        const size_t memory_usage = remaining_memory_usage * size / remaining_rows;
+        remaining_memory_usage -= memory_usage;
+        remaining_rows -= size;
         RETURN_IF_ERROR(_source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size, memory_usage));
     }
     return Status::OK();
