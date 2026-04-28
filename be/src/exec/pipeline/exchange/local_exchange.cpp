@@ -38,10 +38,8 @@ Status Partitioner::partition_chunk(const ChunkPtr& chunk, int32_t num_partition
     // step2: shuffle chunk into dest partitions.
     {
         _partition_row_indexes_start_points.assign(num_partitions + 1, 0);
-        _partition_memory_usage.assign(num_partitions, 0);
         for (size_t i = 0; i < num_rows; ++i) {
             _partition_row_indexes_start_points[_shuffle_channel_id[i]]++;
-            _partition_memory_usage[_shuffle_channel_id[i]] += chunk->bytes_usage(i, 1);
         }
         // We make the last item equal with number of rows of this chunk.
         for (int32_t i = 1; i <= num_partitions; ++i) {
@@ -59,6 +57,7 @@ Status Partitioner::partition_chunk(const ChunkPtr& chunk, int32_t num_partition
 Status Partitioner::send_chunk(const ChunkPtr& chunk,
                                const std::shared_ptr<std::vector<uint32_t>>& partition_row_indexes) {
     size_t num_partitions = _source->get_sources().size();
+    size_t chunk_memory_usage = chunk->memory_usage();
     for (size_t i = 0; i < num_partitions; ++i) {
         size_t from = partition_begin_offset(i);
         size_t size = partition_end_offset(i) - from;
@@ -68,7 +67,7 @@ Status Partitioner::send_chunk(const ChunkPtr& chunk,
         }
 
         RETURN_IF_ERROR(_source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size,
-                                                             partition_memory_usage(i)));
+                                                             chunk_memory_usage));
     }
     return Status::OK();
 }
