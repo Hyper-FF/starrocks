@@ -57,6 +57,18 @@ Status Partitioner::partition_chunk(const ChunkPtr& chunk, int32_t num_partition
 Status Partitioner::send_chunk(const ChunkPtr& chunk,
                                const std::shared_ptr<std::vector<uint32_t>>& partition_row_indexes) {
     size_t num_partitions = _source->get_sources().size();
+
+    // Unpack const columns once: append_selective on the consumer side cannot handle const columns,
+    // and the chunk is shared by every non-empty partition queue, so doing it here avoids redoing
+    // the same mutation N times in each downstream add_chunk.
+    chunk->unpack_and_duplicate_const_columns();
+
+    // Compute the chunk's memory_usage once and split it among partitions in proportion to row
+    // counts, so the per-partition share sums to chunk->memory_usage() and each source operator
+    // only books its slice's portion.
+    const size_t total_memory_usage = chunk->memory_usage();
+    const size_t total_rows = chunk->num_rows();
+
     for (size_t i = 0; i < num_partitions; ++i) {
         size_t from = partition_begin_offset(i);
         size_t size = partition_end_offset(i) - from;
@@ -65,7 +77,8 @@ Status Partitioner::send_chunk(const ChunkPtr& chunk,
             continue;
         }
 
-        RETURN_IF_ERROR(_source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size));
+        const size_t memory_usage = total_memory_usage * size / total_rows;
+        RETURN_IF_ERROR(_source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size, memory_usage));
     }
     return Status::OK();
 }

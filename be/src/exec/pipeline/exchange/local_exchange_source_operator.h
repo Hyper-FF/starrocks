@@ -63,7 +63,7 @@ public:
     void add_chunk(ChunkPtr chunk);
 
     Status add_chunk(ChunkPtr chunk, const std::shared_ptr<std::vector<uint32_t>>& indexes, uint32_t from,
-                     uint32_t size);
+                     uint32_t size, size_t memory_usage);
 
     Status add_chunk(const std::vector<std::optional<std::string>>& partition_key,
                      const std::vector<std::pair<TypeDescriptor, ColumnPtr>>& partition_datum, ChunkUniquePtr chunk);
