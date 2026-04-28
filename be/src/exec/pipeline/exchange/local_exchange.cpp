@@ -57,6 +57,12 @@ Status Partitioner::partition_chunk(const ChunkPtr& chunk, int32_t num_partition
 Status Partitioner::send_chunk(const ChunkPtr& chunk,
                                const std::shared_ptr<std::vector<uint32_t>>& partition_row_indexes) {
     size_t num_partitions = _source->get_sources().size();
+    // Unpack const columns now (instead of inside each per-source add_chunk) so the
+    // accounted memory reflects the materialized post-unpack footprint. For const
+    // columns the pre-unpack memory is O(1) while the buffered, unpacked memory is
+    // O(num_rows); accounting before the unpack would let the manager undercount by
+    // orders of magnitude and weaken is_full() back-pressure.
+    chunk->unpack_and_duplicate_const_columns();
     // Account this chunk against the shared memory manager exactly once. The entry is
     // shared by every partition shard via shared_ptr, so the record is only released
     // when the last shard is consumed across all source operators.

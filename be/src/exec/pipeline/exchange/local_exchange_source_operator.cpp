@@ -38,7 +38,9 @@ void LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk) {
 // Only enqueue the partition chunk information here, and merge chunk in pull_chunk().
 // The shared `memory_entry` accounts for the source chunk's memory once across all
 // partition shards; it is only released back to the manager when the last shard is
-// pulled (or cleared on set_finished).
+// pulled (or cleared on set_finished). The caller (Partitioner::send_chunk) is
+// responsible for unpacking const columns BEFORE constructing the entry, so the
+// recorded memory matches the buffered post-unpack footprint.
 Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_ptr<std::vector<uint32_t>>& indexes,
                                               uint32_t from, uint32_t size,
                                               std::shared_ptr<ChunkBufferMemoryEntry> memory_entry) {
@@ -47,9 +49,6 @@ Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_
     if (_is_finished) {
         return Status::OK();
     }
-
-    // unpack chunk's const column, since Chunk#append_selective cannot be const column
-    chunk->unpack_and_duplicate_const_columns();
 
     _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size, std::move(memory_entry));
     _partition_rows_num += size;

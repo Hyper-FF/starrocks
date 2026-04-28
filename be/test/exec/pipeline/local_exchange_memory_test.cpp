@@ -20,6 +20,7 @@
 #include "base/testutil/assert.h"
 #include "column/chunk.h"
 #include "column/column_helper.h"
+#include "column/const_column.h"
 #include "exec/chunk_buffer_memory_manager.h"
 #include "exec/pipeline/exchange/local_exchange.h"
 #include "exec/pipeline/exchange/local_exchange_source_operator.h"
@@ -249,6 +250,40 @@ TEST_F(LocalExchangeMemoryTest, set_finished_refunds_all_queues) {
         ASSERT_OK(source->set_finished(_runtime_state.get()));
     }
     EXPECT_EQ(0, _memory_manager->get_memory_usage());
+}
+
+// Regression: a chunk built from const columns has tiny pre-unpack memory_usage
+// (O(1) per column) but is materialized to O(num_rows) by Partitioner::send_chunk
+// before being buffered. The memory manager must record the post-unpack footprint,
+// otherwise back-pressure under-counts buffered memory by orders of magnitude.
+TEST_F(LocalExchangeMemoryTest, const_column_accounted_after_unpack) {
+    constexpr size_t kNumRows = 4096;
+
+    // Chunk with a single const-INT column over kNumRows virtual rows.
+    auto inner = ColumnHelper::create_column(TypeDescriptor(TYPE_INT), false);
+    inner->append_datum(Datum(static_cast<int32_t>(42)));
+    auto chunk = std::make_shared<Chunk>();
+    chunk->append_column(ConstColumn::create(std::move(inner), kNumRows), 1);
+    ASSERT_EQ(kNumRows, chunk->num_rows());
+
+    const size_t pre_unpack_mem = chunk->memory_usage();
+
+    // Partition + send a copy of the chunk. RandomPartitioner needs no expr context.
+    auto partitioner = std::make_unique<RandomPartitioner>(_source_op_factory.get());
+    auto partition_row_indexes = std::make_shared<std::vector<uint32_t>>(kNumRows);
+    ASSERT_OK(partitioner->partition_chunk(chunk, _dop, *partition_row_indexes));
+    ASSERT_OK(partitioner->send_chunk(chunk, partition_row_indexes));
+
+    // After send_chunk, the const column has been materialized into a regular column
+    // of kNumRows datums; the per-shard buffered memory is therefore much larger than
+    // what chunk->memory_usage() would have reported pre-unpack.
+    const size_t post_unpack_mem = chunk->memory_usage();
+    EXPECT_GT(post_unpack_mem, pre_unpack_mem)
+            << "const-column unpack should grow chunk memory_usage";
+
+    // The manager must record the post-unpack footprint, not the tiny pre-unpack
+    // value. Equality (rather than >=) ensures we accounted exactly once.
+    EXPECT_EQ(post_unpack_mem, _memory_manager->get_memory_usage());
 }
 
 // is_full() must reflect actual chunk memory, not an N-times-inflated value. With a
