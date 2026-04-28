@@ -865,7 +865,7 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(VarargsTableFunctionEval.class);
-            
+
             String createFunctionSql = "CREATE TABLE FUNCTION ABC.process_varargs(string, ...) \n"
                     + "RETURNS array<string> \n"
                     + "properties (\n"
@@ -873,7 +873,7 @@ public class CreateFunctionStmtAnalyzerTest {
                     + "    \"type\" = \"StarrocksJar\",\n"
                     + "    \"file\" = \"http://localhost:8080/\"\n"
                     + ");";
-            
+
             CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(
                     createFunctionSql, 32).get(0);
             new CreateFunctionAnalyzer().analyze(stmt, connectContext);
@@ -882,5 +882,92 @@ public class CreateFunctionStmtAnalyzerTest {
         } finally {
             Config.enable_udf = false;
         }
+    }
+
+    // Java type erasure means nested generics (e.g. List<List<Integer>>) collapse to the raw
+    // List/Map at reflection time, so the UDF's evaluate signature only carries List/Map. The
+    // FE validates the SQL-side nested shape; runtime conversion is driven by the SQL signature.
+    private static class NestedArrayEval {
+        public List<?> evaluate(List<?> a) {
+            return a;
+        }
+    }
+
+    private static class NestedMapEval {
+        public Map<?, ?> evaluate(Map<?, ?> a) {
+            return a;
+        }
+    }
+
+    @Test
+    public void testJScalarUDFNestedArrayOfArray() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(NestedArrayEval.class);
+            String sql = buildFunction("array<array<int>>", "array<array<int>>");
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testJScalarUDFNestedArrayOfMap() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(NestedArrayEval.class);
+            String sql = buildFunction("array<map<int,string>>", "array<map<int,string>>");
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testJScalarUDFNestedMapWithArrayValue() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(NestedMapEval.class);
+            String sql = buildFunction("map<int,array<string>>", "map<int,array<string>>");
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testJScalarUDFDeeplyNestedArray() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(NestedArrayEval.class);
+            String sql = buildFunction("array<array<array<int>>>", "array<array<array<int>>>");
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testJScalarUDFNestedTypeMismatch() {
+        // Nested SQL type still requires Java raw List/Map: passing a String parameter must fail.
+        assertThrows(SemanticException.class, () -> {
+            try {
+                Config.enable_udf = true;
+                mockClazz(NormalEval.class);
+                String sql = buildFunction("array<array<int>>", "array<array<int>>, string");
+                CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+                new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            } finally {
+                Config.enable_udf = false;
+            }
+        });
     }
 }
