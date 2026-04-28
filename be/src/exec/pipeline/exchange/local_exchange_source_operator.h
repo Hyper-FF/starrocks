@@ -27,12 +27,12 @@ class LocalExchangeSourceOperator final : public SourceOperator {
     class PartitionChunk {
     public:
         PartitionChunk(ChunkPtr chunk, std::shared_ptr<std::vector<uint32_t>> indexes, const uint32_t from,
-                       const uint32_t size, const size_t memory_usage)
+                       const uint32_t size, std::shared_ptr<ChunkBufferMemoryEntry> memory_entry)
                 : chunk(std::move(chunk)),
                   indexes(std::move(indexes)),
                   from(from),
                   size(size),
-                  memory_usage(memory_usage) {}
+                  memory_entry(std::move(memory_entry)) {}
 
         PartitionChunk(const PartitionChunk&) = delete;
 
@@ -42,7 +42,7 @@ class LocalExchangeSourceOperator final : public SourceOperator {
         std::shared_ptr<std::vector<uint32_t>> indexes;
         const uint32_t from;
         const uint32_t size;
-        const size_t memory_usage;
+        std::shared_ptr<ChunkBufferMemoryEntry> memory_entry;
     };
 
     struct PartialChunks {
@@ -61,7 +61,7 @@ public:
     void add_chunk(ChunkPtr chunk);
 
     Status add_chunk(ChunkPtr chunk, const std::shared_ptr<std::vector<uint32_t>>& indexes, uint32_t from,
-                     uint32_t size, size_t memory_bytes);
+                     uint32_t size, std::shared_ptr<ChunkBufferMemoryEntry> memory_entry);
 
     Status add_chunk(const std::vector<std::optional<std::string>>& partition_key,
                      const std::vector<std::pair<TypeDescriptor, ColumnPtr>>& partition_datum, ChunkUniquePtr chunk);
@@ -140,6 +140,8 @@ public:
 
     void set_exchanger(LocalExchanger* exchanger) { _exchanger = exchanger; }
     LocalExchanger* exchanger() { return _exchanger; }
+
+    ChunkBufferMemoryManager* memory_manager() { return _memory_manager.get(); }
 
     std::vector<LocalExchangeSourceOperator*>& get_sources() { return _sources; }
 

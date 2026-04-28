@@ -37,8 +37,12 @@ void LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk) {
 
 // Used for PartitionExchanger.
 // Only enqueue the partition chunk information here, and merge chunk in pull_chunk().
+// The shared `memory_entry` accounts for the source chunk's memory once across all
+// partition shards; it is only released back to the manager when the last shard is
+// pulled (or cleared on set_finished).
 Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_ptr<std::vector<uint32_t>>& indexes,
-                                              uint32_t from, uint32_t size, size_t memory_usage) {
+                                              uint32_t from, uint32_t size,
+                                              std::shared_ptr<ChunkBufferMemoryEntry> memory_entry) {
     auto notify = defer_notify();
     std::lock_guard<std::mutex> l(_chunk_lock);
     if (_is_finished) {
@@ -48,9 +52,8 @@ Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_
     // unpack chunk's const column, since Chunk#append_selective cannot be const column
     chunk->unpack_and_duplicate_const_columns();
 
-    _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size, memory_usage);
+    _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size, std::move(memory_entry));
     _partition_rows_num += size;
-    _memory_manager->update_memory_usage(memory_usage, size);
 
     return Status::OK();
 }
@@ -99,29 +102,28 @@ Status LocalExchangeSourceOperator::set_finished(RuntimeState* state) {
     std::lock_guard<std::mutex> l(_chunk_lock);
     _is_finished = true;
 
-    size_t total_memory_usage = 0;
-    size_t total_num_rows = 0;
+    // For full and key-partition queues we own the chunk exclusively, so account each
+    // chunk's memory directly here. For the partition shuffle queue, each PartitionChunk
+    // holds a shared_ptr<ChunkBufferMemoryEntry>; clearing the queue drops references
+    // and the entry destructor refunds memory/rows to the manager when the last shard
+    // (across all sources) is released.
+    size_t direct_memory_usage = 0;
+    size_t direct_num_rows = 0;
     while (!_full_chunk_queue.empty()) {
         const auto& chunk = _full_chunk_queue.front();
-        total_memory_usage += chunk->memory_usage();
-        total_num_rows += chunk->num_rows();
+        direct_memory_usage += chunk->memory_usage();
+        direct_num_rows += chunk->num_rows();
         _full_chunk_queue.pop();
     }
-    while (!_partition_chunk_queue.empty()) {
-        const auto& partition_chunk = _partition_chunk_queue.front();
-        total_memory_usage += partition_chunk.memory_usage;
-        total_num_rows += partition_chunk.size;
-        _partition_chunk_queue.pop();
-    }
     for (const auto& [_, partial_chunks] : _partition_key2partial_chunks) {
-        total_memory_usage += partial_chunks.memory_usage;
-        total_num_rows += partial_chunks.num_rows;
+        direct_memory_usage += partial_chunks.memory_usage;
+        direct_num_rows += partial_chunks.num_rows;
     }
     _partition_key2partial_chunks.clear();
+    _partition_chunk_queue = {};
 
-    // Subtract the buffered memory and rows from _memory_manager and make it unblocked.
-    _memory_manager->update_memory_usage(-static_cast<int64_t>(total_memory_usage),
-                                         -static_cast<int64_t>(total_num_rows));
+    _memory_manager->update_memory_usage(-static_cast<int64_t>(direct_memory_usage),
+                                         -static_cast<int64_t>(direct_num_rows));
     _partition_rows_num = 0;
     return Status::OK();
 }
@@ -174,7 +176,6 @@ ChunkPtr LocalExchangeSourceOperator::_pull_passthrough_chunk(RuntimeState* stat
 ChunkPtr LocalExchangeSourceOperator::_pull_shuffle_chunk(RuntimeState* state) {
     std::vector<PartitionChunk> selected_partition_chunks;
     size_t num_rows = 0;
-    size_t memory_usage = 0;
     // Lock during pop partition chunks from queue.
     {
         std::lock_guard<std::mutex> l(_chunk_lock);
@@ -184,12 +185,10 @@ ChunkPtr LocalExchangeSourceOperator::_pull_shuffle_chunk(RuntimeState* state) {
         while (!_partition_chunk_queue.empty() &&
                num_rows + _partition_chunk_queue.front().size <= state->chunk_size()) {
             num_rows += _partition_chunk_queue.front().size;
-            memory_usage += _partition_chunk_queue.front().memory_usage;
             selected_partition_chunks.emplace_back(std::move(_partition_chunk_queue.front()));
             _partition_chunk_queue.pop();
         }
         _partition_rows_num -= num_rows;
-        _memory_manager->update_memory_usage(-memory_usage, -num_rows);
     }
     if (selected_partition_chunks.empty()) {
         throw std::runtime_error("local exchange gets empty shuffled chunk.");
@@ -202,6 +201,9 @@ ChunkPtr LocalExchangeSourceOperator::_pull_shuffle_chunk(RuntimeState* state) {
         chunk->append_selective(*partition_chunk.chunk, partition_chunk.indexes->data(), partition_chunk.from,
                                 partition_chunk.size);
     }
+    // selected_partition_chunks goes out of scope here. Each PartitionChunk drops its
+    // shared_ptr<ChunkBufferMemoryEntry>; once the last shard for a given source chunk is
+    // released, the entry destructor refunds its memory/rows to the manager.
     return chunk;
 }
 

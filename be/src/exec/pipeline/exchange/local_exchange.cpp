@@ -57,7 +57,11 @@ Status Partitioner::partition_chunk(const ChunkPtr& chunk, int32_t num_partition
 Status Partitioner::send_chunk(const ChunkPtr& chunk,
                                const std::shared_ptr<std::vector<uint32_t>>& partition_row_indexes) {
     size_t num_partitions = _source->get_sources().size();
-    size_t chunk_memory_usage = chunk->memory_usage();
+    // Account this chunk against the shared memory manager exactly once. The entry is
+    // shared by every partition shard via shared_ptr, so the record is only released
+    // when the last shard is consumed across all source operators.
+    auto memory_entry = std::make_shared<ChunkBufferMemoryEntry>(_source->memory_manager(), chunk->memory_usage(),
+                                                                 chunk->num_rows());
     for (size_t i = 0; i < num_partitions; ++i) {
         size_t from = partition_begin_offset(i);
         size_t size = partition_end_offset(i) - from;
@@ -66,8 +70,8 @@ Status Partitioner::send_chunk(const ChunkPtr& chunk,
             continue;
         }
 
-        RETURN_IF_ERROR(_source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size,
-                                                             chunk_memory_usage));
+        RETURN_IF_ERROR(
+                _source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size, memory_entry));
     }
     return Status::OK();
 }
