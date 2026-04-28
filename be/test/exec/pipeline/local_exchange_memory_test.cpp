@@ -309,4 +309,89 @@ TEST_F(LocalExchangeMemoryTest, fanout_does_not_falsely_trip_is_full) {
     EXPECT_FALSE(_memory_manager->is_full());
 }
 
+// Early-finish on one source must release ONLY that source's contribution to a
+// shared fan-out entry; the chunk's memory record must persist while at least one
+// other source still holds a reference. After the remaining sources drain, memory
+// drops to zero — i.e. early finish does not leak nor pile up memory.
+TEST_F(LocalExchangeMemoryTest, early_finish_one_source_keeps_other_refs) {
+    auto chunk = _make_int_chunk(_dop * 4);
+    const size_t mem = chunk->memory_usage();
+    ASSERT_GT(mem, 0);
+
+    auto entry = std::make_shared<ChunkBufferMemoryEntry>(_memory_manager.get(), mem, chunk->num_rows());
+    auto indexes = std::make_shared<std::vector<uint32_t>>(chunk->num_rows());
+    std::iota(indexes->begin(), indexes->end(), 0);
+    const size_t per_shard = chunk->num_rows() / _dop;
+    for (size_t i = 0; i < _dop; ++i) {
+        ASSERT_OK(_source(i)->add_chunk(chunk, indexes, i * per_shard, per_shard, entry));
+    }
+    entry.reset();
+    EXPECT_EQ(mem, _memory_manager->get_memory_usage());
+
+    // Source 0 finishes early. Its queue clears and its ref to the shared entry drops,
+    // but sources 1..N-1 still hold the entry, so the chunk's memory stays accounted.
+    ASSERT_OK(_source(0)->set_finished(_runtime_state.get()));
+    EXPECT_EQ(mem, _memory_manager->get_memory_usage());
+
+    // Drain the remaining sources; memory only returns to zero after the last ref drops.
+    for (size_t i = 1; i + 1 < _dop; ++i) {
+        auto pulled = _source(i)->pull_chunk(_runtime_state.get());
+        ASSERT_OK(pulled);
+        EXPECT_EQ(mem, _memory_manager->get_memory_usage());
+    }
+    auto pulled = _source(_dop - 1)->pull_chunk(_runtime_state.get());
+    ASSERT_OK(pulled);
+    EXPECT_EQ(0, _memory_manager->get_memory_usage());
+}
+
+// After one source has finished, subsequent send_chunk fan-outs must only accumulate
+// references in the remaining active sources — memory still scales as 1x per chunk,
+// not by the (already-dead) finished sources.
+TEST_F(LocalExchangeMemoryTest, send_after_partial_finish_only_charges_active_sources) {
+    // Source 0 finishes before any chunk arrives.
+    ASSERT_OK(_source(0)->set_finished(_runtime_state.get()));
+    EXPECT_EQ(0, _memory_manager->get_memory_usage());
+
+    // Fan a chunk out via the partitioner. The finished source's add_chunk no-ops,
+    // and add_chunk takes the entry by value, so its parameter copy is dropped on
+    // return — the entry ends up held only by the active sources.
+    auto chunk = _make_int_chunk(_dop * 4);
+    auto partitioner = std::make_unique<RandomPartitioner>(_source_op_factory.get());
+    auto partition_row_indexes = std::make_shared<std::vector<uint32_t>>(chunk->num_rows());
+    ASSERT_OK(partitioner->partition_chunk(chunk, _dop, *partition_row_indexes));
+    ASSERT_OK(partitioner->send_chunk(chunk, partition_row_indexes));
+
+    const size_t mem = chunk->memory_usage();
+    EXPECT_EQ(mem, _memory_manager->get_memory_usage());
+
+    // Drain the active sources; memory drops to zero after the last one pulls.
+    for (size_t i = 1; i + 1 < _dop; ++i) {
+        auto pulled = _source(i)->pull_chunk(_runtime_state.get());
+        ASSERT_OK(pulled);
+        EXPECT_EQ(mem, _memory_manager->get_memory_usage());
+    }
+    auto pulled = _source(_dop - 1)->pull_chunk(_runtime_state.get());
+    ASSERT_OK(pulled);
+    EXPECT_EQ(0, _memory_manager->get_memory_usage());
+}
+
+// When ALL sources have already finished, send_chunk briefly registers the entry
+// (constructor side-effect) but every per-source add_chunk no-ops, so the entry has
+// no holders by the time send_chunk returns and the manager goes back to zero.
+// Verifies that finishing all consumers does not strand chunks in the manager.
+TEST_F(LocalExchangeMemoryTest, send_after_all_sources_finished_refunds_immediately) {
+    for (auto& source : _sources) {
+        ASSERT_OK(source->set_finished(_runtime_state.get()));
+    }
+    EXPECT_EQ(0, _memory_manager->get_memory_usage());
+
+    auto chunk = _make_int_chunk(_dop * 4);
+    auto partitioner = std::make_unique<RandomPartitioner>(_source_op_factory.get());
+    auto partition_row_indexes = std::make_shared<std::vector<uint32_t>>(chunk->num_rows());
+    ASSERT_OK(partitioner->partition_chunk(chunk, _dop, *partition_row_indexes));
+    ASSERT_OK(partitioner->send_chunk(chunk, partition_row_indexes));
+
+    EXPECT_EQ(0, _memory_manager->get_memory_usage());
+}
+
 } // namespace starrocks::pipeline
