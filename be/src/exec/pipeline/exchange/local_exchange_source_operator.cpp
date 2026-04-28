@@ -39,7 +39,7 @@ void LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk) {
 // Used for PartitionExchanger.
 // Only enqueue the partition chunk information here, and merge chunk in pull_chunk().
 Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_ptr<std::vector<uint32_t>>& indexes,
-                                              uint32_t from, uint32_t size, size_t memory_usage) {
+                                              uint32_t from, uint32_t size) {
     auto notify = defer_notify();
     std::lock_guard<std::mutex> l(_chunk_lock);
     if (_is_finished) {
@@ -49,7 +49,8 @@ Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_
     // unpack chunk's const column, since Chunk#append_selective cannot be const column
     chunk->unpack_and_duplicate_const_columns();
 
-    _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size, memory_usage);
+    _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size);
+    const size_t memory_usage = _partition_chunk_queue.back().memory_usage;
     _partition_rows_num += size;
     _local_memory_usage += memory_usage;
     _memory_manager->update_memory_usage(memory_usage, size);

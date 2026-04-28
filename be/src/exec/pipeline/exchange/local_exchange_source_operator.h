@@ -27,12 +27,12 @@ class LocalExchangeSourceOperator final : public SourceOperator {
     class PartitionChunk {
     public:
         PartitionChunk(ChunkPtr chunk, std::shared_ptr<std::vector<uint32_t>> indexes, const uint32_t from,
-                       const uint32_t size, const size_t memory_usage)
+                       const uint32_t size)
                 : chunk(std::move(chunk)),
                   indexes(std::move(indexes)),
                   from(from),
                   size(size),
-                  memory_usage(memory_usage) {}
+                  memory_usage(this->chunk->memory_usage()) {}
 
         PartitionChunk(const PartitionChunk&) = delete;
 
@@ -63,7 +63,7 @@ public:
     void add_chunk(ChunkPtr chunk);
 
     Status add_chunk(ChunkPtr chunk, const std::shared_ptr<std::vector<uint32_t>>& indexes, uint32_t from,
-                     uint32_t size, size_t memory_bytes);
+                     uint32_t size);
 
     Status add_chunk(const std::vector<std::optional<std::string>>& partition_key,
                      const std::vector<std::pair<TypeDescriptor, ColumnPtr>>& partition_datum, ChunkUniquePtr chunk);

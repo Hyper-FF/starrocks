@@ -38,33 +38,9 @@ Status Partitioner::partition_chunk(const ChunkPtr& chunk, int32_t num_partition
     // step2: shuffle chunk into dest partitions.
     {
         _partition_row_indexes_start_points.assign(num_partitions + 1, 0);
-        _partition_memory_usage.assign(num_partitions, 0);
         for (size_t i = 0; i < num_rows; ++i) {
             _partition_row_indexes_start_points[_shuffle_channel_id[i]]++;
         }
-
-        // Distribute the chunk's actual memory_usage() across partitions proportionally to row counts.
-        // bytes_usage() only counts row data and misses column container/null-mask/buffer overhead,
-        // so the prior per-row estimate under-reported what ChunkBufferMemoryManager actually holds.
-        // The integer-division remainder is folded into the last non-empty partition so the shares
-        // sum exactly to chunk->memory_usage().
-        if (num_rows > 0) {
-            const size_t total_memory_usage = chunk->memory_usage();
-            size_t accumulated = 0;
-            int32_t last_non_empty = -1;
-            for (int32_t i = 0; i < num_partitions; ++i) {
-                size_t partition_rows = _partition_row_indexes_start_points[i];
-                if (partition_rows > 0) {
-                    _partition_memory_usage[i] = total_memory_usage * partition_rows / num_rows;
-                    accumulated += _partition_memory_usage[i];
-                    last_non_empty = i;
-                }
-            }
-            if (last_non_empty >= 0 && accumulated < total_memory_usage) {
-                _partition_memory_usage[last_non_empty] += total_memory_usage - accumulated;
-            }
-        }
-
         // We make the last item equal with number of rows of this chunk.
         for (int32_t i = 1; i <= num_partitions; ++i) {
             _partition_row_indexes_start_points[i] += _partition_row_indexes_start_points[i - 1];
@@ -89,8 +65,7 @@ Status Partitioner::send_chunk(const ChunkPtr& chunk,
             continue;
         }
 
-        RETURN_IF_ERROR(_source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size,
-                                                             partition_memory_usage(i)));
+        RETURN_IF_ERROR(_source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size));
     }
     return Status::OK();
 }
