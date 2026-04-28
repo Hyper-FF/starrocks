@@ -278,8 +278,7 @@ TEST_F(LocalExchangeMemoryTest, const_column_accounted_after_unpack) {
     // of kNumRows datums; the per-shard buffered memory is therefore much larger than
     // what chunk->memory_usage() would have reported pre-unpack.
     const size_t post_unpack_mem = chunk->memory_usage();
-    EXPECT_GT(post_unpack_mem, pre_unpack_mem)
-            << "const-column unpack should grow chunk memory_usage";
+    EXPECT_GT(post_unpack_mem, pre_unpack_mem) << "const-column unpack should grow chunk memory_usage";
 
     // The manager must record the post-unpack footprint, not the tiny pre-unpack
     // value. Equality (rather than >=) ensures we accounted exactly once.
