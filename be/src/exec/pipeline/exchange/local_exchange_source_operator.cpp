@@ -49,8 +49,11 @@ Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_
     // unpack chunk's const column, since Chunk#append_selective cannot be const column
     chunk->unpack_and_duplicate_const_columns();
 
-    _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size);
-    const size_t memory_usage = _partition_chunk_queue.back().memory_usage;
+    // Charge this partition only its proportional share of the shared chunk's memory. The chunk is
+    // held by every non-empty partition's queue, so charging the full chunk->memory_usage() per
+    // slice would inflate _local_memory_usage by the number of partitions.
+    const size_t memory_usage = chunk->memory_usage() * size / chunk->num_rows();
+    _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size, memory_usage);
     _partition_rows_num += size;
     _local_memory_usage += memory_usage;
     _memory_manager->update_memory_usage(memory_usage, size);

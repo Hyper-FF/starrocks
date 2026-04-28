@@ -27,18 +27,12 @@ class LocalExchangeSourceOperator final : public SourceOperator {
     class PartitionChunk {
     public:
         PartitionChunk(ChunkPtr chunk, std::shared_ptr<std::vector<uint32_t>> indexes, const uint32_t from,
-                       const uint32_t size)
+                       const uint32_t size, const size_t memory_usage)
                 : chunk(std::move(chunk)),
                   indexes(std::move(indexes)),
                   from(from),
                   size(size),
-                  // Charge this partition only its proportional share of the shared chunk's memory.
-                  // The chunk is held by every non-empty partition's queue, so charging the full
-                  // chunk->memory_usage() per slice would inflate _local_memory_usage by the number
-                  // of partitions and trip _local_buffer_almost_full() too early.
-                  memory_usage(this->chunk->num_rows() > 0
-                                       ? this->chunk->memory_usage() * size / this->chunk->num_rows()
-                                       : 0) {}
+                  memory_usage(memory_usage) {}
 
         PartitionChunk(const PartitionChunk&) = delete;
 
