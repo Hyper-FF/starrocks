@@ -45,10 +45,19 @@ class LocalExchangeSourceOperator final : public SourceOperator {
         std::shared_ptr<ChunkBufferMemoryEntry> memory_entry;
     };
 
+    struct PassthroughChunk {
+        ChunkPtr chunk;
+        std::shared_ptr<ChunkBufferMemoryEntry> memory_entry;
+    };
+
+    struct KeyPartitionChunk {
+        ChunkUniquePtr chunk;
+        std::shared_ptr<ChunkBufferMemoryEntry> memory_entry;
+    };
+
     struct PartialChunks {
-        std::queue<ChunkUniquePtr> queue;
+        std::queue<KeyPartitionChunk> queue;
         int64_t num_rows{0};
-        size_t memory_usage{0};
         std::vector<std::pair<TypeDescriptor, ColumnPtr>> partition_key_datum;
     };
 
@@ -110,7 +119,7 @@ private:
     }
 
     bool _is_finished = false;
-    std::queue<ChunkPtr> _full_chunk_queue;
+    std::queue<PassthroughChunk> _full_chunk_queue;
     std::queue<PartitionChunk> _partition_chunk_queue;
     size_t _partition_rows_num = 0;
 
