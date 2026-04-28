@@ -261,8 +261,8 @@ TEST_F(LocalExchangeMemoryTest, fanout_does_not_falsely_trip_is_full) {
     auto chunk = _make_int_chunk(_dop * 4);
     constexpr size_t kClaimedChunkMemory = 1500UL * 1024;
 
-    auto entry = std::make_shared<ChunkBufferMemoryEntry>(_memory_manager.get(), kClaimedChunkMemory,
-                                                          chunk->num_rows());
+    auto entry =
+            std::make_shared<ChunkBufferMemoryEntry>(_memory_manager.get(), kClaimedChunkMemory, chunk->num_rows());
     auto indexes = std::make_shared<std::vector<uint32_t>>(chunk->num_rows());
     std::iota(indexes->begin(), indexes->end(), 0);
     const size_t per_shard = chunk->num_rows() / _dop;

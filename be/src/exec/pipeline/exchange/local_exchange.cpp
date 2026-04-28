@@ -70,8 +70,7 @@ Status Partitioner::send_chunk(const ChunkPtr& chunk,
             continue;
         }
 
-        RETURN_IF_ERROR(
-                _source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size, memory_entry));
+        RETURN_IF_ERROR(_source->get_sources()[i]->add_chunk(chunk, partition_row_indexes, from, size, memory_entry));
     }
     return Status::OK();
 }

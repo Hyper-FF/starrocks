@@ -29,8 +29,8 @@ void LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk) {
     if (_is_finished) {
         return;
     }
-    auto memory_entry = std::make_shared<ChunkBufferMemoryEntry>(_memory_manager.get(), chunk->memory_usage(),
-                                                                 chunk->num_rows());
+    auto memory_entry =
+            std::make_shared<ChunkBufferMemoryEntry>(_memory_manager.get(), chunk->memory_usage(), chunk->num_rows());
     _full_chunk_queue.push(PassthroughChunk{std::move(chunk), std::move(memory_entry)});
 }
 
