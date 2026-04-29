@@ -140,35 +140,42 @@ symbol = "main.echo"
 | SQL Type                             | Python 3 Type           |
 | ------------------------------------ | ----------------------- |
 | **SCALAR**                           |                         |
-| TINYINT/SMALLINT/INT/BIGINT/LARGEINT | INT                     |
-| STRING                               | string                  |
-| DOUBLE                               | FLOAT                   |
-| BOOLEAN                              | BOOL                    |
-| DATETIME                             | DATETIME.DATETIME       |
-| FLOAT                                | FLOAT                   |
-| CHAR                                 | STRING                  |
-| VARCHAR                              | STRING                  |
-| DATE                                 | DATETIME.DATE           |
-| DECIMAL                              | DECIMAL.DECIMAL         |
+| BOOLEAN                              | bool                    |
+| TINYINT/SMALLINT/INT/BIGINT          | int                     |
+| LARGEINT                             | decimal.Decimal (Decimal128(38, 0)) |
+| FLOAT/DOUBLE                         | float                   |
+| DECIMAL                              | decimal.Decimal         |
+| CHAR/VARCHAR                         | str                     |
+| DATE                                 | datetime.date           |
+| DATETIME                             | datetime.datetime       |
+| TIME                                 | float (seconds since midnight) |
+| VARBINARY                            | bytes                   |
+| JSON                                 | str (use `json.loads` to parse) |
 | ARRAY                                | list                    |
 | MAP                                  | dict                    |
 | STRUCT                               | dict (keyed by field name) |
-| JSON                                 | str (use `json.loads` to parse) |
 | **VECTORIZED**                       |                         |
-| TYPE_BOOLEAN                         | pyarrow.lib.BoolArray   |
-| TYPE_TINYINT                         | pyarrow.lib.Int8Array   |
-| TYPE_SMALLINT                        | pyarrow.lib.Int15Array  |
-| TYPE_INT                             | pyarrow.lib.Int32Array  |
-| TYPE_BIGINT                          | pyarrow.lib.Int64Array  |
-| TYPE_FLOAT                           | pyarrow.FloatArray      |
-| TYPE_DOUBLE                          | pyarrow.DoubleArray     |
-| VARCHAR                              | pyarrow.StringArray     |
+| BOOLEAN                              | pyarrow.BooleanArray    |
+| TINYINT                              | pyarrow.Int8Array       |
+| SMALLINT                             | pyarrow.Int16Array      |
+| INT                                  | pyarrow.Int32Array      |
+| BIGINT                               | pyarrow.Int64Array      |
+| LARGEINT                             | pyarrow.Decimal128Array (precision=38, scale=0) |
+| FLOAT                                | pyarrow.FloatArray      |
+| DOUBLE                               | pyarrow.DoubleArray     |
 | DECIMAL                              | pyarrow.Decimal128Array |
+| CHAR/VARCHAR                         | pyarrow.StringArray     |
 | DATE                                 | pyarrow.Date32Array     |
-| TYPE_TIME                            | pyarrow.TimeArray       |
+| DATETIME                             | pyarrow.TimestampArray (us, UTC) |
+| TIME                                 | pyarrow.DoubleArray     |
+| VARBINARY                            | pyarrow.BinaryArray     |
+| JSON                                 | pyarrow.StringArray     |
 | ARRAY                                | pyarrow.ListArray       |
 | MAP                                  | pyarrow.MapArray        |
 | STRUCT                               | pyarrow.StructArray     |
+
+`BITMAP`, `HLL`, and `PERCENTILE` are not representable on the Arrow Flight wire used by the
+Python UDF runtime; `CREATE FUNCTION ... TYPE = 'Python'` rejects them at DDL time.
 
 Nested types (`ARRAY`, `MAP`, `STRUCT`) may be composed arbitrarily — for example,
 `array<map<string,int>>`, `map<string,array<int>>`, `struct<a array<int>, b map<string,int>>`,

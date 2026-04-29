@@ -47,6 +47,8 @@ import com.starrocks.type.ArrayType;
 import com.starrocks.type.MapType;
 import com.starrocks.type.PrimitiveType;
 import com.starrocks.type.ScalarType;
+import com.starrocks.type.StructField;
+import com.starrocks.type.StructType;
 import com.starrocks.type.Type;
 import com.starrocks.type.TypeFactory;
 import org.apache.commons.codec.binary.Hex;
@@ -740,6 +742,32 @@ public class CreateFunctionAnalyzer {
         }
     }
 
+    // HLL / BITMAP / PERCENTILE only cross the Arrow Flight wire as opaque bytes,
+    // which gives Python user code nothing it can act on. Reject at DDL time so
+    // users get a clear error instead of a function that silently returns bytes.
+    private static void rejectUnsupportedPythonType(Type type) {
+        if (type instanceof ArrayType) {
+            rejectUnsupportedPythonType(((ArrayType) type).getItemType());
+            return;
+        }
+        if (type instanceof MapType) {
+            MapType mapType = (MapType) type;
+            rejectUnsupportedPythonType(mapType.getKeyType());
+            rejectUnsupportedPythonType(mapType.getValueType());
+            return;
+        }
+        if (type instanceof StructType) {
+            for (StructField field : ((StructType) type).getFields()) {
+                rejectUnsupportedPythonType(field.getType());
+            }
+            return;
+        }
+        if (type.isHllType() || type.isBitmapType() || type.isPercentile()) {
+            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    String.format("Python UDF does not support type '%s'", type));
+        }
+    }
+
     private void analyzePython(CreateFunctionStmt stmt, ConnectContext context) {
         String content = stmt.getContent();
         Map<String, String> properties = stmt.getProperties();
@@ -770,6 +798,11 @@ public class CreateFunctionAnalyzer {
                         : context.getDatabase());
         FunctionArgsDef argsDef = stmt.getArgsDef();
         TypeDef returnType = stmt.getReturnType();
+
+        rejectUnsupportedPythonType(returnType.getType());
+        for (Type argType : argsDef.getArgTypes()) {
+            rejectUnsupportedPythonType(argType);
+        }
 
         ScalarFunction.ScalarFunctionBuilder scalarFunctionBuilder =
                 ScalarFunction.ScalarFunctionBuilder.createUdfBuilder(TFunctionBinaryType.PYTHON);

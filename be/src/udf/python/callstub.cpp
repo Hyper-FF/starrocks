@@ -134,10 +134,11 @@ auto PyWorkerManager::get_client(const PyFunctionDescriptor& func_desc) -> Statu
 }
 
 StatusOr<std::shared_ptr<arrow::Schema>> convert_type_to_schema(const TypeDescriptor& typedesc) {
-    // conver to field
+    // Use the Flight SQL conversion so DATE/DATETIME map to native arrow date32/timestamp,
+    // LARGEINT to Decimal128(38,0), and HLL/BITMAP/PERCENTILE to binary instead of utf8.
     arrow::SchemaBuilder schema_builder;
     std::shared_ptr<arrow::Field> field;
-    RETURN_IF_ERROR(convert_to_arrow_field(typedesc, "result", true, &field));
+    RETURN_IF_ERROR(convert_to_arrow_field_for_flight_sql(typedesc, "result", true, &field, /*version=*/0));
     RETURN_IF_ARROW_ERROR(schema_builder.AddField(field));
     std::shared_ptr<arrow::Schema> schema;
     auto result_schema = schema_builder.Finish();

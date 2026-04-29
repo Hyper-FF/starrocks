@@ -151,6 +151,42 @@ public class CreateFunctionStmtTest {
     }
 
     @Test
+    public void testPythonUdfRejectsUnsupportedTypes() {
+        // HLL / BITMAP / PERCENTILE only round-trip as opaque bytes; the analyzer
+        // must reject them at DDL time, including when nested inside a struct
+        // (TypeDefAnalyzer already pre-rejects them inside an array).
+        boolean udfEnabled = Config.enable_udf;
+        try {
+            Config.enable_udf = true;
+            new Expectations() {
+                {
+                    ctx.getDatabase();
+                    result = "test_db";
+                    minTimes = 0;
+                }
+            };
+            String[] cases = new String[] {
+                    // bare return type
+                    "CREATE FUNCTION py_r(int) RETURNS BITMAP type='Python' symbol='f' AS $$\ndef f(x):\n  return x\n$$;",
+                    "CREATE FUNCTION py_r(int) RETURNS HLL type='Python' symbol='f' AS $$\ndef f(x):\n  return x\n$$;",
+                    "CREATE FUNCTION py_r(int) RETURNS PERCENTILE type='Python' symbol='f' AS $$\ndef f(x):\n  return x\n$$;",
+                    // argument
+                    "CREATE FUNCTION py_a(BITMAP) RETURNS string type='Python' symbol='f' AS $$\ndef f(x):\n  return ''\n$$;",
+                    // nested via map (struct/map values are not pre-rejected by TypeDefAnalyzer)
+                    "CREATE FUNCTION py_n(int) RETURNS map<int, BITMAP> type='Python' symbol='f' AS $$\ndef f(x):\n  return {}\n$$;",
+            };
+            for (String sql : cases) {
+                CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+                Throwable t = assertThrows(Throwable.class, () -> new CreateFunctionAnalyzer().analyze(stmt, ctx));
+                Assertions.assertTrue(t.getMessage() != null && t.getMessage().contains("Python UDF does not support"),
+                        "expected Python UDF rejection, got: " + t.getMessage());
+            }
+        } finally {
+            Config.enable_udf = udfEnabled;
+        }
+    }
+
+    @Test
     public void testCreateIfNotExistsUDF() throws Exception {
         String createFunctionSql = "CREATE FUNCTION IF NOT EXISTS ABC.MY_UDF_JSON_GET(string, string) \n"
                 + "RETURNS string \n"

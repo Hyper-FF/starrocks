@@ -140,35 +140,42 @@ symbol = "main.echo"
 | SQL 类型                             | Python 3 类型           |
 | ------------------------------------ | ----------------------- |
 | **SCALAR**                           |                         |
-| TINYINT/SMALLINT/INT/BIGINT/LARGEINT | INT                     |
-| STRING                               | string                  |
-| DOUBLE                               | FLOAT                   |
-| BOOLEAN                              | BOOL                    |
-| DATETIME                             | DATETIME.DATETIME       |
-| FLOAT                                | FLOAT                   |
-| CHAR                                 | STRING                  |
-| VARCHAR                              | STRING                  |
-| DATE                                 | DATETIME.DATE           |
-| DECIMAL                              | DECIMAL.DECIMAL         |
+| BOOLEAN                              | bool                    |
+| TINYINT/SMALLINT/INT/BIGINT          | int                     |
+| LARGEINT                             | decimal.Decimal（Decimal128(38, 0)） |
+| FLOAT/DOUBLE                         | float                   |
+| DECIMAL                              | decimal.Decimal         |
+| CHAR/VARCHAR                         | str                     |
+| DATE                                 | datetime.date           |
+| DATETIME                             | datetime.datetime       |
+| TIME                                 | float（自午夜起的秒数） |
+| VARBINARY                            | bytes                   |
+| JSON                                 | str（使用 `json.loads` 解析） |
 | ARRAY                                | list                    |
 | MAP                                  | dict                    |
 | STRUCT                               | dict（按字段名作为键）     |
-| JSON                                 | str（使用 `json.loads` 解析） |
 | **VECTORIZED**                       |                         |
-| TYPE_BOOLEAN                         | pyarrow.lib.BoolArray   |
-| TYPE_TINYINT                         | pyarrow.lib.Int8Array   |
-| TYPE_SMALLINT                        | pyarrow.lib.Int15Array  |
-| TYPE_INT                             | pyarrow.lib.Int32Array  |
-| TYPE_BIGINT                          | pyarrow.lib.Int64Array  |
-| TYPE_FLOAT                           | pyarrow.FloatArray      |
-| TYPE_DOUBLE                          | pyarrow.DoubleArray     |
-| VARCHAR                              | pyarrow.StringArray     |
+| BOOLEAN                              | pyarrow.BooleanArray    |
+| TINYINT                              | pyarrow.Int8Array       |
+| SMALLINT                             | pyarrow.Int16Array      |
+| INT                                  | pyarrow.Int32Array      |
+| BIGINT                               | pyarrow.Int64Array      |
+| LARGEINT                             | pyarrow.Decimal128Array（precision=38, scale=0） |
+| FLOAT                                | pyarrow.FloatArray      |
+| DOUBLE                               | pyarrow.DoubleArray     |
 | DECIMAL                              | pyarrow.Decimal128Array |
+| CHAR/VARCHAR                         | pyarrow.StringArray     |
 | DATE                                 | pyarrow.Date32Array     |
-| TYPE_TIME                            | pyarrow.TimeArray       |
+| DATETIME                             | pyarrow.TimestampArray（us, UTC） |
+| TIME                                 | pyarrow.DoubleArray     |
+| VARBINARY                            | pyarrow.BinaryArray     |
+| JSON                                 | pyarrow.StringArray     |
 | ARRAY                                | pyarrow.ListArray       |
 | MAP                                  | pyarrow.MapArray        |
 | STRUCT                               | pyarrow.StructArray     |
+
+`BITMAP`、`HLL` 和 `PERCENTILE` 无法在 Python UDF 使用的 Arrow Flight 通道上传输，因此
+`CREATE FUNCTION ... TYPE = 'Python'` 在 DDL 阶段就会拒绝这些类型。
 
 嵌套类型（`ARRAY`、`MAP`、`STRUCT`）可任意组合，例如
 `array<map<string,int>>`、`map<string,array<int>>`、

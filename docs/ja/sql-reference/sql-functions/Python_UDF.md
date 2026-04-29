@@ -140,35 +140,42 @@ symbol = "main.echo"
 | SQL タイプ                             | Python 3 タイプ           |
 | ------------------------------------ | ----------------------- |
 | **SCALAR**                           |                         |
-| TINYINT/SMALLINT/INT/BIGINT/LARGEINT | INT                     |
-| STRING                               | string                  |
-| DOUBLE                               | FLOAT                   |
-| BOOLEAN                              | BOOL                    |
-| DATETIME                             | DATETIME.DATETIME       |
-| FLOAT                                | FLOAT                   |
-| CHAR                                 | STRING                  |
-| VARCHAR                              | STRING                  |
-| DATE                                 | DATETIME.DATE           |
-| DECIMAL                              | DECIMAL.DECIMAL         |
+| BOOLEAN                              | bool                    |
+| TINYINT/SMALLINT/INT/BIGINT          | int                     |
+| LARGEINT                             | decimal.Decimal（Decimal128(38, 0)） |
+| FLOAT/DOUBLE                         | float                   |
+| DECIMAL                              | decimal.Decimal         |
+| CHAR/VARCHAR                         | str                     |
+| DATE                                 | datetime.date           |
+| DATETIME                             | datetime.datetime       |
+| TIME                                 | float（深夜 0 時からの秒数） |
+| VARBINARY                            | bytes                   |
+| JSON                                 | str（`json.loads` でパース） |
 | ARRAY                                | list                    |
 | MAP                                  | dict                    |
 | STRUCT                               | dict（フィールド名をキーとする） |
-| JSON                                 | str（`json.loads` でパース） |
 | **VECTORIZED**                       |                         |
-| TYPE_BOOLEAN                         | pyarrow.lib.BoolArray   |
-| TYPE_TINYINT                         | pyarrow.lib.Int8Array   |
-| TYPE_SMALLINT                        | pyarrow.lib.Int15Array  |
-| TYPE_INT                             | pyarrow.lib.Int32Array  |
-| TYPE_BIGINT                          | pyarrow.lib.Int64Array  |
-| TYPE_FLOAT                           | pyarrow.FloatArray      |
-| TYPE_DOUBLE                          | pyarrow.DoubleArray     |
-| VARCHAR                              | pyarrow.StringArray     |
+| BOOLEAN                              | pyarrow.BooleanArray    |
+| TINYINT                              | pyarrow.Int8Array       |
+| SMALLINT                             | pyarrow.Int16Array      |
+| INT                                  | pyarrow.Int32Array      |
+| BIGINT                               | pyarrow.Int64Array      |
+| LARGEINT                             | pyarrow.Decimal128Array（precision=38, scale=0） |
+| FLOAT                                | pyarrow.FloatArray      |
+| DOUBLE                               | pyarrow.DoubleArray     |
 | DECIMAL                              | pyarrow.Decimal128Array |
+| CHAR/VARCHAR                         | pyarrow.StringArray     |
 | DATE                                 | pyarrow.Date32Array     |
-| TYPE_TIME                            | pyarrow.TimeArray       |
+| DATETIME                             | pyarrow.TimestampArray（us, UTC） |
+| TIME                                 | pyarrow.DoubleArray     |
+| VARBINARY                            | pyarrow.BinaryArray     |
+| JSON                                 | pyarrow.StringArray     |
 | ARRAY                                | pyarrow.ListArray       |
 | MAP                                  | pyarrow.MapArray        |
 | STRUCT                               | pyarrow.StructArray     |
+
+`BITMAP`、`HLL`、`PERCENTILE` は Python UDF が使用する Arrow Flight 経路で表現できないため、
+`CREATE FUNCTION ... TYPE = 'Python'` は DDL 時点でこれらの型を拒否します。
 
 ネスト型（`ARRAY`、`MAP`、`STRUCT`）は任意に組み合わせ可能です。例えば
 `array<map<string,int>>`、`map<string,array<int>>`、

@@ -39,8 +39,8 @@ struct SchemaNameGenerator {
 
 // Recursively build a ConvertFuncTree mirroring the Arrow result type.
 // The Arrow schema returned by the Python worker is constructed from the same
-// StarRocks return type via convert_to_arrow_type, so nested shapes match by
-// construction — but we still validate for safety.
+// StarRocks return type via convert_to_arrow_type_for_flight_sql, so nested
+// shapes match by construction — but we still validate for safety.
 static Status build_arrow_to_sr_convert_tree(const arrow::DataType& arrow_type, const TypeDescriptor& sr_type,
                                              bool is_nullable, ConvertFuncTree* tree) {
     auto at = arrow_type.id();
@@ -127,8 +127,11 @@ StatusOr<ColumnPtr> AbstractArrowFuncCallStub::evaluate(const Columns& columns, 
     DCHECK_EQ(num_columns, arg_types.size());
     for (size_t i = 0; i < num_columns; ++i) {
         std::shared_ptr<arrow::Field> field;
-        RETURN_IF_ERROR(
-                convert_to_arrow_field(arg_types[i], name_generator.generate(), columns[i]->is_nullable(), &field));
+        // Match the return-type schema (callstub.cpp) — both directions use the
+        // Flight SQL variant so DATE/DATETIME/LARGEINT round-trip with their
+        // native Arrow representations.
+        RETURN_IF_ERROR(convert_to_arrow_field_for_flight_sql(arg_types[i], name_generator.generate(),
+                                                              columns[i]->is_nullable(), &field, /*version=*/0));
         RETURN_IF_ERROR(to_status(schema_builder.AddField(field)));
     }
 
