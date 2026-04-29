@@ -361,9 +361,11 @@ TEST(GetUdafMethodDescTest, LocalDateAndLocalDateTime) {
     EXPECT_TRUE(desc[2].is_box);
 }
 
-// Test: unrecognized object class surfaces as TYPE_UNKNOWN (rejected by
-// get_method_desc validation) instead of being silently skipped.
-TEST(GetUdafMethodDescTest, UnknownObjectClassRejected) {
+// Test: any other object class is treated as a user record bound to a STRUCT
+// parameter/return — the FE analyzer already validates at CREATE FUNCTION time
+// that records only appear in STRUCT slots, so the BE signature parser may
+// safely surface them as TYPE_STRUCT and accept the method.
+TEST(GetUdafMethodDescTest, UnknownObjectClassTreatedAsStruct) {
     ClassAnalyzer analyzer;
     std::vector<MethodTypeDescriptor> desc;
     // process(String, com/example/Mystery) -> void
@@ -371,10 +373,70 @@ TEST(GetUdafMethodDescTest, UnknownObjectClassRejected) {
     ASSERT_EQ(desc.size(), 3);
     EXPECT_EQ(desc[0].type, TYPE_UNKNOWN); // return V
     EXPECT_EQ(desc[1].type, TYPE_VARCHAR); // String
-    EXPECT_EQ(desc[2].type, TYPE_UNKNOWN); // unknown class
-    // get_method_desc validation must reject the parameter TYPE_UNKNOWN.
+    EXPECT_EQ(desc[2].type, TYPE_STRUCT);  // unknown class -> STRUCT
+    EXPECT_TRUE(desc[2].is_box);
+    // get_method_desc validation must accept the parameter (return type V is
+    // ignored; only param entries are checked for TYPE_UNKNOWN).
     desc.clear();
-    EXPECT_FALSE(analyzer.get_method_desc("(Ljava/lang/String;Lcom/example/Mystery;)V", &desc).ok());
+    ASSERT_OK(analyzer.get_method_desc("(Ljava/lang/String;Lcom/example/Mystery;)V", &desc));
+}
+
+// Test: the original user-reported scenario — `evaluate(StructA): StructA`
+// produces signature `(LStructA;)LStructA;`. Both the param and the return must
+// be classified as TYPE_STRUCT, and get_method_desc must accept the full
+// signature so the UDF can be registered and dispatched.
+//
+// Convention (see end of get_udaf_method_desc): the parser appends entries
+// left-to-right then moves the last (return) entry to desc[0], so the final
+// layout is [return, param1, param2, ...].
+TEST(GetUdafMethodDescTest, RecordParamAndReturn) {
+    ClassAnalyzer analyzer;
+    std::vector<MethodTypeDescriptor> desc;
+    std::string sign = "(LStructA;)LStructA;";
+    ASSERT_OK(analyzer.get_udaf_method_desc(sign, &desc));
+    ASSERT_EQ(desc.size(), 2);
+    EXPECT_EQ(desc[0].type, TYPE_STRUCT); // return StructA
+    EXPECT_TRUE(desc[0].is_box);
+    EXPECT_EQ(desc[1].type, TYPE_STRUCT); // param StructA
+    EXPECT_TRUE(desc[1].is_box);
+
+    desc.clear();
+    ASSERT_OK(analyzer.get_method_desc(sign, &desc));
+}
+
+// Test: STRUCT mixed with primitives in the same signature.
+// evaluate(StructA, int, String) -> StructB — exercises the boundary between
+// the L-class branch (which now emits TYPE_STRUCT for unknown classes) and
+// the existing primitive / known-class branches in the same parser pass.
+TEST(GetUdafMethodDescTest, RecordWithPrimitiveAndStringMix) {
+    ClassAnalyzer analyzer;
+    std::vector<MethodTypeDescriptor> desc;
+    std::string sign = "(LStructA;ILjava/lang/String;)LStructB;";
+    ASSERT_OK(analyzer.get_udaf_method_desc(sign, &desc));
+    ASSERT_EQ(desc.size(), 4);
+    EXPECT_EQ(desc[0].type, TYPE_STRUCT);  // return StructB (record)
+    EXPECT_EQ(desc[1].type, TYPE_STRUCT);  // param StructA (record)
+    EXPECT_EQ(desc[2].type, TYPE_INT);     // param int (primitive)
+    EXPECT_EQ(desc[3].type, TYPE_VARCHAR); // param String
+
+    desc.clear();
+    ASSERT_OK(analyzer.get_method_desc(sign, &desc));
+}
+
+// Test: nested record class name with package qualifier and inner-class `$`.
+// JNI signatures use the slash-separated binary name and `$` for inner classes;
+// the parser should treat the whole `L<binary-name>;` as a single record
+// reference and emit TYPE_STRUCT regardless of the surface form.
+TEST(GetUdafMethodDescTest, RecordWithPackageAndInnerClass) {
+    ClassAnalyzer analyzer;
+    std::vector<MethodTypeDescriptor> desc;
+    std::string sign = "(Lcom/example/Outer$Inner;)Lcom/example/pkg/Result;";
+    ASSERT_OK(analyzer.get_udaf_method_desc(sign, &desc));
+    ASSERT_EQ(desc.size(), 2);
+    EXPECT_EQ(desc[0].type, TYPE_STRUCT); // return Result
+    EXPECT_TRUE(desc[0].is_box);
+    EXPECT_EQ(desc[1].type, TYPE_STRUCT); // param Outer$Inner
+    EXPECT_TRUE(desc[1].is_box);
 }
 
 } // namespace starrocks

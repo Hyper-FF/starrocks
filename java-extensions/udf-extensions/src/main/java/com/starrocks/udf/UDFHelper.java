@@ -20,6 +20,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -1433,5 +1434,159 @@ public class UDFHelper {
             res.add(entry.getValue());
         }
         return res;
+    }
+
+    // ----- STRUCT support ---------------------------------------------------
+    //
+    // STRUCT params/returns are bound to a Java record class declared by the UDF
+    // author. Each SQL field maps positionally to a record component; null at
+    // either the row level (parent NullableColumn) or the field level is honored
+    // independently, mirroring StarRocks' StructColumn layout.
+    //
+    // The canonical constructor is resolved once per record class via ClassValue
+    // (lock-free thread-local cache), so per-row construction is a single
+    // Constructor.newInstance call.
+    //
+    // v1 limitation: nested STRUCT inside another STRUCT/ARRAY/MAP is not yet
+    // wired through the BE data converter. The FE analyzer rejects such
+    // signatures at CREATE FUNCTION time.
+
+    private static final ClassValue<Constructor<?>> RECORD_CANONICAL_CTOR = new ClassValue<Constructor<?>>() {
+        @Override
+        protected Constructor<?> computeValue(Class<?> recordClass) {
+            if (!recordClass.isRecord()) {
+                throw new IllegalArgumentException("Class " + recordClass + " is not a record");
+            }
+            RecordComponent[] comps = recordClass.getRecordComponents();
+            Class<?>[] paramTypes = new Class<?>[comps.length];
+            for (int i = 0; i < comps.length; i++) {
+                paramTypes[i] = comps[i].getType();
+            }
+            try {
+                Constructor<?> ctor = recordClass.getDeclaredConstructor(paramTypes);
+                ctor.setAccessible(true);
+                return ctor;
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException("Canonical constructor not found for record " + recordClass, e);
+            }
+        }
+    };
+
+    /**
+     * Materialize a STRUCT column into an array of record instances.
+     *
+     * @param numRows     number of rows in the column
+     * @param nullBuffer  per-row null bitmap (1 byte per row, 1 = null) for the parent
+     *                    NullableColumn; null when the parent column is non-nullable
+     * @param recordClass the formal Java record class declared in the UDF signature;
+     *                    its component count and component types must match the
+     *                    STRUCT field count/types (validated at CREATE FUNCTION time)
+     * @param fieldArrays one element per STRUCT field, each of which is an Object[]
+     *                    of length numRows holding the already-boxed values for that
+     *                    field column
+     * @return Object[] of length numRows containing recordClass instances; entries
+     *         where the parent row is null are left as null
+     */
+    public static Object[] createBoxedStructArray(int numRows, ByteBuffer nullBuffer,
+                                                  Class<?> recordClass, Object[] fieldArrays) {
+        Constructor<?> ctor = RECORD_CANONICAL_CTOR.get(recordClass);
+        Object[] out = (Object[]) Array.newInstance(recordClass, numRows);
+        byte[] nulls = (nullBuffer != null) ? getNullData(nullBuffer, numRows) : null;
+        int numFields = fieldArrays.length;
+        Object[] args = new Object[numFields];
+        try {
+            for (int r = 0; r < numRows; r++) {
+                if (nulls != null && nulls[r] != 0) {
+                    continue;
+                }
+                for (int f = 0; f < numFields; f++) {
+                    args[f] = ((Object[]) fieldArrays[f])[r];
+                }
+                out[r] = ctor.newInstance(args);
+            }
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException("Failed to construct record " + recordClass.getName(), e);
+        }
+        return out;
+    }
+
+    /**
+     * Write back a STRUCT result column.
+     *
+     * Delegates to the field column writers via getResultFromBoxedArray. The BE side
+     * is responsible for materializing each subfield Column ahead of time (subFieldAddrs
+     * + subFieldTypes are sourced from the StructColumn).
+     *
+     * @param numRows         number of rows
+     * @param boxedResult     Object[] of length numRows holding record instances or null
+     * @param parentColumnAddr address of the outer StructColumn's NullableColumn
+     * @param subFieldAddrs   addresses of each subfield Column, one per STRUCT field
+     * @param subFieldTypes   logical types of each subfield, one per STRUCT field
+     */
+    public static void getStructResultFromBoxedArray(int numRows, Object[] boxedResult,
+                                                     long parentColumnAddr,
+                                                     long[] subFieldAddrs, int[] subFieldTypes) {
+        if (numRows == 0) {
+            return;
+        }
+        if (subFieldAddrs.length != subFieldTypes.length) {
+            throw new IllegalArgumentException("subFieldAddrs/subFieldTypes length mismatch");
+        }
+        int numFields = subFieldAddrs.length;
+
+        byte[] nulls = new byte[numRows];
+        for (int r = 0; r < numRows; r++) {
+            if (boxedResult[r] == null) {
+                nulls[r] = 1;
+            }
+        }
+
+        // Resolve component accessors lazily off the first non-null instance. The
+        // FE analyzer guarantees all non-null entries share the same record class.
+        Class<?> recordClass = null;
+        for (int r = 0; r < numRows; r++) {
+            if (boxedResult[r] != null) {
+                recordClass = boxedResult[r].getClass();
+                break;
+            }
+        }
+
+        // Build per-field boxed columns by reading components from each row's record.
+        Object[][] perFieldValues = new Object[numFields][];
+        for (int f = 0; f < numFields; f++) {
+            Class<?> fieldClass = clazzs.getOrDefault(subFieldTypes[f], Object.class);
+            perFieldValues[f] = (Object[]) Array.newInstance(fieldClass, numRows);
+        }
+
+        if (recordClass != null) {
+            RecordComponent[] comps = recordClass.getRecordComponents();
+            if (comps.length != numFields) {
+                throw new IllegalStateException("Record " + recordClass.getName() + " has " + comps.length
+                        + " components but STRUCT type has " + numFields + " fields");
+            }
+            try {
+                for (int r = 0; r < numRows; r++) {
+                    Object rec = boxedResult[r];
+                    if (rec == null) {
+                        continue;
+                    }
+                    for (int f = 0; f < numFields; f++) {
+                        perFieldValues[f][r] = comps[f].getAccessor().invoke(rec);
+                    }
+                }
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException("Failed to access record components on " + recordClass.getName(), e);
+            }
+        }
+
+        // Write parent null bitmap.
+        long[] parentAddrs = getAddrs(parentColumnAddr);
+        Platform.copyMemory(nulls, Platform.BYTE_ARRAY_OFFSET, null, parentAddrs[0], numRows);
+
+        // Write each subfield column. The subfield columns are themselves NullableColumn
+        // (StarRocks' invariant), so getResultFromBoxedArray handles per-element nulls.
+        for (int f = 0; f < numFields; f++) {
+            getResultFromBoxedArray(subFieldTypes[f], numRows, perFieldValues[f], subFieldAddrs[f]);
+        }
     }
 }

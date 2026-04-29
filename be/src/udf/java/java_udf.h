@@ -99,6 +99,25 @@ public:
     // (int32/int64/int128 little-endian).
     StatusOr<jobject> create_boxed_decimal_array(int type, int scale, int num_rows, jobject null_buff,
                                                  jobject data_buff);
+
+    // Materialize a STRUCT column on the Java side as `record_class[num_rows]`.
+    // `record_class` is the formal java.lang.Class declared in the UDF method
+    // signature; the FE analyzer guarantees its components match the SQL fields.
+    // `null_buff` is a ByteBuffer over the parent NullableColumn's null bitmap
+    // (may be null for non-nullable columns). `field_arrays` is a jobjectArray
+    // (Object[]) of length numFields where each entry is the already-boxed
+    // Object[numRows] for that subfield column.
+    StatusOr<jobject> create_boxed_struct_array(jclass record_class, int num_rows, jobject null_buff,
+                                                jobject field_arrays);
+
+    // Drain a STRUCT result jobjectArray (Object[] of record instances) back into
+    // a native StructColumn. `parent_col_addr` is the outer NullableColumn (the
+    // BE invariant for UDF result columns); `sub_field_addrs` and `sub_field_types`
+    // describe each subfield Column and its LogicalType.
+    Status get_struct_result_from_boxed_array(jobject result, int num_rows, jlong parent_col_addr,
+                                              const std::vector<jlong>& sub_field_addrs,
+                                              const std::vector<jint>& sub_field_types);
+
     const std::unordered_map<int, jmethodID>& method_map() const { return _method_map; }
 
     template <class... Args>
@@ -267,6 +286,8 @@ private:
     jclass _udf_helper_class;
     jmethodID _create_boxed_array;
     jmethodID _create_boxed_decimal_array;
+    jmethodID _create_boxed_struct_array;
+    jmethodID _get_struct_boxed_result;
     jmethodID _get_decimal_boxed_result;
     jmethodID _bd_unscaled_long;
     jmethodID _bd_unscaled_le_bytes;
@@ -594,6 +615,14 @@ struct JavaUDFContext {
     std::unique_ptr<JavaMethodDescriptor> prepare;
     std::unique_ptr<JavaMethodDescriptor> evaluate;
     std::unique_ptr<JavaMethodDescriptor> close;
+
+    // Per-argument formal parameter Class<?> refs from evaluate.getParameterTypes(),
+    // populated only for STRUCT-typed args (other entries are empty refs). Used by
+    // JavaDataTypeConverter::convert_to_boxed_array to materialize record instances
+    // for STRUCT inputs. Mirror entry for the return type (used when the return is
+    // STRUCT) is held in evaluate_return_class.
+    std::vector<JavaGlobalRef> evaluate_arg_classes;
+    JavaGlobalRef evaluate_return_class = nullptr;
 };
 
 // Shareable, cacheable UDAF class-level context.

@@ -27,6 +27,7 @@
 #include "column/fixed_length_column.h"
 #include "column/map_column.h"
 #include "column/nullable_column.h"
+#include "column/struct_column.h"
 #include "column/runtime_type_traits.h"
 #include "column/vectorized_fwd.h"
 #include "common/compiler_util.h"
@@ -828,14 +829,71 @@ static StatusOr<jobject> build_decimal_boxed_array(const TypeDescriptor& type_de
                                              data_buf->handle());
 }
 
+// Box a STRUCT input column into a Java record array. Each subfield is recursively
+// boxed via JavaArrayConverter (which handles nullable subcolumns, scalar/array/map
+// of scalar). The resulting Object[fieldCount] of Object[numRows] is then handed
+// off to the Java helper UDFHelper.createBoxedStructArray together with the formal
+// record class to materialize numRows record instances.
+static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, const Column* column, jclass record_class,
+                                                  int num_rows) {
+    if (record_class == nullptr) {
+        return Status::InternalError("STRUCT argument missing formal record class; cannot box");
+    }
+    JNIEnv* env = helper.getEnv();
+
+    const Column* data_column = column;
+    std::unique_ptr<DirectByteBuffer> parent_null_buf;
+    if (column->is_nullable()) {
+        const auto* nullable = down_cast<const NullableColumn*>(column);
+        const auto& null_data = nullable->immutable_null_column_data();
+        parent_null_buf = std::make_unique<DirectByteBuffer>((void*)null_data.data(), null_data.size());
+        data_column = nullable->data_column().get();
+    }
+
+    if (!data_column->is_struct()) {
+        return Status::InternalError("expected StructColumn for STRUCT argument");
+    }
+    const auto* struct_col = down_cast<const StructColumn*>(data_column);
+    int num_fields = static_cast<int>(struct_col->fields_size());
+
+    // Allocate Object[numFields] holding each subfield's boxed Object[numRows].
+    jclass object_clazz = env->FindClass("java/lang/Object");
+    LOCAL_REF_GUARD(object_clazz);
+    jobjectArray field_arrays = env->NewObjectArray(num_fields, object_clazz, nullptr);
+    if (field_arrays == nullptr) {
+        return Status::InternalError("failed to allocate field_arrays for STRUCT input");
+    }
+
+    for (int f = 0; f < num_fields; ++f) {
+        const Column* field_col = struct_col->field_column_raw_ptr(f);
+        // Field columns in StarRocks are themselves NullableColumn; JavaArrayConverter
+        // strips the null layer in do_visit(NullableColumn) and dispatches by data type.
+        // v1: scalar / ARRAY<scalar> / MAP<scalar,scalar> are supported here; nested
+        // STRUCT inside another STRUCT/ARRAY/MAP is rejected by the FE analyzer.
+        JavaArrayConverter sub(helper);
+        RETURN_IF_ERROR(field_col->accept(&sub));
+        jobject sub_result = sub.result();
+        env->SetObjectArrayElement(field_arrays, f, sub_result);
+        if (sub_result != nullptr) {
+            env->DeleteLocalRef(sub_result);
+        }
+    }
+    DeferOp drop_arr([&]() { env->DeleteLocalRef(field_arrays); });
+
+    jobject parent_null_handle = parent_null_buf ? parent_null_buf->handle() : nullptr;
+    return helper.create_boxed_struct_array(record_class, num_rows, parent_null_handle, field_arrays);
+}
+
 Status JavaDataTypeConverter::convert_to_boxed_array(FunctionContext* ctx, const Column** columns, int num_cols,
-                                                     int num_rows, std::vector<jobject>* res) {
+                                                     int num_rows, std::vector<jobject>* res,
+                                                     const std::vector<jclass>* arg_classes) {
     auto& helper = JVMFunctionHelper::getInstance();
     JNIEnv* env = helper.getEnv();
     for (int i = 0; i < num_cols; ++i) {
         jobject arg = nullptr;
         const TypeDescriptor& arg_type = *ctx->get_arg_type(i);
         const bool is_decimal = is_decimalv3_field_type(arg_type.type);
+        const bool is_struct = arg_type.type == TYPE_STRUCT;
         if (columns[i]->only_null() ||
             (columns[i]->is_nullable() && down_cast<const NullableColumn*>(columns[i])->null_count() == num_rows)) {
             arg = helper.create_array(num_rows);
@@ -847,6 +905,11 @@ Status JavaDataTypeConverter::convert_to_boxed_array(FunctionContext* ctx, const
             env->DeleteLocalRef(jval.l);
         } else if (is_decimal) {
             ASSIGN_OR_RETURN(arg, build_decimal_boxed_array(arg_type, columns[i], num_rows));
+        } else if (is_struct) {
+            jclass record_class = (arg_classes != nullptr && i < static_cast<int>(arg_classes->size()))
+                                          ? (*arg_classes)[i]
+                                          : nullptr;
+            ASSIGN_OR_RETURN(arg, build_struct_boxed_array(helper, columns[i], record_class, num_rows));
         } else {
             JavaArrayConverter converter(helper);
             RETURN_IF_ERROR(columns[i]->accept(&converter));

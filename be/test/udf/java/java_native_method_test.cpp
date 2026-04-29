@@ -287,4 +287,54 @@ TEST_F(JavaNativeMethodTest, resize) {
     binary_column->get_bytes().clear();
 }
 
+// STRUCT result columns flow into UDFHelper.getStructResultFromBoxedArray,
+// which calls getAddrs on the parent NullableColumn to fetch the parent null
+// bitmap (subfield pointers are passed in via the helper's separate
+// sub_field_addrs argument because struct field count is variable).
+//
+// Without a do_visit(StructColumn) overload, GetColumnAddrVistor would fall
+// into the templated catch-all and surface as
+// "GetColumnAddr in java native function error", failing every STRUCT-returning
+// UDF query. Both visitors must therefore know about StructColumn.
+
+TEST_F(JavaNativeMethodTest, get_column_logical_type_struct) {
+    auto env = getJNIEnv();
+    TypeDescriptor td(TYPE_STRUCT);
+    td.children.emplace_back(TYPE_INT);
+    td.children.emplace_back(TYPE_VARCHAR);
+    td.field_names = {"a", "b"};
+    for (bool nullable : {true, false}) {
+        auto col = ColumnHelper::create_column(td, nullable);
+        EXPECT_EQ(TYPE_STRUCT,
+                  JavaNativeMethods::getColumnLogicalType(env, nullptr, reinterpret_cast<size_t>(col.get())))
+                << "nullable=" << nullable;
+    }
+}
+
+TEST_F(JavaNativeMethodTest, get_addrs_struct) {
+    auto env = getJNIEnv();
+    TypeDescriptor td(TYPE_STRUCT);
+    td.children.emplace_back(TYPE_INT);
+    td.children.emplace_back(TYPE_VARCHAR);
+    td.field_names = {"a", "b"};
+    auto col = ColumnHelper::create_column(td, /*nullable=*/true);
+
+    // getAddrs() returns a fixed 4-slot array; for STRUCT only addrs[0]
+    // (the parent null bitmap) is meaningful — subfield pointers travel
+    // through a separate sub_field_addrs path. The call must succeed
+    // (i.e. not throw IllegalArgumentException via env) and addrs[0] must
+    // match the actual NullableColumn null buffer pointer.
+    jlongArray jarr =
+            JavaNativeMethods::getAddrs(env, nullptr, reinterpret_cast<size_t>(col.get()));
+    ASSERT_NE(jarr, nullptr);
+    ASSERT_FALSE(env->ExceptionCheck());
+    jlong buf[4];
+    env->GetLongArrayRegion(jarr, 0, 4, buf);
+
+    auto expected_null_data =
+            down_cast<const NullableColumn*>(col.get())->immutable_null_column_data().data();
+    EXPECT_EQ(reinterpret_cast<jlong>(expected_null_data), buf[0]);
+    env->DeleteLocalRef(jarr);
+}
+
 } // namespace starrocks
