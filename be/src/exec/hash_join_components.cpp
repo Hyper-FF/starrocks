@@ -998,12 +998,19 @@ void AdaptivePartitionHashJoinBuilder::clone_readable(HashJoinBuilder* other_bui
     DCHECK_EQ(_partition_num, _builders.size());
     auto other = down_cast<AdaptivePartitionHashJoinBuilder*>(other_builder);
     other->_builders.clear();
+    other->_partition_input_channels.clear();
     other->_partition_num = _partition_num;
     other->_partition_join_l2_min_rows = _partition_join_l2_min_rows;
     other->_partition_join_l2_max_rows = _partition_join_l2_max_rows;
     other->_partition_join_l3_min_rows = _partition_join_l3_min_rows;
     other->_partition_join_l3_max_rows = _partition_join_l3_max_rows;
-    other->_partition_join_l3_max_rows = _partition_join_l3_max_rows;
+    other->_probe_row_shuffle_cost = _probe_row_shuffle_cost;
+    other->_hash_table_bytes_per_row = _hash_table_bytes_per_row;
+    other->_hash_table_probing_bytes_per_row = _hash_table_probing_bytes_per_row;
+    other->_fit_L2_cache_max_rows = _fit_L2_cache_max_rows;
+    other->_fit_L3_cache_max_rows = _fit_L3_cache_max_rows;
+    other->_l2_benefit = _l2_benefit;
+    other->_l3_benefit = _l3_benefit;
     other->_ready = _ready;
     for (size_t i = 0; i < _partition_num; ++i) {
         other->_builders.emplace_back(std::make_unique<SingleHashJoinBuilder>(_hash_joiner));
