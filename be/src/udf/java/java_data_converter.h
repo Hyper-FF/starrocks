@@ -38,8 +38,12 @@ public:
     static jobject convert_to_states_with_filter(FunctionContext* ctx, uint8_t** data, size_t offset,
                                                  const uint8_t* filter, int num_rows);
 
+    // `arg_classes` is an optional per-argument formal Class<?> list, populated by
+    // the caller for STRUCT args (other slots may be null jclass). When the caller
+    // does not have STRUCT args, it may pass nullptr.
     static Status convert_to_boxed_array(FunctionContext* ctx, const Column** columns, int num_cols, int num_rows,
-                                         std::vector<jobject>* res);
+                                         std::vector<jobject>* res,
+                                         const std::vector<jclass>* arg_classes = nullptr);
 };
 
 #define SET_FUNCTION_CONTEXT_ERR(status, context)       \

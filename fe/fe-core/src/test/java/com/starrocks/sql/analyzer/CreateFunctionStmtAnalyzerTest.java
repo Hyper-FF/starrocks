@@ -1153,4 +1153,209 @@ public class CreateFunctionStmtAnalyzerTest {
             }
         });
     }
+
+    // ----- STRUCT UDF tests -------------------------------------------------
+    //
+    // Verifies the record-class binding implemented in CreateFunctionAnalyzer:
+    //  - STRUCT params/returns must be Java record classes
+    //  - record component count must match struct field count
+    //  - component types must match (positionally) the SQL field types
+    //  - List<scalar> / Map<scalar,scalar> components are allowed
+    //  - non-record classes, primitive types, or component count mismatch all
+    //    produce a SemanticException at CREATE FUNCTION time
+
+    public record Address(String street, Integer zip) {}
+
+    public record AddressOut(String full, Integer region) {}
+
+    public record WideStruct(String s, Integer i, Long l, Double d) {}
+
+    public record StructWithList(String name, List<String> tags) {}
+
+    public record StructWithMap(String name, Map<String, String> attrs) {}
+
+    public record WrongTypes(Integer street, String zip) {}
+
+    public static class StructEval {
+        public AddressOut evaluate(Address addr) {
+            return new AddressOut("", 0);
+        }
+    }
+
+    public static class WideStructEval {
+        public WideStruct evaluate(WideStruct s) {
+            return s;
+        }
+    }
+
+    public static class StructListEval {
+        public StructWithList evaluate(StructWithList s) {
+            return s;
+        }
+    }
+
+    public static class StructMapEval {
+        public StructWithMap evaluate(StructWithMap s) {
+            return s;
+        }
+    }
+
+    public static class StructWrongTypesEval {
+        public WrongTypes evaluate(WrongTypes s) {
+            return s;
+        }
+    }
+
+    public static class StructNonRecordEval {
+        // Address is a record but the parameter type here is its raw String component;
+        // exercises the "STRUCT field bound to non-record" rejection path.
+        public AddressOut evaluate(String s) {
+            return new AddressOut("", 0);
+        }
+    }
+
+    @Test
+    public void testStructUDFRecord() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(StructEval.class);
+            String sql = "CREATE FUNCTION ABC.addr_udf(struct<street varchar, zip int>) \n"
+                    + "RETURNS struct<full varchar, region int> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testStructUDFAllScalarFieldTypes() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(WideStructEval.class);
+            String sql = "CREATE FUNCTION ABC.wide(struct<s varchar, i int, l bigint, d double>) \n"
+                    + "RETURNS struct<s varchar, i int, l bigint, d double> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testStructUDFListField() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(StructListEval.class);
+            String sql = "CREATE FUNCTION ABC.with_list(struct<name varchar, tags array<varchar>>) \n"
+                    + "RETURNS struct<name varchar, tags array<varchar>> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testStructUDFMapField() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(StructMapEval.class);
+            String sql = "CREATE FUNCTION ABC.with_map(struct<name varchar, attrs map<varchar,varchar>>) \n"
+                    + "RETURNS struct<name varchar, attrs map<varchar,varchar>> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testStructUDFNonRecordRejected() {
+        assertThrows(SemanticException.class, () -> {
+            try {
+                Config.enable_udf = true;
+                mockClazz(StructNonRecordEval.class);
+                String sql = "CREATE FUNCTION ABC.bad(struct<a varchar>) \n"
+                        + "RETURNS struct<full varchar, region int> \n"
+                        + "properties (\n"
+                        + "    \"symbol\" = \"symbol\",\n"
+                        + "    \"type\" = \"StarrocksJar\",\n"
+                        + "    \"file\" = \"http://localhost:8080/\"\n"
+                        + ");";
+                CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+                new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            } finally {
+                Config.enable_udf = false;
+            }
+        });
+    }
+
+    @Test
+    public void testStructUDFFieldCountMismatchRejected() {
+        assertThrows(SemanticException.class, () -> {
+            try {
+                Config.enable_udf = true;
+                mockClazz(StructEval.class);
+                // Address record has 2 components but SQL declares 3 fields.
+                String sql = "CREATE FUNCTION ABC.bad(struct<a varchar, b int, c int>) \n"
+                        + "RETURNS struct<full varchar, region int> \n"
+                        + "properties (\n"
+                        + "    \"symbol\" = \"symbol\",\n"
+                        + "    \"type\" = \"StarrocksJar\",\n"
+                        + "    \"file\" = \"http://localhost:8080/\"\n"
+                        + ");";
+                CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+                new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            } finally {
+                Config.enable_udf = false;
+            }
+        });
+    }
+
+    @Test
+    public void testStructUDFFieldTypeMismatchRejected() {
+        assertThrows(SemanticException.class, () -> {
+            try {
+                Config.enable_udf = true;
+                mockClazz(StructWrongTypesEval.class);
+                // Record (Integer street, String zip) vs SQL (street varchar, zip int) - swapped.
+                String sql = "CREATE FUNCTION ABC.bad(struct<street varchar, zip int>) \n"
+                        + "RETURNS struct<street varchar, zip int> \n"
+                        + "properties (\n"
+                        + "    \"symbol\" = \"symbol\",\n"
+                        + "    \"type\" = \"StarrocksJar\",\n"
+                        + "    \"file\" = \"http://localhost:8080/\"\n"
+                        + ");";
+                CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+                new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            } finally {
+                Config.enable_udf = false;
+            }
+        });
+    }
 }

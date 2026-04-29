@@ -47,6 +47,8 @@ import com.starrocks.type.ArrayType;
 import com.starrocks.type.MapType;
 import com.starrocks.type.PrimitiveType;
 import com.starrocks.type.ScalarType;
+import com.starrocks.type.StructField;
+import com.starrocks.type.StructType;
 import com.starrocks.type.Type;
 import com.starrocks.type.TypeFactory;
 import org.apache.commons.codec.binary.Hex;
@@ -57,13 +59,17 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
 import java.net.URLClassLoader;
 import java.security.MessageDigest;
 import java.security.Permission;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CreateFunctionAnalyzer {
@@ -217,9 +223,20 @@ public class CreateFunctionAnalyzer {
                     stateClass.collectMethods();
                 }
 
+                // STRUCT validation later calls Class.getRecordComponents(), a
+                // native method that lazily resolves each component type through
+                // the defining classloader. Closing the classloader before that
+                // resolution surfaces as NoClassDefFoundError on any
+                // transitively-referenced record-component class. Drive the
+                // resolution here, while the classloader is still open, so the
+                // analyzer below sees a fully-loaded type tree.
+                eagerlyResolveRecordTypes(handleClass);
+                if (stmt.isAggregate()) {
+                    eagerlyResolveRecordTypes(stateClass);
+                }
             } catch (IOException e) {
                 ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                        "Failed to load object_file: " + stmt.getProperties().get(CreateFunctionStmt.FILE_KEY) + 
+                        "Failed to load object_file: " + stmt.getProperties().get(CreateFunctionStmt.FILE_KEY) +
                         "," + e.getMessage());
             } catch (ClassNotFoundException e) {
                 ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
@@ -243,6 +260,64 @@ public class CreateFunctionAnalyzer {
         }
 
         stmt.setFunction(createdFunction);
+    }
+
+    /**
+     * Walk every method's parameter and return types, force-loading any record
+     * classes (and their transitive record-component classes) so that later
+     * analysis can call Class.getRecordComponents() / Class.getDeclaredConstructor()
+     * after the originating classloader is closed without triggering a
+     * NoClassDefFoundError on a lazily-resolved component type.
+     *
+     * The contract relies on JVM behavior: once a class has been resolved by a
+     * classloader, the resulting Class object remains reachable for the lifetime
+     * of the JVM regardless of whether the originating classloader is later
+     * closed. getRecordComponents()'s native call uses already-resolved Class
+     * objects after this priming step.
+     */
+    private static void eagerlyResolveRecordTypes(JavaUDFInternalClass handleClass) {
+        if (handleClass.methods == null) {
+            return;
+        }
+        Set<Class<?>> visited = new HashSet<>();
+        for (Method m : handleClass.methods.values()) {
+            for (Class<?> p : m.getParameterTypes()) {
+                resolveRecursively(p, visited);
+            }
+            resolveRecursively(m.getReturnType(), visited);
+        }
+    }
+
+    private static void resolveRecursively(Class<?> cls, Set<Class<?>> visited) {
+        if (cls == null || cls.isPrimitive() || !visited.add(cls)) {
+            return;
+        }
+        if (cls.isArray()) {
+            resolveRecursively(cls.getComponentType(), visited);
+            return;
+        }
+        if (cls.isRecord()) {
+            // Native call resolves every component class as a side effect.
+            RecordComponent[] comps = cls.getRecordComponents();
+            for (RecordComponent comp : comps) {
+                resolveRecursively(comp.getType(), visited);
+                collectFromGenericType(comp.getGenericType(), visited);
+            }
+        }
+    }
+
+    private static void collectFromGenericType(java.lang.reflect.Type t, Set<Class<?>> visited) {
+        if (t instanceof Class<?>) {
+            resolveRecursively((Class<?>) t, visited);
+        } else if (t instanceof ParameterizedType) {
+            ParameterizedType pt = (ParameterizedType) t;
+            if (pt.getRawType() instanceof Class<?>) {
+                resolveRecursively((Class<?>) pt.getRawType(), visited);
+            }
+            for (java.lang.reflect.Type a : pt.getActualTypeArguments()) {
+                collectFromGenericType(a, visited);
+            }
+        }
     }
 
     private void checkStarrocksJarUdfClass(CreateFunctionStmt stmt, JavaUDFInternalClass mainClass) {
@@ -469,6 +544,14 @@ public class CreateFunctionAnalyzer {
     private static final Class<?> JAVA_ARRAY_CLASS_TYPE = List.class;
     private static final Class<?> JAVA_MAP_CLASS_TYPE = Map.class;
 
+    // Defensive bound on STRUCT nesting depth in UDF signatures. SQL types are
+    // always finite trees (no recursive STRUCT syntax) so the recursion always
+    // terminates, but a pathologically deep DDL could still blow the FE stack
+    // before hitting any other error. 64 is comfortably above any practical
+    // schema and well below the default FE thread stack budget; matches the
+    // ballpark Trino's RowType / Spark's spark.sql.maxStructNestedLevels use.
+    private static final int MAX_STRUCT_NESTING = 64;
+
     private static class UDFSecurityManager extends SecurityManager {
         private Class<?> clazz;
 
@@ -618,6 +701,16 @@ public class CreateFunctionAnalyzer {
                 cls = Map.class;
             } else if (expType instanceof ArrayType) {
                 cls = List.class;
+            } else if (expType instanceof StructType) {
+                // v1: STRUCT is supported as a scalar UDF input/return only. UDAF/UDTF
+                // paths route through checkUdfType/checkParamUdfType and need additional
+                // BE plumbing (convert_to_boxed_array does not have access to evaluate
+                // parameter classes for UDAF/UDTF), so reject explicitly.
+                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        String.format("UDF class '%s' method '%s' parameter %s: STRUCT is currently " +
+                                        "supported for scalar UDFs only, not UDAF/UDTF",
+                                clazz.getCanonicalName(), method.getName(), pname));
+                return;
             } else {
                 ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                         String.format("UDF class '%s' method '%s' does not support type '%s'",
@@ -691,6 +784,11 @@ public class CreateFunctionAnalyzer {
                 return;
             }
 
+            if (expType instanceof StructType) {
+                checkStructRecord(method, (StructType) expType, ptype, pname, 0);
+                return;
+            }
+
             ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     String.format("UDF class '%s' method '%s' does not support non-scalar type '%s'",
                             clazz.getCanonicalName(), method.getName(), expType));
@@ -709,6 +807,153 @@ public class CreateFunctionAnalyzer {
                         && isSupportedScalarUdfType(mapType.getValueType());
             }
             return false;
+        }
+
+        /**
+         * Validate that a Java record class matches a StarRocks STRUCT type.
+         *
+         * Component count must match field count, and each component's type must match
+         * the corresponding StructField type by position. Field names are not enforced
+         * (Java identifiers cannot represent every legal SQL field name); a mismatch is
+         * tolerated since the binding is positional.
+         *
+         * Recurses into nested STRUCT (component must be a record), ARRAY (component
+         * must be List with a parameterized element), and MAP (component must be Map
+         * with parameterized key/value). `depth` counts struct nesting and is bounded
+         * by MAX_STRUCT_NESTING; ARRAY/MAP wrappers do not increment it because they
+         * cannot themselves form an unbounded recursion in a finite SQL type tree.
+         */
+        private void checkStructRecord(Method method, StructType structType, Class<?> ptype, String pname, int depth) {
+            if (depth >= MAX_STRUCT_NESTING) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        String.format("UDF class '%s' method '%s' parameter %s: STRUCT nesting exceeds limit %d",
+                                clazz.getCanonicalName(), method.getName(), pname, MAX_STRUCT_NESTING));
+            }
+            if (!ptype.isRecord()) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        String.format("UDF class '%s' method '%s' parameter %s[%s] must be a Java record " +
+                                        "to bind STRUCT type '%s'",
+                                clazz.getCanonicalName(), method.getName(), pname,
+                                ptype.getCanonicalName(), structType));
+            }
+            RecordComponent[] comps = ptype.getRecordComponents();
+            List<StructField> fields = structType.getFields();
+            if (comps.length != fields.size()) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        String.format("UDF class '%s' method '%s' parameter %s[%s] has %d record components but " +
+                                        "STRUCT type '%s' has %d fields",
+                                clazz.getCanonicalName(), method.getName(), pname,
+                                ptype.getCanonicalName(), comps.length, structType, fields.size()));
+            }
+            for (int i = 0; i < comps.length; i++) {
+                RecordComponent comp = comps[i];
+                StructField field = fields.get(i);
+                checkUdfFieldType(method, field.getType(), comp.getType(), comp.getGenericType(),
+                        pname + "." + comp.getName(), depth + 1);
+            }
+        }
+
+        /**
+         * Recursive type validator that knows about generic signatures. Unlike
+         * checkScalarUdfType, this routes through nested STRUCT/ARRAY/MAP without
+         * the top-level only restrictions, so it can be used to validate record
+         * components.
+         */
+        private void checkUdfFieldType(Method method, Type expType, Class<?> rawType,
+                                       java.lang.reflect.Type genericType, String pname, int depth) {
+            if (expType instanceof ScalarType) {
+                ScalarType scalarType = (ScalarType) expType;
+                Class<?> expCls = PRIMITIVE_TYPE_TO_JAVA_CLASS_TYPE.get(scalarType.getPrimitiveType());
+                if (expCls == null) {
+                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            String.format("UDF class '%s' method '%s' field %s does not support type '%s'",
+                                    clazz.getCanonicalName(), method.getName(), pname, expType));
+                }
+                if (!expCls.equals(rawType)) {
+                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            String.format("UDF class '%s' method '%s' field %s[%s] type does not match %s",
+                                    clazz.getCanonicalName(), method.getName(), pname,
+                                    rawType.getCanonicalName(), expCls.getCanonicalName()));
+                }
+                return;
+            }
+            if (expType instanceof ArrayType) {
+                if (!JAVA_ARRAY_CLASS_TYPE.equals(rawType)) {
+                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            String.format("UDF class '%s' method '%s' field %s[%s] must be %s for ARRAY type",
+                                    clazz.getCanonicalName(), method.getName(), pname,
+                                    rawType.getCanonicalName(), JAVA_ARRAY_CLASS_TYPE.getCanonicalName()));
+                }
+                ArrayType arrayType = (ArrayType) expType;
+                java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 1);
+                Class<?> elemRaw = rawClass(method, tArgs[0], pname);
+                checkUdfFieldType(method, arrayType.getItemType(), elemRaw, tArgs[0], pname + "[]", depth);
+                return;
+            }
+            if (expType instanceof MapType) {
+                if (!JAVA_MAP_CLASS_TYPE.equals(rawType)) {
+                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            String.format("UDF class '%s' method '%s' field %s[%s] must be %s for MAP type",
+                                    clazz.getCanonicalName(), method.getName(), pname,
+                                    rawType.getCanonicalName(), JAVA_MAP_CLASS_TYPE.getCanonicalName()));
+                }
+                MapType mapType = (MapType) expType;
+                java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 2);
+                Class<?> keyRaw = rawClass(method, tArgs[0], pname);
+                Class<?> valRaw = rawClass(method, tArgs[1], pname);
+                checkUdfFieldType(method, mapType.getKeyType(), keyRaw, tArgs[0], pname + ".<key>", depth);
+                checkUdfFieldType(method, mapType.getValueType(), valRaw, tArgs[1], pname + ".<value>", depth);
+                return;
+            }
+            if (expType instanceof StructType) {
+                // v1: nested STRUCT inside another STRUCT/ARRAY/MAP is not supported yet.
+                // Top-level STRUCT params/returns are supported via checkScalarUdfType /
+                // checkUdfType. Field-level struct support requires recursive class plumbing
+                // through the BE data converter; tracked as a follow-up.
+                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        String.format("UDF class '%s' method '%s' field %s: nested STRUCT is not yet " +
+                                        "supported (only top-level STRUCT params/returns are allowed)",
+                                clazz.getCanonicalName(), method.getName(), pname));
+            }
+            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    String.format("UDF class '%s' method '%s' field %s does not support type '%s'",
+                            clazz.getCanonicalName(), method.getName(), pname, expType));
+        }
+
+        private java.lang.reflect.Type[] extractTypeArguments(Method method,
+                                                               java.lang.reflect.Type genericType,
+                                                               String pname, int expectedArity) {
+            if (!(genericType instanceof ParameterizedType)) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        String.format("UDF class '%s' method '%s' field %s must declare generic " +
+                                        "parameters (got raw type '%s')",
+                                clazz.getCanonicalName(), method.getName(), pname, genericType));
+            }
+            java.lang.reflect.Type[] tArgs = ((ParameterizedType) genericType).getActualTypeArguments();
+            if (tArgs.length != expectedArity) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                        String.format("UDF class '%s' method '%s' field %s expected %d generic " +
+                                        "parameters but got %d",
+                                clazz.getCanonicalName(), method.getName(), pname, expectedArity, tArgs.length));
+            }
+            return tArgs;
+        }
+
+        private Class<?> rawClass(Method method, java.lang.reflect.Type t, String pname) {
+            if (t instanceof Class<?>) {
+                return (Class<?>) t;
+            }
+            if (t instanceof ParameterizedType) {
+                java.lang.reflect.Type raw = ((ParameterizedType) t).getRawType();
+                if (raw instanceof Class<?>) {
+                    return (Class<?>) raw;
+                }
+            }
+            ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                    String.format("UDF class '%s' method '%s' field %s has unsupported generic " +
+                                    "signature '%s' (wildcards and type variables are not supported)",
+                            clazz.getCanonicalName(), method.getName(), pname, t));
+            return null;
         }
 
         /**

@@ -24,6 +24,7 @@
 #include "column/decimalv3_column.h"
 #include "column/map_column.h"
 #include "column/nullable_column.h"
+#include "column/struct_column.h"
 #include "column/vectorized_fwd.h"
 #include "gutil/casts.h"
 #include "types/date_value.h"
@@ -60,6 +61,14 @@ public:
         _jarr[_idx++] = reinterpret_cast<int64_t>(column.values_column().get());
         return Status::OK();
     }
+
+    // STRUCT field count is variable so the fixed 4-slot getAddrs() return shape
+    // cannot carry every subfield pointer. The Java helper that needs subfield
+    // addresses (UDFHelper.getStructResultFromBoxedArray) gets them from BE
+    // separately via its sub_field_addrs argument; getAddrs() only has to
+    // populate the parent NullableColumn's null bitmap (already done by the
+    // NullableColumn arm above), so this visitor just succeeds.
+    Status do_visit(const StructColumn& column) { return Status::OK(); }
 
     template <typename T>
     Status do_visit(const FixedLengthColumn<T>& column) {
@@ -111,6 +120,11 @@ public:
 
     Status do_visit(const MapColumn& column) {
         *_result = TYPE_MAP;
+        return Status::OK();
+    }
+
+    Status do_visit(const StructColumn& column) {
+        *_result = TYPE_STRUCT;
         return Status::OK();
     }
 

@@ -25,6 +25,7 @@
 #include "column/column.h"
 #include "column/column_helper.h"
 #include "column/nullable_column.h"
+#include "column/struct_column.h"
 #include "column/vectorized_fwd.h"
 #include "common/status.h"
 #include "common/statusor.h"
@@ -57,10 +58,20 @@ struct UDFFunctionCallHelper {
         // result column as a ref
         env->PushLocalFrame((num_cols + 1) * 3 + 1);
         auto defer = DeferOp([env]() { env->PopLocalFrame(nullptr); });
+
+        // Build the per-arg jclass vector from the cached evaluate_arg_classes. Only
+        // STRUCT slots are populated; other entries are nullptr and the converter
+        // ignores them.
+        std::vector<jclass> arg_classes;
+        arg_classes.reserve(fn_desc->evaluate_arg_classes.size());
+        for (const auto& gref : fn_desc->evaluate_arg_classes) {
+            arg_classes.emplace_back(reinterpret_cast<jclass>(gref.handle()));
+        }
+
         // convert input columns to object columns
         std::vector<jobject> input_col_objs;
-        auto st =
-                JavaDataTypeConverter::convert_to_boxed_array(ctx, input_cols.data(), num_cols, size, &input_col_objs);
+        auto st = JavaDataTypeConverter::convert_to_boxed_array(ctx, input_cols.data(), num_cols, size,
+                                                                &input_col_objs, &arg_classes);
         RETURN_IF_ERROR(st);
 
         // call UDF method
@@ -69,6 +80,35 @@ struct UDFFunctionCallHelper {
         // get result
         auto result_cols = get_boxed_result(ctx, res, size);
         return result_cols;
+    }
+
+    // Materialize the parent NullableColumn / inner StructColumn / per-field NullableColumn
+    // chain that StarRocks expects for a STRUCT result, and hand off to the Java helper to
+    // drain the Object[] of records into the per-field columns.
+    Status get_struct_boxed_result(JVMFunctionHelper& helper, const TypeDescriptor& return_type, jobject result,
+                                   size_t num_rows, NullableColumn* nullable_outer) {
+        auto* struct_col = down_cast<StructColumn*>(nullable_outer->data_column_raw_ptr());
+        int num_fields = static_cast<int>(struct_col->fields_size());
+
+        // Resize parent + each subfield column to numRows so addresses line up with the
+        // boxed-array writes performed on the Java side.
+        nullable_outer->resize(num_rows);
+
+        std::vector<jlong> sub_addrs;
+        std::vector<jint> sub_types;
+        sub_addrs.reserve(num_fields);
+        sub_types.reserve(num_fields);
+
+        for (int f = 0; f < num_fields; ++f) {
+            Column* field_col = struct_col->field_column_raw_ptr(f);
+            field_col->resize(num_rows);
+            sub_addrs.emplace_back(reinterpret_cast<jlong>(field_col));
+            sub_types.emplace_back(static_cast<jint>(return_type.children[f].type));
+        }
+
+        jlong parent_addr = reinterpret_cast<jlong>(nullable_outer);
+        return helper.get_struct_result_from_boxed_array(result, static_cast<int>(num_rows), parent_addr, sub_addrs,
+                                                         sub_types);
     }
 
     StatusOr<ColumnPtr> get_boxed_result(FunctionContext* ctx, jobject result, size_t num_rows) {
@@ -83,6 +123,9 @@ struct UDFFunctionCallHelper {
             RETURN_IF_ERROR(helper.get_decimal_result_from_boxed_array(return_type.type, return_type.precision,
                                                                        return_type.scale, res.get(), result, num_rows,
                                                                        ctx->error_if_overflow()));
+        } else if (return_type.type == TYPE_STRUCT) {
+            auto* nullable_outer = down_cast<NullableColumn*>(res.get());
+            RETURN_IF_ERROR(get_struct_boxed_result(helper, return_type, result, num_rows, nullable_outer));
         } else {
             RETURN_IF_ERROR(helper.get_result_from_boxed_array(return_type.type, res.get(), result, num_rows));
         }
@@ -188,6 +231,76 @@ StatusOr<std::shared_ptr<JavaUDFContext>> JavaFunctionCallExpr::_build_udf_func_
     // RETURN_IF_ERROR(add_method("prepare", &desc->prepare));
     // RETURN_IF_ERROR(add_method("method_close", &desc->close));
     RETURN_IF_ERROR(add_method("evaluate", &desc->evaluate));
+
+    // Cache the formal parameter / return Class<?> refs for STRUCT-typed UDF args
+    // (and STRUCT return type). Only populated for STRUCT slots; non-STRUCT slots
+    // get an empty JavaGlobalRef and the converter falls through to the existing
+    // boxing path.
+    {
+        auto& helper = JVMFunctionHelper::getInstance();
+        JNIEnv* env = helper.getEnv();
+        jobject method_obj = desc->evaluate->method.handle();
+
+        jclass method_class = env->FindClass("java/lang/reflect/Method");
+        DCHECK(method_class != nullptr);
+        DeferOp drop_method_class([&]() { env->DeleteLocalRef(method_class); });
+
+        jmethodID get_param_types =
+                env->GetMethodID(method_class, "getParameterTypes", "()[Ljava/lang/Class;");
+        jmethodID get_return_type = env->GetMethodID(method_class, "getReturnType", "()Ljava/lang/Class;");
+        DCHECK(get_param_types != nullptr && get_return_type != nullptr);
+
+        // STRUCT args: cache jclass for each slot whose declared SQL type is STRUCT.
+        int num_args = static_cast<int>(_children.size());
+        desc->evaluate_arg_classes.reserve(num_args);
+        bool has_struct = false;
+        for (int i = 0; i < num_args; ++i) {
+            if (_children[i]->type().type == TYPE_STRUCT) {
+                has_struct = true;
+                break;
+            }
+        }
+        if (_type.type == TYPE_STRUCT) {
+            has_struct = true;
+        }
+
+        if (has_struct) {
+            jobjectArray param_types =
+                    (jobjectArray)env->CallObjectMethod(method_obj, get_param_types);
+            if (env->ExceptionCheck()) {
+                env->ExceptionClear();
+                return Status::InternalError("failed to introspect UDF evaluate parameter types");
+            }
+            DeferOp drop_param_types([&]() {
+                if (param_types) env->DeleteLocalRef(param_types);
+            });
+
+            for (int i = 0; i < num_args; ++i) {
+                if (_children[i]->type().type != TYPE_STRUCT) {
+                    desc->evaluate_arg_classes.emplace_back(nullptr);
+                    continue;
+                }
+                jobject cls = env->GetObjectArrayElement(param_types, i);
+                if (cls == nullptr) {
+                    return Status::InternalError(
+                            fmt::format("UDF evaluate parameter {} class is null", i));
+                }
+                jobject gref = env->NewGlobalRef(cls);
+                env->DeleteLocalRef(cls);
+                desc->evaluate_arg_classes.emplace_back(gref);
+            }
+
+            if (_type.type == TYPE_STRUCT) {
+                jobject ret_cls = env->CallObjectMethod(method_obj, get_return_type);
+                if (env->ExceptionCheck() || ret_cls == nullptr) {
+                    env->ExceptionClear();
+                    return Status::InternalError("failed to introspect UDF evaluate return type");
+                }
+                desc->evaluate_return_class = JavaGlobalRef(env->NewGlobalRef(ret_cls));
+                env->DeleteLocalRef(ret_cls);
+            }
+        }
+    }
 
     // create UDF function instance
     ASSIGN_OR_RETURN(desc->udf_handle, desc->udf_class.newInstance());
