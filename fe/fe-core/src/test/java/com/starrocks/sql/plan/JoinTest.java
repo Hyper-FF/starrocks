@@ -508,7 +508,7 @@ public class JoinTest extends PlanTestBase {
         String plan = getFragmentPlan(sql);
         assertContains(plan, "join op: FULL OUTER JOIN");
         // The DATETIME side must be cast to the common (string) type inside the coalesce.
-        assertContains(plan, "coalesce(CAST");
+        assertContains(plan, "coalesce(8: id_datetime, CAST(11: t1a AS DATETIME))");
     }
 
     @Test
