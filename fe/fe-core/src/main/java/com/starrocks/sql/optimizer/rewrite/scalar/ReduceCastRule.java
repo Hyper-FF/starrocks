@@ -176,8 +176,9 @@ public class ReduceCastRule extends TopDownScalarOperatorRewriteRule {
             return child;
         }
 
-        child.setType(operator.getType().clone());
-        return child;
+        // Cannot mutate child's type any more; keep the cast so the outer varchar
+        // length is preserved.
+        return operator;
     }
 
     private boolean shouldInheritVarcharLength(Type castType, Type childType) {

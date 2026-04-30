@@ -771,7 +771,7 @@ public final class AggregatedMaterializedViewRewriter extends MaterializedViewRe
                 if (mvRewriteContext.isInAggregatePushDown()) {
                     // it's safe to change origColRef's type here because it's copied in agg push down rule
                     // and origColRef will be removed after rewrite.
-                    origColRef.setType(newAggColRef.getType());
+                    origColRef.setTypeUnchecked(newAggColRef.getType());
                     aggColRefToAggMap.put(origColRef, newAggColRef);
                 } else {
                     ScalarOperator newProjectOp = genRollupProject(aggCall, newAggColRef, hasGroupByKeys);

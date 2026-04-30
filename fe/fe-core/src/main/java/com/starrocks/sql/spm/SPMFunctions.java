@@ -141,7 +141,7 @@ public class SPMFunctions {
             return operator;
         }
         CallOperator call = (CallOperator) operator;
-        call.setType(type);
+        call.setTypeUnchecked(type);
         List<Type> argTypes = Lists.newArrayList();
         argTypes.add(IntegerType.BIGINT);
         if (!call.getChild(0).getType().equals(IntegerType.BIGINT)) {

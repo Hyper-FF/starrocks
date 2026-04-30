@@ -322,7 +322,7 @@ public class PartitionSelector {
             Column column = olapTable.getColumn(columnRef.getName());
             if (column != null) {
                 if (columnNameToColRefMap.containsKey(column.getName())) {
-                    columnRef.setType(column.getType());
+                    columnRef.setTypeUnchecked(column.getType());
                 }
                 columnNameToColRefMap.put(column.getName(), columnRef);
             }

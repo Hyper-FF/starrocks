@@ -200,7 +200,7 @@ public class PruneSubfieldsForComplexType implements TreeRewriteRule {
             for (Map.Entry<ColumnRefOperator, ScalarOperator> entry : map.entrySet()) {
                 if (entry.getKey().getType().isComplexType()) {
                     pruneForComplexType(entry.getKey(), context);
-                    entry.getValue().setType(entry.getKey().getType());
+                    entry.getValue().setTypeUnchecked(entry.getKey().getType());
                 }
             }
         }
@@ -215,7 +215,7 @@ public class PruneSubfieldsForComplexType implements TreeRewriteRule {
             Type cloneType = columnRefOperator.getType().clone();
             PruneComplexTypeUtil.setAccessGroup(cloneType, accessGroup);
             cloneType.pruneUnusedSubfields();
-            columnRefOperator.setType(cloneType);
+            columnRefOperator.setTypeUnchecked(cloneType);
         }
     }
 }

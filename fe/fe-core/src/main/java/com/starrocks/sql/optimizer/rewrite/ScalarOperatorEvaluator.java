@@ -206,7 +206,8 @@ public enum ScalarOperatorEvaluator {
                         return root;
                     }
                 }
-                operator.setType(fn.getReturnType());
+                operator = ConstantOperator.createNullableObject(
+                        operator.isNull() ? null : operator.getValue(), fn.getReturnType());
             }
             return operator;
         } catch (Exception e) {

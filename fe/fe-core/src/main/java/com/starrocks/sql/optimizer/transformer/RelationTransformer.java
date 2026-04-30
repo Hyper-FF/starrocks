@@ -353,7 +353,7 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
                     Type relationType = relation.getRelationFields().getFieldByIndex(i).getType();
                     if (!outputType.equals(relationType)) {
                         if (relationType.isNull()) {
-                            row.get(i).setType(outputType);
+                            row.set(i, ConstantOperator.createNull(outputType));
                         } else {
                             Optional<ConstantOperator> expr = ((ConstantOperator) row.get(i)).castTo(outputType);
                             if (!expr.isPresent()) {
@@ -361,7 +361,14 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
                             }
                             row.set(i, expr.get());
                         }
-                        valuesOperator.getColumnRefSet().get(i).setType(outputType);
+                        ColumnRefOperator oldRef = valuesOperator.getColumnRefSet().get(i);
+                        ColumnRefOperator newRef = new ColumnRefOperator(
+                                oldRef.getId(), outputType, oldRef.getName(), oldRef.isNullable());
+                        valuesOperator.getColumnRefSet().set(i, newRef);
+                        int outputIdx = childOutputColumn.indexOf(oldRef);
+                        if (outputIdx >= 0) {
+                            childOutputColumn.set(outputIdx, newRef);
+                        }
                     }
                 }
                 // Note: must copy here

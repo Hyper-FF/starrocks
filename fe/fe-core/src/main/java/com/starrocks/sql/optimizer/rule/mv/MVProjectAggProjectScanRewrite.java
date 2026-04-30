@@ -131,7 +131,7 @@ public class MVProjectAggProjectScanRewrite {
             if (kv.getValue().getUsedColumns().contains(baseColumnRef)) {
                 kv.setValue(mvColumnRef);
                 kv.getKey().setNullable(mvColumnRef.isNullable());
-                kv.getKey().setType(mvColumnRef.getType());
+                kv.getKey().setTypeUnchecked(mvColumnRef.getType());
                 return kv.getKey();
             }
         }

@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class ScalarOperator implements Cloneable {
     protected final OperatorType opType;
-    protected final Type type;
+    protected Type type;
     // this operator will not eval in predicate estimate
     protected boolean notEvalEstimate = false;
     // Used to determine if it is derive from predicate range extractor
@@ -111,6 +111,20 @@ public abstract class ScalarOperator implements Cloneable {
 
     public Type getType() {
         return type;
+    }
+
+    /**
+     * Mutate the type carried by this operator in place. This is a legacy
+     * escape hatch for tree-rewrite passes that walk the plan top-down and
+     * adjust types after the fact (e.g. complex-type subfield prune,
+     * materialized-view rewrite). New code MUST NOT use this method; mint a
+     * new operator with the desired type instead. The contract for callers
+     * is that they own all references to the operator at the moment of
+     * mutation, so no other holder observes a stale type.
+     */
+    @Deprecated
+    public void setTypeUnchecked(Type type) {
+        this.type = type;
     }
 
     public boolean isNotEvalEstimate() {
