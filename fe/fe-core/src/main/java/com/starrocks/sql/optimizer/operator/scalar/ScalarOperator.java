@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class ScalarOperator implements Cloneable {
     protected final OperatorType opType;
-    protected Type type;
+    protected final Type type;
     // this operator will not eval in predicate estimate
     protected boolean notEvalEstimate = false;
     // Used to determine if it is derive from predicate range extractor
@@ -111,10 +111,6 @@ public abstract class ScalarOperator implements Cloneable {
 
     public Type getType() {
         return type;
-    }
-
-    public void setType(Type type) {
-        this.type = type;
     }
 
     public boolean isNotEvalEstimate() {
