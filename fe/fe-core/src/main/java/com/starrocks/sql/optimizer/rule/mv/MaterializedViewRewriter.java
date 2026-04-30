@@ -107,8 +107,14 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
                     // The substitution may widen a value-producing child's type
                     // (e.g. SMALLINT -> BIGINT for a sum-MV column). Re-derive
                     // the wrapping IF / CASE WHEN / COALESCE result type so that
-                    // children remain consistent with the call signature.
+                    // children remain consistent with the call signature, and
+                    // also propagate the new type to the projection's output
+                    // column ref so upstream operators (e.g. HashAgg consuming
+                    // this slot) see the widened input type.
                     rewritten = retypeConditionalExpressions(rewritten);
+                    if (!rewritten.getType().matchesType(queryColRef.getType())) {
+                        queryColRef.setType(rewritten.getType());
+                    }
                     newProjectMap.put(queryColRef, rewritten);
                 } else {
                     // eg: bitmap_union(to_bitmap(a)), still rewrite to bitmap_union(to_bitmap(a))
@@ -306,6 +312,49 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
         return new CallOperator(call.getFnName(), newCommon, args, fn);
     }
 
+    /**
+     * If {@code aggCall}'s actual argument types no longer match its declared
+     * function signature (because an upstream projection widened a child
+     * ColumnRef type), re-resolve the builtin function so the BE picks the
+     * specialization matching the actual chunk column types.  Without this,
+     * BE would still see e.g. {@code sum(SMALLINT)} while being fed a BIGINT
+     * column, triggering an aggregator down_cast assertion / SIGABRT.
+     */
+    private static CallOperator resyncAggCallToArgTypes(CallOperator aggCall) {
+        Function fn = aggCall.getFunction();
+        if (fn == null) {
+            return aggCall;
+        }
+        Type[] declaredArgs = fn.getArgs();
+        List<ScalarOperator> actualArgs = aggCall.getArguments();
+        if (declaredArgs.length != actualArgs.size()) {
+            return aggCall;
+        }
+        Type[] actualTypes = new Type[actualArgs.size()];
+        boolean mismatch = false;
+        for (int i = 0; i < actualArgs.size(); i++) {
+            actualTypes[i] = actualArgs.get(i).getType();
+            if (!declaredArgs[i].matchesType(actualTypes[i])) {
+                mismatch = true;
+            }
+        }
+        if (!mismatch) {
+            return aggCall;
+        }
+        Function newFn;
+        if (FunctionSet.SUM.equalsIgnoreCase(aggCall.getFnName()) && actualTypes.length == 1) {
+            newFn = ScalarOperatorUtil.findSumFn(actualTypes);
+        } else {
+            newFn = ExprUtils.getBuiltinFunction(aggCall.getFnName(), actualTypes,
+                    Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
+        }
+        if (newFn == null) {
+            return aggCall;
+        }
+        return new CallOperator(aggCall.getFnName(), aggCall.getType(),
+                actualArgs, newFn, aggCall.isDistinct(), aggCall.isRemovedDistinct());
+    }
+
     private static ScalarOperator castIfNeeded(ScalarOperator op, Type target) {
         if (target.matchesType(op.getType())) {
             return op;
@@ -351,6 +400,12 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
                 }
             }
         }
+        // visitLogicalProject may have widened a projection's output ColumnRef
+        // type (e.g. from SMALLINT to BIGINT for the sum-MV column substitution
+        // inside an IF/CASE WHEN).  Any aggregate function consuming such a
+        // column still carries the old (narrower) function signature here, so
+        // re-resolve its builtin function to the actual argument type.
+        newAggMap.replaceAll((out, aggCall) -> resyncAggCallToArgTypes(aggCall));
         return OptExpression.create(new LogicalAggregationOperator(
                 aggregationOperator.getType(),
                 aggregationOperator.getGroupingKeys(),
