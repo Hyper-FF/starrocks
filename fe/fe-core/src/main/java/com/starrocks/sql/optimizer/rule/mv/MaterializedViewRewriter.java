@@ -18,9 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.starrocks.catalog.Column;
+import com.starrocks.catalog.Function;
 import com.starrocks.catalog.FunctionSet;
 import com.starrocks.sql.ast.AggregateType;
 import com.starrocks.sql.ast.expression.ExprUtils;
+import com.starrocks.sql.common.TypeManager;
 import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.OptExpressionVisitor;
 import com.starrocks.sql.optimizer.operator.OperatorType;
@@ -33,18 +35,23 @@ import com.starrocks.sql.optimizer.operator.scalar.CallOperator;
 import com.starrocks.sql.optimizer.operator.scalar.CaseWhenOperator;
 import com.starrocks.sql.optimizer.operator.scalar.CastOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
+import com.starrocks.sql.optimizer.operator.scalar.ConstantOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperatorUtil;
 import com.starrocks.sql.optimizer.rewrite.ReplaceColumnRefRewriter;
 import com.starrocks.type.BitmapType;
+import com.starrocks.type.BooleanType;
 import com.starrocks.type.HLLType;
 import com.starrocks.type.IntegerType;
 import com.starrocks.type.PercentileType;
 import com.starrocks.type.Type;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.starrocks.catalog.Function.CompareMode.IS_IDENTICAL;
 
@@ -96,7 +103,13 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
                     Map<ColumnRefOperator, ScalarOperator> replaceMap = new HashMap<>();
                     replaceMap.put(context.queryColumnRef, context.mvColumnRef);
                     ReplaceColumnRefRewriter replaceColumnRefRewriter = new ReplaceColumnRefRewriter(replaceMap);
-                    newProjectMap.put(queryColRef, replaceColumnRefRewriter.rewrite(kv.getValue()));
+                    ScalarOperator rewritten = replaceColumnRefRewriter.rewrite(kv.getValue());
+                    // The substitution may widen a value-producing child's type
+                    // (e.g. SMALLINT -> BIGINT for a sum-MV column). Re-derive
+                    // the wrapping IF / CASE WHEN / COALESCE result type so that
+                    // children remain consistent with the call signature.
+                    rewritten = retypeConditionalExpressions(rewritten);
+                    newProjectMap.put(queryColRef, rewritten);
                 } else {
                     // eg: bitmap_union(to_bitmap(a)), still rewrite to bitmap_union(to_bitmap(a))
                     newProjectMap.put(queryColRef, context.mvColumnRef);
@@ -140,13 +153,13 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
                     queryAggFunc.getType(),
                     queryAggFunc.getChildren(),
                     ExprUtils.getBuiltinFunction(FunctionSet.SUM, new Type[] {IntegerType.BIGINT}, IS_IDENTICAL));
-            return (CallOperator) replaceColumnRefRewriter.rewrite(callOperator);
+            return finalizeAgg(replaceColumnRefRewriter, callOperator);
         } else if (functionName.equals(FunctionSet.SUM) && !queryAggFunc.isDistinct()) {
             CallOperator callOperator = new CallOperator(FunctionSet.SUM,
                     queryAggFunc.getType(),
                     queryAggFunc.getChildren(),
                     ScalarOperatorUtil.findSumFn(new Type[] {mvColumn.getType()}));
-            return (CallOperator) replaceColumnRefRewriter.rewrite(callOperator);
+            return finalizeAgg(replaceColumnRefRewriter, callOperator);
         } else if (((functionName.equals(FunctionSet.COUNT) && queryAggFunc.isDistinct())
                 || functionName.equals(FunctionSet.MULTI_DISTINCT_COUNT)) &&
                 mvColumn.getAggregationType() == AggregateType.BITMAP_UNION) {
@@ -155,7 +168,7 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
                     queryAggFunc.getChildren(),
                     ExprUtils.getBuiltinFunction(FunctionSet.BITMAP_UNION_COUNT, new Type[] {BitmapType.BITMAP},
                             IS_IDENTICAL));
-            return (CallOperator) replaceColumnRefRewriter.rewrite(callOperator);
+            return finalizeAgg(replaceColumnRefRewriter, callOperator);
         } else if (functionName.equals(FunctionSet.BITMAP_AGG) &&
                 mvColumn.getAggregationType() == AggregateType.BITMAP_UNION) {
             CallOperator callOperator = new CallOperator(FunctionSet.BITMAP_UNION,
@@ -163,7 +176,7 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
                     queryAggFunc.getChildren(),
                     ExprUtils.getBuiltinFunction(FunctionSet.BITMAP_UNION, new Type[] {BitmapType.BITMAP},
                             IS_IDENTICAL));
-            return (CallOperator) replaceColumnRefRewriter.rewrite(callOperator);
+            return finalizeAgg(replaceColumnRefRewriter, callOperator);
         } else if (
                 (functionName.equals(FunctionSet.NDV) || functionName.equals(FunctionSet.APPROX_COUNT_DISTINCT))
                         && mvColumn.getAggregationType() == AggregateType.HLL_UNION) {
@@ -171,7 +184,7 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
                     queryAggFunc.getType(),
                     queryAggFunc.getChildren(),
                     ExprUtils.getBuiltinFunction(FunctionSet.HLL_UNION_AGG, new Type[] {HLLType.HLL}, IS_IDENTICAL));
-            return (CallOperator) replaceColumnRefRewriter.rewrite(callOperator);
+            return finalizeAgg(replaceColumnRefRewriter, callOperator);
         } else if (functionName.equals(FunctionSet.PERCENTILE_APPROX) &&
                 mvColumn.getAggregationType() == AggregateType.PERCENTILE_UNION) {
 
@@ -185,10 +198,127 @@ public class MaterializedViewRewriter extends OptExpressionVisitor<OptExpression
                     Lists.newArrayList(child),
                     ExprUtils.getBuiltinFunction(FunctionSet.PERCENTILE_UNION,
                             new Type[] {PercentileType.PERCENTILE}, IS_IDENTICAL));
-            return (CallOperator) replaceColumnRefRewriter.rewrite(callOperator);
+            return finalizeAgg(replaceColumnRefRewriter, callOperator);
         } else {
-            return (CallOperator) replaceColumnRefRewriter.rewrite(queryAggFunc);
+            return finalizeAgg(replaceColumnRefRewriter, queryAggFunc);
         }
+    }
+
+    /**
+     * Apply {@link #replaceColumnRefRewriter} (column-ref substitution) and then
+     * re-derive the result type of any IF / IFNULL / COALESCE / CASE WHEN node
+     * found inside the rewritten expression. The substitution may widen a child
+     * type (typical: SMALLINT -> BIGINT for a sum-MV column), and we must
+     * propagate that change through the wrapping conditional so the call
+     * signature stays consistent with its children.
+     */
+    private CallOperator finalizeAgg(ReplaceColumnRefRewriter replaceColumnRefRewriter, CallOperator call) {
+        ScalarOperator rewritten = replaceColumnRefRewriter.rewrite(call);
+        return (CallOperator) retypeConditionalExpressions(rewritten);
+    }
+
+    private static ScalarOperator retypeConditionalExpressions(ScalarOperator op) {
+        if (op == null) {
+            return null;
+        }
+        for (int i = 0; i < op.getChildren().size(); i++) {
+            op.setChild(i, retypeConditionalExpressions(op.getChild(i)));
+        }
+        if (op instanceof CaseWhenOperator) {
+            return retypeCaseWhen((CaseWhenOperator) op);
+        }
+        if (op instanceof CallOperator) {
+            CallOperator call = (CallOperator) op;
+            String name = call.getFnName();
+            if (FunctionSet.IF.equalsIgnoreCase(name)) {
+                return retypeIf(call);
+            }
+            if (FunctionSet.COALESCE.equalsIgnoreCase(name)
+                    || FunctionSet.IFNULL.equalsIgnoreCase(name)) {
+                return retypeCoalesceLike(call);
+            }
+        }
+        return op;
+    }
+
+    private static ScalarOperator retypeCaseWhen(CaseWhenOperator op) {
+        List<Type> valueTypes = Lists.newArrayList();
+        for (int i = 0; i < op.getWhenClauseSize(); i++) {
+            valueTypes.add(op.getThenClause(i).getType());
+        }
+        if (op.hasElse()) {
+            valueTypes.add(op.getElseClause().getType());
+        }
+        if (valueTypes.isEmpty()) {
+            return op;
+        }
+        Type newCommon = TypeManager.getCommonSuperType(valueTypes);
+        if (newCommon == null || !newCommon.isValid() || newCommon.matchesType(op.getType())) {
+            return op;
+        }
+        ScalarOperator caseClause = op.hasCase() ? op.getCaseClause() : null;
+        List<ScalarOperator> whenThens = Lists.newArrayList();
+        for (int i = 0; i < op.getWhenClauseSize(); i++) {
+            whenThens.add(op.getWhenClause(i));
+            whenThens.add(castIfNeeded(op.getThenClause(i), newCommon));
+        }
+        ScalarOperator elseClause = op.hasElse() ? castIfNeeded(op.getElseClause(), newCommon) : null;
+        return new CaseWhenOperator(newCommon, caseClause, elseClause, whenThens);
+    }
+
+    private static ScalarOperator retypeIf(CallOperator call) {
+        if (call.getArguments().size() != 3) {
+            return call;
+        }
+        ScalarOperator cond = call.getArguments().get(0);
+        ScalarOperator thenOp = call.getArguments().get(1);
+        ScalarOperator elseOp = call.getArguments().get(2);
+        Type newCommon = TypeManager.getCommonSuperType(thenOp.getType(), elseOp.getType());
+        if (newCommon == null || !newCommon.isValid() || newCommon.matchesType(call.getType())) {
+            return call;
+        }
+        List<ScalarOperator> args = Lists.newArrayList(
+                cond, castIfNeeded(thenOp, newCommon), castIfNeeded(elseOp, newCommon));
+        Function fn = ExprUtils.getBuiltinFunction(FunctionSet.IF,
+                new Type[] {BooleanType.BOOLEAN, newCommon, newCommon},
+                Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
+        return new CallOperator(FunctionSet.IF, newCommon, args, fn);
+    }
+
+    private static ScalarOperator retypeCoalesceLike(CallOperator call) {
+        if (call.getArguments().isEmpty()) {
+            return call;
+        }
+        List<Type> argTypes = call.getArguments().stream()
+                .map(ScalarOperator::getType)
+                .collect(Collectors.toList());
+        Type newCommon = TypeManager.getCommonSuperType(argTypes);
+        if (newCommon == null || !newCommon.isValid() || newCommon.matchesType(call.getType())) {
+            return call;
+        }
+        List<ScalarOperator> args = call.getArguments().stream()
+                .map(a -> castIfNeeded(a, newCommon))
+                .collect(Collectors.toList());
+        Type[] sigArgs = new Type[args.size()];
+        Arrays.fill(sigArgs, newCommon);
+        Function fn = ExprUtils.getBuiltinFunction(call.getFnName(), sigArgs,
+                Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
+        return new CallOperator(call.getFnName(), newCommon, args, fn);
+    }
+
+    private static ScalarOperator castIfNeeded(ScalarOperator op, Type target) {
+        if (target.matchesType(op.getType())) {
+            return op;
+        }
+        // Fold cast(literal as T) into a typed literal so the plan dump stays
+        // tidy even if no constant-folding pass runs after this rewrite.
+        if (op instanceof ConstantOperator) {
+            Optional<ConstantOperator> folded = ((ConstantOperator) op).castTo(target);
+            if (folded.isPresent()) {
+                return folded.get();
+            }
+        }
+        return new CastOperator(target, op, true);
     }
 
     @Override
