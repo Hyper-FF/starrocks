@@ -466,12 +466,9 @@ TEST(ParquetComplexColumnReaderTest, AppendVariantBindingRowSeekFail) {
 // marked all-null in the row-group metadata so typed_value statistics are safe to use.
 // Caller owns `root_field`: ColumnReaderFactory stores raw pointers into the field tree,
 // so it must outlive the returned reader.
-static StatusOr<std::unique_ptr<ColumnReader>> make_shredded_variant_reader(tparquet::RowGroup& rg,
-                                                                            ColumnReaderOptions& opts,
-                                                                            ParquetField& root_field,
-                                                                            bool stats_on_age_chunk = false,
-                                                                            bool age_value_all_null = false,
-                                                                            bool include_age_value = true) {
+static StatusOr<std::unique_ptr<ColumnReader>> make_shredded_variant_reader(
+        tparquet::RowGroup& rg, ColumnReaderOptions& opts, ParquetField& root_field, bool stats_on_age_chunk = false,
+        bool age_value_all_null = false, bool include_age_value = true) {
     ParquetField meta_f;
     meta_f.name = "metadata";
     meta_f.type = ColumnType::SCALAR;
@@ -544,8 +541,7 @@ static StatusOr<std::unique_ptr<ColumnReader>> make_shredded_variant_reader(tpar
     rg.__set_num_rows(5);
     opts.row_group_meta = &rg;
 
-    return ColumnReaderFactory::create(opts, &root_field,
-                                       TypeDescriptor::from_logical_type(LogicalType::TYPE_VARIANT));
+    return ColumnReaderFactory::create(opts, &root_field, TypeDescriptor::from_logical_type(LogicalType::TYPE_VARIANT));
 }
 
 static StatusOr<std::unique_ptr<ColumnReader>> make_shredded_variant_reader_with_commit_operation_hint(
@@ -641,12 +637,9 @@ TEST(VariantShreddedPruningTest, CollectIORangeSkipsUnrequestedSiblings) {
     EXPECT_EQ(expected_offsets, offsets);
 }
 
-static StatusOr<std::unique_ptr<ColumnReader>> make_shredded_decimal_variant_reader(tparquet::RowGroup& rg,
-                                                                                    ColumnReaderOptions& opts,
-                                                                                    ParquetField& root_field,
-                                                                                    bool stats_on_leaf_chunk = false,
-                                                                                    bool leaf_value_all_null = false,
-                                                                                    bool include_leaf_value = true) {
+static StatusOr<std::unique_ptr<ColumnReader>> make_shredded_decimal_variant_reader(
+        tparquet::RowGroup& rg, ColumnReaderOptions& opts, ParquetField& root_field, bool stats_on_leaf_chunk = false,
+        bool leaf_value_all_null = false, bool include_leaf_value = true) {
     ParquetField meta_f;
     meta_f.name = "metadata";
     meta_f.type = ColumnType::SCALAR;
@@ -721,8 +714,7 @@ static StatusOr<std::unique_ptr<ColumnReader>> make_shredded_decimal_variant_rea
     rg.__set_num_rows(5);
     opts.row_group_meta = &rg;
 
-    return ColumnReaderFactory::create(opts, &root_field,
-                                       TypeDescriptor::from_logical_type(LogicalType::TYPE_VARIANT));
+    return ColumnReaderFactory::create(opts, &root_field, TypeDescriptor::from_logical_type(LogicalType::TYPE_VARIANT));
 }
 
 // Build a minimal FileMetaData (writer version "unknown") so that
