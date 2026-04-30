@@ -3057,6 +3057,14 @@ public class Config extends ConfigBase {
     public static long query_detail_cache_time_nanosecond = 30000000000L;
 
     /**
+     * Capacity of the in-memory LRU cache that retains recent audit events keyed by query_id.
+     * Used by builtins such as get_query_dump(query_id) to look up the original SQL
+     * and execution context after a query has finished.
+     */
+    @ConfField(mutable = true)
+    public static int audit_event_cache_capacity = 1024;
+
+    /**
      * Min lag of routine load job to show in metrics
      * Only show the routine load job whose lag is larger than min_routine_load_lag_for_metrics
      */

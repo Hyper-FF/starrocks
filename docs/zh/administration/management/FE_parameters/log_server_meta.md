@@ -128,6 +128,15 @@ ADMIN SET FRONTEND CONFIG ("key" = "value");
 - 描述: 控制 FE 是否在每条语句真正执行前额外输出一条 `BEFORE_QUERY` 审计事件。启用后，ConnectProcessor 会在语句执行前记录一条审计日志，并在语句执行完成后继续记录原有的 `AFTER_QUERY` 审计日志。对于 multi-statement 请求，该行为按每条实际执行到的 stmt 生效：失败前成功执行的语句都会各自产生一对 before/after 审计，失败语句也会产生这两条审计，而失败后的语句因为不会执行，所以不会产生任何审计。parse 失败的行为不变，仍然只为原始 SQL 文本输出现有的失败 after-audit。这是一个 FE 级别的全局开关，因此修改后会影响该 FE 上的所有会话。
 - 引入版本: v4.1
 
+### `audit_event_cache_capacity`
+
+- 默认值: 1024
+- 类型: Int
+- 单位: 条
+- 是否可变: Yes
+- 描述: 内存中按 `query_id` 索引最近 `AFTER_QUERY` 审计事件的 LRU 缓存容量。内置函数 `get_query_dump_from_query_id(query_id)` 依赖该缓存在查询结束后获取原始 SQL、catalog 和 database。缓存由审计管线同步写入，不依赖 `enable_collect_query_detail_info`；但仅存于单个 FE 进程内存，FE 重启后丢失，且按本配置容量做 LRU 淘汰。当 `enable_audit_sql = false` 时审计中的 SQL 为 `?`，此类记录无法用于重现 dump。基于 `query_id` 的查询受权限保护：调用方必须是该 query 的原执行用户，或拥有系统级 `OPERATE` 权限。
+- 引入版本: v4.1
+
 ### `bdbje_log_level`
 
 - 默认值: INFO

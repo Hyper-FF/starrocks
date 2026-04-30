@@ -128,6 +128,15 @@ This topic introduces the following types of FE configurations:
 - Description: Controls whether FE emits a `BEFORE_QUERY` audit event before each statement executes. When enabled, ConnectProcessor writes one audit record before statement execution and still writes the normal `AFTER_QUERY` audit record after the statement finishes. For multi-statement requests, this happens per executed statement: statements executed before a failure each emit a before/after pair, the failed statement also emits both records, and statements after the failure emit nothing because they are not executed. Parse failures are unchanged and still only produce the existing failed after-audit for the original SQL text. This is an FE-wide switch, so changing it affects all sessions on the FE.
 - Introduced in: v4.1
 
+### `audit_event_cache_capacity`
+
+- Default: 1024
+- Type: Int
+- Unit: entries
+- Is mutable: Yes
+- Description: Capacity of the in-memory LRU cache that retains recent `AFTER_QUERY` audit events keyed by `query_id`. Used by the builtin `get_query_dump_from_query_id(query_id)` to look up the original SQL, catalog, and database after a query has finished. The cache is populated synchronously from the audit pipeline, so it does not depend on `enable_collect_query_detail_info`; however, it lives in a single FE's process memory and is lost on restart, and it is bounded by this capacity (oldest entries are evicted first). Queries whose audit SQL is `?` (when `enable_audit_sql = false`) cannot be re-dumped. Lookup by `query_id` is restricted: the caller must either be the user who originally executed the query or hold system-level `OPERATE` privilege.
+- Introduced in: v4.1
+
 ### `bdbje_log_level`
 
 - Default: INFO

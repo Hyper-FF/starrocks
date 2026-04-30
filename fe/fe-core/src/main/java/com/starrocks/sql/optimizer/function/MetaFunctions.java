@@ -50,6 +50,8 @@ import com.starrocks.memory.MemoryTrackable;
 import com.starrocks.memory.MemoryUsageTracker;
 import com.starrocks.monitor.unit.ByteSizeValue;
 import com.starrocks.persist.gson.GsonUtils;
+import com.starrocks.plugin.AuditEvent;
+import com.starrocks.qe.AuditEventCache;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SimpleExecutor;
 import com.starrocks.scheduler.TaskRunManager;
@@ -76,6 +78,7 @@ import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.collections4.SetUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -606,6 +609,77 @@ public class MetaFunctions {
     @ConstantFunction(name = "get_query_dump", argTypes = {VARCHAR}, returnType = VARCHAR, isMetaFunction = true)
     public static ConstantOperator getQueryDump(ConstantOperator query) {
         return getQueryDump(query, ConstantOperator.createBoolean(false));
+    }
+
+    /**
+     * Look up a finished query by its query_id in the in-memory audit cache and produce a
+     * query dump for it. The cache is populated synchronously from {@code AFTER_QUERY}
+     * audit events, so this works for any query that ran on this FE within the cache
+     * window, regardless of {@code enable_collect_query_detail_info}.
+     *
+     * <p>Limitations: cache is per-FE and lost on restart; queries with desensitized SQL
+     * ({@code enable_audit_sql=false}) cannot be re-dumped. Access is restricted: caller
+     * must be the original executing user or hold system-level OPERATE privilege.
+     */
+    @ConstantFunction(name = "get_query_dump_from_query_id", argTypes = {VARCHAR, BOOLEAN},
+            returnType = VARCHAR, isMetaFunction = true)
+    public static ConstantOperator getQueryDumpFromQueryId(ConstantOperator queryId, ConstantOperator enableMock) {
+        String id = queryId.getVarchar();
+        AuditEvent event = AuditEventCache.getInstance().get(id);
+        if (event == null) {
+            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                    "get_query_dump_from_query_id: query_id not found in audit cache: " + id
+                            + ". The cache only retains recent queries on this FE; older queries"
+                            + " or queries executed on other FE nodes are not available.");
+        }
+        checkQueryDumpAccess(event);
+        String sql = event.stmt;
+        if (StringUtils.isEmpty(sql) || "?".equals(sql)) {
+            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                    "get_query_dump_from_query_id: original sql not retained for query_id: " + id
+                            + ". Check enable_audit_sql / enable_sql_desensitize_in_log.");
+        }
+        String catalog = StringUtils.isNotEmpty(event.catalog) ? event.catalog : "";
+        String database = StringUtils.isNotEmpty(event.db) ? event.db : "";
+        com.starrocks.common.Pair<HttpResponseStatus, String> statusAndRes =
+                QueryDumper.dumpQuery(catalog, database, sql, enableMock.getBoolean());
+        if (statusAndRes.first != HttpResponseStatus.OK) {
+            ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
+                    "get_query_dump_from_query_id: " + statusAndRes.second);
+        }
+        return ConstantOperator.createVarchar(statusAndRes.second);
+    }
+
+    @ConstantFunction(name = "get_query_dump_from_query_id", argTypes = {VARCHAR},
+            returnType = VARCHAR, isMetaFunction = true)
+    public static ConstantOperator getQueryDumpFromQueryId(ConstantOperator queryId) {
+        return getQueryDumpFromQueryId(queryId, ConstantOperator.createBoolean(false));
+    }
+
+    /**
+     * Allow looking up an audit event by query_id only when the caller is the user who
+     * originally ran the query, or holds system-level OPERATE privilege. This prevents
+     * one user from reading another user's SQL text (and the schema/statistics that the
+     * resulting dump would expose).
+     */
+    private static void checkQueryDumpAccess(AuditEvent event) {
+        ConnectContext ctx = ConnectContext.get();
+        if (ctx != null) {
+            String currentUser = ctx.getQualifiedUser();
+            if (currentUser != null
+                    && (currentUser.equals(event.user) || currentUser.equals(event.authorizedUser))) {
+                return;
+            }
+        }
+        try {
+            Authorizer.checkSystemAction(ctx, PrivilegeType.OPERATE);
+        } catch (AccessDeniedException e) {
+            AccessDeniedException.reportAccessDenied(
+                    InternalCatalog.DEFAULT_INTERNAL_CATALOG_NAME,
+                    ctx == null ? null : ctx.getCurrentUserIdentity(),
+                    ctx == null ? null : ctx.getCurrentRoleIds(),
+                    PrivilegeType.OPERATE.name(), ObjectType.SYSTEM.name(), null);
+        }
     }
 
     public static class LookupRecord {

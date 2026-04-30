@@ -70,6 +70,14 @@ public class AuditEventProcessor {
     }
 
     public void handleAuditEvent(AuditEvent auditEvent) {
+        if (auditEvent != null && auditEvent.type == AuditEvent.EventType.AFTER_QUERY) {
+            try {
+                AuditEventCache.getInstance().put(auditEvent);
+            } catch (Throwable t) {
+                // Never let an in-memory cache failure drop the audit event itself.
+                LOG.warn("failed to insert audit event into cache, ignore", t);
+            }
+        }
         try {
             eventQueue.put(auditEvent);
         } catch (InterruptedException e) {

@@ -21,6 +21,8 @@ import com.starrocks.common.ErrorReportException;
 import com.starrocks.leader.ReportHandler;
 import com.starrocks.memory.MemoryUsageTracker;
 import com.starrocks.persist.gson.GsonUtils;
+import com.starrocks.plugin.AuditEvent;
+import com.starrocks.qe.AuditEventCache;
 import com.starrocks.qe.SimpleExecutor;
 import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.optimizer.function.MetaFunctions;
@@ -441,5 +443,108 @@ public class MetaFunctionsTest extends MVTestBase {
         Assertions.assertNotNull(result);
         // External tables typically have no related MVs
         Assertions.assertEquals("[]", result.getVarchar());
+    }
+
+    @Test
+    public void testGetQueryDumpFromQueryIdNotFound() {
+        SemanticException ex = assertThrows(SemanticException.class,
+                () -> MetaFunctions.getQueryDumpFromQueryId(
+                        ConstantOperator.createVarchar("11111111-2222-3333-4444-555555555555")));
+        Assertions.assertTrue(ex.getMessage().contains("query_id not found"));
+    }
+
+    @Test
+    public void testGetQueryDumpFromQueryIdEmptyStmt() {
+        String queryId = "ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb";
+        AuditEvent event = new AuditEvent();
+        event.queryId = queryId;
+        event.stmt = "?";
+        event.catalog = "default_catalog";
+        event.db = "test";
+        event.user = connectContext.getQualifiedUser();
+        event.authorizedUser = connectContext.getQualifiedUser();
+        AuditEventCache.getInstance().put(event);
+        try {
+            SemanticException ex = assertThrows(SemanticException.class,
+                    () -> MetaFunctions.getQueryDumpFromQueryId(ConstantOperator.createVarchar(queryId)));
+            Assertions.assertTrue(ex.getMessage().contains("original sql not retained"));
+        } finally {
+            AuditEventCache.getInstance().clear();
+        }
+    }
+
+    @Test
+    public void testGetQueryDumpFromQueryIdLooksUpSql() throws Exception {
+        String queryId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+        AuditEvent event = new AuditEvent();
+        event.queryId = queryId;
+        event.stmt = "select count(*) from test.tbl1";
+        event.catalog = "default_catalog";
+        event.db = "test";
+        event.user = connectContext.getQualifiedUser();
+        event.authorizedUser = connectContext.getQualifiedUser();
+        AuditEventCache.getInstance().put(event);
+        try {
+            ConstantOperator result = MetaFunctions.getQueryDumpFromQueryId(ConstantOperator.createVarchar(queryId));
+            Assertions.assertNotNull(result);
+            Assertions.assertTrue(result.getVarchar().contains("query_id")
+                    || result.getVarchar().contains("statement"));
+        } finally {
+            AuditEventCache.getInstance().clear();
+        }
+    }
+
+    @Test
+    public void testGetQueryDumpFromQueryIdAccessDenied() {
+        String queryId = "12345678-1234-1234-1234-123456789012";
+        AuditEvent event = new AuditEvent();
+        event.queryId = queryId;
+        event.stmt = "select 1";
+        event.catalog = "default_catalog";
+        event.db = "test";
+        event.user = "some_other_user";
+        event.authorizedUser = "some_other_user";
+        AuditEventCache.getInstance().put(event);
+        try {
+            connectContext.setCurrentUserIdentity(testUser);
+            connectContext.setCurrentRoleIds(testUser);
+            connectContext.setThreadLocalInfo();
+            assertThrows(ErrorReportException.class,
+                    () -> MetaFunctions.getQueryDumpFromQueryId(ConstantOperator.createVarchar(queryId)));
+        } finally {
+            AuditEventCache.getInstance().clear();
+            connectContext.setCurrentUserIdentity(UserIdentity.ROOT);
+            connectContext.setCurrentRoleIds(UserIdentity.ROOT);
+            connectContext.setThreadLocalInfo();
+        }
+    }
+
+    @Test
+    public void testAuditEventCacheLruEviction() {
+        AuditEventCache cache = AuditEventCache.getInstance();
+        cache.clear();
+        int original = com.starrocks.common.Config.audit_event_cache_capacity;
+        com.starrocks.common.Config.audit_event_cache_capacity = 2;
+        try {
+            AuditEvent e1 = new AuditEvent();
+            e1.queryId = "id-1";
+            e1.stmt = "select 1";
+            cache.put(e1);
+            AuditEvent e2 = new AuditEvent();
+            e2.queryId = "id-2";
+            e2.stmt = "select 2";
+            cache.put(e2);
+            AuditEvent e3 = new AuditEvent();
+            e3.queryId = "id-3";
+            e3.stmt = "select 3";
+            cache.put(e3);
+            Assertions.assertEquals(2, cache.size());
+            Assertions.assertNull(cache.get("id-1"));
+            Assertions.assertNotNull(cache.get("id-2"));
+            Assertions.assertNotNull(cache.get("id-3"));
+        } finally {
+            com.starrocks.common.Config.audit_event_cache_capacity = original;
+            cache.clear();
+        }
     }
 }
