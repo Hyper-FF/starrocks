@@ -1511,28 +1511,40 @@ public class UDFHelper {
     }
 
     /**
-     * Write back a STRUCT result column.
+     * Extract record components into per-field boxed arrays, and write the parent
+     * NullableColumn's null bitmap.
      *
-     * Delegates to the field column writers via getResultFromBoxedArray. The BE side
-     * is responsible for materializing each subfield Column ahead of time (subFieldAddrs
-     * + subFieldTypes are sourced from the StructColumn).
+     * The BE drives per-subfield writes after this returns. For non-STRUCT subfields
+     * the BE calls UDFHelper.getResultFromBoxedArray (or the DECIMAL-aware variant);
+     * for STRUCT subfields the BE recurses into get_struct_boxed_result with the
+     * returned per-field array as the new boxedResult, materializing the inner
+     * StructColumn's children. Driving the recursion from the BE side avoids
+     * threading the SQL type tree (DECIMAL precision/scale, nested record classes)
+     * through the JNI boundary.
      *
-     * @param numRows         number of rows
-     * @param boxedResult     Object[] of length numRows holding record instances or null
+     * @param numRows          number of rows
+     * @param boxedResult      Object[] of length numRows holding record instances or null
      * @param parentColumnAddr address of the outer StructColumn's NullableColumn
-     * @param subFieldAddrs   addresses of each subfield Column, one per STRUCT field
-     * @param subFieldTypes   logical types of each subfield, one per STRUCT field
+     * @param subFieldTypes    LogicalType for each STRUCT subfield; controls the runtime
+     *                         element type of the returned per-field array so the caller's
+     *                         per-type writer (which casts to `Integer[]` etc.) succeeds.
+     *                         STRUCT subfields are not in the `clazzs` map and fall back to
+     *                         `Object[]`, which the BE then re-feeds into this method.
+     * @return Object[numFields] where each entry is a fresh typed array of length numRows
+     *         holding the boxed value for that subfield. Slots where the parent row is null
+     *         are left as null.
      */
-    public static void getStructResultFromBoxedArray(int numRows, Object[] boxedResult,
-                                                     long parentColumnAddr,
-                                                     long[] subFieldAddrs, int[] subFieldTypes) {
+    public static Object[] extractStructFieldArrays(int numRows, Object[] boxedResult,
+                                                    long parentColumnAddr, int[] subFieldTypes) {
+        int numFields = subFieldTypes.length;
+        Object[] perFieldValues = new Object[numFields];
+        for (int f = 0; f < numFields; f++) {
+            Class<?> fieldClass = clazzs.getOrDefault(subFieldTypes[f], Object.class);
+            perFieldValues[f] = Array.newInstance(fieldClass, numRows);
+        }
         if (numRows == 0) {
-            return;
+            return perFieldValues;
         }
-        if (subFieldAddrs.length != subFieldTypes.length) {
-            throw new IllegalArgumentException("subFieldAddrs/subFieldTypes length mismatch");
-        }
-        int numFields = subFieldAddrs.length;
 
         byte[] nulls = new byte[numRows];
         for (int r = 0; r < numRows; r++) {
@@ -1551,13 +1563,6 @@ public class UDFHelper {
             }
         }
 
-        // Build per-field boxed columns by reading components from each row's record.
-        Object[][] perFieldValues = new Object[numFields][];
-        for (int f = 0; f < numFields; f++) {
-            Class<?> fieldClass = clazzs.getOrDefault(subFieldTypes[f], Object.class);
-            perFieldValues[f] = (Object[]) Array.newInstance(fieldClass, numRows);
-        }
-
         if (recordClass != null) {
             RecordComponent[] comps = recordClass.getRecordComponents();
             if (comps.length != numFields) {
@@ -1571,7 +1576,7 @@ public class UDFHelper {
                         continue;
                     }
                     for (int f = 0; f < numFields; f++) {
-                        perFieldValues[f][r] = comps[f].getAccessor().invoke(rec);
+                        ((Object[]) perFieldValues[f])[r] = comps[f].getAccessor().invoke(rec);
                     }
                 }
             } catch (IllegalAccessException | InvocationTargetException e) {
@@ -1583,10 +1588,6 @@ public class UDFHelper {
         long[] parentAddrs = getAddrs(parentColumnAddr);
         Platform.copyMemory(nulls, Platform.BYTE_ARRAY_OFFSET, null, parentAddrs[0], numRows);
 
-        // Write each subfield column. The subfield columns are themselves NullableColumn
-        // (StarRocks' invariant), so getResultFromBoxedArray handles per-element nulls.
-        for (int f = 0; f < numFields; f++) {
-            getResultFromBoxedArray(subFieldTypes[f], numRows, perFieldValues[f], subFieldAddrs[f]);
-        }
+        return perFieldValues;
     }
 }

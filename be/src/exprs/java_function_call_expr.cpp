@@ -83,32 +83,63 @@ struct UDFFunctionCallHelper {
     }
 
     // Materialize the parent NullableColumn / inner StructColumn / per-field NullableColumn
-    // chain that StarRocks expects for a STRUCT result, and hand off to the Java helper to
-    // drain the Object[] of records into the per-field columns.
+    // chain that StarRocks expects for a STRUCT result, then drive per-subfield writes:
+    // the Java helper extracts record components into per-field Object[] arrays (and writes
+    // the parent null bitmap as a side effect); we then dispatch each subfield to the
+    // per-type writer, recursing into get_struct_boxed_result for STRUCT subfields.
     Status get_struct_boxed_result(JVMFunctionHelper& helper, const TypeDescriptor& return_type, jobject result,
                                    size_t num_rows, NullableColumn* nullable_outer) {
         auto* struct_col = down_cast<StructColumn*>(nullable_outer->data_column_raw_ptr());
         int num_fields = static_cast<int>(struct_col->fields_size());
 
         // Resize parent + each subfield column to numRows so addresses line up with the
-        // boxed-array writes performed on the Java side.
+        // boxed-array writes performed on the Java side. Subfield resize is recursive:
+        // a STRUCT subfield resizing only its top NullableColumn would leave its inner
+        // children sized 0 when extract_struct_field_arrays writes the bitmap.
         nullable_outer->resize(num_rows);
-
-        std::vector<jlong> sub_addrs;
-        std::vector<jint> sub_types;
-        sub_addrs.reserve(num_fields);
-        sub_types.reserve(num_fields);
-
+        std::vector<jint> sub_field_types;
+        sub_field_types.reserve(num_fields);
         for (int f = 0; f < num_fields; ++f) {
-            Column* field_col = struct_col->field_column_raw_ptr(f);
-            field_col->resize(num_rows);
-            sub_addrs.emplace_back(reinterpret_cast<jlong>(field_col));
-            sub_types.emplace_back(static_cast<jint>(return_type.children[f].type));
+            struct_col->field_column_raw_ptr(f)->resize(num_rows);
+            sub_field_types.emplace_back(static_cast<jint>(return_type.children[f].type));
         }
 
         jlong parent_addr = reinterpret_cast<jlong>(nullable_outer);
-        return helper.get_struct_result_from_boxed_array(result, static_cast<int>(num_rows), parent_addr, sub_addrs,
-                                                         sub_types);
+        ASSIGN_OR_RETURN(jobject per_field_arrays_obj,
+                         helper.extract_struct_field_arrays(result, static_cast<int>(num_rows), parent_addr,
+                                                             sub_field_types));
+        if (per_field_arrays_obj == nullptr) {
+            return Status::InternalError("extract_struct_field_arrays returned null");
+        }
+        auto per_field_arrays = reinterpret_cast<jobjectArray>(per_field_arrays_obj);
+        DeferOp drop_per_field([&]() {
+            JVMFunctionHelper::getInstance().getEnv()->DeleteLocalRef(per_field_arrays_obj);
+        });
+
+        JNIEnv* env = helper.getEnv();
+        for (int f = 0; f < num_fields; ++f) {
+            jobject field_array = env->GetObjectArrayElement(per_field_arrays, f);
+            DeferOp drop_field([&]() {
+                if (field_array) env->DeleteLocalRef(field_array);
+            });
+            const TypeDescriptor& field_type = return_type.children[f];
+            Column* field_col = struct_col->field_column_raw_ptr(f);
+
+            if (field_type.type == TYPE_STRUCT) {
+                // Subfield columns are themselves NullableColumn(StructColumn) — strip the
+                // outer NullableColumn to recurse into the inner struct.
+                auto* sub_nullable = down_cast<NullableColumn*>(field_col);
+                RETURN_IF_ERROR(get_struct_boxed_result(helper, field_type, field_array, num_rows, sub_nullable));
+            } else if (is_decimalv3_field_type(field_type.type)) {
+                RETURN_IF_ERROR(helper.get_decimal_result_from_boxed_array(
+                        field_type.type, field_type.precision, field_type.scale, field_col, field_array,
+                        static_cast<int>(num_rows), /*error_if_overflow=*/false));
+            } else {
+                RETURN_IF_ERROR(helper.get_result_from_boxed_array(field_type.type, field_col, field_array,
+                                                                    static_cast<int>(num_rows)));
+            }
+        }
+        return Status::OK();
     }
 
     StatusOr<ColumnPtr> get_boxed_result(FunctionContext* ctx, jobject result, size_t num_rows) {

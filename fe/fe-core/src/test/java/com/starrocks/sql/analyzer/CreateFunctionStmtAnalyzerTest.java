@@ -1358,4 +1358,162 @@ public class CreateFunctionStmtAnalyzerTest {
             }
         });
     }
+
+    // ----- Nested STRUCT (STRUCT inside STRUCT) tests -----------------------
+    //
+    // Validates that a record component which is itself a record class can bind
+    // a nested SQL STRUCT field. This is the only nested-struct shape supported
+    // by the BE/Java helper recursion: STRUCT inside ARRAY/MAP would require a
+    // per-element record-class side channel that doesn't yet exist (Java type
+    // erasure collapses List<Record> to raw List at the JNI boundary).
+
+    public record Inner(Integer a, String b) {}
+
+    public record Outer(String name, Inner inner) {}
+
+    public record Outer2(Inner left, Inner right) {}
+
+    public record DeeplyNested(Outer outer, Inner direct) {}
+
+    public record OuterWithListInner(String name, List<Inner> items) {}
+
+    public static class NestedStructEval {
+        public Outer evaluate(Outer o) {
+            return o;
+        }
+    }
+
+    public static class NestedStructTwoFieldsEval {
+        public Outer2 evaluate(Outer2 o) {
+            return o;
+        }
+    }
+
+    public static class DeeplyNestedEval {
+        public DeeplyNested evaluate(DeeplyNested o) {
+            return o;
+        }
+    }
+
+    public static class StructArrayOfStructEval {
+        // Field component is List<Inner> — record component preserves the parameterized
+        // type, so the FE could in principle resolve Inner.class. We still reject this
+        // because the BE-side runtime materialization for ARRAY<STRUCT> isn't wired.
+        public OuterWithListInner evaluate(OuterWithListInner o) {
+            return o;
+        }
+    }
+
+    @Test
+    public void testStructUDFNestedStruct() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(NestedStructEval.class);
+            String sql = "CREATE FUNCTION ABC.nested(struct<name varchar, inner struct<a int, b varchar>>) \n"
+                    + "RETURNS struct<name varchar, inner struct<a int, b varchar>> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testStructUDFTwoNestedStructFields() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(NestedStructTwoFieldsEval.class);
+            String sql = "CREATE FUNCTION ABC.nested2("
+                    + "struct<left struct<a int, b varchar>, right struct<a int, b varchar>>) \n"
+                    + "RETURNS struct<left struct<a int, b varchar>, right struct<a int, b varchar>> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testStructUDFTwoLevelNesting() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(DeeplyNestedEval.class);
+            String sql = "CREATE FUNCTION ABC.deeply(struct<"
+                    + "outer struct<name varchar, inner struct<a int, b varchar>>,"
+                    + "direct struct<a int, b varchar>>) \n"
+                    + "RETURNS struct<"
+                    + "outer struct<name varchar, inner struct<a int, b varchar>>,"
+                    + "direct struct<a int, b varchar>> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    @Test
+    public void testStructUDFNestedStructTypeMismatchRejected() {
+        // Inner record is (Integer a, String b); SQL declares the inner field as
+        // (a varchar, b varchar), so the recursion into checkStructRecord must
+        // surface a type mismatch on Inner.a (Integer vs String).
+        assertThrows(SemanticException.class, () -> {
+            try {
+                Config.enable_udf = true;
+                mockClazz(NestedStructEval.class);
+                String sql = "CREATE FUNCTION ABC.bad(struct<name varchar, inner struct<a varchar, b varchar>>) \n"
+                        + "RETURNS struct<name varchar, inner struct<a varchar, b varchar>> \n"
+                        + "properties (\n"
+                        + "    \"symbol\" = \"symbol\",\n"
+                        + "    \"type\" = \"StarrocksJar\",\n"
+                        + "    \"file\" = \"http://localhost:8080/\"\n"
+                        + ");";
+                CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+                new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            } finally {
+                Config.enable_udf = false;
+            }
+        });
+    }
+
+    @Test
+    public void testStructUDFArrayOfStructInsideStructRejected() {
+        // ARRAY<STRUCT> as a record field must still be rejected: while the FE could
+        // recover the element record class from List<Inner>, the BE doesn't yet wire
+        // per-element record materialization for ARRAY/MAP collections.
+        assertThrows(SemanticException.class, () -> {
+            try {
+                Config.enable_udf = true;
+                mockClazz(StructArrayOfStructEval.class);
+                String sql = "CREATE FUNCTION ABC.bad(struct<name varchar, items array<struct<a int, b varchar>>>) \n"
+                        + "RETURNS struct<name varchar, items array<struct<a int, b varchar>>> \n"
+                        + "properties (\n"
+                        + "    \"symbol\" = \"symbol\",\n"
+                        + "    \"type\" = \"StarrocksJar\",\n"
+                        + "    \"file\" = \"http://localhost:8080/\"\n"
+                        + ");";
+                CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+                new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            } finally {
+                Config.enable_udf = false;
+            }
+        });
+    }
 }

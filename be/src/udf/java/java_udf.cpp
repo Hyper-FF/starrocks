@@ -90,8 +90,10 @@ constexpr const char* CREATE_BOXED_MAP_SIGNATURE =
 // (numRows, parentNullBuf, recordClass, fieldArrays) -> Object[]
 constexpr const char* CREATE_BOXED_STRUCT_SIGNATURE =
         "(ILjava/nio/ByteBuffer;Ljava/lang/Class;[Ljava/lang/Object;)[Ljava/lang/Object;";
-// (numRows, boxedResult, parentColumnAddr, subFieldAddrs, subFieldTypes) -> void
-constexpr const char* GET_STRUCT_RESULT_SIGNATURE = "(I[Ljava/lang/Object;J[J[I)V";
+// (numRows, boxedResult, parentColumnAddr, subFieldTypes) -> Object[numFields] of typed[numRows].
+// Writes the parent NullableColumn's null bitmap as a side effect; the BE walks the returned
+// array to drive per-subfield writes (recursing back through this method for STRUCT subfields).
+constexpr const char* EXTRACT_STRUCT_FIELDS_SIGNATURE = "(I[Ljava/lang/Object;J[I)[Ljava/lang/Object;";
 
 #define INIT_STATIC_METHOD(target, clazz, name, signature)    \
     target = _env->GetStaticMethodID(clazz, name, signature); \
@@ -245,7 +247,7 @@ void JVMFunctionHelper::_init() {
     INIT_HELPER_METHOD(_create_boxed_decimal_array, "createBoxedDecimalArray",
                        "(IIILjava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)[Ljava/lang/Object;");
     INIT_HELPER_METHOD(_create_boxed_struct_array, "createBoxedStructArray", CREATE_BOXED_STRUCT_SIGNATURE);
-    INIT_HELPER_METHOD(_get_struct_boxed_result, "getStructResultFromBoxedArray", GET_STRUCT_RESULT_SIGNATURE);
+    INIT_HELPER_METHOD(_extract_struct_field_arrays, "extractStructFieldArrays", EXTRACT_STRUCT_FIELDS_SIGNATURE);
     INIT_HELPER_METHOD(_get_decimal_boxed_result, "getDecimalResultFromBoxedArray", "(IIIILjava/lang/Object;JZ)V");
     INIT_HELPER_METHOD(_bd_unscaled_long, "unscaledLong", "(Ljava/math/BigDecimal;II)J");
     INIT_HELPER_METHOD(_bd_unscaled_le_bytes, "unscaledLEBytes", "(Ljava/math/BigDecimal;III)[B");
@@ -461,29 +463,22 @@ StatusOr<jobject> JVMFunctionHelper::create_boxed_struct_array(jclass record_cla
     return res;
 }
 
-Status JVMFunctionHelper::get_struct_result_from_boxed_array(jobject result, int num_rows, jlong parent_col_addr,
-                                                              const std::vector<jlong>& sub_field_addrs,
-                                                              const std::vector<jint>& sub_field_types) {
-    DCHECK_EQ(sub_field_addrs.size(), sub_field_types.size());
-    int num_fields = static_cast<int>(sub_field_addrs.size());
-    jlongArray addrs = _env->NewLongArray(num_fields);
-    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "get_struct_result_from_boxed_array: NewLongArray");
-    DeferOp drop_addrs([&]() {
-        if (addrs) _env->DeleteLocalRef(addrs);
-    });
-    _env->SetLongArrayRegion(addrs, 0, num_fields, sub_field_addrs.data());
-
+StatusOr<jobject> JVMFunctionHelper::extract_struct_field_arrays(jobject result, int num_rows, jlong parent_col_addr,
+                                                                  const std::vector<jint>& sub_field_types) {
+    int num_fields = static_cast<int>(sub_field_types.size());
     jintArray types = _env->NewIntArray(num_fields);
-    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "get_struct_result_from_boxed_array: NewIntArray");
+    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "extract_struct_field_arrays: NewIntArray");
     DeferOp drop_types([&]() {
         if (types) _env->DeleteLocalRef(types);
     });
-    _env->SetIntArrayRegion(types, 0, num_fields, sub_field_types.data());
+    if (num_fields > 0) {
+        _env->SetIntArrayRegion(types, 0, num_fields, sub_field_types.data());
+    }
 
-    _env->CallStaticVoidMethod(_udf_helper_class, _get_struct_boxed_result, num_rows, result, parent_col_addr, addrs,
-                               types);
-    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "get_struct_result_from_boxed_array");
-    return Status::OK();
+    jobject res = _env->CallStaticObjectMethod(_udf_helper_class, _extract_struct_field_arrays, num_rows, result,
+                                                parent_col_addr, types);
+    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "extract_struct_field_arrays");
+    return res;
 }
 
 jobject JVMFunctionHelper::create_object_array(jobject o, int num_rows) {

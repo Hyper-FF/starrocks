@@ -829,13 +829,52 @@ static StatusOr<jobject> build_decimal_boxed_array(const TypeDescriptor& type_de
                                              data_buf->handle());
 }
 
+// Look up the i-th record component class via reflection on `record_class`.
+// Used to discover the formal Java record class for a nested STRUCT subfield;
+// the FE analyzer guarantees `record_class` is a record and that index `i` is
+// in range, so any null/exception here is a hard internal error.
+static StatusOr<jclass> get_record_component_class(JNIEnv* env, jclass record_class, int index) {
+    jclass class_clazz = env->FindClass("java/lang/Class");
+    LOCAL_REF_GUARD_ENV(env, class_clazz);
+    jmethodID get_components =
+            env->GetMethodID(class_clazz, "getRecordComponents", "()[Ljava/lang/reflect/RecordComponent;");
+    if (get_components == nullptr) {
+        env->ExceptionClear();
+        return Status::InternalError("Class.getRecordComponents method not found");
+    }
+    jobjectArray comps = (jobjectArray)env->CallObjectMethod(record_class, get_components);
+    if (env->ExceptionCheck() || comps == nullptr) {
+        env->ExceptionClear();
+        return Status::InternalError("getRecordComponents returned null on a non-record class");
+    }
+    LOCAL_REF_GUARD_ENV(env, comps);
+
+    jobject comp = env->GetObjectArrayElement(comps, index);
+    if (env->ExceptionCheck() || comp == nullptr) {
+        env->ExceptionClear();
+        return Status::InternalError(fmt::format("record component {} not found", index));
+    }
+    LOCAL_REF_GUARD_ENV(env, comp);
+
+    jclass rc_clazz = env->FindClass("java/lang/reflect/RecordComponent");
+    LOCAL_REF_GUARD_ENV(env, rc_clazz);
+    jmethodID get_type = env->GetMethodID(rc_clazz, "getType", "()Ljava/lang/Class;");
+    jclass nested = (jclass)env->CallObjectMethod(comp, get_type);
+    if (env->ExceptionCheck() || nested == nullptr) {
+        env->ExceptionClear();
+        return Status::InternalError(fmt::format("RecordComponent.getType returned null for index {}", index));
+    }
+    return nested;
+}
+
 // Box a STRUCT input column into a Java record array. Each subfield is recursively
-// boxed via JavaArrayConverter (which handles nullable subcolumns, scalar/array/map
-// of scalar). The resulting Object[fieldCount] of Object[numRows] is then handed
-// off to the Java helper UDFHelper.createBoxedStructArray together with the formal
-// record class to materialize numRows record instances.
-static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, const Column* column, jclass record_class,
-                                                  int num_rows) {
+// boxed: for scalar / ARRAY<scalar> / MAP<scalar,scalar> we use JavaArrayConverter;
+// for nested STRUCT subfields we recurse into build_struct_boxed_array, looking up
+// the inner record class via record_class.getRecordComponents()[f].getType(). The
+// resulting Object[fieldCount] of Object[numRows] is handed off to UDFHelper to
+// materialize record instances.
+static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, const TypeDescriptor& type_desc,
+                                                  const Column* column, jclass record_class, int num_rows) {
     if (record_class == nullptr) {
         return Status::InternalError("STRUCT argument missing formal record class; cannot box");
     }
@@ -863,22 +902,29 @@ static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, con
     if (field_arrays == nullptr) {
         return Status::InternalError("failed to allocate field_arrays for STRUCT input");
     }
+    DeferOp drop_arr([&]() { env->DeleteLocalRef(field_arrays); });
 
     for (int f = 0; f < num_fields; ++f) {
         const Column* field_col = struct_col->field_column_raw_ptr(f);
-        // Field columns in StarRocks are themselves NullableColumn; JavaArrayConverter
-        // strips the null layer in do_visit(NullableColumn) and dispatches by data type.
-        // v1: scalar / ARRAY<scalar> / MAP<scalar,scalar> are supported here; nested
-        // STRUCT inside another STRUCT/ARRAY/MAP is rejected by the FE analyzer.
-        JavaArrayConverter sub(helper);
-        RETURN_IF_ERROR(field_col->accept(&sub));
-        jobject sub_result = sub.result();
+        const TypeDescriptor& field_type = type_desc.children[f];
+        jobject sub_result = nullptr;
+        if (field_type.type == TYPE_STRUCT) {
+            ASSIGN_OR_RETURN(jclass nested_class, get_record_component_class(env, record_class, f));
+            LOCAL_REF_GUARD_ENV(env, nested_class);
+            ASSIGN_OR_RETURN(sub_result,
+                             build_struct_boxed_array(helper, field_type, field_col, nested_class, num_rows));
+        } else {
+            // JavaArrayConverter handles scalar / ARRAY<scalar> / MAP<scalar,scalar> /
+            // DECIMAL field columns; it strips the NullableColumn wrapper internally.
+            JavaArrayConverter sub(helper);
+            RETURN_IF_ERROR(field_col->accept(&sub));
+            sub_result = sub.result();
+        }
         env->SetObjectArrayElement(field_arrays, f, sub_result);
         if (sub_result != nullptr) {
             env->DeleteLocalRef(sub_result);
         }
     }
-    DeferOp drop_arr([&]() { env->DeleteLocalRef(field_arrays); });
 
     jobject parent_null_handle = parent_null_buf ? parent_null_buf->handle() : nullptr;
     return helper.create_boxed_struct_array(record_class, num_rows, parent_null_handle, field_arrays);
@@ -909,7 +955,7 @@ Status JavaDataTypeConverter::convert_to_boxed_array(FunctionContext* ctx, const
             jclass record_class = (arg_classes != nullptr && i < static_cast<int>(arg_classes->size()))
                                           ? (*arg_classes)[i]
                                           : nullptr;
-            ASSIGN_OR_RETURN(arg, build_struct_boxed_array(helper, columns[i], record_class, num_rows));
+            ASSIGN_OR_RETURN(arg, build_struct_boxed_array(helper, arg_type, columns[i], record_class, num_rows));
         } else {
             JavaArrayConverter converter(helper);
             RETURN_IF_ERROR(columns[i]->accept(&converter));

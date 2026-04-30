@@ -849,7 +849,7 @@ public class CreateFunctionAnalyzer {
                 RecordComponent comp = comps[i];
                 StructField field = fields.get(i);
                 checkUdfFieldType(method, field.getType(), comp.getType(), comp.getGenericType(),
-                        pname + "." + comp.getName(), depth + 1);
+                        pname + "." + comp.getName(), depth + 1, false);
             }
         }
 
@@ -858,9 +858,17 @@ public class CreateFunctionAnalyzer {
          * checkScalarUdfType, this routes through nested STRUCT/ARRAY/MAP without
          * the top-level only restrictions, so it can be used to validate record
          * components.
+         *
+         * `insideCollection` tracks whether we are currently inside an ARRAY/MAP
+         * wrapper. Nested STRUCT directly inside another STRUCT is supported, but
+         * STRUCT inside ARRAY/MAP is not — the BE-side recursion drills into nested
+         * record components via Class.getRecordComponents()[i].getType(), which is
+         * available for STRUCT-in-STRUCT but cannot be reliably recovered for
+         * ARRAY/MAP elements without a per-cell record class side channel.
          */
         private void checkUdfFieldType(Method method, Type expType, Class<?> rawType,
-                                       java.lang.reflect.Type genericType, String pname, int depth) {
+                                       java.lang.reflect.Type genericType, String pname, int depth,
+                                       boolean insideCollection) {
             if (expType instanceof ScalarType) {
                 ScalarType scalarType = (ScalarType) expType;
                 Class<?> expCls = PRIMITIVE_TYPE_TO_JAVA_CLASS_TYPE.get(scalarType.getPrimitiveType());
@@ -887,7 +895,7 @@ public class CreateFunctionAnalyzer {
                 ArrayType arrayType = (ArrayType) expType;
                 java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 1);
                 Class<?> elemRaw = rawClass(method, tArgs[0], pname);
-                checkUdfFieldType(method, arrayType.getItemType(), elemRaw, tArgs[0], pname + "[]", depth);
+                checkUdfFieldType(method, arrayType.getItemType(), elemRaw, tArgs[0], pname + "[]", depth, true);
                 return;
             }
             if (expType instanceof MapType) {
@@ -901,19 +909,28 @@ public class CreateFunctionAnalyzer {
                 java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 2);
                 Class<?> keyRaw = rawClass(method, tArgs[0], pname);
                 Class<?> valRaw = rawClass(method, tArgs[1], pname);
-                checkUdfFieldType(method, mapType.getKeyType(), keyRaw, tArgs[0], pname + ".<key>", depth);
-                checkUdfFieldType(method, mapType.getValueType(), valRaw, tArgs[1], pname + ".<value>", depth);
+                checkUdfFieldType(method, mapType.getKeyType(), keyRaw, tArgs[0], pname + ".<key>", depth, true);
+                checkUdfFieldType(method, mapType.getValueType(), valRaw, tArgs[1], pname + ".<value>", depth, true);
                 return;
             }
             if (expType instanceof StructType) {
-                // v1: nested STRUCT inside another STRUCT/ARRAY/MAP is not supported yet.
-                // Top-level STRUCT params/returns are supported via checkScalarUdfType /
-                // checkUdfType. Field-level struct support requires recursive class plumbing
-                // through the BE data converter; tracked as a follow-up.
-                ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                        String.format("UDF class '%s' method '%s' field %s: nested STRUCT is not yet " +
-                                        "supported (only top-level STRUCT params/returns are allowed)",
-                                clazz.getCanonicalName(), method.getName(), pname));
+                if (insideCollection) {
+                    // STRUCT inside ARRAY/MAP would require boxing per-element record instances
+                    // through a List<RecordClass> / Map<*, RecordClass>, but Java type erasure
+                    // collapses those to raw List / Map at the JNI boundary, leaving the BE
+                    // unable to discover the formal record class for each element. Reject
+                    // until that side channel exists.
+                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            String.format("UDF class '%s' method '%s' field %s: STRUCT inside ARRAY/MAP " +
+                                            "is not yet supported (only nested STRUCT inside another STRUCT " +
+                                            "is allowed)",
+                                    clazz.getCanonicalName(), method.getName(), pname));
+                }
+                // STRUCT-in-STRUCT: drill into the nested record class. Component type info is
+                // preserved via RecordComponent.getType(), so checkStructRecord can recursively
+                // bind the inner SQL fields to the inner record's components.
+                checkStructRecord(method, (StructType) expType, rawType, pname, depth);
+                return;
             }
             ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     String.format("UDF class '%s' method '%s' field %s does not support type '%s'",

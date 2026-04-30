@@ -63,11 +63,10 @@ public:
     }
 
     // STRUCT field count is variable so the fixed 4-slot getAddrs() return shape
-    // cannot carry every subfield pointer. The Java helper that needs subfield
-    // addresses (UDFHelper.getStructResultFromBoxedArray) gets them from BE
-    // separately via its sub_field_addrs argument; getAddrs() only has to
-    // populate the parent NullableColumn's null bitmap (already done by the
-    // NullableColumn arm above), so this visitor just succeeds.
+    // cannot carry every subfield pointer. UDFHelper.extractStructFieldArrays
+    // calls getAddrs() only for the parent NullableColumn's null bitmap (already
+    // populated by the NullableColumn arm above); per-subfield writes are driven
+    // by the BE side, which already holds those Column pointers natively.
     Status do_visit(const StructColumn& column) { return Status::OK(); }
 
     template <typename T>

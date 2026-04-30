@@ -110,13 +110,19 @@ public:
     StatusOr<jobject> create_boxed_struct_array(jclass record_class, int num_rows, jobject null_buff,
                                                 jobject field_arrays);
 
-    // Drain a STRUCT result jobjectArray (Object[] of record instances) back into
-    // a native StructColumn. `parent_col_addr` is the outer NullableColumn (the
-    // BE invariant for UDF result columns); `sub_field_addrs` and `sub_field_types`
-    // describe each subfield Column and its LogicalType.
-    Status get_struct_result_from_boxed_array(jobject result, int num_rows, jlong parent_col_addr,
-                                              const std::vector<jlong>& sub_field_addrs,
-                                              const std::vector<jint>& sub_field_types);
+    // Extract record components into per-field boxed Object[]s and write the parent
+    // NullableColumn's null bitmap. The BE drives per-subfield writes after this call,
+    // recursing back through this method for STRUCT subfields and dispatching DECIMAL
+    // / scalar subfields through the existing per-type result writers. Returning the
+    // per-field arrays (rather than threading the SQL type tree across the JNI
+    // boundary) keeps DECIMAL precision/scale and nested record-class lookups on the
+    // C++ side where they already live.
+    //
+    // Returns a jobjectArray of length `sub_field_types.size()`; each element is a
+    // typed array of length `num_rows` (Integer[]/String[]/... for scalar subfields,
+    // Object[] for STRUCT subfields, which the BE then re-feeds into this method).
+    StatusOr<jobject> extract_struct_field_arrays(jobject result, int num_rows, jlong parent_col_addr,
+                                                  const std::vector<jint>& sub_field_types);
 
     const std::unordered_map<int, jmethodID>& method_map() const { return _method_map; }
 
@@ -287,7 +293,7 @@ private:
     jmethodID _create_boxed_array;
     jmethodID _create_boxed_decimal_array;
     jmethodID _create_boxed_struct_array;
-    jmethodID _get_struct_boxed_result;
+    jmethodID _extract_struct_field_arrays;
     jmethodID _get_decimal_boxed_result;
     jmethodID _bd_unscaled_long;
     jmethodID _bd_unscaled_le_bytes;
