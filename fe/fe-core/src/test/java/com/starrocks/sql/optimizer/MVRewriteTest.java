@@ -1212,11 +1212,8 @@ public class MVRewriteTest extends StarRocksTestBase {
             String plan  = starRocksAssert.query(query).explainQuery();
             PlanTestBase.assertContains(plan, "  1:Project\n" +
                     "  |  <slot 3> : 3: dt\n" +
-                    "  |  <slot 6> : if(1: is_finish = '1', 4: user_id_td, NULL)\n");
-            PlanTestBase.assertContains(plan, "     TABLE: kkk\n" +
-                    "     PREAGGREGATION: ON\n" +
-                    "     partitions=1/1\n" +
-                    "     rollup: kkk_mv");
+                    "  |  <slot 6> : if(1: is_finish = '1', 5: mv_bitmap_union_user_id_td, NULL)\n" +
+                    "  |  ");
         }
         {
 
@@ -1260,10 +1257,12 @@ public class MVRewriteTest extends StarRocksTestBase {
         String plan = starRocksAssert.query(query).explainQuery();
         PlanTestBase.assertContains(plan, "  1:Project\n" +
                 "  |  <slot 1> : 1: k1\n" +
-                "  |  <slot 6> : if(2: k2 = 0, 3: k3, 0)\n");
-        PlanTestBase.assertContains(plan, "     TABLE: t1\n" +
-                "     PREAGGREGATION: OFF. Reason: The result of ELSE isn't value column\n" +
-                "     partitions=1/1");
+                "  |  <slot 6> : if(2: k2 = 0, 5: mv_sum_k3, 0)");
+        PlanTestBase.assertContains(plan, "  0:OlapScanNode\n" +
+                "     TABLE: t1\n" +
+                "     PREAGGREGATION: ON\n" +
+                "     partitions=1/1\n" +
+                "     rollup: test_mv1");
         starRocksAssert.dropTable("t1");
         starRocksAssert.dropMaterializedView("test_mv1");
     }
@@ -1289,9 +1288,11 @@ public class MVRewriteTest extends StarRocksTestBase {
                 "  |  <slot 1> : 1: k1\n" +
                 "  |  <slot 5> : 5: mv_sum_k3\n" +
                 "  |  <slot 6> : if(2: k2 = 0, 5: mv_sum_k3, 0)");
-        PlanTestBase.assertContains(plan, "     TABLE: t1\n" +
-                "     PREAGGREGATION: OFF. Reason: The result of ELSE isn't value column\n" +
-                "     partitions=1/1");
+        PlanTestBase.assertContains(plan, "  0:OlapScanNode\n" +
+                "     TABLE: t1\n" +
+                "     PREAGGREGATION: ON\n" +
+                "     partitions=1/1\n" +
+                "     rollup: test_mv1");
         starRocksAssert.dropTable("t1");
         starRocksAssert.dropMaterializedView("test_mv1");
     }

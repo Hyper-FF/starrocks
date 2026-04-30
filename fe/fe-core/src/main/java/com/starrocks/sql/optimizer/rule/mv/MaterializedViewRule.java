@@ -968,6 +968,31 @@ public class MaterializedViewRule extends Rule {
                     return false;
                 }
             }
+            // Create a RewriteContext so MaterializedViewRewriter substitutes the
+            // MV's pre-aggregated column inside the case-when. Without it, queries
+            // whose only match is this branch (no plain sum(col) anchor) leave the
+            // project's IF/CASE WHEN bound to the original narrow-typed colRef,
+            // which makes the BE construct VectorizedIfExpr<NARROW_TYPE> over the
+            // MV's wider runtime column and crash in down_cast.
+            ColumnRefOperator mvColumnRef =
+                    factory.getColumnRef(mvColumnFnChild0.getUsedColumns().getFirstId());
+            Column mvColumn = mvColumnRef == null ? null : factory.getColumn(mvColumnRef);
+            if (mvColumn != null && mvColumn.getRefColumns() != null
+                    && !mvColumn.getRefColumns().isEmpty()) {
+                String mvBaseName = mvColumn.getRefColumns().get(0).getColumnName();
+                for (int queryColumnId : queryColumnIds) {
+                    ColumnRefOperator candidate = factory.getColumnRef(queryColumnId);
+                    Column candidateColumn = candidate == null ? null : factory.getColumn(candidate);
+                    if (candidateColumn != null
+                            && candidateColumn.getName().equalsIgnoreCase(mvBaseName)
+                            && factory.getRelationId(candidate.getId())
+                                    .equals(factory.getRelationId(mvColumnRef.getId()))) {
+                        mvIdToRewriteContexts.computeIfAbsent(indexId, k -> Lists.newArrayList())
+                                .add(new RewriteContext(queryFn, candidate, mvColumnRef, mvColumn));
+                        break;
+                    }
+                }
+            }
             return true;
         } else {
             ColumnRefOperator queryColumnRef = factory.getColumnRef(queryFnChild0.getUsedColumns().getFirstId());
