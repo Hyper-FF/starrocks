@@ -1494,26 +1494,80 @@ public class CreateFunctionStmtAnalyzerTest {
     }
 
     @Test
-    public void testStructUDFArrayOfStructInsideStructRejected() {
-        // ARRAY<STRUCT> as a record field must still be rejected: while the FE could
-        // recover the element record class from List<Inner>, the BE doesn't yet wire
-        // per-element record materialization for ARRAY/MAP collections.
-        assertThrows(SemanticException.class, () -> {
-            try {
-                Config.enable_udf = true;
-                mockClazz(StructArrayOfStructEval.class);
-                String sql = "CREATE FUNCTION ABC.bad(struct<name varchar, items array<struct<a int, b varchar>>>) \n"
-                        + "RETURNS struct<name varchar, items array<struct<a int, b varchar>>> \n"
-                        + "properties (\n"
-                        + "    \"symbol\" = \"symbol\",\n"
-                        + "    \"type\" = \"StarrocksJar\",\n"
-                        + "    \"file\" = \"http://localhost:8080/\"\n"
-                        + ");";
-                CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
-                new CreateFunctionAnalyzer().analyze(stmt, connectContext);
-            } finally {
-                Config.enable_udf = false;
-            }
-        });
+    public void testStructUDFArrayOfStructFieldAccepted() {
+        // ARRAY<STRUCT> as a record component: List<Inner> preserves Inner.class via
+        // RecordComponent.getGenericType() actual type arguments, so the analyzer
+        // resolves the element record class and accepts the binding.
+        try {
+            Config.enable_udf = true;
+            mockClazz(StructArrayOfStructEval.class);
+            String sql = "CREATE FUNCTION ABC.list_of_struct("
+                    + "struct<name varchar, items array<struct<a int, b varchar>>>) \n"
+                    + "RETURNS struct<name varchar, items array<struct<a int, b varchar>>> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    public static class TopLevelArrayOfStructEval {
+        // Top-level List<Inner> parameter: Method.getGenericParameterTypes()[i] preserves
+        // Inner.class via the ParameterizedType actual arguments.
+        public List<Inner> evaluate(List<Inner> items) {
+            return items;
+        }
+    }
+
+    @Test
+    public void testTopLevelArrayOfStructAccepted() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(TopLevelArrayOfStructEval.class);
+            String sql = "CREATE FUNCTION ABC.top_list(array<struct<a int, b varchar>>) \n"
+                    + "RETURNS array<struct<a int, b varchar>> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    public static class TopLevelMapOfStructEval {
+        public Map<String, Inner> evaluate(Map<String, Inner> m) {
+            return m;
+        }
+    }
+
+    @Test
+    public void testTopLevelMapOfStructAccepted() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(TopLevelMapOfStructEval.class);
+            String sql = "CREATE FUNCTION ABC.top_map(map<varchar, struct<a int, b varchar>>) \n"
+                    + "RETURNS map<varchar, struct<a int, b varchar>> \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+        } finally {
+            Config.enable_udf = false;
+        }
     }
 }

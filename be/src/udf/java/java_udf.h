@@ -124,6 +124,17 @@ public:
     StatusOr<jobject> extract_struct_field_arrays(jobject result, int num_rows, jlong parent_col_addr,
                                                   const std::vector<jint>& sub_field_types);
 
+    // Drain a List<?>[] result column into the native ArrayColumn at `array_col_addr`.
+    // Writes the parent null bitmap and offsets, resizes the inner element column to the
+    // total flattened length, and returns a flat Object[] of element values for the BE
+    // to dispatch (recursing back through the per-subtype writer for the inner column).
+    StatusOr<jobject> extract_list_flat_elements(jobject result, int num_rows, jlong array_col_addr, jint element_type);
+
+    // Drain a Map<?,?>[] result column into the native MapColumn at `map_col_addr`.
+    // Returns a 2-element jobjectArray {keys, values} of flat element arrays.
+    StatusOr<jobject> extract_map_flat_elements(jobject result, int num_rows, jlong map_col_addr, jint key_type,
+                                                jint value_type);
+
     const std::unordered_map<int, jmethodID>& method_map() const { return _method_map; }
 
     template <class... Args>
@@ -294,6 +305,8 @@ private:
     jmethodID _create_boxed_decimal_array;
     jmethodID _create_boxed_struct_array;
     jmethodID _extract_struct_field_arrays;
+    jmethodID _extract_list_flat_elements;
+    jmethodID _extract_map_flat_elements;
     jmethodID _get_decimal_boxed_result;
     jmethodID _bd_unscaled_long;
     jmethodID _bd_unscaled_le_bytes;
@@ -606,6 +619,19 @@ public:
     Status get_udaf_method_desc(const std::string& sign, std::vector<MethodTypeDescriptor>* desc);
 };
 
+// Java type metadata for a UDF argument or return slot, mirroring the SQL
+// TypeDescriptor tree. Only STRUCT slots store a record_class; ARRAY/MAP slots
+// recurse via children, scalar/decimal slots are leaves with no class.
+//
+// Build once per UDF in `_build_udf_func_desc` from Method.getGenericParameterTypes()
+// / Method.getGenericReturnType(); the recursive boxing/unboxing then drills into
+// `children[f]` whenever the SQL type tree enters a STRUCT, ARRAY, or MAP wrapper,
+// without re-introspecting the Java reflective Type tree per row.
+struct JavaTypeNode {
+    JavaGlobalRef record_class = nullptr;
+    std::vector<std::unique_ptr<JavaTypeNode>> children;
+};
+
 struct JavaUDFContext {
     JavaUDFContext() = default;
     ~JavaUDFContext();
@@ -622,13 +648,13 @@ struct JavaUDFContext {
     std::unique_ptr<JavaMethodDescriptor> evaluate;
     std::unique_ptr<JavaMethodDescriptor> close;
 
-    // Per-argument formal parameter Class<?> refs from evaluate.getParameterTypes(),
-    // populated only for STRUCT-typed args (other entries are empty refs). Used by
-    // JavaDataTypeConverter::convert_to_boxed_array to materialize record instances
-    // for STRUCT inputs. Mirror entry for the return type (used when the return is
-    // STRUCT) is held in evaluate_return_class.
-    std::vector<JavaGlobalRef> evaluate_arg_classes;
-    JavaGlobalRef evaluate_return_class = nullptr;
+    // Per-argument JavaTypeNode tree mirroring the SQL TypeDescriptor of each evaluate
+    // parameter, with the formal record class captured at every STRUCT slot. Built once
+    // at UDF context construction so recursive boxing/unboxing can drill into
+    // STRUCT-in-ARRAY / STRUCT-in-MAP / nested STRUCT without per-row reflection.
+    // evaluate_return_type_node mirrors the same tree for the return type.
+    std::vector<std::unique_ptr<JavaTypeNode>> evaluate_arg_type_nodes;
+    std::unique_ptr<JavaTypeNode> evaluate_return_type_node;
 };
 
 // Shareable, cacheable UDAF class-level context.

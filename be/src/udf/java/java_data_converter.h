@@ -38,13 +38,21 @@ public:
     static jobject convert_to_states_with_filter(FunctionContext* ctx, uint8_t** data, size_t offset,
                                                  const uint8_t* filter, int num_rows);
 
-    // `arg_classes` is an optional per-argument formal Class<?> list, populated by
-    // the caller for STRUCT args (other slots may be null jclass). When the caller
-    // does not have STRUCT args, it may pass nullptr.
+    // `arg_type_nodes` is an optional per-argument JavaTypeNode tree (mirroring
+    // the SQL TypeDescriptor of each argument and capturing the formal record class
+    // at every STRUCT slot). Populated by the UDF caller for any signature that
+    // contains a STRUCT in any position (top-level or nested inside ARRAY/MAP).
+    // When the caller has no STRUCT in any arg subtree, it may pass nullptr.
     static Status convert_to_boxed_array(FunctionContext* ctx, const Column** columns, int num_cols, int num_rows,
                                          std::vector<jobject>* res,
-                                         const std::vector<jclass>* arg_classes = nullptr);
+                                         const std::vector<const JavaTypeNode*>* arg_type_nodes = nullptr);
 };
+
+// Build a JavaTypeNode tree from a SQL TypeDescriptor and the formal Java
+// reflective Type for that slot (Method.getGenericParameterTypes()[i] or
+// Method.getGenericReturnType()).
+StatusOr<std::unique_ptr<JavaTypeNode>> build_java_type_node(JNIEnv* env, const TypeDescriptor& td,
+                                                              jobject formal_type);
 
 #define SET_FUNCTION_CONTEXT_ERR(status, context)       \
     if (UNLIKELY(!status.ok())) {                       \

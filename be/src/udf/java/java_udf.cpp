@@ -94,6 +94,12 @@ constexpr const char* CREATE_BOXED_STRUCT_SIGNATURE =
 // Writes the parent NullableColumn's null bitmap as a side effect; the BE walks the returned
 // array to drive per-subfield writes (recursing back through this method for STRUCT subfields).
 constexpr const char* EXTRACT_STRUCT_FIELDS_SIGNATURE = "(I[Ljava/lang/Object;J[I)[Ljava/lang/Object;";
+// (numRows, boxedResult, arrayColumnAddr, elementType) -> flat[totalElements].
+// Writes the parent ArrayColumn's null bitmap and offsets, resizes the inner element column
+// to total length, returns the flat element array for the BE to dispatch.
+constexpr const char* EXTRACT_LIST_FLAT_SIGNATURE = "(I[Ljava/lang/Object;JI)[Ljava/lang/Object;";
+// (numRows, boxedResult, mapColumnAddr, keyType, valueType) -> {keys, values} flat[totalElements].
+constexpr const char* EXTRACT_MAP_FLAT_SIGNATURE = "(I[Ljava/lang/Object;JII)[Ljava/lang/Object;";
 
 #define INIT_STATIC_METHOD(target, clazz, name, signature)    \
     target = _env->GetStaticMethodID(clazz, name, signature); \
@@ -248,6 +254,8 @@ void JVMFunctionHelper::_init() {
                        "(IIILjava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)[Ljava/lang/Object;");
     INIT_HELPER_METHOD(_create_boxed_struct_array, "createBoxedStructArray", CREATE_BOXED_STRUCT_SIGNATURE);
     INIT_HELPER_METHOD(_extract_struct_field_arrays, "extractStructFieldArrays", EXTRACT_STRUCT_FIELDS_SIGNATURE);
+    INIT_HELPER_METHOD(_extract_list_flat_elements, "extractListFlatElements", EXTRACT_LIST_FLAT_SIGNATURE);
+    INIT_HELPER_METHOD(_extract_map_flat_elements, "extractMapFlatElements", EXTRACT_MAP_FLAT_SIGNATURE);
     INIT_HELPER_METHOD(_get_decimal_boxed_result, "getDecimalResultFromBoxedArray", "(IIIILjava/lang/Object;JZ)V");
     INIT_HELPER_METHOD(_bd_unscaled_long, "unscaledLong", "(Ljava/math/BigDecimal;II)J");
     INIT_HELPER_METHOD(_bd_unscaled_le_bytes, "unscaledLEBytes", "(Ljava/math/BigDecimal;III)[B");
@@ -460,6 +468,22 @@ StatusOr<jobject> JVMFunctionHelper::create_boxed_struct_array(jclass record_cla
     jobject res = _env->CallStaticObjectMethod(_udf_helper_class, _create_boxed_struct_array, num_rows, null_buff,
                                                record_class, field_arrays);
     RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "create_boxed_struct_array");
+    return res;
+}
+
+StatusOr<jobject> JVMFunctionHelper::extract_list_flat_elements(jobject result, int num_rows, jlong array_col_addr,
+                                                                  jint element_type) {
+    jobject res = _env->CallStaticObjectMethod(_udf_helper_class, _extract_list_flat_elements, num_rows, result,
+                                                array_col_addr, element_type);
+    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "extract_list_flat_elements");
+    return res;
+}
+
+StatusOr<jobject> JVMFunctionHelper::extract_map_flat_elements(jobject result, int num_rows, jlong map_col_addr,
+                                                                jint key_type, jint value_type) {
+    jobject res = _env->CallStaticObjectMethod(_udf_helper_class, _extract_map_flat_elements, num_rows, result,
+                                                map_col_addr, key_type, value_type);
+    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "extract_map_flat_elements");
     return res;
 }
 

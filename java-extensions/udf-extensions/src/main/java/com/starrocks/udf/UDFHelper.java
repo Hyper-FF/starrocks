@@ -1590,4 +1590,123 @@ public class UDFHelper {
 
         return perFieldValues;
     }
+
+    /**
+     * Drain a List<?>[] result column into a native ArrayColumn. Writes the
+     * parent null bitmap and offsets, resizes the inner element column to the
+     * total flattened length, and returns a flat array of element values for
+     * the BE to dispatch into the inner column writer.
+     *
+     * The element class is chosen from `clazzs` for scalar element types
+     * (Integer[]/String[]/...), or `Object.class` for STRUCT / recursive types
+     * — those flow back through extractStructFieldArrays / extractListFlatElements
+     * driven by the BE.
+     *
+     * @param numRows         number of rows
+     * @param boxedResult     Object[] holding List<?> instances or null
+     * @param arrayColumnAddr address of the outer NullableColumn(ArrayColumn)
+     * @param elementType     LogicalType of the inner element column (used to
+     *                        pick the runtime element class of the returned
+     *                        flat array)
+     * @return flat array of length totalElements; null entries (from null parent
+     *         rows) contribute nothing.
+     */
+    public static Object[] extractListFlatElements(int numRows, Object[] boxedResult,
+                                                   long arrayColumnAddr, int elementType) {
+        byte[] nulls = new byte[numRows];
+        int[] offsets = new int[numRows];
+        int total = 0;
+        for (int i = 0; i < numRows; i++) {
+            Object v = (boxedResult != null) ? boxedResult[i] : null;
+            if (v == null) {
+                nulls[i] = 1;
+            } else {
+                total += ((List<?>) v).size();
+            }
+            offsets[i] = total;
+        }
+
+        long[] addrs = getAddrs(arrayColumnAddr);
+        Platform.copyMemory(nulls, Platform.BYTE_ARRAY_OFFSET, null, addrs[0], numRows);
+        Platform.copyMemory(offsets, Platform.INT_ARRAY_OFFSET, null, addrs[1] + 4, numRows * 4L);
+
+        long elementAddr = addrs[2];
+        resize(elementAddr, total);
+
+        Class<?> elemClass = clazzs.getOrDefault(elementType, Object.class);
+        Object[] flat = (Object[]) Array.newInstance(elemClass, total);
+        int pos = 0;
+        if (boxedResult != null) {
+            for (int i = 0; i < numRows; i++) {
+                Object v = boxedResult[i];
+                if (v == null) {
+                    continue;
+                }
+                List<?> list = (List<?>) v;
+                for (Object o : list) {
+                    flat[pos++] = o;
+                }
+            }
+        }
+        return flat;
+    }
+
+    /**
+     * Drain a Map<?,?>[] result column into a native MapColumn. Writes the
+     * parent null bitmap and offsets, resizes both key and value inner columns
+     * to the total flattened length, and returns a {keys, values} pair of flat
+     * arrays for the BE to dispatch.
+     *
+     * @param numRows       number of rows
+     * @param boxedResult   Object[] holding Map<?,?> instances or null
+     * @param mapColumnAddr address of the outer NullableColumn(MapColumn)
+     * @param keyType       LogicalType of the inner key column
+     * @param valueType     LogicalType of the inner value column
+     * @return Object[2] = {keys, values}, each a flat array of length totalElements.
+     */
+    public static Object[] extractMapFlatElements(int numRows, Object[] boxedResult,
+                                                  long mapColumnAddr, int keyType, int valueType) {
+        byte[] nulls = new byte[numRows];
+        int[] offsets = new int[numRows];
+        int total = 0;
+        for (int i = 0; i < numRows; i++) {
+            Object v = (boxedResult != null) ? boxedResult[i] : null;
+            if (v == null) {
+                nulls[i] = 1;
+            } else {
+                total += ((Map<?, ?>) v).size();
+            }
+            offsets[i] = total;
+        }
+
+        long[] addrs = getAddrs(mapColumnAddr);
+        Platform.copyMemory(nulls, Platform.BYTE_ARRAY_OFFSET, null, addrs[0], numRows);
+        Platform.copyMemory(offsets, Platform.INT_ARRAY_OFFSET, null, addrs[1] + 4, numRows * 4L);
+
+        long keyAddr = addrs[2];
+        long valueAddr = addrs[3];
+        resize(keyAddr, total);
+        resize(valueAddr, total);
+
+        Class<?> keyClass = clazzs.getOrDefault(keyType, Object.class);
+        Class<?> valClass = clazzs.getOrDefault(valueType, Object.class);
+        Object[] keys = (Object[]) Array.newInstance(keyClass, total);
+        Object[] values = (Object[]) Array.newInstance(valClass, total);
+
+        int pos = 0;
+        if (boxedResult != null) {
+            for (int i = 0; i < numRows; i++) {
+                Object v = boxedResult[i];
+                if (v == null) {
+                    continue;
+                }
+                for (Map.Entry<?, ?> e : ((Map<?, ?>) v).entrySet()) {
+                    keys[pos] = e.getKey();
+                    values[pos] = e.getValue();
+                    pos++;
+                }
+            }
+        }
+        return new Object[] {keys, values};
+    }
 }

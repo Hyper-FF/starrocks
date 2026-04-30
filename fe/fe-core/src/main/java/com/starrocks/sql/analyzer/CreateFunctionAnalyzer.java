@@ -328,14 +328,15 @@ public class CreateFunctionAnalyzer {
         mainClass.checkMethodNonStaticAndPublic(method);
         mainClass.checkArgumentCount(method, argsDef.getArgTypes().length, argsDef.isVariadic());
         mainClass.checkScalarReturnUdfType(method, returnType.getType());
-        
+
         // Validate parameter types
         if (argsDef.isVariadic()) {
             mainClass.checkVarargsScalarParameters(method, argsDef.getArgTypes());
         } else {
             for (int i = 0; i < method.getParameters().length; i++) {
                 Parameter p = method.getParameters()[i];
-                mainClass.checkScalarUdfType(method, argsDef.getArgTypes()[i], p.getType(), p.getName());
+                mainClass.checkScalarUdfType(method, argsDef.getArgTypes()[i], p.getType(),
+                        p.getParameterizedType(), p.getName());
             }
         }
     }
@@ -730,10 +731,16 @@ public class CreateFunctionAnalyzer {
         }
 
         private void checkScalarReturnUdfType(Method method, Type expType) {
-            checkScalarUdfType(method, expType, method.getReturnType(), CreateFunctionStmt.RETURN_FIELD_NAME);
+            checkScalarUdfType(method, expType, method.getReturnType(), method.getGenericReturnType(),
+                    CreateFunctionStmt.RETURN_FIELD_NAME);
         }
 
-        private void checkScalarUdfType(Method method, Type expType, Class<?> ptype, String pname) {
+        private void checkScalarUdfType(Method method, Type expType, Class<?> ptype,
+                                        java.lang.reflect.Type genericType, String pname) {
+            // ARRAY / MAP / STRUCT all need to thread the parameterized Java type so the
+            // analyzer can drill into List<Record> / Map<*,Record> / record components and
+            // bind nested STRUCT slots to their formal record classes. checkUdfFieldType is
+            // the recursive driver; for SCALAR we keep the existing fast path.
             if (expType instanceof ScalarType) {
                 ScalarType scalarType = (ScalarType) expType;
                 Class<?> cls = PRIMITIVE_TYPE_TO_JAVA_CLASS_TYPE.get(scalarType.getPrimitiveType());
@@ -750,63 +757,13 @@ public class CreateFunctionAnalyzer {
                 }
                 return;
             }
-
-            if (expType.isArrayType()) {
-                if (!ptype.equals(JAVA_ARRAY_CLASS_TYPE)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                            String.format("UDF class '%s' method '%s' parameter %s[%s] type does not match %s",
-                                    clazz.getCanonicalName(), method.getName(), pname, ptype.getCanonicalName(),
-                                    JAVA_ARRAY_CLASS_TYPE.getCanonicalName()));
-                }
-                ArrayType arrayType = (ArrayType) expType;
-                if (!isSupportedScalarUdfType(arrayType.getItemType())) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                            String.format("UDF class '%s' method '%s' does not support type '%s'",
-                                    clazz.getCanonicalName(), method.getName(), expType));
-                }
+            if (expType.isArrayType() || expType.isMapType() || expType instanceof StructType) {
+                checkUdfFieldType(method, expType, ptype, genericType, pname, 0);
                 return;
             }
-
-            if (expType.isMapType()) {
-                if (!ptype.equals(JAVA_MAP_CLASS_TYPE)) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                            String.format("UDF class '%s' method '%s' parameter %s[%s] type does not match %s",
-                                    clazz.getCanonicalName(), method.getName(), pname, ptype.getCanonicalName(),
-                                    JAVA_MAP_CLASS_TYPE.getCanonicalName()));
-                }
-                MapType mapType = (MapType) expType;
-                if (!isSupportedScalarUdfType(mapType.getKeyType())
-                        || !isSupportedScalarUdfType(mapType.getValueType())) {
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                            String.format("UDF class '%s' method '%s' does not support type '%s'",
-                                    clazz.getCanonicalName(), method.getName(), expType));
-                }
-                return;
-            }
-
-            if (expType instanceof StructType) {
-                checkStructRecord(method, (StructType) expType, ptype, pname, 0);
-                return;
-            }
-
             ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     String.format("UDF class '%s' method '%s' does not support non-scalar type '%s'",
                             clazz.getCanonicalName(), method.getName(), expType));
-        }
-
-        private static boolean isSupportedScalarUdfType(Type type) {
-            if (type instanceof ScalarType) {
-                return PRIMITIVE_TYPE_TO_JAVA_CLASS_TYPE.containsKey(type.getPrimitiveType());
-            }
-            if (type.isArrayType()) {
-                return isSupportedScalarUdfType(((ArrayType) type).getItemType());
-            }
-            if (type.isMapType()) {
-                MapType mapType = (MapType) type;
-                return isSupportedScalarUdfType(mapType.getKeyType())
-                        && isSupportedScalarUdfType(mapType.getValueType());
-            }
-            return false;
         }
 
         /**
@@ -849,7 +806,7 @@ public class CreateFunctionAnalyzer {
                 RecordComponent comp = comps[i];
                 StructField field = fields.get(i);
                 checkUdfFieldType(method, field.getType(), comp.getType(), comp.getGenericType(),
-                        pname + "." + comp.getName(), depth + 1, false);
+                        pname + "." + comp.getName(), depth + 1);
             }
         }
 
@@ -859,16 +816,13 @@ public class CreateFunctionAnalyzer {
          * the top-level only restrictions, so it can be used to validate record
          * components.
          *
-         * `insideCollection` tracks whether we are currently inside an ARRAY/MAP
-         * wrapper. Nested STRUCT directly inside another STRUCT is supported, but
-         * STRUCT inside ARRAY/MAP is not — the BE-side recursion drills into nested
-         * record components via Class.getRecordComponents()[i].getType(), which is
-         * available for STRUCT-in-STRUCT but cannot be reliably recovered for
-         * ARRAY/MAP elements without a per-cell record class side channel.
+         * STRUCT may appear in any position: as a field of another STRUCT, as an
+         * ARRAY element, or as a MAP key/value. The Java side preserves the formal
+         * record class through RecordComponent.getGenericType() / ParameterizedType
+         * actual arguments, so the BE can drill in without a per-cell side channel.
          */
         private void checkUdfFieldType(Method method, Type expType, Class<?> rawType,
-                                       java.lang.reflect.Type genericType, String pname, int depth,
-                                       boolean insideCollection) {
+                                       java.lang.reflect.Type genericType, String pname, int depth) {
             if (expType instanceof ScalarType) {
                 ScalarType scalarType = (ScalarType) expType;
                 Class<?> expCls = PRIMITIVE_TYPE_TO_JAVA_CLASS_TYPE.get(scalarType.getPrimitiveType());
@@ -895,7 +849,7 @@ public class CreateFunctionAnalyzer {
                 ArrayType arrayType = (ArrayType) expType;
                 java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 1);
                 Class<?> elemRaw = rawClass(method, tArgs[0], pname);
-                checkUdfFieldType(method, arrayType.getItemType(), elemRaw, tArgs[0], pname + "[]", depth, true);
+                checkUdfFieldType(method, arrayType.getItemType(), elemRaw, tArgs[0], pname + "[]", depth);
                 return;
             }
             if (expType instanceof MapType) {
@@ -909,26 +863,16 @@ public class CreateFunctionAnalyzer {
                 java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 2);
                 Class<?> keyRaw = rawClass(method, tArgs[0], pname);
                 Class<?> valRaw = rawClass(method, tArgs[1], pname);
-                checkUdfFieldType(method, mapType.getKeyType(), keyRaw, tArgs[0], pname + ".<key>", depth, true);
-                checkUdfFieldType(method, mapType.getValueType(), valRaw, tArgs[1], pname + ".<value>", depth, true);
+                checkUdfFieldType(method, mapType.getKeyType(), keyRaw, tArgs[0], pname + ".<key>", depth);
+                checkUdfFieldType(method, mapType.getValueType(), valRaw, tArgs[1], pname + ".<value>", depth);
                 return;
             }
             if (expType instanceof StructType) {
-                if (insideCollection) {
-                    // STRUCT inside ARRAY/MAP would require boxing per-element record instances
-                    // through a List<RecordClass> / Map<*, RecordClass>, but Java type erasure
-                    // collapses those to raw List / Map at the JNI boundary, leaving the BE
-                    // unable to discover the formal record class for each element. Reject
-                    // until that side channel exists.
-                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
-                            String.format("UDF class '%s' method '%s' field %s: STRUCT inside ARRAY/MAP " +
-                                            "is not yet supported (only nested STRUCT inside another STRUCT " +
-                                            "is allowed)",
-                                    clazz.getCanonicalName(), method.getName(), pname));
-                }
-                // STRUCT-in-STRUCT: drill into the nested record class. Component type info is
-                // preserved via RecordComponent.getType(), so checkStructRecord can recursively
-                // bind the inner SQL fields to the inner record's components.
+                // STRUCT in any position: drill into the formal record class. The genericType
+                // chain (ParameterizedType actual arguments / RecordComponent generic types)
+                // preserves the record class even through ARRAY/MAP wrappers, so the BE can
+                // walk a parallel JavaTypeNode tree to materialize records on both input and
+                // output paths.
                 checkStructRecord(method, (StructType) expType, rawType, pname, depth);
                 return;
             }
@@ -974,11 +918,15 @@ public class CreateFunctionAnalyzer {
         }
 
         /**
-         * Functional interface for type checking strategies.
+         * Functional interface for type checking strategies. `genericType` carries the
+         * formal Java parameterized type (Parameter.getParameterizedType() or the array
+         * component for the varargs slot) so the strategy can drill into nested STRUCT
+         * record classes; SCALAR strategies that don't care can ignore it.
          */
         @FunctionalInterface
         private interface TypeChecker {
-            void check(Method method, Type expectedType, Class<?> actualType, String paramName);
+            void check(Method method, Type expectedType, Class<?> actualType,
+                       java.lang.reflect.Type genericType, String paramName);
         }
 
         /**
@@ -987,31 +935,41 @@ public class CreateFunctionAnalyzer {
          * All fixed parameters are checked normally, and the varargs parameter is validated
          * to be an array of the expected element type.
          */
-        private void checkVarargsParametersGeneric(Method method, Type[] declaredArgTypes, 
+        private void checkVarargsParametersGeneric(Method method, Type[] declaredArgTypes,
                                                    int paramOffset, TypeChecker typeChecker) {
             Parameter[] params = method.getParameters();
-            
+
             // All parameters except the last should match the declared types
             for (int i = 0; i < declaredArgTypes.length - 1; i++) {
                 Parameter param = params[i + paramOffset];
-                typeChecker.check(method, declaredArgTypes[i], param.getType(), param.getName());
+                typeChecker.check(method, declaredArgTypes[i], param.getType(),
+                        param.getParameterizedType(), param.getName());
             }
-            
+
             // The last parameter should be a varargs array
             if (declaredArgTypes.length > 0) {
                 Type varargsElementType = declaredArgTypes[declaredArgTypes.length - 1];
                 Parameter varargsParam = params[paramOffset + declaredArgTypes.length - 1];
-                
+
                 // Java varargs are represented as arrays
                 if (!varargsParam.getType().isArray()) {
                     ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                             String.format("UDF class '%s' method '%s' varargs parameter '%s' must be an array",
                                     clazz.getCanonicalName(), method.getName(), varargsParam.getName()));
                 }
-                
-                // Check that the array component type matches the declared varargs element type
+
+                // Check that the array component type matches the declared varargs element type.
+                // Use getGenericComponentType when the varargs is a parameterized array (e.g.
+                // List<Inner>...) so nested STRUCT inside the element preserves its record class.
                 Class<?> arrayComponentType = varargsParam.getType().getComponentType();
-                typeChecker.check(method, varargsElementType, arrayComponentType, varargsParam.getName());
+                java.lang.reflect.Type arrayComponentGeneric = arrayComponentType;
+                java.lang.reflect.Type varargsGeneric = varargsParam.getParameterizedType();
+                if (varargsGeneric instanceof java.lang.reflect.GenericArrayType) {
+                    arrayComponentGeneric = ((java.lang.reflect.GenericArrayType) varargsGeneric)
+                            .getGenericComponentType();
+                }
+                typeChecker.check(method, varargsElementType, arrayComponentType, arrayComponentGeneric,
+                        varargsParam.getName());
             }
         }
 
@@ -1026,9 +984,11 @@ public class CreateFunctionAnalyzer {
         /**
          * Check varargs parameters for UDAFs and UDTFs.
          * Uses checkUdfType for type validation with an offset for the first parameter.
+         * UDAF/UDTF only support flat scalar/array/map types, so genericType is unused.
          */
         private void checkVarargsParameters(Method method, Type[] declaredArgTypes, int paramOffset) {
-            checkVarargsParametersGeneric(method, declaredArgTypes, paramOffset, this::checkUdfType);
+            checkVarargsParametersGeneric(method, declaredArgTypes, paramOffset,
+                    (m, expType, ptype, gen, pname) -> checkUdfType(m, expType, ptype, pname));
         }
     }
 

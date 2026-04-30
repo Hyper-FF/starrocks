@@ -15,15 +15,18 @@
 #include "exprs/java_function_call_expr.h"
 
 #include <any>
+#include <functional>
 #include <memory>
 #include <sstream>
 #include <tuple>
 #include <vector>
 
 #include "base/utility/defer_op.h"
+#include "column/array_column.h"
 #include "column/chunk.h"
 #include "column/column.h"
 #include "column/column_helper.h"
+#include "column/map_column.h"
 #include "column/nullable_column.h"
 #include "column/struct_column.h"
 #include "column/vectorized_fwd.h"
@@ -59,19 +62,20 @@ struct UDFFunctionCallHelper {
         env->PushLocalFrame((num_cols + 1) * 3 + 1);
         auto defer = DeferOp([env]() { env->PopLocalFrame(nullptr); });
 
-        // Build the per-arg jclass vector from the cached evaluate_arg_classes. Only
-        // STRUCT slots are populated; other entries are nullptr and the converter
-        // ignores them.
-        std::vector<jclass> arg_classes;
-        arg_classes.reserve(fn_desc->evaluate_arg_classes.size());
-        for (const auto& gref : fn_desc->evaluate_arg_classes) {
-            arg_classes.emplace_back(reinterpret_cast<jclass>(gref.handle()));
+        // Build per-arg JavaTypeNode pointers from the cached evaluate_arg_type_nodes.
+        // Only args whose SQL type subtree contains a STRUCT carry a non-null node;
+        // other entries are nullptr and the converter falls back to JavaArrayConverter
+        // for those subtrees.
+        std::vector<const JavaTypeNode*> arg_type_nodes;
+        arg_type_nodes.reserve(fn_desc->evaluate_arg_type_nodes.size());
+        for (const auto& n : fn_desc->evaluate_arg_type_nodes) {
+            arg_type_nodes.emplace_back(n.get());
         }
 
         // convert input columns to object columns
         std::vector<jobject> input_col_objs;
         auto st = JavaDataTypeConverter::convert_to_boxed_array(ctx, input_cols.data(), num_cols, size,
-                                                                &input_col_objs, &arg_classes);
+                                                                &input_col_objs, &arg_type_nodes);
         RETURN_IF_ERROR(st);
 
         // call UDF method
@@ -82,20 +86,18 @@ struct UDFFunctionCallHelper {
         return result_cols;
     }
 
+    Status write_result(JVMFunctionHelper& helper, const TypeDescriptor& td, Column* col, jobject boxed_result,
+                        size_t num_rows, bool error_if_overflow);
+
     // Materialize the parent NullableColumn / inner StructColumn / per-field NullableColumn
-    // chain that StarRocks expects for a STRUCT result, then drive per-subfield writes:
-    // the Java helper extracts record components into per-field Object[] arrays (and writes
-    // the parent null bitmap as a side effect); we then dispatch each subfield to the
-    // per-type writer, recursing into get_struct_boxed_result for STRUCT subfields.
+    // chain that StarRocks expects for a STRUCT result, then drive per-subfield writes via
+    // the recursive write_result dispatcher. The Java helper extracts record components
+    // into per-field Object[] arrays and writes the parent null bitmap as a side effect.
     Status get_struct_boxed_result(JVMFunctionHelper& helper, const TypeDescriptor& return_type, jobject result,
-                                   size_t num_rows, NullableColumn* nullable_outer) {
+                                   size_t num_rows, NullableColumn* nullable_outer, bool error_if_overflow) {
         auto* struct_col = down_cast<StructColumn*>(nullable_outer->data_column_raw_ptr());
         int num_fields = static_cast<int>(struct_col->fields_size());
 
-        // Resize parent + each subfield column to numRows so addresses line up with the
-        // boxed-array writes performed on the Java side. Subfield resize is recursive:
-        // a STRUCT subfield resizing only its top NullableColumn would leave its inner
-        // children sized 0 when extract_struct_field_arrays writes the bitmap.
         nullable_outer->resize(num_rows);
         std::vector<jint> sub_field_types;
         sub_field_types.reserve(num_fields);
@@ -122,24 +124,64 @@ struct UDFFunctionCallHelper {
             DeferOp drop_field([&]() {
                 if (field_array) env->DeleteLocalRef(field_array);
             });
-            const TypeDescriptor& field_type = return_type.children[f];
-            Column* field_col = struct_col->field_column_raw_ptr(f);
-
-            if (field_type.type == TYPE_STRUCT) {
-                // Subfield columns are themselves NullableColumn(StructColumn) — strip the
-                // outer NullableColumn to recurse into the inner struct.
-                auto* sub_nullable = down_cast<NullableColumn*>(field_col);
-                RETURN_IF_ERROR(get_struct_boxed_result(helper, field_type, field_array, num_rows, sub_nullable));
-            } else if (is_decimalv3_field_type(field_type.type)) {
-                RETURN_IF_ERROR(helper.get_decimal_result_from_boxed_array(
-                        field_type.type, field_type.precision, field_type.scale, field_col, field_array,
-                        static_cast<int>(num_rows), /*error_if_overflow=*/false));
-            } else {
-                RETURN_IF_ERROR(helper.get_result_from_boxed_array(field_type.type, field_col, field_array,
-                                                                    static_cast<int>(num_rows)));
-            }
+            RETURN_IF_ERROR(write_result(helper, return_type.children[f], struct_col->field_column_raw_ptr(f),
+                                          field_array, num_rows, error_if_overflow));
         }
         return Status::OK();
+    }
+
+    // Drain a List<?>[] result into a native NullableColumn(ArrayColumn). The Java helper
+    // writes the parent null bitmap, offsets, and resizes the inner element column; we
+    // then recursively dispatch the inner element write through write_result so STRUCT /
+    // ARRAY / MAP element types all flow through a single path.
+    Status get_array_boxed_result(JVMFunctionHelper& helper, const TypeDescriptor& return_type, jobject result,
+                                  size_t num_rows, NullableColumn* nullable_outer, bool error_if_overflow) {
+        auto* array_col = down_cast<ArrayColumn*>(nullable_outer->data_column_raw_ptr());
+        nullable_outer->resize(num_rows);
+        const TypeDescriptor& elem_type = return_type.children[0];
+        jlong array_addr = reinterpret_cast<jlong>(nullable_outer);
+
+        ASSIGN_OR_RETURN(jobject flat,
+                         helper.extract_list_flat_elements(result, static_cast<int>(num_rows), array_addr,
+                                                            static_cast<jint>(elem_type.type)));
+        DeferOp drop_flat([&]() {
+            if (flat) JVMFunctionHelper::getInstance().getEnv()->DeleteLocalRef(flat);
+        });
+        Column* elem_col = array_col->elements_column().get();
+        return write_result(helper, elem_type, elem_col, flat, elem_col->size(), error_if_overflow);
+    }
+
+    Status get_map_boxed_result(JVMFunctionHelper& helper, const TypeDescriptor& return_type, jobject result,
+                                size_t num_rows, NullableColumn* nullable_outer, bool error_if_overflow) {
+        auto* map_col = down_cast<MapColumn*>(nullable_outer->data_column_raw_ptr());
+        nullable_outer->resize(num_rows);
+        const TypeDescriptor& key_type = return_type.children[0];
+        const TypeDescriptor& val_type = return_type.children[1];
+        jlong map_addr = reinterpret_cast<jlong>(nullable_outer);
+
+        ASSIGN_OR_RETURN(jobject pair,
+                         helper.extract_map_flat_elements(result, static_cast<int>(num_rows), map_addr,
+                                                           static_cast<jint>(key_type.type),
+                                                           static_cast<jint>(val_type.type)));
+        DeferOp drop_pair([&]() {
+            if (pair) JVMFunctionHelper::getInstance().getEnv()->DeleteLocalRef(pair);
+        });
+
+        JNIEnv* env = helper.getEnv();
+        auto pair_arr = reinterpret_cast<jobjectArray>(pair);
+        jobject keys_flat = env->GetObjectArrayElement(pair_arr, 0);
+        DeferOp drop_keys([&]() {
+            if (keys_flat) env->DeleteLocalRef(keys_flat);
+        });
+        jobject values_flat = env->GetObjectArrayElement(pair_arr, 1);
+        DeferOp drop_values([&]() {
+            if (values_flat) env->DeleteLocalRef(values_flat);
+        });
+
+        Column* keys_col = map_col->keys_column().get();
+        Column* values_col = map_col->values_column().get();
+        RETURN_IF_ERROR(write_result(helper, key_type, keys_col, keys_flat, keys_col->size(), error_if_overflow));
+        return write_result(helper, val_type, values_col, values_flat, values_col->size(), error_if_overflow);
     }
 
     StatusOr<ColumnPtr> get_boxed_result(FunctionContext* ctx, jobject result, size_t num_rows) {
@@ -150,21 +192,36 @@ struct UDFFunctionCallHelper {
         DCHECK(call_desc->method_desc[0].is_box);
         const auto& return_type = ctx->get_return_type();
         auto res = ColumnHelper::create_column(return_type, true);
-        if (is_decimalv3_field_type(return_type.type)) {
-            RETURN_IF_ERROR(helper.get_decimal_result_from_boxed_array(return_type.type, return_type.precision,
-                                                                       return_type.scale, res.get(), result, num_rows,
-                                                                       ctx->error_if_overflow()));
-        } else if (return_type.type == TYPE_STRUCT) {
-            auto* nullable_outer = down_cast<NullableColumn*>(res.get());
-            RETURN_IF_ERROR(get_struct_boxed_result(helper, return_type, result, num_rows, nullable_outer));
-        } else {
-            RETURN_IF_ERROR(helper.get_result_from_boxed_array(return_type.type, res.get(), result, num_rows));
-        }
+        RETURN_IF_ERROR(write_result(helper, return_type, res.get(), result, num_rows, ctx->error_if_overflow()));
         RETURN_IF_ERROR(ColumnHelper::update_nested_has_null(res.get()));
         down_cast<NullableColumn*>(res.get())->update_has_null();
         return res;
     }
 };
+
+// Recursive output dispatcher. Routes STRUCT to the record-component drain; ARRAY and
+// MAP into their list / map drain helpers (which themselves call back into write_result
+// for the inner element column); DECIMAL / scalar through the existing direct writers.
+Status UDFFunctionCallHelper::write_result(JVMFunctionHelper& helper, const TypeDescriptor& td, Column* col,
+                                            jobject boxed_result, size_t num_rows, bool error_if_overflow) {
+    if (td.type == TYPE_STRUCT) {
+        return get_struct_boxed_result(helper, td, boxed_result, num_rows, down_cast<NullableColumn*>(col),
+                                        error_if_overflow);
+    }
+    if (td.type == TYPE_ARRAY) {
+        return get_array_boxed_result(helper, td, boxed_result, num_rows, down_cast<NullableColumn*>(col),
+                                       error_if_overflow);
+    }
+    if (td.type == TYPE_MAP) {
+        return get_map_boxed_result(helper, td, boxed_result, num_rows, down_cast<NullableColumn*>(col),
+                                     error_if_overflow);
+    }
+    if (is_decimalv3_field_type(td.type)) {
+        return helper.get_decimal_result_from_boxed_array(td.type, td.precision, td.scale, col, boxed_result,
+                                                           static_cast<int>(num_rows), error_if_overflow);
+    }
+    return helper.get_result_from_boxed_array(td.type, col, boxed_result, static_cast<int>(num_rows));
+}
 
 JavaFunctionCallExpr::JavaFunctionCallExpr(const TExprNode& node) : Expr(node) {}
 
@@ -263,72 +320,83 @@ StatusOr<std::shared_ptr<JavaUDFContext>> JavaFunctionCallExpr::_build_udf_func_
     // RETURN_IF_ERROR(add_method("method_close", &desc->close));
     RETURN_IF_ERROR(add_method("evaluate", &desc->evaluate));
 
-    // Cache the formal parameter / return Class<?> refs for STRUCT-typed UDF args
-    // (and STRUCT return type). Only populated for STRUCT slots; non-STRUCT slots
-    // get an empty JavaGlobalRef and the converter falls through to the existing
-    // boxing path.
+    // Build a JavaTypeNode tree for any UDF argument or return whose SQL type subtree
+    // contains a STRUCT. The tree captures the formal Java record class at every
+    // STRUCT slot (drilling into Method.getGenericParameterTypes / getGenericReturnType
+    // and RecordComponent.getGenericType for nested fields), so the recursive boxing
+    // and unboxing paths can materialize records without per-row reflection.
     {
+        auto type_subtree_has_struct = [](const TypeDescriptor& td) {
+            std::function<bool(const TypeDescriptor&)> walk = [&](const TypeDescriptor& t) {
+                if (t.type == TYPE_STRUCT) {
+                    return true;
+                }
+                for (const auto& c : t.children) {
+                    if (walk(c)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            return walk(td);
+        };
+
         auto& helper = JVMFunctionHelper::getInstance();
         JNIEnv* env = helper.getEnv();
         jobject method_obj = desc->evaluate->method.handle();
 
-        jclass method_class = env->FindClass("java/lang/reflect/Method");
-        DCHECK(method_class != nullptr);
-        DeferOp drop_method_class([&]() { env->DeleteLocalRef(method_class); });
-
-        jmethodID get_param_types =
-                env->GetMethodID(method_class, "getParameterTypes", "()[Ljava/lang/Class;");
-        jmethodID get_return_type = env->GetMethodID(method_class, "getReturnType", "()Ljava/lang/Class;");
-        DCHECK(get_param_types != nullptr && get_return_type != nullptr);
-
-        // STRUCT args: cache jclass for each slot whose declared SQL type is STRUCT.
         int num_args = static_cast<int>(_children.size());
-        desc->evaluate_arg_classes.reserve(num_args);
-        bool has_struct = false;
-        for (int i = 0; i < num_args; ++i) {
-            if (_children[i]->type().type == TYPE_STRUCT) {
-                has_struct = true;
-                break;
+        desc->evaluate_arg_type_nodes.resize(num_args);
+
+        bool any_struct = (_type.type == TYPE_STRUCT) || type_subtree_has_struct(_type);
+        for (int i = 0; i < num_args && !any_struct; ++i) {
+            if (type_subtree_has_struct(_children[i]->type())) {
+                any_struct = true;
             }
-        }
-        if (_type.type == TYPE_STRUCT) {
-            has_struct = true;
         }
 
-        if (has_struct) {
-            jobjectArray param_types =
-                    (jobjectArray)env->CallObjectMethod(method_obj, get_param_types);
-            if (env->ExceptionCheck()) {
+        if (any_struct) {
+            jclass method_class = env->FindClass("java/lang/reflect/Method");
+            DCHECK(method_class != nullptr);
+            DeferOp drop_method_class([&]() { env->DeleteLocalRef(method_class); });
+
+            jmethodID get_generic_param =
+                    env->GetMethodID(method_class, "getGenericParameterTypes", "()[Ljava/lang/reflect/Type;");
+            jmethodID get_generic_return =
+                    env->GetMethodID(method_class, "getGenericReturnType", "()Ljava/lang/reflect/Type;");
+            DCHECK(get_generic_param != nullptr && get_generic_return != nullptr);
+
+            jobjectArray generic_params =
+                    (jobjectArray)env->CallObjectMethod(method_obj, get_generic_param);
+            if (env->ExceptionCheck() || generic_params == nullptr) {
                 env->ExceptionClear();
-                return Status::InternalError("failed to introspect UDF evaluate parameter types");
+                return Status::InternalError("failed to introspect UDF evaluate generic parameter types");
             }
-            DeferOp drop_param_types([&]() {
-                if (param_types) env->DeleteLocalRef(param_types);
-            });
+            DeferOp drop_generic_params([&]() { env->DeleteLocalRef(generic_params); });
 
             for (int i = 0; i < num_args; ++i) {
-                if (_children[i]->type().type != TYPE_STRUCT) {
-                    desc->evaluate_arg_classes.emplace_back(nullptr);
+                if (!type_subtree_has_struct(_children[i]->type())) {
                     continue;
                 }
-                jobject cls = env->GetObjectArrayElement(param_types, i);
-                if (cls == nullptr) {
+                jobject formal = env->GetObjectArrayElement(generic_params, i);
+                if (formal == nullptr) {
                     return Status::InternalError(
-                            fmt::format("UDF evaluate parameter {} class is null", i));
+                            fmt::format("UDF evaluate parameter {} formal type is null", i));
                 }
-                jobject gref = env->NewGlobalRef(cls);
-                env->DeleteLocalRef(cls);
-                desc->evaluate_arg_classes.emplace_back(gref);
+                DeferOp drop_formal([&]() { env->DeleteLocalRef(formal); });
+                ASSIGN_OR_RETURN(auto node, build_java_type_node(env, _children[i]->type(), formal));
+                desc->evaluate_arg_type_nodes[i] = std::move(node);
             }
 
-            if (_type.type == TYPE_STRUCT) {
-                jobject ret_cls = env->CallObjectMethod(method_obj, get_return_type);
-                if (env->ExceptionCheck() || ret_cls == nullptr) {
+            if (type_subtree_has_struct(_type)) {
+                jobject ret_formal = env->CallObjectMethod(method_obj, get_generic_return);
+                if (env->ExceptionCheck() || ret_formal == nullptr) {
                     env->ExceptionClear();
-                    return Status::InternalError("failed to introspect UDF evaluate return type");
+                    return Status::InternalError("failed to introspect UDF evaluate generic return type");
                 }
-                desc->evaluate_return_class = JavaGlobalRef(env->NewGlobalRef(ret_cls));
-                env->DeleteLocalRef(ret_cls);
+                DeferOp drop_ret([&]() { env->DeleteLocalRef(ret_formal); });
+                ASSIGN_OR_RETURN(desc->evaluate_return_type_node,
+                                 build_java_type_node(env, _type, ret_formal));
             }
         }
     }
