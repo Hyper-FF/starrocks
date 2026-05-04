@@ -858,9 +858,20 @@ public class CreateFunctionAnalyzer {
                                     rawType.getCanonicalName(), JAVA_ARRAY_CLASS_TYPE.getCanonicalName()));
                 }
                 ArrayType arrayType = (ArrayType) expType;
-                java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 1);
-                Class<?> elemRaw = rawClass(method, tArgs[0], pname);
-                checkUdfFieldType(method, arrayType.getItemType(), elemRaw, tArgs[0], pname + "[]", depth);
+                // Recursive Java-side validation only kicks in when the element subtree
+                // contains a STRUCT — that's the case where we need the parameterized
+                // type to recover the formal record class. For non-STRUCT subtrees we
+                // honor the pre-refactor leniency: raw `List`, `List<?>`, `List<Object>`
+                // are all accepted as long as the SQL element type itself is supported.
+                if (typeSubtreeHasStruct(arrayType.getItemType())) {
+                    java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 1);
+                    Class<?> elemRaw = rawClass(method, tArgs[0], pname);
+                    checkUdfFieldType(method, arrayType.getItemType(), elemRaw, tArgs[0], pname + "[]", depth);
+                } else if (!isSupportedScalarUdfType(arrayType.getItemType())) {
+                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            String.format("UDF class '%s' method '%s' field %s does not support type '%s'",
+                                    clazz.getCanonicalName(), method.getName(), pname, expType));
+                }
                 return;
             }
             if (expType instanceof MapType) {
@@ -871,18 +882,25 @@ public class CreateFunctionAnalyzer {
                                     rawType.getCanonicalName(), JAVA_MAP_CLASS_TYPE.getCanonicalName()));
                 }
                 MapType mapType = (MapType) expType;
-                java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 2);
-                Class<?> keyRaw = rawClass(method, tArgs[0], pname);
-                Class<?> valRaw = rawClass(method, tArgs[1], pname);
-                checkUdfFieldType(method, mapType.getKeyType(), keyRaw, tArgs[0], pname + ".<key>", depth);
-                checkUdfFieldType(method, mapType.getValueType(), valRaw, tArgs[1], pname + ".<value>", depth);
+                if (typeSubtreeHasStruct(mapType.getKeyType()) || typeSubtreeHasStruct(mapType.getValueType())) {
+                    java.lang.reflect.Type[] tArgs = extractTypeArguments(method, genericType, pname, 2);
+                    Class<?> keyRaw = rawClass(method, tArgs[0], pname);
+                    Class<?> valRaw = rawClass(method, tArgs[1], pname);
+                    checkUdfFieldType(method, mapType.getKeyType(), keyRaw, tArgs[0], pname + ".<key>", depth);
+                    checkUdfFieldType(method, mapType.getValueType(), valRaw, tArgs[1], pname + ".<value>", depth);
+                } else if (!isSupportedScalarUdfType(mapType.getKeyType())
+                        || !isSupportedScalarUdfType(mapType.getValueType())) {
+                    ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
+                            String.format("UDF class '%s' method '%s' field %s does not support type '%s'",
+                                    clazz.getCanonicalName(), method.getName(), pname, expType));
+                }
                 return;
             }
             if (expType instanceof StructType) {
                 // STRUCT in any position: drill into the formal record class. The genericType
                 // chain (ParameterizedType actual arguments / RecordComponent generic types)
                 // preserves the record class even through ARRAY/MAP wrappers, so the BE can
-                // walk a parallel JavaTypeNode tree to materialize records on both input and
+                // walk a parallel UdfTypeDesc tree to materialize records on both input and
                 // output paths.
                 checkStructRecord(method, (StructType) expType, rawType, pname, depth);
                 return;
@@ -890,6 +908,43 @@ public class CreateFunctionAnalyzer {
             ErrorReport.reportSemanticException(ErrorCode.ERR_COMMON_ERROR,
                     String.format("UDF class '%s' method '%s' field %s does not support type '%s'",
                             clazz.getCanonicalName(), method.getName(), pname, expType));
+        }
+
+        // True iff the SQL type tree rooted at `t` contains any STRUCT node. Used to
+        // decide whether checkUdfFieldType must traverse the parameterized Java type
+        // (to recover the formal record class) or can fall back to the pre-refactor
+        // SQL-only validation that tolerated raw / wildcarded List / Map.
+        private static boolean typeSubtreeHasStruct(Type t) {
+            if (t instanceof StructType) {
+                return true;
+            }
+            if (t.isArrayType()) {
+                return typeSubtreeHasStruct(((ArrayType) t).getItemType());
+            }
+            if (t.isMapType()) {
+                MapType mt = (MapType) t;
+                return typeSubtreeHasStruct(mt.getKeyType()) || typeSubtreeHasStruct(mt.getValueType());
+            }
+            return false;
+        }
+
+        // Pre-refactor SQL-only type support check. Kept for the non-STRUCT branches of
+        // checkUdfFieldType so existing UDFs that declare raw List / Map / List<?> for
+        // ARRAY<scalar> / MAP<scalar,scalar> continue to validate without needing to
+        // upgrade their Java signatures to the parameterized form.
+        private static boolean isSupportedScalarUdfType(Type type) {
+            if (type instanceof ScalarType) {
+                return PRIMITIVE_TYPE_TO_JAVA_CLASS_TYPE.containsKey(type.getPrimitiveType());
+            }
+            if (type.isArrayType()) {
+                return isSupportedScalarUdfType(((ArrayType) type).getItemType());
+            }
+            if (type.isMapType()) {
+                MapType mapType = (MapType) type;
+                return isSupportedScalarUdfType(mapType.getKeyType())
+                        && isSupportedScalarUdfType(mapType.getValueType());
+            }
+            return false;
         }
 
         private java.lang.reflect.Type[] extractTypeArguments(Method method,

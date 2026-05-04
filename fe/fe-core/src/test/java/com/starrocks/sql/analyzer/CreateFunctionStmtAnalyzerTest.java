@@ -1396,9 +1396,9 @@ public class CreateFunctionStmtAnalyzerTest {
     }
 
     public static class StructArrayOfStructEval {
-        // Field component is List<Inner> — record component preserves the parameterized
-        // type, so the FE could in principle resolve Inner.class. We still reject this
-        // because the BE-side runtime materialization for ARRAY<STRUCT> isn't wired.
+        // Field component is List<Inner>; RecordComponent.getGenericType() preserves
+        // Inner.class through the ParameterizedType actual arguments, so the analyzer
+        // recursion can drill into the nested STRUCT and bind it to Inner.
         public OuterWithListInner evaluate(OuterWithListInner o) {
             return o;
         }
@@ -1409,8 +1409,8 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(NestedStructEval.class);
-            String sql = "CREATE FUNCTION ABC.nested(struct<name varchar, inner struct<a int, b varchar>>) \n"
-                    + "RETURNS struct<name varchar, inner struct<a int, b varchar>> \n"
+            String sql = "CREATE FUNCTION ABC.nested(struct<name varchar, `inner` struct<a int, b varchar>>) \n"
+                    + "RETURNS struct<name varchar, `inner` struct<a int, b varchar>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1430,8 +1430,8 @@ public class CreateFunctionStmtAnalyzerTest {
             Config.enable_udf = true;
             mockClazz(NestedStructTwoFieldsEval.class);
             String sql = "CREATE FUNCTION ABC.nested2("
-                    + "struct<left struct<a int, b varchar>, right struct<a int, b varchar>>) \n"
-                    + "RETURNS struct<left struct<a int, b varchar>, right struct<a int, b varchar>> \n"
+                    + "struct<`left` struct<a int, b varchar>, `right` struct<a int, b varchar>>) \n"
+                    + "RETURNS struct<`left` struct<a int, b varchar>, `right` struct<a int, b varchar>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1451,10 +1451,10 @@ public class CreateFunctionStmtAnalyzerTest {
             Config.enable_udf = true;
             mockClazz(DeeplyNestedEval.class);
             String sql = "CREATE FUNCTION ABC.deeply(struct<"
-                    + "outer struct<name varchar, inner struct<a int, b varchar>>,"
+                    + "`outer` struct<name varchar, `inner` struct<a int, b varchar>>,"
                     + "direct struct<a int, b varchar>>) \n"
                     + "RETURNS struct<"
-                    + "outer struct<name varchar, inner struct<a int, b varchar>>,"
+                    + "`outer` struct<name varchar, `inner` struct<a int, b varchar>>,"
                     + "direct struct<a int, b varchar>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
@@ -1478,8 +1478,8 @@ public class CreateFunctionStmtAnalyzerTest {
             try {
                 Config.enable_udf = true;
                 mockClazz(NestedStructEval.class);
-                String sql = "CREATE FUNCTION ABC.bad(struct<name varchar, inner struct<a varchar, b varchar>>) \n"
-                        + "RETURNS struct<name varchar, inner struct<a varchar, b varchar>> \n"
+                String sql = "CREATE FUNCTION ABC.bad(struct<name varchar, `inner` struct<a varchar, b varchar>>) \n"
+                        + "RETURNS struct<name varchar, `inner` struct<a varchar, b varchar>> \n"
                         + "properties (\n"
                         + "    \"symbol\" = \"symbol\",\n"
                         + "    \"type\" = \"StarrocksJar\",\n"
