@@ -243,7 +243,12 @@ StatusOr<std::shared_ptr<JavaUDFContext>> JavaFunctionCallExpr::_build_udf_func_
         jobject method_obj = desc->evaluate->method.handle();
 
         int num_args = static_cast<int>(_children.size());
-        desc->evaluate_arg_type_descs.resize(num_args, JavaGlobalRef(nullptr));
+        // JavaGlobalRef is move-only, so vector::resize(n, value) is unavailable.
+        // Pre-fill with null-handle entries; STRUCT-bearing slots overwrite via move below.
+        desc->evaluate_arg_type_descs.reserve(num_args);
+        for (int i = 0; i < num_args; ++i) {
+            desc->evaluate_arg_type_descs.emplace_back(nullptr);
+        }
 
         bool any_struct = type_subtree_has_struct(_type);
         for (int i = 0; i < num_args && !any_struct; ++i) {
