@@ -323,15 +323,13 @@ TEST_F(JavaNativeMethodTest, get_addrs_struct) {
     // through a separate sub_field_addrs path. The call must succeed
     // (i.e. not throw IllegalArgumentException via env) and addrs[0] must
     // match the actual NullableColumn null buffer pointer.
-    jlongArray jarr =
-            JavaNativeMethods::getAddrs(env, nullptr, reinterpret_cast<size_t>(col.get()));
+    jlongArray jarr = JavaNativeMethods::getAddrs(env, nullptr, reinterpret_cast<size_t>(col.get()));
     ASSERT_NE(jarr, nullptr);
     ASSERT_FALSE(env->ExceptionCheck());
     jlong buf[4];
     env->GetLongArrayRegion(jarr, 0, 4, buf);
 
-    auto expected_null_data =
-            down_cast<const NullableColumn*>(col.get())->immutable_null_column_data().data();
+    auto expected_null_data = down_cast<const NullableColumn*>(col.get())->immutable_null_column_data().data();
     EXPECT_EQ(reinterpret_cast<jlong>(expected_null_data), buf[0]);
     env->DeleteLocalRef(jarr);
 }

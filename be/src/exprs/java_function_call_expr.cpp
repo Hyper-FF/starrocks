@@ -73,8 +73,8 @@ struct UDFFunctionCallHelper {
         }
 
         std::vector<jobject> input_col_objs;
-        auto st = JavaDataTypeConverter::convert_to_boxed_array(ctx, input_cols.data(), num_cols, size,
-                                                                &input_col_objs, &arg_type_descs);
+        auto st = JavaDataTypeConverter::convert_to_boxed_array(ctx, input_cols.data(), num_cols, size, &input_col_objs,
+                                                                &arg_type_descs);
         RETURN_IF_ERROR(st);
 
         // call UDF method
@@ -100,15 +100,14 @@ struct UDFFunctionCallHelper {
             // inside MAP). Hand off to the unified Java writeResult, which walks
             // the UdfTypeDesc tree and recursively drains records / lists / maps
             // / scalars into the native column tree.
-            RETURN_IF_ERROR(helper.write_result(result, static_cast<int>(num_rows),
-                                                 reinterpret_cast<jlong>(res.get()), return_desc,
-                                                 ctx->error_if_overflow()));
+            RETURN_IF_ERROR(helper.write_result(result, static_cast<int>(num_rows), reinterpret_cast<jlong>(res.get()),
+                                                return_desc, ctx->error_if_overflow()));
         } else {
             // Plain scalar / DECIMAL / ARRAY / MAP without STRUCT: unified writer
             // dispatches DECIMAL internally based on the LogicalType.
             RETURN_IF_ERROR(helper.get_result_from_boxed_array(return_type.type, res.get(), result, num_rows,
-                                                                return_type.precision, return_type.scale,
-                                                                ctx->error_if_overflow()));
+                                                               return_type.precision, return_type.scale,
+                                                               ctx->error_if_overflow()));
         }
         RETURN_IF_ERROR(ColumnHelper::update_nested_has_null(res.get()));
         return res;
@@ -264,8 +263,7 @@ StatusOr<std::shared_ptr<JavaUDFContext>> JavaFunctionCallExpr::_build_udf_func_
                     env->GetMethodID(method_class, "getGenericReturnType", "()Ljava/lang/reflect/Type;");
             DCHECK(get_generic_param != nullptr && get_generic_return != nullptr);
 
-            jobjectArray generic_params =
-                    (jobjectArray)env->CallObjectMethod(method_obj, get_generic_param);
+            jobjectArray generic_params = (jobjectArray)env->CallObjectMethod(method_obj, get_generic_param);
             if (env->ExceptionCheck() || generic_params == nullptr) {
                 env->ExceptionClear();
                 return Status::InternalError("failed to introspect UDF evaluate generic parameter types");
@@ -278,8 +276,7 @@ StatusOr<std::shared_ptr<JavaUDFContext>> JavaFunctionCallExpr::_build_udf_func_
                 }
                 jobject formal = env->GetObjectArrayElement(generic_params, i);
                 if (formal == nullptr) {
-                    return Status::InternalError(
-                            fmt::format("UDF evaluate parameter {} formal type is null", i));
+                    return Status::InternalError(fmt::format("UDF evaluate parameter {} formal type is null", i));
                 }
                 DeferOp drop_formal([&]() { env->DeleteLocalRef(formal); });
                 ASSIGN_OR_RETURN(jobject local_desc, build_udf_type_desc(env, _children[i]->type(), formal));

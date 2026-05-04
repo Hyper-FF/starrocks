@@ -27,8 +27,8 @@
 #include "column/fixed_length_column.h"
 #include "column/map_column.h"
 #include "column/nullable_column.h"
-#include "column/struct_column.h"
 #include "column/runtime_type_traits.h"
+#include "column/struct_column.h"
 #include "column/vectorized_fwd.h"
 #include "common/compiler_util.h"
 #include "common/status.h"
@@ -899,8 +899,8 @@ StatusOr<jobject> build_udf_type_desc(JNIEnv* env, const TypeDescriptor& td, job
     jint scale = static_cast<jint>(td.scale);
 
     auto build_children = [&](const std::vector<jobject>& child_descs) -> StatusOr<jobjectArray> {
-        jobjectArray arr = env->NewObjectArray(static_cast<jsize>(child_descs.size()), helper.udf_type_desc_class(),
-                                                nullptr);
+        jobjectArray arr =
+                env->NewObjectArray(static_cast<jsize>(child_descs.size()), helper.udf_type_desc_class(), nullptr);
         if (arr == nullptr) {
             return Status::InternalError("failed to allocate UdfTypeDesc[] children");
         }
@@ -992,8 +992,7 @@ static jobject get_type_desc_child(JVMFunctionHelper& helper, jobject type_desc,
         return nullptr;
     }
     JNIEnv* env = helper.getEnv();
-    jobjectArray children =
-            (jobjectArray)env->GetObjectField(type_desc, helper.udf_type_desc_children_field());
+    jobjectArray children = (jobjectArray)env->GetObjectField(type_desc, helper.udf_type_desc_children_field());
     if (children == nullptr) {
         return nullptr;
     }
@@ -1006,8 +1005,7 @@ static jclass get_type_desc_record_class(JVMFunctionHelper& helper, jobject type
         return nullptr;
     }
     JNIEnv* env = helper.getEnv();
-    return reinterpret_cast<jclass>(
-            env->GetObjectField(type_desc, helper.udf_type_desc_record_class_field()));
+    return reinterpret_cast<jclass>(env->GetObjectField(type_desc, helper.udf_type_desc_record_class_field()));
 }
 
 // RAII wrapper around JNI's PushLocalFrame / PopLocalFrame. Each recursion
@@ -1081,9 +1079,9 @@ static StatusOr<jobject> build_list_boxed_array(JVMFunctionHelper& helper, const
         data_column = nullable->data_column().get();
     }
     const auto* array_col = down_cast<const ArrayColumn*>(data_column);
-    auto offsets_buf = std::make_unique<DirectByteBuffer>(
-            (void*)array_col->offsets().immutable_data().data(),
-            array_col->offsets().immutable_data().size() * sizeof(uint32_t));
+    auto offsets_buf =
+            std::make_unique<DirectByteBuffer>((void*)array_col->offsets().immutable_data().data(),
+                                               array_col->offsets().immutable_data().size() * sizeof(uint32_t));
 
     const Column* elements_col = array_col->elements_column().get();
     int total_elements = static_cast<int>(elements_col->size());
@@ -1097,9 +1095,8 @@ static StatusOr<jobject> build_list_boxed_array(JVMFunctionHelper& helper, const
         return Status::NotSupported("createBoxedListArray method not registered");
     }
     jobject parent_null_handle = parent_null_buf ? parent_null_buf->handle() : nullptr;
-    ASSIGN_OR_RETURN(jobject result,
-                     helper.invoke_static_method(iter->second, num_rows, parent_null_handle, offsets_buf->handle(),
-                                                  elements_obj));
+    ASSIGN_OR_RETURN(jobject result, helper.invoke_static_method(iter->second, num_rows, parent_null_handle,
+                                                                 offsets_buf->handle(), elements_obj));
     return frame.pop(result);
 }
 
@@ -1120,9 +1117,9 @@ static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const 
         data_column = nullable->data_column().get();
     }
     const auto* map_col = down_cast<const MapColumn*>(data_column);
-    auto offsets_buf = std::make_unique<DirectByteBuffer>(
-            (void*)map_col->offsets().immutable_data().data(),
-            map_col->offsets().immutable_data().size() * sizeof(uint32_t));
+    auto offsets_buf =
+            std::make_unique<DirectByteBuffer>((void*)map_col->offsets().immutable_data().data(),
+                                               map_col->offsets().immutable_data().size() * sizeof(uint32_t));
 
     const Column* keys_col = map_col->keys_column().get();
     const Column* values_col = map_col->values_column().get();
@@ -1131,8 +1128,7 @@ static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const 
     jobject key_desc = get_type_desc_child(helper, type_desc_obj, 0);
     jobject val_desc = get_type_desc_child(helper, type_desc_obj, 1);
 
-    ASSIGN_OR_RETURN(jobject keys_obj,
-                     box_column(helper, type_desc.children[0], keys_col, key_desc, total_elements));
+    ASSIGN_OR_RETURN(jobject keys_obj, box_column(helper, type_desc.children[0], keys_col, key_desc, total_elements));
     ASSIGN_OR_RETURN(jobject values_obj,
                      box_column(helper, type_desc.children[1], values_col, val_desc, total_elements));
 
@@ -1142,9 +1138,8 @@ static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const 
         return Status::NotSupported("createBoxedMapArray method not registered");
     }
     jobject parent_null_handle = parent_null_buf ? parent_null_buf->handle() : nullptr;
-    ASSIGN_OR_RETURN(jobject result,
-                     helper.invoke_static_method(iter->second, num_rows, parent_null_handle, offsets_buf->handle(),
-                                                  keys_obj, values_obj));
+    ASSIGN_OR_RETURN(jobject result, helper.invoke_static_method(iter->second, num_rows, parent_null_handle,
+                                                                 offsets_buf->handle(), keys_obj, values_obj));
     return frame.pop(result);
 }
 
@@ -1236,7 +1231,8 @@ Status JavaDataTypeConverter::convert_to_boxed_array(FunctionContext* ctx, const
         jobject arg = nullptr;
         const TypeDescriptor& arg_type = *ctx->get_arg_type(i);
         jobject type_desc_obj = (arg_type_descs != nullptr && i < static_cast<int>(arg_type_descs->size()))
-                                            ? (*arg_type_descs)[i] : nullptr;
+                                        ? (*arg_type_descs)[i]
+                                        : nullptr;
         if (columns[i]->only_null() ||
             (columns[i]->is_nullable() && down_cast<const NullableColumn*>(columns[i])->null_count() == num_rows)) {
             arg = helper.create_array(num_rows);

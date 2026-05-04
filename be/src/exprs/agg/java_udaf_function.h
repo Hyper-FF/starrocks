@@ -458,7 +458,7 @@ public:
             // The unified writer dispatches DECIMAL types internally; precision/scale
             // and the overflow flag are ignored for non-DECIMAL slots.
             helper.get_result_from_boxed_array(ctx, return_type.type, col, res, batch_size, return_type.precision,
-                                                return_type.scale, ctx->error_if_overflow());
+                                               return_type.scale, ctx->error_if_overflow());
         };
         // For nullable inputs, our UDAF does not produce nullable results
         if (!to->is_nullable()) {
