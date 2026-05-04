@@ -1010,6 +1010,53 @@ static jclass get_type_desc_record_class(JVMFunctionHelper& helper, jobject type
             env->GetObjectField(type_desc, helper.udf_type_desc_record_class_field()));
 }
 
+// RAII wrapper around JNI's PushLocalFrame / PopLocalFrame. Each recursion
+// level of the input boxing path pushes its own bounded frame at entry and
+// pops it at exit, returning the result jobject as a fresh local ref in the
+// caller's frame. Without this, deeply nested STRUCT / ARRAY<STRUCT> /
+// MAP<*,STRUCT> signatures accumulate ~5-8 local refs per level (field
+// arrays, sub-results, child UdfTypeDescs, ...) into the single top-level
+// frame allocated in JavaFunctionCallExpr::call, eventually exhausting it.
+//
+// Per-level capacity is sized for the widest STRUCT we expect plus headroom
+// for the recursion-internal locals; PushLocalFrame guarantees at least the
+// requested capacity so JNI implementations are free to grow if needed.
+class JniLocalFrame {
+public:
+    JniLocalFrame(JNIEnv* env, jint capacity) : _env(env) {
+        if (_env->PushLocalFrame(capacity) < 0) {
+            _pushed = false;
+        }
+    }
+    ~JniLocalFrame() {
+        if (_pushed && !_popped) {
+            _env->PopLocalFrame(nullptr);
+        }
+    }
+    JniLocalFrame(const JniLocalFrame&) = delete;
+    JniLocalFrame& operator=(const JniLocalFrame&) = delete;
+
+    bool ok() const { return _pushed; }
+
+    // Pop the frame and lift `inner_result` (a local ref in this frame) into
+    // the caller's frame as a fresh local ref. Returns the caller-frame ref
+    // (or null if `inner_result` was null).
+    jobject pop(jobject inner_result) {
+        _popped = true;
+        return _env->PopLocalFrame(inner_result);
+    }
+
+private:
+    JNIEnv* _env;
+    bool _pushed = true;
+    bool _popped = false;
+};
+
+// Headroom for the small fixed set of local refs each boxer holds outside the
+// per-field loop (record class, parent null buffer wrapper, offsets wrapper,
+// child UdfTypeDescs, intermediate jobjectArrays). 32 covers comfortably.
+static constexpr jint BOXING_FRAME_HEADROOM = 32;
+
 // Forward declarations for the mutually recursive boxing path: STRUCT slots
 // drive recursion through their fields; ARRAY/MAP slots drive recursion through
 // their element / key+value children. The UdfTypeDesc jobject supplies the
@@ -1020,6 +1067,10 @@ static StatusOr<jobject> box_column(JVMFunctionHelper& helper, const TypeDescrip
 static StatusOr<jobject> build_list_boxed_array(JVMFunctionHelper& helper, const TypeDescriptor& type_desc,
                                                 const Column* column, jobject type_desc_obj, int num_rows) {
     JNIEnv* env = helper.getEnv();
+    JniLocalFrame frame(env, BOXING_FRAME_HEADROOM);
+    if (!frame.ok()) {
+        return Status::InternalError("failed to push JNI local frame for ARRAY boxing");
+    }
 
     const Column* data_column = column;
     std::unique_ptr<DirectByteBuffer> parent_null_buf;
@@ -1037,10 +1088,8 @@ static StatusOr<jobject> build_list_boxed_array(JVMFunctionHelper& helper, const
     const Column* elements_col = array_col->elements_column().get();
     int total_elements = static_cast<int>(elements_col->size());
     jobject elem_desc = get_type_desc_child(helper, type_desc_obj, 0);
-    LOCAL_REF_GUARD_ENV(env, elem_desc);
     ASSIGN_OR_RETURN(jobject elements_obj,
                      box_column(helper, type_desc.children[0], elements_col, elem_desc, total_elements));
-    LOCAL_REF_GUARD_ENV(env, elements_obj);
 
     const auto& method_map = helper.method_map();
     auto iter = method_map.find(TYPE_ARRAY_METHOD_ID);
@@ -1048,13 +1097,19 @@ static StatusOr<jobject> build_list_boxed_array(JVMFunctionHelper& helper, const
         return Status::NotSupported("createBoxedListArray method not registered");
     }
     jobject parent_null_handle = parent_null_buf ? parent_null_buf->handle() : nullptr;
-    return helper.invoke_static_method(iter->second, num_rows, parent_null_handle, offsets_buf->handle(),
-                                        elements_obj);
+    ASSIGN_OR_RETURN(jobject result,
+                     helper.invoke_static_method(iter->second, num_rows, parent_null_handle, offsets_buf->handle(),
+                                                  elements_obj));
+    return frame.pop(result);
 }
 
 static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const TypeDescriptor& type_desc,
                                                const Column* column, jobject type_desc_obj, int num_rows) {
     JNIEnv* env = helper.getEnv();
+    JniLocalFrame frame(env, BOXING_FRAME_HEADROOM);
+    if (!frame.ok()) {
+        return Status::InternalError("failed to push JNI local frame for MAP boxing");
+    }
 
     const Column* data_column = column;
     std::unique_ptr<DirectByteBuffer> parent_null_buf;
@@ -1074,16 +1129,12 @@ static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const 
     int total_elements = static_cast<int>(keys_col->size());
 
     jobject key_desc = get_type_desc_child(helper, type_desc_obj, 0);
-    LOCAL_REF_GUARD_ENV(env, key_desc);
     jobject val_desc = get_type_desc_child(helper, type_desc_obj, 1);
-    LOCAL_REF_GUARD_ENV(env, val_desc);
 
     ASSIGN_OR_RETURN(jobject keys_obj,
                      box_column(helper, type_desc.children[0], keys_col, key_desc, total_elements));
-    LOCAL_REF_GUARD_ENV(env, keys_obj);
     ASSIGN_OR_RETURN(jobject values_obj,
                      box_column(helper, type_desc.children[1], values_col, val_desc, total_elements));
-    LOCAL_REF_GUARD_ENV(env, values_obj);
 
     const auto& method_map = helper.method_map();
     auto iter = method_map.find(TYPE_MAP_METHOD_ID);
@@ -1091,15 +1142,24 @@ static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const 
         return Status::NotSupported("createBoxedMapArray method not registered");
     }
     jobject parent_null_handle = parent_null_buf ? parent_null_buf->handle() : nullptr;
-    return helper.invoke_static_method(iter->second, num_rows, parent_null_handle, offsets_buf->handle(),
-                                        keys_obj, values_obj);
+    ASSIGN_OR_RETURN(jobject result,
+                     helper.invoke_static_method(iter->second, num_rows, parent_null_handle, offsets_buf->handle(),
+                                                  keys_obj, values_obj));
+    return frame.pop(result);
 }
 
 static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, const TypeDescriptor& type_desc,
                                                   const Column* column, jobject type_desc_obj, int num_rows) {
     JNIEnv* env = helper.getEnv();
+    // Capacity sized for the per-level fixed locals plus one in-flight sub_result;
+    // sub_results are explicitly DeleteLocalRef'd inside the per-field loop so the
+    // frame footprint stays bounded regardless of field count.
+    JniLocalFrame frame(env, BOXING_FRAME_HEADROOM);
+    if (!frame.ok()) {
+        return Status::InternalError("failed to push JNI local frame for STRUCT boxing");
+    }
+
     jclass record_class = get_type_desc_record_class(helper, type_desc_obj);
-    LOCAL_REF_GUARD_ENV(env, record_class);
     if (record_class == nullptr) {
         return Status::InternalError("STRUCT argument missing formal record class; cannot box");
     }
@@ -1120,27 +1180,29 @@ static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, con
     int num_fields = static_cast<int>(struct_col->fields_size());
 
     jclass object_clazz = env->FindClass("java/lang/Object");
-    LOCAL_REF_GUARD(object_clazz);
     jobjectArray field_arrays = env->NewObjectArray(num_fields, object_clazz, nullptr);
     if (field_arrays == nullptr) {
         return Status::InternalError("failed to allocate field_arrays for STRUCT input");
     }
-    DeferOp drop_arr([&]() { env->DeleteLocalRef(field_arrays); });
 
     for (int f = 0; f < num_fields; ++f) {
         const Column* field_col = struct_col->field_column_raw_ptr(f);
         const TypeDescriptor& field_type = type_desc.children[f];
         jobject field_desc = get_type_desc_child(helper, type_desc_obj, f);
-        LOCAL_REF_GUARD_ENV(env, field_desc);
         ASSIGN_OR_RETURN(jobject sub_result, box_column(helper, field_type, field_col, field_desc, num_rows));
         env->SetObjectArrayElement(field_arrays, f, sub_result);
         if (sub_result != nullptr) {
             env->DeleteLocalRef(sub_result);
         }
+        if (field_desc != nullptr) {
+            env->DeleteLocalRef(field_desc);
+        }
     }
 
     jobject parent_null_handle = parent_null_buf ? parent_null_buf->handle() : nullptr;
-    return helper.create_boxed_struct_array(record_class, num_rows, parent_null_handle, field_arrays);
+    ASSIGN_OR_RETURN(jobject result,
+                     helper.create_boxed_struct_array(record_class, num_rows, parent_null_handle, field_arrays));
+    return frame.pop(result);
 }
 
 // Recursive boxing dispatcher. Falls back to JavaArrayConverter when the type
