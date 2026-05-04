@@ -90,16 +90,13 @@ constexpr const char* CREATE_BOXED_MAP_SIGNATURE =
 // (numRows, parentNullBuf, recordClass, fieldArrays) -> Object[]
 constexpr const char* CREATE_BOXED_STRUCT_SIGNATURE =
         "(ILjava/nio/ByteBuffer;Ljava/lang/Class;[Ljava/lang/Object;)[Ljava/lang/Object;";
-// (numRows, boxedResult, parentColumnAddr, subFieldTypes) -> Object[numFields] of typed[numRows].
-// Writes the parent NullableColumn's null bitmap as a side effect; the BE walks the returned
-// array to drive per-subfield writes (recursing back through this method for STRUCT subfields).
-constexpr const char* EXTRACT_STRUCT_FIELDS_SIGNATURE = "(I[Ljava/lang/Object;J[I)[Ljava/lang/Object;";
-// (numRows, boxedResult, arrayColumnAddr, elementType) -> flat[totalElements].
-// Writes the parent ArrayColumn's null bitmap and offsets, resizes the inner element column
-// to total length, returns the flat element array for the BE to dispatch.
-constexpr const char* EXTRACT_LIST_FLAT_SIGNATURE = "(I[Ljava/lang/Object;JI)[Ljava/lang/Object;";
-// (numRows, boxedResult, mapColumnAddr, keyType, valueType) -> {keys, values} flat[totalElements].
-constexpr const char* EXTRACT_MAP_FLAT_SIGNATURE = "(I[Ljava/lang/Object;JII)[Ljava/lang/Object;";
+// (numRows, boxedResult, columnAddr, typeDesc) -> void.
+// Unified dispatcher: writes the result jobject into the native column tree. Handles
+// STRUCT / ARRAY / MAP / DECIMAL / scalar by recursing on the Java side using the
+// UdfTypeDesc tree. The BE constructs the type desc once per UDF and just calls this
+// helper once per query batch.
+constexpr const char* WRITE_RESULT_SIGNATURE =
+        "(ILjava/lang/Object;JLcom/starrocks/udf/UdfTypeDesc;)V";
 
 #define INIT_STATIC_METHOD(target, clazz, name, signature)    \
     target = _env->GetStaticMethodID(clazz, name, signature); \
@@ -118,6 +115,7 @@ static JNINativeMethod java_native_methods[] = {
         {"resize", "(JI)V", (void*)&JavaNativeMethods::resize},
         {"getColumnLogicalType", "(J)I", (void*)&JavaNativeMethods::getColumnLogicalType},
         {"getAddrs", "(J)[J", (void*)&JavaNativeMethods::getAddrs},
+        {"getStructFieldAddrs", "(J)[J", (void*)&JavaNativeMethods::getStructFieldAddrs},
         {"memoryTrackerMalloc", "(J)J", (void*)&JavaNativeMethods::memory_malloc},
         {"memoryTrackerFree", "(J)V", (void*)&JavaNativeMethods::memory_free},
 };
@@ -253,9 +251,23 @@ void JVMFunctionHelper::_init() {
     INIT_HELPER_METHOD(_create_boxed_decimal_array, "createBoxedDecimalArray",
                        "(IIILjava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)[Ljava/lang/Object;");
     INIT_HELPER_METHOD(_create_boxed_struct_array, "createBoxedStructArray", CREATE_BOXED_STRUCT_SIGNATURE);
-    INIT_HELPER_METHOD(_extract_struct_field_arrays, "extractStructFieldArrays", EXTRACT_STRUCT_FIELDS_SIGNATURE);
-    INIT_HELPER_METHOD(_extract_list_flat_elements, "extractListFlatElements", EXTRACT_LIST_FLAT_SIGNATURE);
-    INIT_HELPER_METHOD(_extract_map_flat_elements, "extractMapFlatElements", EXTRACT_MAP_FLAT_SIGNATURE);
+    INIT_HELPER_METHOD(_write_result, "writeResult", WRITE_RESULT_SIGNATURE);
+
+    // Cache the UdfTypeDesc class + constructor + field IDs for the BE-side
+    // input boxing recursion (which reads children / recordClass per STRUCT slot)
+    // and for the per-UDF type desc construction in _build_udf_func_desc.
+    {
+        std::string td_name = JVMFunctionHelper::to_jni_class_name("com.starrocks.udf.UdfTypeDesc");
+        _udf_type_desc_class = JNI_FIND_CLASS(td_name.c_str());
+        DCHECK(_udf_type_desc_class != nullptr);
+        _udf_type_desc_ctor = _env->GetMethodID(
+                _udf_type_desc_class, "<init>",
+                "(I[Lcom/starrocks/udf/UdfTypeDesc;IILjava/lang/Class;)V");
+        DCHECK(_udf_type_desc_ctor != nullptr);
+        _udf_type_desc_record_class = _env->GetFieldID(_udf_type_desc_class, "recordClass", "Ljava/lang/Class;");
+        _udf_type_desc_children = _env->GetFieldID(_udf_type_desc_class, "children", "[Lcom/starrocks/udf/UdfTypeDesc;");
+        DCHECK(_udf_type_desc_record_class != nullptr && _udf_type_desc_children != nullptr);
+    }
     INIT_HELPER_METHOD(_get_decimal_boxed_result, "getDecimalResultFromBoxedArray", "(IIIILjava/lang/Object;JZ)V");
     INIT_HELPER_METHOD(_bd_unscaled_long, "unscaledLong", "(Ljava/math/BigDecimal;II)J");
     INIT_HELPER_METHOD(_bd_unscaled_le_bytes, "unscaledLEBytes", "(Ljava/math/BigDecimal;III)[B");
@@ -471,38 +483,23 @@ StatusOr<jobject> JVMFunctionHelper::create_boxed_struct_array(jclass record_cla
     return res;
 }
 
-StatusOr<jobject> JVMFunctionHelper::extract_list_flat_elements(jobject result, int num_rows, jlong array_col_addr,
-                                                                  jint element_type) {
-    jobject res = _env->CallStaticObjectMethod(_udf_helper_class, _extract_list_flat_elements, num_rows, result,
-                                                array_col_addr, element_type);
-    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "extract_list_flat_elements");
-    return res;
+StatusOr<jobject> JVMFunctionHelper::new_udf_type_desc(jint logical_type, jobjectArray children, jint precision,
+                                                        jint scale, jobject record_class) {
+    jobject obj = _env->NewObject(_udf_type_desc_class, _udf_type_desc_ctor, logical_type, children, precision,
+                                   scale, record_class);
+    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "new_udf_type_desc");
+    return obj;
 }
 
-StatusOr<jobject> JVMFunctionHelper::extract_map_flat_elements(jobject result, int num_rows, jlong map_col_addr,
-                                                                jint key_type, jint value_type) {
-    jobject res = _env->CallStaticObjectMethod(_udf_helper_class, _extract_map_flat_elements, num_rows, result,
-                                                map_col_addr, key_type, value_type);
-    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "extract_map_flat_elements");
-    return res;
-}
-
-StatusOr<jobject> JVMFunctionHelper::extract_struct_field_arrays(jobject result, int num_rows, jlong parent_col_addr,
-                                                                  const std::vector<jint>& sub_field_types) {
-    int num_fields = static_cast<int>(sub_field_types.size());
-    jintArray types = _env->NewIntArray(num_fields);
-    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "extract_struct_field_arrays: NewIntArray");
-    DeferOp drop_types([&]() {
-        if (types) _env->DeleteLocalRef(types);
-    });
-    if (num_fields > 0) {
-        _env->SetIntArrayRegion(types, 0, num_fields, sub_field_types.data());
-    }
-
-    jobject res = _env->CallStaticObjectMethod(_udf_helper_class, _extract_struct_field_arrays, num_rows, result,
-                                                parent_col_addr, types);
-    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "extract_struct_field_arrays");
-    return res;
+Status JVMFunctionHelper::write_result(jobject result, int num_rows, jlong column_addr, jobject type_desc,
+                                        bool /*error_if_overflow*/) {
+    // The error_if_overflow flag is currently ignored by the unified Java helper;
+    // inner DECIMAL collection elements always report errors on overflow (matching
+    // the pre-refactor writeElementsByType behavior). For top-level DECIMAL returns,
+    // BE callers can route through get_decimal_result_from_boxed_array directly.
+    _env->CallStaticVoidMethod(_udf_helper_class, _write_result, num_rows, result, column_addr, type_desc);
+    RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "write_result");
+    return Status::OK();
 }
 
 jobject JVMFunctionHelper::create_object_array(jobject o, int num_rows) {

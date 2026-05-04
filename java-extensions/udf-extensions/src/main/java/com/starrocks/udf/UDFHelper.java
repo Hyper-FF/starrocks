@@ -48,6 +48,7 @@ import java.util.UUID;
 
 import static com.starrocks.utils.NativeMethodHelper.getAddrs;
 import static com.starrocks.utils.NativeMethodHelper.getColumnLogicalType;
+import static com.starrocks.utils.NativeMethodHelper.getStructFieldAddrs;
 import static com.starrocks.utils.NativeMethodHelper.resize;
 import static com.starrocks.utils.NativeMethodHelper.resizeStringData;
 
@@ -59,6 +60,7 @@ public class UDFHelper {
     public static final int TYPE_FLOAT = 10;
     public static final int TYPE_DOUBLE = 11;
     public static final int TYPE_VARCHAR = 17;
+    public static final int TYPE_STRUCT = 18;
     public static final int TYPE_ARRAY = 19;
     public static final int TYPE_MAP = 20;
     public static final int TYPE_BOOLEAN = 24;
@@ -1436,7 +1438,7 @@ public class UDFHelper {
         return res;
     }
 
-    // ----- STRUCT support ---------------------------------------------------
+    // ----- STRUCT / nested type support ------------------------------------
     //
     // STRUCT params/returns are bound to a Java record class declared by the UDF
     // author. Each SQL field maps positionally to a record component; null at
@@ -1447,9 +1449,10 @@ public class UDFHelper {
     // (lock-free thread-local cache), so per-row construction is a single
     // Constructor.newInstance call.
     //
-    // v1 limitation: nested STRUCT inside another STRUCT/ARRAY/MAP is not yet
-    // wired through the BE data converter. The FE analyzer rejects such
-    // signatures at CREATE FUNCTION time.
+    // STRUCT can appear at any position in the type tree (top-level, inside
+    // ARRAY, inside MAP, inside another STRUCT). The BE builds a UdfTypeDesc tree
+    // mirroring the SQL TypeDescriptor and passes it to the unified writeResult
+    // entry point; the recursion happens entirely on the Java side from there.
 
     private static final ClassValue<Constructor<?>> RECORD_CANONICAL_CTOR = new ClassValue<Constructor<?>>() {
         @Override
@@ -1473,19 +1476,19 @@ public class UDFHelper {
     };
 
     /**
-     * Materialize a STRUCT column into an array of record instances.
+     * Materialize a STRUCT input column into an array of record instances.
+     *
+     * Used by the BE-side input boxing path which still drives the column-tree
+     * recursion in C++ (for direct ByteBuffer access to native column data) and
+     * hands assembled per-field Object[]s in here.
      *
      * @param numRows     number of rows in the column
      * @param nullBuffer  per-row null bitmap (1 byte per row, 1 = null) for the parent
      *                    NullableColumn; null when the parent column is non-nullable
-     * @param recordClass the formal Java record class declared in the UDF signature;
-     *                    its component count and component types must match the
-     *                    STRUCT field count/types (validated at CREATE FUNCTION time)
+     * @param recordClass the formal Java record class declared in the UDF signature
      * @param fieldArrays one element per STRUCT field, each of which is an Object[]
      *                    of length numRows holding the already-boxed values for that
      *                    field column
-     * @return Object[] of length numRows containing recordClass instances; entries
-     *         where the parent row is null are left as null
      */
     public static Object[] createBoxedStructArray(int numRows, ByteBuffer nullBuffer,
                                                   Class<?> recordClass, Object[] fieldArrays) {
@@ -1511,113 +1514,136 @@ public class UDFHelper {
     }
 
     /**
-     * Extract record components into per-field boxed arrays, and write the parent
-     * NullableColumn's null bitmap.
+     * Unified output writer. Recursively drains a UDF result jobject (records,
+     * lists, maps, scalars) into a native column tree using the SQL type info
+     * encoded in {@link UdfTypeDesc}. The BE constructs the UdfTypeDesc once per
+     * UDF return type and just calls this single entry point per query batch.
      *
-     * The BE drives per-subfield writes after this returns. For non-STRUCT subfields
-     * the BE calls UDFHelper.getResultFromBoxedArray (or the DECIMAL-aware variant);
-     * for STRUCT subfields the BE recurses into get_struct_boxed_result with the
-     * returned per-field array as the new boxedResult, materializing the inner
-     * StructColumn's children. Driving the recursion from the BE side avoids
-     * threading the SQL type tree (DECIMAL precision/scale, nested record classes)
-     * through the JNI boundary.
+     * Dispatch:
+     *   - STRUCT: extract record components for each field, write parent null
+     *     bitmap, recurse into each field column.
+     *   - ARRAY: write parent null bitmap + offsets, resize element column,
+     *     flatten into Object[] of element values, recurse into element column.
+     *   - MAP: similarly for keys + values columns.
+     *   - DECIMAL: getDecimalResultFromBoxedArray with precision/scale.
+     *   - other scalar: getResultFromBoxedArray.
      *
-     * @param numRows          number of rows
-     * @param boxedResult      Object[] of length numRows holding record instances or null
-     * @param parentColumnAddr address of the outer StructColumn's NullableColumn
-     * @param subFieldTypes    LogicalType for each STRUCT subfield; controls the runtime
-     *                         element type of the returned per-field array so the caller's
-     *                         per-type writer (which casts to `Integer[]` etc.) succeeds.
-     *                         STRUCT subfields are not in the `clazzs` map and fall back to
-     *                         `Object[]`, which the BE then re-feeds into this method.
-     * @return Object[numFields] where each entry is a fresh typed array of length numRows
-     *         holding the boxed value for that subfield. Slots where the parent row is null
-     *         are left as null.
+     * @param numRows    number of rows
+     * @param boxed      UDF result (Object[] of records / lists / maps / boxed scalars)
+     * @param columnAddr address of the outer NullableColumn for this slot
+     * @param desc       SQL type descriptor for this slot
      */
-    public static Object[] extractStructFieldArrays(int numRows, Object[] boxedResult,
-                                                    long parentColumnAddr, int[] subFieldTypes) {
-        int numFields = subFieldTypes.length;
-        Object[] perFieldValues = new Object[numFields];
-        for (int f = 0; f < numFields; f++) {
-            Class<?> fieldClass = clazzs.getOrDefault(subFieldTypes[f], Object.class);
-            perFieldValues[f] = Array.newInstance(fieldClass, numRows);
+    public static void writeResult(int numRows, Object boxed, long columnAddr, UdfTypeDesc desc) {
+        switch (desc.logicalType) {
+            case TYPE_STRUCT:
+                writeStructResult(numRows, (Object[]) boxed, columnAddr, desc);
+                return;
+            case TYPE_ARRAY:
+                writeArrayResult(numRows, (Object[]) boxed, columnAddr, desc);
+                return;
+            case TYPE_MAP:
+                writeMapResult(numRows, (Object[]) boxed, columnAddr, desc);
+                return;
+            case TYPE_DECIMAL32:
+            case TYPE_DECIMAL64:
+            case TYPE_DECIMAL128:
+            case TYPE_DECIMAL256:
+                // The BE-managed error_if_overflow flag is not reachable from here; the BE
+                // call site that invoked writeResult sets it by calling the explicit
+                // getDecimalResultFromBoxedArray for the top-level slot. Inner DECIMAL
+                // elements always report errors on overflow (collection writers can't
+                // null individual elements without breaking offsets), matching the
+                // pre-refactor writeElementsByType behavior.
+                getDecimalResultFromBoxedArray(desc.logicalType, desc.precision, desc.scale, numRows, boxed,
+                        columnAddr, /*errorIfOverflow=*/true);
+                return;
+            default:
+                getResultFromBoxedArray(desc.logicalType, numRows, boxed, columnAddr);
         }
-        if (numRows == 0) {
-            return perFieldValues;
-        }
+    }
+
+    // STRUCT result drain: write the parent null bitmap, then recurse into each
+    // subfield column with the per-field component values.
+    private static void writeStructResult(int numRows, Object[] boxed, long columnAddr, UdfTypeDesc desc) {
+        int numFields = desc.children.length;
 
         byte[] nulls = new byte[numRows];
         for (int r = 0; r < numRows; r++) {
-            if (boxedResult[r] == null) {
+            if (boxed == null || boxed[r] == null) {
                 nulls[r] = 1;
             }
         }
+        long[] parentAddrs = getAddrs(columnAddr);
+        Platform.copyMemory(nulls, Platform.BYTE_ARRAY_OFFSET, null, parentAddrs[0], numRows);
 
-        // Resolve component accessors lazily off the first non-null instance. The
-        // FE analyzer guarantees all non-null entries share the same record class.
+        if (numRows == 0) {
+            return;
+        }
+
+        // Lazily resolve component accessors off the first non-null instance.
         Class<?> recordClass = null;
         for (int r = 0; r < numRows; r++) {
-            if (boxedResult[r] != null) {
-                recordClass = boxedResult[r].getClass();
+            if (boxed[r] != null) {
+                recordClass = boxed[r].getClass();
                 break;
             }
         }
 
-        if (recordClass != null) {
-            RecordComponent[] comps = recordClass.getRecordComponents();
-            if (comps.length != numFields) {
-                throw new IllegalStateException("Record " + recordClass.getName() + " has " + comps.length
-                        + " components but STRUCT type has " + numFields + " fields");
-            }
-            try {
-                for (int r = 0; r < numRows; r++) {
-                    Object rec = boxedResult[r];
-                    if (rec == null) {
-                        continue;
-                    }
-                    for (int f = 0; f < numFields; f++) {
-                        ((Object[]) perFieldValues[f])[r] = comps[f].getAccessor().invoke(rec);
-                    }
-                }
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to access record components on " + recordClass.getName(), e);
-            }
+        // Each subfield column in StarRocks is itself a NullableColumn; resize them so
+        // the recursive writers find addresses lined up with the values they emit.
+        long[] fieldAddrs = getStructFieldAddrs(columnAddr);
+        for (int f = 0; f < numFields; f++) {
+            resize(fieldAddrs[f], numRows);
         }
 
-        // Write parent null bitmap.
-        long[] parentAddrs = getAddrs(parentColumnAddr);
-        Platform.copyMemory(nulls, Platform.BYTE_ARRAY_OFFSET, null, parentAddrs[0], numRows);
+        if (recordClass == null) {
+            // All-null parent column: still resize so downstream readers see the right shape.
+            for (int f = 0; f < numFields; f++) {
+                Object[] empty = (Object[]) Array.newInstance(
+                        clazzs.getOrDefault(desc.children[f].logicalType, Object.class), numRows);
+                writeResult(numRows, empty, fieldAddrs[f], desc.children[f]);
+            }
+            return;
+        }
+        RecordComponent[] comps = recordClass.getRecordComponents();
+        if (comps.length != numFields) {
+            throw new IllegalStateException("Record " + recordClass.getName() + " has " + comps.length
+                    + " components but STRUCT type has " + numFields + " fields");
+        }
 
-        return perFieldValues;
+        Object[][] perField = new Object[numFields][];
+        for (int f = 0; f < numFields; f++) {
+            Class<?> elemClass = clazzs.getOrDefault(desc.children[f].logicalType, Object.class);
+            perField[f] = (Object[]) Array.newInstance(elemClass, numRows);
+        }
+        try {
+            for (int r = 0; r < numRows; r++) {
+                Object rec = boxed[r];
+                if (rec == null) {
+                    continue;
+                }
+                for (int f = 0; f < numFields; f++) {
+                    perField[f][r] = comps[f].getAccessor().invoke(rec);
+                }
+            }
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException("Failed to access record components on " + recordClass.getName(), e);
+        }
+
+        for (int f = 0; f < numFields; f++) {
+            writeResult(numRows, perField[f], fieldAddrs[f], desc.children[f]);
+        }
     }
 
-    /**
-     * Drain a List<?>[] result column into a native ArrayColumn. Writes the
-     * parent null bitmap and offsets, resizes the inner element column to the
-     * total flattened length, and returns a flat array of element values for
-     * the BE to dispatch into the inner column writer.
-     *
-     * The element class is chosen from `clazzs` for scalar element types
-     * (Integer[]/String[]/...), or `Object.class` for STRUCT / recursive types
-     * — those flow back through extractStructFieldArrays / extractListFlatElements
-     * driven by the BE.
-     *
-     * @param numRows         number of rows
-     * @param boxedResult     Object[] holding List<?> instances or null
-     * @param arrayColumnAddr address of the outer NullableColumn(ArrayColumn)
-     * @param elementType     LogicalType of the inner element column (used to
-     *                        pick the runtime element class of the returned
-     *                        flat array)
-     * @return flat array of length totalElements; null entries (from null parent
-     *         rows) contribute nothing.
-     */
-    public static Object[] extractListFlatElements(int numRows, Object[] boxedResult,
-                                                   long arrayColumnAddr, int elementType) {
+    // ARRAY result drain: write parent null bitmap + offsets, resize the inner
+    // element column to the total flattened length, then recurse with the flat
+    // element array.
+    private static void writeArrayResult(int numRows, Object[] boxed, long columnAddr, UdfTypeDesc desc) {
         byte[] nulls = new byte[numRows];
         int[] offsets = new int[numRows];
         int total = 0;
         for (int i = 0; i < numRows; i++) {
-            Object v = (boxedResult != null) ? boxedResult[i] : null;
+            Object v = (boxed != null) ? boxed[i] : null;
             if (v == null) {
                 nulls[i] = 1;
             } else {
@@ -1625,52 +1651,39 @@ public class UDFHelper {
             }
             offsets[i] = total;
         }
-
-        long[] addrs = getAddrs(arrayColumnAddr);
+        long[] addrs = getAddrs(columnAddr);
         Platform.copyMemory(nulls, Platform.BYTE_ARRAY_OFFSET, null, addrs[0], numRows);
         Platform.copyMemory(offsets, Platform.INT_ARRAY_OFFSET, null, addrs[1] + 4, numRows * 4L);
 
         long elementAddr = addrs[2];
         resize(elementAddr, total);
 
-        Class<?> elemClass = clazzs.getOrDefault(elementType, Object.class);
+        UdfTypeDesc elemDesc = desc.children[0];
+        Class<?> elemClass = clazzs.getOrDefault(elemDesc.logicalType, Object.class);
         Object[] flat = (Object[]) Array.newInstance(elemClass, total);
         int pos = 0;
-        if (boxedResult != null) {
+        if (boxed != null) {
             for (int i = 0; i < numRows; i++) {
-                Object v = boxedResult[i];
+                Object v = boxed[i];
                 if (v == null) {
                     continue;
                 }
-                List<?> list = (List<?>) v;
-                for (Object o : list) {
+                for (Object o : (List<?>) v) {
                     flat[pos++] = o;
                 }
             }
         }
-        return flat;
+        writeResult(total, flat, elementAddr, elemDesc);
     }
 
-    /**
-     * Drain a Map<?,?>[] result column into a native MapColumn. Writes the
-     * parent null bitmap and offsets, resizes both key and value inner columns
-     * to the total flattened length, and returns a {keys, values} pair of flat
-     * arrays for the BE to dispatch.
-     *
-     * @param numRows       number of rows
-     * @param boxedResult   Object[] holding Map<?,?> instances or null
-     * @param mapColumnAddr address of the outer NullableColumn(MapColumn)
-     * @param keyType       LogicalType of the inner key column
-     * @param valueType     LogicalType of the inner value column
-     * @return Object[2] = {keys, values}, each a flat array of length totalElements.
-     */
-    public static Object[] extractMapFlatElements(int numRows, Object[] boxedResult,
-                                                  long mapColumnAddr, int keyType, int valueType) {
+    // MAP result drain: write parent null bitmap + offsets, resize key + value
+    // columns, then recurse into each.
+    private static void writeMapResult(int numRows, Object[] boxed, long columnAddr, UdfTypeDesc desc) {
         byte[] nulls = new byte[numRows];
         int[] offsets = new int[numRows];
         int total = 0;
         for (int i = 0; i < numRows; i++) {
-            Object v = (boxedResult != null) ? boxedResult[i] : null;
+            Object v = (boxed != null) ? boxed[i] : null;
             if (v == null) {
                 nulls[i] = 1;
             } else {
@@ -1678,8 +1691,7 @@ public class UDFHelper {
             }
             offsets[i] = total;
         }
-
-        long[] addrs = getAddrs(mapColumnAddr);
+        long[] addrs = getAddrs(columnAddr);
         Platform.copyMemory(nulls, Platform.BYTE_ARRAY_OFFSET, null, addrs[0], numRows);
         Platform.copyMemory(offsets, Platform.INT_ARRAY_OFFSET, null, addrs[1] + 4, numRows * 4L);
 
@@ -1688,15 +1700,17 @@ public class UDFHelper {
         resize(keyAddr, total);
         resize(valueAddr, total);
 
-        Class<?> keyClass = clazzs.getOrDefault(keyType, Object.class);
-        Class<?> valClass = clazzs.getOrDefault(valueType, Object.class);
+        UdfTypeDesc keyDesc = desc.children[0];
+        UdfTypeDesc valDesc = desc.children[1];
+        Class<?> keyClass = clazzs.getOrDefault(keyDesc.logicalType, Object.class);
+        Class<?> valClass = clazzs.getOrDefault(valDesc.logicalType, Object.class);
         Object[] keys = (Object[]) Array.newInstance(keyClass, total);
         Object[] values = (Object[]) Array.newInstance(valClass, total);
 
         int pos = 0;
-        if (boxedResult != null) {
+        if (boxed != null) {
             for (int i = 0; i < numRows; i++) {
-                Object v = boxedResult[i];
+                Object v = boxed[i];
                 if (v == null) {
                     continue;
                 }
@@ -1707,6 +1721,7 @@ public class UDFHelper {
                 }
             }
         }
-        return new Object[] {keys, values};
+        writeResult(total, keys, keyAddr, keyDesc);
+        writeResult(total, values, valueAddr, valDesc);
     }
 }

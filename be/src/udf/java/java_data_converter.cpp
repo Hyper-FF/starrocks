@@ -880,17 +880,41 @@ StatusOr<jobjectArray> type_actual_args(JNIEnv* env, jobject parameterized_type)
     return args;
 }
 
-// Walk the SQL TypeDescriptor in lockstep with the formal Java reflective Type,
-// capturing a JavaGlobalRef on the formal record class for every STRUCT slot.
-// Caller-owned: callers DeleteLocalRef on intermediate `jobject formal_type`s.
-Status build_java_type_node_recursive(JNIEnv* env, const TypeDescriptor& td, jobject formal_type,
-                                      JavaTypeNode* out) {
+} // namespace
+
+// Build a Java-side com.starrocks.udf.UdfTypeDesc tree mirroring the SQL
+// TypeDescriptor, capturing the formal record class at every STRUCT slot. Walked
+// in lockstep with the Java reflective Type so List<Inner> / Map<K,V> retain
+// Inner/K/V record-class info via ParameterizedType actual arguments and
+// RecordComponent.getGenericType() for nested record fields.
+//
+// The resulting jobject is the single source of type information shared with
+// the unified Java helpers (UDFHelper.writeResult / boxing helpers); the BE
+// stores it as a JavaGlobalRef per arg / return and passes it back across the
+// JNI boundary verbatim.
+StatusOr<jobject> build_udf_type_desc(JNIEnv* env, const TypeDescriptor& td, jobject formal_type) {
+    auto& helper = JVMFunctionHelper::getInstance();
+    jint logical_type = static_cast<jint>(td.type);
+    jint precision = static_cast<jint>(td.precision);
+    jint scale = static_cast<jint>(td.scale);
+
+    auto build_children = [&](const std::vector<jobject>& child_descs) -> StatusOr<jobjectArray> {
+        jobjectArray arr = env->NewObjectArray(static_cast<jsize>(child_descs.size()), helper.udf_type_desc_class(),
+                                                nullptr);
+        if (arr == nullptr) {
+            return Status::InternalError("failed to allocate UdfTypeDesc[] children");
+        }
+        for (size_t i = 0; i < child_descs.size(); ++i) {
+            env->SetObjectArrayElement(arr, static_cast<jsize>(i), child_descs[i]);
+        }
+        return arr;
+    };
+
     switch (td.type) {
     case TYPE_STRUCT: {
         ASSIGN_OR_RETURN(jclass raw, type_to_raw_class(env, formal_type));
-        out->record_class = JavaGlobalRef(env->NewGlobalRef(raw));
-        // Walk record components for each STRUCT field using their generic types so
-        // List<Inner> / Map<K,V> children retain Inner/K/V record-class info.
+        // Drill into record components using their parameterized generic types so
+        // fields like List<Inner> retain Inner.class.
         jclass class_clazz = env->FindClass("java/lang/Class");
         LOCAL_REF_GUARD_ENV(env, class_clazz);
         jmethodID get_components =
@@ -901,12 +925,14 @@ Status build_java_type_node_recursive(JNIEnv* env, const TypeDescriptor& td, job
             return Status::InternalError("getRecordComponents returned null on STRUCT slot");
         }
         LOCAL_REF_GUARD_ENV(env, comps);
-        int num_fields = static_cast<int>(td.children.size());
         jclass rc_clazz = env->FindClass("java/lang/reflect/RecordComponent");
         LOCAL_REF_GUARD_ENV(env, rc_clazz);
         jmethodID get_generic = env->GetMethodID(rc_clazz, "getGenericType", "()Ljava/lang/reflect/Type;");
-        for (int f = 0; f < num_fields; ++f) {
-            jobject comp = env->GetObjectArrayElement(comps, f);
+
+        std::vector<jobject> children;
+        children.reserve(td.children.size());
+        for (size_t f = 0; f < td.children.size(); ++f) {
+            jobject comp = env->GetObjectArrayElement(comps, static_cast<jsize>(f));
             LOCAL_REF_GUARD_ENV(env, comp);
             jobject child_formal = env->CallObjectMethod(comp, get_generic);
             if (env->ExceptionCheck() || child_formal == nullptr) {
@@ -914,21 +940,25 @@ Status build_java_type_node_recursive(JNIEnv* env, const TypeDescriptor& td, job
                 return Status::InternalError(fmt::format("RecordComponent.getGenericType null at {}", f));
             }
             LOCAL_REF_GUARD_ENV(env, child_formal);
-            auto child = std::make_unique<JavaTypeNode>();
-            RETURN_IF_ERROR(build_java_type_node_recursive(env, td.children[f], child_formal, child.get()));
-            out->children.emplace_back(std::move(child));
+            ASSIGN_OR_RETURN(jobject child_desc, build_udf_type_desc(env, td.children[f], child_formal));
+            children.emplace_back(child_desc);
         }
-        return Status::OK();
+        ASSIGN_OR_RETURN(jobjectArray children_arr, build_children(children));
+        for (jobject c : children) env->DeleteLocalRef(c);
+        LOCAL_REF_GUARD_ENV(env, children_arr);
+        return helper.new_udf_type_desc(logical_type, children_arr, precision, scale, raw);
     }
     case TYPE_ARRAY: {
         ASSIGN_OR_RETURN(jobjectArray args, type_actual_args(env, formal_type));
         LOCAL_REF_GUARD_ENV(env, args);
         jobject elem = env->GetObjectArrayElement(args, 0);
         LOCAL_REF_GUARD_ENV(env, elem);
-        auto child = std::make_unique<JavaTypeNode>();
-        RETURN_IF_ERROR(build_java_type_node_recursive(env, td.children[0], elem, child.get()));
-        out->children.emplace_back(std::move(child));
-        return Status::OK();
+        ASSIGN_OR_RETURN(jobject child_desc, build_udf_type_desc(env, td.children[0], elem));
+        std::vector<jobject> children = {child_desc};
+        ASSIGN_OR_RETURN(jobjectArray children_arr, build_children(children));
+        env->DeleteLocalRef(child_desc);
+        LOCAL_REF_GUARD_ENV(env, children_arr);
+        return helper.new_udf_type_desc(logical_type, children_arr, precision, scale, nullptr);
     }
     case TYPE_MAP: {
         ASSIGN_OR_RETURN(jobjectArray args, type_actual_args(env, formal_type));
@@ -937,42 +967,58 @@ Status build_java_type_node_recursive(JNIEnv* env, const TypeDescriptor& td, job
         LOCAL_REF_GUARD_ENV(env, key_t);
         jobject val_t = env->GetObjectArrayElement(args, 1);
         LOCAL_REF_GUARD_ENV(env, val_t);
-        auto k_child = std::make_unique<JavaTypeNode>();
-        RETURN_IF_ERROR(build_java_type_node_recursive(env, td.children[0], key_t, k_child.get()));
-        out->children.emplace_back(std::move(k_child));
-        auto v_child = std::make_unique<JavaTypeNode>();
-        RETURN_IF_ERROR(build_java_type_node_recursive(env, td.children[1], val_t, v_child.get()));
-        out->children.emplace_back(std::move(v_child));
-        return Status::OK();
+        ASSIGN_OR_RETURN(jobject k_child, build_udf_type_desc(env, td.children[0], key_t));
+        ASSIGN_OR_RETURN(jobject v_child, build_udf_type_desc(env, td.children[1], val_t));
+        std::vector<jobject> children = {k_child, v_child};
+        ASSIGN_OR_RETURN(jobjectArray children_arr, build_children(children));
+        env->DeleteLocalRef(k_child);
+        env->DeleteLocalRef(v_child);
+        LOCAL_REF_GUARD_ENV(env, children_arr);
+        return helper.new_udf_type_desc(logical_type, children_arr, precision, scale, nullptr);
     }
     default:
-        // Scalar / decimal / etc. — leaf node, nothing to capture.
-        return Status::OK();
+        // Scalar / decimal — leaf, no children.
+        return helper.new_udf_type_desc(logical_type, nullptr, precision, scale, nullptr);
     }
 }
 
-} // namespace
+// Helpers that read fields off a com.starrocks.udf.UdfTypeDesc jobject using the
+// jfieldIDs cached at JVMFunctionHelper init time. The UDF context holds one
+// UdfTypeDesc per arg / return — the input boxing path drills into it on demand
+// so STRUCT slots can recover the formal Java record class without a parallel
+// C++ tree.
+static jobject get_type_desc_child(JVMFunctionHelper& helper, jobject type_desc, int index) {
+    if (type_desc == nullptr) {
+        return nullptr;
+    }
+    JNIEnv* env = helper.getEnv();
+    jobjectArray children =
+            (jobjectArray)env->GetObjectField(type_desc, helper.udf_type_desc_children_field());
+    if (children == nullptr) {
+        return nullptr;
+    }
+    LOCAL_REF_GUARD_ENV(env, children);
+    return env->GetObjectArrayElement(children, index);
+}
 
-StatusOr<std::unique_ptr<JavaTypeNode>> build_java_type_node(JNIEnv* env, const TypeDescriptor& td,
-                                                              jobject formal_type) {
-    auto node = std::make_unique<JavaTypeNode>();
-    RETURN_IF_ERROR(build_java_type_node_recursive(env, td, formal_type, node.get()));
-    return node;
+static jclass get_type_desc_record_class(JVMFunctionHelper& helper, jobject type_desc) {
+    if (type_desc == nullptr) {
+        return nullptr;
+    }
+    JNIEnv* env = helper.getEnv();
+    return reinterpret_cast<jclass>(
+            env->GetObjectField(type_desc, helper.udf_type_desc_record_class_field()));
 }
 
 // Forward declarations for the mutually recursive boxing path: STRUCT slots
 // drive recursion through their fields; ARRAY/MAP slots drive recursion through
-// their element / key+value children. JavaTypeNode supplies the formal record
-// class at every STRUCT slot.
+// their element / key+value children. The UdfTypeDesc jobject supplies the
+// formal record class at every STRUCT slot.
 static StatusOr<jobject> box_column(JVMFunctionHelper& helper, const TypeDescriptor& type_desc, const Column* column,
-                                    const JavaTypeNode* node, int num_rows);
+                                    jobject type_desc_obj, int num_rows);
 
-// Box an ArrayColumn input whose elements may be STRUCT (or any other supported
-// type). The elements column is recursively boxed via box_column; element offsets
-// and the parent null bitmap are then handed to UDFHelper.createBoxedListArray
-// (which wraps slices of the flat element Object[] in ImmutableList views).
 static StatusOr<jobject> build_list_boxed_array(JVMFunctionHelper& helper, const TypeDescriptor& type_desc,
-                                                const Column* column, const JavaTypeNode* node, int num_rows) {
+                                                const Column* column, jobject type_desc_obj, int num_rows) {
     JNIEnv* env = helper.getEnv();
 
     const Column* data_column = column;
@@ -990,9 +1036,10 @@ static StatusOr<jobject> build_list_boxed_array(JVMFunctionHelper& helper, const
 
     const Column* elements_col = array_col->elements_column().get();
     int total_elements = static_cast<int>(elements_col->size());
-    const JavaTypeNode* elem_node = (node != nullptr && !node->children.empty()) ? node->children[0].get() : nullptr;
+    jobject elem_desc = get_type_desc_child(helper, type_desc_obj, 0);
+    LOCAL_REF_GUARD_ENV(env, elem_desc);
     ASSIGN_OR_RETURN(jobject elements_obj,
-                     box_column(helper, type_desc.children[0], elements_col, elem_node, total_elements));
+                     box_column(helper, type_desc.children[0], elements_col, elem_desc, total_elements));
     LOCAL_REF_GUARD_ENV(env, elements_obj);
 
     const auto& method_map = helper.method_map();
@@ -1005,11 +1052,8 @@ static StatusOr<jobject> build_list_boxed_array(JVMFunctionHelper& helper, const
                                         elements_obj);
 }
 
-// Box a MapColumn input whose keys and/or values may be STRUCT. Keys and values
-// are recursively boxed via box_column; offsets and parent null bitmap are then
-// handed to UDFHelper.createBoxedMapArray (which builds ImmutableMap views).
 static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const TypeDescriptor& type_desc,
-                                               const Column* column, const JavaTypeNode* node, int num_rows) {
+                                               const Column* column, jobject type_desc_obj, int num_rows) {
     JNIEnv* env = helper.getEnv();
 
     const Column* data_column = column;
@@ -1029,14 +1073,16 @@ static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const 
     const Column* values_col = map_col->values_column().get();
     int total_elements = static_cast<int>(keys_col->size());
 
-    const JavaTypeNode* key_node = (node != nullptr && node->children.size() > 0) ? node->children[0].get() : nullptr;
-    const JavaTypeNode* val_node = (node != nullptr && node->children.size() > 1) ? node->children[1].get() : nullptr;
+    jobject key_desc = get_type_desc_child(helper, type_desc_obj, 0);
+    LOCAL_REF_GUARD_ENV(env, key_desc);
+    jobject val_desc = get_type_desc_child(helper, type_desc_obj, 1);
+    LOCAL_REF_GUARD_ENV(env, val_desc);
 
     ASSIGN_OR_RETURN(jobject keys_obj,
-                     box_column(helper, type_desc.children[0], keys_col, key_node, total_elements));
+                     box_column(helper, type_desc.children[0], keys_col, key_desc, total_elements));
     LOCAL_REF_GUARD_ENV(env, keys_obj);
     ASSIGN_OR_RETURN(jobject values_obj,
-                     box_column(helper, type_desc.children[1], values_col, val_node, total_elements));
+                     box_column(helper, type_desc.children[1], values_col, val_desc, total_elements));
     LOCAL_REF_GUARD_ENV(env, values_obj);
 
     const auto& method_map = helper.method_map();
@@ -1049,17 +1095,14 @@ static StatusOr<jobject> build_map_boxed_array(JVMFunctionHelper& helper, const 
                                         keys_obj, values_obj);
 }
 
-// Box a STRUCT input column into a Java record array. Each subfield is recursively
-// boxed via box_column with the matching JavaTypeNode child, so STRUCT inside
-// ARRAY / MAP / nested STRUCT are all materialized using the formal record classes
-// captured at UDF context construction.
 static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, const TypeDescriptor& type_desc,
-                                                  const Column* column, const JavaTypeNode* node, int num_rows) {
-    if (node == nullptr || node->record_class.handle() == nullptr) {
+                                                  const Column* column, jobject type_desc_obj, int num_rows) {
+    JNIEnv* env = helper.getEnv();
+    jclass record_class = get_type_desc_record_class(helper, type_desc_obj);
+    LOCAL_REF_GUARD_ENV(env, record_class);
+    if (record_class == nullptr) {
         return Status::InternalError("STRUCT argument missing formal record class; cannot box");
     }
-    jclass record_class = reinterpret_cast<jclass>(node->record_class.handle());
-    JNIEnv* env = helper.getEnv();
 
     const Column* data_column = column;
     std::unique_ptr<DirectByteBuffer> parent_null_buf;
@@ -1087,9 +1130,9 @@ static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, con
     for (int f = 0; f < num_fields; ++f) {
         const Column* field_col = struct_col->field_column_raw_ptr(f);
         const TypeDescriptor& field_type = type_desc.children[f];
-        const JavaTypeNode* field_node = (f < static_cast<int>(node->children.size()))
-                                                  ? node->children[f].get() : nullptr;
-        ASSIGN_OR_RETURN(jobject sub_result, box_column(helper, field_type, field_col, field_node, num_rows));
+        jobject field_desc = get_type_desc_child(helper, type_desc_obj, f);
+        LOCAL_REF_GUARD_ENV(env, field_desc);
+        ASSIGN_OR_RETURN(jobject sub_result, box_column(helper, field_type, field_col, field_desc, num_rows));
         env->SetObjectArrayElement(field_arrays, f, sub_result);
         if (sub_result != nullptr) {
             env->DeleteLocalRef(sub_result);
@@ -1100,20 +1143,19 @@ static StatusOr<jobject> build_struct_boxed_array(JVMFunctionHelper& helper, con
     return helper.create_boxed_struct_array(record_class, num_rows, parent_null_handle, field_arrays);
 }
 
-// Recursive boxing dispatcher. Falls back to JavaArrayConverter (the original
-// non-recursive path) when the type subtree contains no STRUCT, since DECIMAL
-// columns and ARRAY/MAP-of-scalar already have efficient direct boxing helpers
-// keyed on the leaf data type.
+// Recursive boxing dispatcher. Falls back to JavaArrayConverter when the type
+// subtree contains no STRUCT (signaled by a null UdfTypeDesc), since DECIMAL
+// columns and ARRAY/MAP-of-scalar already have efficient direct boxing helpers.
 static StatusOr<jobject> box_column(JVMFunctionHelper& helper, const TypeDescriptor& type_desc, const Column* column,
-                                    const JavaTypeNode* node, int num_rows) {
+                                    jobject type_desc_obj, int num_rows) {
     if (type_desc.type == TYPE_STRUCT) {
-        return build_struct_boxed_array(helper, type_desc, column, node, num_rows);
+        return build_struct_boxed_array(helper, type_desc, column, type_desc_obj, num_rows);
     }
-    if (type_desc.type == TYPE_ARRAY && node != nullptr) {
-        return build_list_boxed_array(helper, type_desc, column, node, num_rows);
+    if (type_desc.type == TYPE_ARRAY && type_desc_obj != nullptr) {
+        return build_list_boxed_array(helper, type_desc, column, type_desc_obj, num_rows);
     }
-    if (type_desc.type == TYPE_MAP && node != nullptr) {
-        return build_map_boxed_array(helper, type_desc, column, node, num_rows);
+    if (type_desc.type == TYPE_MAP && type_desc_obj != nullptr) {
+        return build_map_boxed_array(helper, type_desc, column, type_desc_obj, num_rows);
     }
     if (is_decimalv3_field_type(type_desc.type)) {
         return build_decimal_boxed_array(type_desc, column, num_rows);
@@ -1125,14 +1167,14 @@ static StatusOr<jobject> box_column(JVMFunctionHelper& helper, const TypeDescrip
 
 Status JavaDataTypeConverter::convert_to_boxed_array(FunctionContext* ctx, const Column** columns, int num_cols,
                                                      int num_rows, std::vector<jobject>* res,
-                                                     const std::vector<const JavaTypeNode*>* arg_type_nodes) {
+                                                     const std::vector<jobject>* arg_type_descs) {
     auto& helper = JVMFunctionHelper::getInstance();
     JNIEnv* env = helper.getEnv();
     for (int i = 0; i < num_cols; ++i) {
         jobject arg = nullptr;
         const TypeDescriptor& arg_type = *ctx->get_arg_type(i);
-        const JavaTypeNode* node = (arg_type_nodes != nullptr && i < static_cast<int>(arg_type_nodes->size()))
-                                            ? (*arg_type_nodes)[i] : nullptr;
+        jobject type_desc_obj = (arg_type_descs != nullptr && i < static_cast<int>(arg_type_descs->size()))
+                                            ? (*arg_type_descs)[i] : nullptr;
         if (columns[i]->only_null() ||
             (columns[i]->is_nullable() && down_cast<const NullableColumn*>(columns[i])->null_count() == num_rows)) {
             arg = helper.create_array(num_rows);
@@ -1143,7 +1185,7 @@ Status JavaDataTypeConverter::convert_to_boxed_array(FunctionContext* ctx, const
             arg = helper.create_object_array(jval.l, num_rows);
             env->DeleteLocalRef(jval.l);
         } else {
-            ASSIGN_OR_RETURN(arg, box_column(helper, arg_type, columns[i], node, num_rows));
+            ASSIGN_OR_RETURN(arg, box_column(helper, arg_type, columns[i], type_desc_obj, num_rows));
         }
 
         res->emplace_back(arg);

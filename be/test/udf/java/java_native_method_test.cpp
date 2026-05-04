@@ -287,9 +287,9 @@ TEST_F(JavaNativeMethodTest, resize) {
     binary_column->get_bytes().clear();
 }
 
-// STRUCT result columns flow into UDFHelper.extractStructFieldArrays,
+// STRUCT result columns flow into the unified UDFHelper.writeResult helper,
 // which calls getAddrs on the parent NullableColumn to fetch the parent null
-// bitmap (per-subfield writes are driven by the BE after that helper returns).
+// bitmap and then walks getStructFieldAddrs to recurse into per-subfield writes.
 //
 // Without a do_visit(StructColumn) overload, GetColumnAddrVistor would fall
 // into the templated catch-all and surface as
