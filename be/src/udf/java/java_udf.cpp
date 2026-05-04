@@ -496,7 +496,8 @@ Status JVMFunctionHelper::write_result(jobject result, int num_rows, jlong colum
     // The error_if_overflow flag is currently ignored by the unified Java helper;
     // inner DECIMAL collection elements always report errors on overflow (matching
     // the pre-refactor writeElementsByType behavior). For top-level DECIMAL returns,
-    // BE callers can route through get_decimal_result_from_boxed_array directly.
+    // BE callers can route through get_result_from_boxed_array with explicit
+    // precision/scale instead.
     _env->CallStaticVoidMethod(_udf_helper_class, _write_result, num_rows, result, column_addr, type_desc);
     RETURN_ERROR_IF_JNI_EXCEPTION_WITH_PREFIX(_env, "write_result");
     return Status::OK();
@@ -582,29 +583,36 @@ jobject JVMFunctionHelper::int_batch_call(FunctionContext* ctx, jobject callers,
     return res;
 }
 
+// Single-source dispatcher: routes DECIMAL types through the precision/scale-aware
+// Java helper, everything else through the regular per-type writer. Splitting at the
+// JNI boundary still pays off — the regular path skips the BigDecimal rescale loop —
+// but BE callers see one entry point with sensible defaults for non-DECIMAL slots.
+static void invoke_boxed_result(JNIEnv* env, jclass helper_class, jmethodID get_boxed_result,
+                                 jmethodID get_decimal_boxed_result, int type, int precision, int scale, Column* col,
+                                 jobject jcolumn, int rows, bool error_if_overflow) {
+    col->resize(rows);
+    if (is_decimalv3_field_type(static_cast<LogicalType>(type))) {
+        env->CallStaticVoidMethod(helper_class, get_decimal_boxed_result, type, precision, scale, rows, jcolumn,
+                                   reinterpret_cast<int64_t>(col), static_cast<jboolean>(error_if_overflow));
+    } else {
+        env->CallStaticVoidMethod(helper_class, get_boxed_result, type, rows, jcolumn,
+                                   reinterpret_cast<int64_t>(col));
+    }
+}
+
+Status JVMFunctionHelper::get_result_from_boxed_array(int type, Column* col, jobject jcolumn, int rows, int precision,
+                                                      int scale, bool error_if_overflow) {
+    invoke_boxed_result(_env, _udf_helper_class, _get_boxed_result, _get_decimal_boxed_result, type, precision, scale,
+                         col, jcolumn, rows, error_if_overflow);
+    RETURN_ERROR_IF_JNI_EXCEPTION(_env);
+    return Status::OK();
+}
+
 void JVMFunctionHelper::get_result_from_boxed_array(FunctionContext* ctx, int type, Column* col, jobject jcolumn,
-                                                    int rows) {
-    col->resize(rows);
-    _env->CallStaticVoidMethod(_udf_helper_class, _get_boxed_result, type, rows, jcolumn,
-                               reinterpret_cast<int64_t>(col));
+                                                    int rows, int precision, int scale, bool error_if_overflow) {
+    invoke_boxed_result(_env, _udf_helper_class, _get_boxed_result, _get_decimal_boxed_result, type, precision, scale,
+                         col, jcolumn, rows, error_if_overflow);
     CHECK_UDF_CALL_EXCEPTION(_env, ctx);
-}
-
-Status JVMFunctionHelper::get_result_from_boxed_array(int type, Column* col, jobject jcolumn, int rows) {
-    col->resize(rows);
-    _env->CallStaticVoidMethod(_udf_helper_class, _get_boxed_result, type, rows, jcolumn,
-                               reinterpret_cast<int64_t>(col));
-    RETURN_ERROR_IF_JNI_EXCEPTION(_env);
-    return Status::OK();
-}
-
-Status JVMFunctionHelper::get_decimal_result_from_boxed_array(int type, int precision, int scale, Column* col,
-                                                              jobject jcolumn, int rows, bool error_if_overflow) {
-    col->resize(rows);
-    _env->CallStaticVoidMethod(_udf_helper_class, _get_decimal_boxed_result, type, precision, scale, rows, jcolumn,
-                               reinterpret_cast<int64_t>(col), static_cast<jboolean>(error_if_overflow));
-    RETURN_ERROR_IF_JNI_EXCEPTION(_env);
-    return Status::OK();
 }
 
 // convert UDAF ctx to jobject

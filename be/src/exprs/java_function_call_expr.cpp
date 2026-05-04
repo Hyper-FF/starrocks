@@ -103,15 +103,12 @@ struct UDFFunctionCallHelper {
             RETURN_IF_ERROR(helper.write_result(result, static_cast<int>(num_rows),
                                                  reinterpret_cast<jlong>(res.get()), return_desc,
                                                  ctx->error_if_overflow()));
-        } else if (is_decimalv3_field_type(return_type.type)) {
-            // Top-level DECIMAL: precision/scale-aware writer with the caller's
-            // overflow policy (REPORT_ERROR vs OUTPUT_NULL).
-            RETURN_IF_ERROR(helper.get_decimal_result_from_boxed_array(return_type.type, return_type.precision,
-                                                                       return_type.scale, res.get(), result, num_rows,
-                                                                       ctx->error_if_overflow()));
         } else {
-            // Plain scalar / ARRAY / MAP without STRUCT: existing direct writer.
-            RETURN_IF_ERROR(helper.get_result_from_boxed_array(return_type.type, res.get(), result, num_rows));
+            // Plain scalar / DECIMAL / ARRAY / MAP without STRUCT: unified writer
+            // dispatches DECIMAL internally based on the LogicalType.
+            RETURN_IF_ERROR(helper.get_result_from_boxed_array(return_type.type, res.get(), result, num_rows,
+                                                                return_type.precision, return_type.scale,
+                                                                ctx->error_if_overflow()));
         }
         RETURN_IF_ERROR(ColumnHelper::update_nested_has_null(res.get()));
         return res;

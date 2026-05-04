@@ -176,21 +176,19 @@ public:
     // return: jobject int[]
     jobject int_batch_call(FunctionContext* ctx, jobject callers, jobject method, int rows);
 
-    // type: LogicalType
-    // col: result column
-    // jcolumn: Integer[]/String[]
-    void get_result_from_boxed_array(FunctionContext* ctx, int type, Column* col, jobject jcolumn, int rows);
+    // Drain a UDF result jobject (Object[] of boxed values) into the native column.
+    // For DECIMAL types, supply precision/scale and the overflow policy
+    // (REPORT_ERROR vs OUTPUT_NULL); the helper rescales to (precision, scale) and
+    // raises ArithmeticException on overflow according to `error_if_overflow`.
+    // For non-DECIMAL types, the trailing arguments are ignored.
+    Status get_result_from_boxed_array(int type, Column* col, jobject jcolumn, int rows, int precision = 0,
+                                       int scale = 0, bool error_if_overflow = true);
 
-    Status get_result_from_boxed_array(int type, Column* col, jobject jcolumn, int rows);
-
-    // DECIMAL-aware result conversion. Used when the UDF return type is DECIMAL32/64/128/256
-    // so that the BigDecimal[] produced on the Java side can be materialized into a native
-    // DECIMAL column (int32/int64/int128/int256 unscaled) using `scale` for rounding.
-    // `precision` is the declared DECIMAL precision used for overflow detection; when a
-    // value does not fit, `error_if_overflow` decides between raising an ArithmeticException
-    // (REPORT_ERROR) or nulling the row (OUTPUT_NULL).
-    Status get_decimal_result_from_boxed_array(int type, int precision, int scale, Column* col, jobject jcolumn,
-                                               int rows, bool error_if_overflow);
+    // UDAF variant: same dispatch but reports JNI exceptions through FunctionContext::set_error
+    // instead of returning Status. UDAF return types are restricted to scalar/decimal so the
+    // dispatch matches the unified scalar/decimal logic above.
+    void get_result_from_boxed_array(FunctionContext* ctx, int type, Column* col, jobject jcolumn, int rows,
+                                     int precision = 0, int scale = 0, bool error_if_overflow = true);
 
     // Per-row helpers used by the BE for single-row DECIMAL writes. Both delegate the
     // setScale + range check + unscaled extraction to UDFHelper (Java side) and surface
