@@ -314,12 +314,10 @@ StatusOr<std::shared_ptr<JavaUDFContext>> JavaFunctionCallExpr::_build_udf_func_
                 } else if (class_clazz != nullptr && env->IsInstanceOf(varargs_formal, class_clazz)) {
                     // Raw array Class — e.g. Rec[] for Rec... varargs. Drop the array layer
                     // via Class.getComponentType().
-                    jmethodID get_component =
-                            env->GetMethodID(class_clazz, "getComponentType", "()Ljava/lang/Class;");
+                    jmethodID get_component = env->GetMethodID(class_clazz, "getComponentType", "()Ljava/lang/Class;");
                     varargs_elem_formal = env->CallObjectMethod(varargs_formal, get_component);
                 } else {
-                    return Status::InternalError(
-                            "UDF varargs formal type is neither Class nor GenericArrayType");
+                    return Status::InternalError("UDF varargs formal type is neither Class nor GenericArrayType");
                 }
                 if (env->ExceptionCheck() || varargs_elem_formal == nullptr) {
                     env->ExceptionClear();
