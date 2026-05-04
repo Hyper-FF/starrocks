@@ -493,6 +493,17 @@ StatusOr<jobject> JVMFunctionHelper::new_udf_type_desc(jint logical_type, jobjec
 
 Status JVMFunctionHelper::write_result(jobject result, int num_rows, jlong column_addr, jobject type_desc,
                                         bool /*error_if_overflow*/) {
+    // Resize the outer column to num_rows so the Java helper's getAddrs returns
+    // a buffer that's actually backed by num_rows worth of bytes. Without this
+    // the Java side's Platform.copyMemory writes past the end of an empty null
+    // buffer (the BE allocates a 0-sized column via create_column) and crashes.
+    // For NullableColumn(StructColumn) this also cascades to each subfield, so
+    // STRUCT field writes find their addresses lined up. ARRAY/MAP element
+    // columns are still resized inside the Java drain helpers using the
+    // computed total flattened length.
+    auto* col = reinterpret_cast<Column*>(column_addr);
+    col->resize(num_rows);
+
     // The error_if_overflow flag is currently ignored by the unified Java helper;
     // inner DECIMAL collection elements always report errors on overflow (matching
     // the pre-refactor writeElementsByType behavior). For top-level DECIMAL returns,
