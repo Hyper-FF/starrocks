@@ -261,7 +261,10 @@ StatusOr<std::shared_ptr<JavaUDFContext>> JavaFunctionCallExpr::_build_udf_func_
                     env->GetMethodID(method_class, "getGenericParameterTypes", "()[Ljava/lang/reflect/Type;");
             jmethodID get_generic_return =
                     env->GetMethodID(method_class, "getGenericReturnType", "()Ljava/lang/reflect/Type;");
+            jmethodID is_var_args_mid = env->GetMethodID(method_class, "isVarArgs", "()Z");
+            jmethodID get_param_count_mid = env->GetMethodID(method_class, "getParameterCount", "()I");
             DCHECK(get_generic_param != nullptr && get_generic_return != nullptr);
+            DCHECK(is_var_args_mid != nullptr && get_param_count_mid != nullptr);
 
             jobjectArray generic_params = (jobjectArray)env->CallObjectMethod(method_obj, get_generic_param);
             if (env->ExceptionCheck() || generic_params == nullptr) {
@@ -270,15 +273,83 @@ StatusOr<std::shared_ptr<JavaUDFContext>> JavaFunctionCallExpr::_build_udf_func_
             }
             DeferOp drop_generic_params([&]() { env->DeleteLocalRef(generic_params); });
 
+            // Varargs handling: when the Java method declares `T... vs`, reflection exposes
+            // the varargs slot's formal type as either Class<T[]> (raw array) or
+            // GenericArrayType(List<Inner>) for parameterized element types. The expanded SQL
+            // arg list (`_children`) has one entry per actual call-site value, exceeding the
+            // Java parameter count. For SQL args at index >= num_fixed_params we resolve
+            // against the varargs ELEMENT type, unwrapping the array layer once.
+            jboolean is_varargs = env->CallBooleanMethod(method_obj, is_var_args_mid);
+            jint java_param_count = env->CallIntMethod(method_obj, get_param_count_mid);
+            int num_fixed_params = is_varargs ? std::max(0, java_param_count - 1) : java_param_count;
+
+            // Resolve the varargs element type once if the varargs slot is reachable from any
+            // STRUCT-bearing SQL arg. The result is a fresh local ref the caller deletes.
+            jobject varargs_elem_formal = nullptr;
+            DeferOp drop_varargs_elem([&]() {
+                if (varargs_elem_formal) env->DeleteLocalRef(varargs_elem_formal);
+            });
+            if (is_varargs && num_args > num_fixed_params) {
+                jobject varargs_formal = env->GetObjectArrayElement(generic_params, num_fixed_params);
+                if (env->ExceptionCheck() || varargs_formal == nullptr) {
+                    env->ExceptionClear();
+                    return Status::InternalError("failed to read UDF varargs formal type");
+                }
+                DeferOp drop_varargs_formal([&]() { env->DeleteLocalRef(varargs_formal); });
+
+                jclass gat_clazz = env->FindClass("java/lang/reflect/GenericArrayType");
+                DeferOp drop_gat_clazz([&]() {
+                    if (gat_clazz) env->DeleteLocalRef(gat_clazz);
+                });
+                jclass class_clazz = env->FindClass("java/lang/Class");
+                DeferOp drop_class_clazz([&]() {
+                    if (class_clazz) env->DeleteLocalRef(class_clazz);
+                });
+
+                if (gat_clazz != nullptr && env->IsInstanceOf(varargs_formal, gat_clazz)) {
+                    // List<Inner>[] / Map<K,V>[] → ParameterizedType element.
+                    jmethodID get_component =
+                            env->GetMethodID(gat_clazz, "getGenericComponentType", "()Ljava/lang/reflect/Type;");
+                    varargs_elem_formal = env->CallObjectMethod(varargs_formal, get_component);
+                } else if (class_clazz != nullptr && env->IsInstanceOf(varargs_formal, class_clazz)) {
+                    // Raw array Class — e.g. Rec[] for Rec... varargs. Drop the array layer
+                    // via Class.getComponentType().
+                    jmethodID get_component =
+                            env->GetMethodID(class_clazz, "getComponentType", "()Ljava/lang/Class;");
+                    varargs_elem_formal = env->CallObjectMethod(varargs_formal, get_component);
+                } else {
+                    return Status::InternalError(
+                            "UDF varargs formal type is neither Class nor GenericArrayType");
+                }
+                if (env->ExceptionCheck() || varargs_elem_formal == nullptr) {
+                    env->ExceptionClear();
+                    return Status::InternalError("failed to unwrap UDF varargs element type");
+                }
+            }
+
             for (int i = 0; i < num_args; ++i) {
                 if (!type_subtree_has_struct(_children[i]->type())) {
                     continue;
                 }
-                jobject formal = env->GetObjectArrayElement(generic_params, i);
-                if (formal == nullptr) {
-                    return Status::InternalError(fmt::format("UDF evaluate parameter {} formal type is null", i));
+                jobject formal = nullptr;
+                DeferOp drop_formal([&]() {
+                    if (formal) env->DeleteLocalRef(formal);
+                });
+                if (i < num_fixed_params) {
+                    formal = env->GetObjectArrayElement(generic_params, i);
+                    if (env->ExceptionCheck() || formal == nullptr) {
+                        env->ExceptionClear();
+                        return Status::InternalError(fmt::format("UDF evaluate parameter {} formal type is null", i));
+                    }
+                } else {
+                    // Varargs slot — use the unwrapped element type. Bump its ref count so
+                    // the per-iteration drop_formal can DeleteLocalRef without invalidating
+                    // varargs_elem_formal for the next iteration.
+                    formal = env->NewLocalRef(varargs_elem_formal);
+                    if (formal == nullptr) {
+                        return Status::InternalError("failed to retain UDF varargs element formal type");
+                    }
                 }
-                DeferOp drop_formal([&]() { env->DeleteLocalRef(formal); });
                 ASSIGN_OR_RETURN(jobject local_desc, build_udf_type_desc(env, _children[i]->type(), formal));
                 desc->evaluate_arg_type_descs[i] = JavaGlobalRef(env->NewGlobalRef(local_desc));
                 env->DeleteLocalRef(local_desc);
