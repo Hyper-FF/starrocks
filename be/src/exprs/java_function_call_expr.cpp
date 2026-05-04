@@ -114,7 +114,6 @@ struct UDFFunctionCallHelper {
             RETURN_IF_ERROR(helper.get_result_from_boxed_array(return_type.type, res.get(), result, num_rows));
         }
         RETURN_IF_ERROR(ColumnHelper::update_nested_has_null(res.get()));
-        down_cast<NullableColumn*>(res.get())->update_has_null();
         return res;
     }
 };
