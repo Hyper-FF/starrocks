@@ -550,9 +550,9 @@ struct AsyncRuntimeFilterRpcClosure : public RuntimeFilterRpcClosure {
     }
 };
 
-static void submit_async_runtime_filter_rpc(const RpcServices* rpc_services, const TNetworkAddress& dest, int timeout_ms,
-                                            int64_t http_min_size, const PTransmitRuntimeFilterParams& request,
-                                            const char* debug_info) {
+static void submit_async_runtime_filter_rpc(const RpcServices* rpc_services, const TNetworkAddress& dest,
+                                            int timeout_ms, int64_t http_min_size,
+                                            const PTransmitRuntimeFilterParams& request, const char* debug_info) {
     // The closure and brpc's internal serialization buffers are released by a
     // brpc bthread after this function returns, where no thread-local mem
     // tracker is set. Callers usually run under a query mem tracker
