@@ -285,6 +285,17 @@ public class CreateFunctionAnalyzer {
                 resolveRecursively(p, visited);
             }
             resolveRecursively(m.getReturnType(), visited);
+            // Walk the generic parameter / return types as well so that record
+            // classes only reachable through a parameterized signature
+            // (List<Inner>, Map<K, V>, ...) get loaded while the UDF classloader
+            // is still open. Without this priming, the analyzer's later call to
+            // ParameterizedType.getActualTypeArguments() surfaces as
+            // TypeNotPresentException once the try-with-resources closes the
+            // classloader.
+            for (java.lang.reflect.Type gt : m.getGenericParameterTypes()) {
+                collectFromGenericType(gt, visited);
+            }
+            collectFromGenericType(m.getGenericReturnType(), visited);
         }
     }
 
