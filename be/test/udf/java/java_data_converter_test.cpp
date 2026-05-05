@@ -767,37 +767,30 @@ TEST_F(DataConverterTest, build_udf_type_desc_scalar_leaves) {
     auto& helper = JVMFunctionHelper::getInstance();
     JNIEnv* env = helper.getEnv();
 
-    auto check_leaf = [&](LogicalType t, int precision, int scale) {
-        TypeDescriptor td;
-        if (precision != 0 || scale != 0) {
-            td = TypeDescriptor::create_decimalv3_type(t, precision, scale);
-        } else {
-            td = TypeDescriptor(t);
-        }
+    auto check_leaf = [&](const TypeDescriptor& td) {
         ASSIGN_OR_ASSERT_FAIL(jobject desc, build_udf_type_desc(env, td, /*formal_type=*/nullptr));
         LOCAL_REF_GUARD(desc);
         ASSERT_NE(desc, nullptr);
 
         jclass cls = helper.udf_type_desc_class();
-        EXPECT_EQ(static_cast<jint>(t), env->GetIntField(desc, env->GetFieldID(cls, "logicalType", "I")));
-        EXPECT_EQ(precision, env->GetIntField(desc, env->GetFieldID(cls, "precision", "I")));
-        EXPECT_EQ(scale, env->GetIntField(desc, env->GetFieldID(cls, "scale", "I")));
+        EXPECT_EQ(static_cast<jint>(td.type), env->GetIntField(desc, env->GetFieldID(cls, "logicalType", "I")));
+        // build_udf_type_desc forwards td.precision / td.scale verbatim. For
+        // scalars TypeDescriptor leaves them at the sentinel (-1); DECIMAL
+        // slots carry the declared precision/scale.
+        EXPECT_EQ(td.precision, env->GetIntField(desc, env->GetFieldID(cls, "precision", "I")));
+        EXPECT_EQ(td.scale, env->GetIntField(desc, env->GetFieldID(cls, "scale", "I")));
         // Leaf: no children, no record class.
         EXPECT_EQ(nullptr, env->GetObjectField(desc, helper.udf_type_desc_children_field()));
         EXPECT_EQ(nullptr, env->GetObjectField(desc, helper.udf_type_desc_record_class_field()));
     };
 
-    check_leaf(TYPE_BOOLEAN, 0, 0);
-    check_leaf(TYPE_INT, 0, 0);
-    check_leaf(TYPE_BIGINT, 0, 0);
-    check_leaf(TYPE_DOUBLE, 0, 0);
-    check_leaf(TYPE_VARCHAR, 0, 0);
-    check_leaf(TYPE_DATE, 0, 0);
-    check_leaf(TYPE_DATETIME, 0, 0);
-    check_leaf(TYPE_DECIMAL32, 9, 2);
-    check_leaf(TYPE_DECIMAL64, 18, 4);
-    check_leaf(TYPE_DECIMAL128, 38, 10);
-    check_leaf(TYPE_DECIMAL256, 76, 10);
+    for (auto t : {TYPE_BOOLEAN, TYPE_INT, TYPE_BIGINT, TYPE_DOUBLE, TYPE_VARCHAR, TYPE_DATE, TYPE_DATETIME}) {
+        check_leaf(TypeDescriptor(t));
+    }
+    check_leaf(TypeDescriptor::create_decimalv3_type(TYPE_DECIMAL32, 9, 2));
+    check_leaf(TypeDescriptor::create_decimalv3_type(TYPE_DECIMAL64, 18, 4));
+    check_leaf(TypeDescriptor::create_decimalv3_type(TYPE_DECIMAL128, 38, 10));
+    check_leaf(TypeDescriptor::create_decimalv3_type(TYPE_DECIMAL256, 76, 10));
 }
 
 // convert_to_boxed_array passes a non-null arg_type_descs vector but with all
