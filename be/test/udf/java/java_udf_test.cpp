@@ -253,7 +253,7 @@ TEST_F(JavaUDFTest, get_result_from_boxed_array_decimal_dispatch) {
     auto td = TypeDescriptor::create_decimalv3_type(TYPE_DECIMAL64, 9, 2);
     auto result = ColumnHelper::create_column(td, true);
     ASSERT_OK(helper.get_result_from_boxed_array(TYPE_DECIMAL64, result.get(), arr, 3, 9, 2,
-                                                  /*error_if_overflow=*/true));
+                                                 /*error_if_overflow=*/true));
     down_cast<NullableColumn*>(result.get())->update_has_null();
     ASSERT_EQ(result->size(), 3);
     EXPECT_FALSE(result->is_null(0));
@@ -302,7 +302,7 @@ TEST_F(JavaUDFTest, new_udf_type_desc_scalar_leaf) {
 
     ASSIGN_OR_ASSERT_FAIL(jobject desc,
                           helper.new_udf_type_desc(/*logicalType=*/TYPE_INT, /*children=*/nullptr,
-                                                    /*precision=*/0, /*scale=*/0, /*record_class=*/nullptr));
+                                                   /*precision=*/0, /*scale=*/0, /*record_class=*/nullptr));
     LOCAL_REF_GUARD(desc);
     ASSERT_NE(desc, nullptr);
 
@@ -339,16 +339,14 @@ TEST_F(JavaUDFTest, new_udf_type_desc_decimal_and_struct) {
     // Verifies the children array slot and record-class slot both populate the
     // jfieldIDs the BE input boxer reads at runtime.
     {
-        ASSIGN_OR_ASSERT_FAIL(jobject child,
-                              helper.new_udf_type_desc(TYPE_INT, nullptr, 0, 0, nullptr));
+        ASSIGN_OR_ASSERT_FAIL(jobject child, helper.new_udf_type_desc(TYPE_INT, nullptr, 0, 0, nullptr));
         LOCAL_REF_GUARD(child);
         jobjectArray children = env->NewObjectArray(1, helper.udf_type_desc_class(), child);
         LOCAL_REF_GUARD(children);
 
         jclass string_cls = env->FindClass("java/lang/String");
         ASSERT_NE(string_cls, nullptr);
-        ASSIGN_OR_ASSERT_FAIL(jobject desc,
-                              helper.new_udf_type_desc(TYPE_STRUCT, children, 0, 0, string_cls));
+        ASSIGN_OR_ASSERT_FAIL(jobject desc, helper.new_udf_type_desc(TYPE_STRUCT, children, 0, 0, string_cls));
         LOCAL_REF_GUARD(desc);
 
         jobject record_class = env->GetObjectField(desc, helper.udf_type_desc_record_class_field());
