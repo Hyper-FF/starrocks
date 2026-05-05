@@ -929,8 +929,7 @@ TEST_F(DataConverterTest, build_udf_type_desc_struct_via_reflected_method) {
 
     // children = [INT, VARCHAR]. Walking via the cached jfieldID exercises the
     // exact accessor the BE-side input boxer reads at runtime.
-    jobjectArray children =
-            (jobjectArray)env->GetObjectField(desc, helper.udf_type_desc_children_field());
+    jobjectArray children = (jobjectArray)env->GetObjectField(desc, helper.udf_type_desc_children_field());
     LOCAL_REF_GUARD(children);
     ASSERT_NE(children, nullptr);
     ASSERT_EQ(2, env->GetArrayLength(children));
@@ -965,16 +964,14 @@ TEST_F(DataConverterTest, build_udf_type_desc_array_of_struct) {
     EXPECT_EQ(static_cast<jint>(TYPE_ARRAY), env->GetIntField(desc, env->GetFieldID(cls, "logicalType", "I")));
     EXPECT_EQ(nullptr, env->GetObjectField(desc, helper.udf_type_desc_record_class_field()));
 
-    jobjectArray children =
-            (jobjectArray)env->GetObjectField(desc, helper.udf_type_desc_children_field());
+    jobjectArray children = (jobjectArray)env->GetObjectField(desc, helper.udf_type_desc_children_field());
     LOCAL_REF_GUARD(children);
     ASSERT_NE(children, nullptr);
     ASSERT_EQ(1, env->GetArrayLength(children));
 
     jobject elem_desc = env->GetObjectArrayElement(children, 0);
     LOCAL_REF_GUARD(elem_desc);
-    EXPECT_EQ(static_cast<jint>(TYPE_STRUCT),
-              env->GetIntField(elem_desc, env->GetFieldID(cls, "logicalType", "I")));
+    EXPECT_EQ(static_cast<jint>(TYPE_STRUCT), env->GetIntField(elem_desc, env->GetFieldID(cls, "logicalType", "I")));
     jobject elem_record_class = env->GetObjectField(elem_desc, helper.udf_type_desc_record_class_field());
     LOCAL_REF_GUARD(elem_record_class);
     jclass expected = test_struct_record_class(env);
@@ -1003,8 +1000,7 @@ TEST_F(DataConverterTest, build_udf_type_desc_map_of_struct) {
     jclass cls = helper.udf_type_desc_class();
     EXPECT_EQ(static_cast<jint>(TYPE_MAP), env->GetIntField(desc, env->GetFieldID(cls, "logicalType", "I")));
 
-    jobjectArray children =
-            (jobjectArray)env->GetObjectField(desc, helper.udf_type_desc_children_field());
+    jobjectArray children = (jobjectArray)env->GetObjectField(desc, helper.udf_type_desc_children_field());
     LOCAL_REF_GUARD(children);
     ASSERT_NE(children, nullptr);
     ASSERT_EQ(2, env->GetArrayLength(children));
@@ -1041,22 +1037,18 @@ TEST_F(DataConverterTest, build_udf_type_desc_array_of_array_of_struct) {
 
     jclass cls = helper.udf_type_desc_class();
     EXPECT_EQ(static_cast<jint>(TYPE_ARRAY), env->GetIntField(desc, env->GetFieldID(cls, "logicalType", "I")));
-    jobjectArray outer_children =
-            (jobjectArray)env->GetObjectField(desc, helper.udf_type_desc_children_field());
+    jobjectArray outer_children = (jobjectArray)env->GetObjectField(desc, helper.udf_type_desc_children_field());
     LOCAL_REF_GUARD(outer_children);
     jobject mid = env->GetObjectArrayElement(outer_children, 0);
     LOCAL_REF_GUARD(mid);
     EXPECT_EQ(static_cast<jint>(TYPE_ARRAY), env->GetIntField(mid, env->GetFieldID(cls, "logicalType", "I")));
 
-    jobjectArray mid_children =
-            (jobjectArray)env->GetObjectField(mid, helper.udf_type_desc_children_field());
+    jobjectArray mid_children = (jobjectArray)env->GetObjectField(mid, helper.udf_type_desc_children_field());
     LOCAL_REF_GUARD(mid_children);
     jobject inner_struct = env->GetObjectArrayElement(mid_children, 0);
     LOCAL_REF_GUARD(inner_struct);
-    EXPECT_EQ(static_cast<jint>(TYPE_STRUCT),
-              env->GetIntField(inner_struct, env->GetFieldID(cls, "logicalType", "I")));
-    jobject inner_record_class =
-            env->GetObjectField(inner_struct, helper.udf_type_desc_record_class_field());
+    EXPECT_EQ(static_cast<jint>(TYPE_STRUCT), env->GetIntField(inner_struct, env->GetFieldID(cls, "logicalType", "I")));
+    jobject inner_record_class = env->GetObjectField(inner_struct, helper.udf_type_desc_record_class_field());
     LOCAL_REF_GUARD(inner_record_class);
     jclass expected = test_struct_record_class(env);
     LOCAL_REF_GUARD(expected);
