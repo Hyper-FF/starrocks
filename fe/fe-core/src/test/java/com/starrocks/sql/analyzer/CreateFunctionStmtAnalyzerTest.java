@@ -1570,4 +1570,86 @@ public class CreateFunctionStmtAnalyzerTest {
             Config.enable_udf = false;
         }
     }
+
+    // Varargs UDF with at least one fixed parameter ahead of the varargs slot.
+    // Covers checkVarargsParametersGeneric's `for (i = 0; i < length - 1; i++)`
+    // body which only fires when declaredArgTypes.length >= 2 (existing varargs
+    // tests use a single varargs-only signature, so this loop stays cold).
+    public static class FixedAndVarargsEval {
+        public String evaluate(Integer fixed, String... rest) {
+            StringBuilder sb = new StringBuilder().append(fixed).append(':');
+            for (int i = 0; i < rest.length; i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                sb.append(rest[i]);
+            }
+            return sb.toString();
+        }
+    }
+
+    @Test
+    public void testScalarVarargsWithFixedParam() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(FixedAndVarargsEval.class);
+            String sql = "CREATE FUNCTION ABC.fixed_then_varargs(int, string, ...) \n"
+                    + "RETURNS string \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+            Assertions.assertTrue(stmt.getFunction().hasVarArgs());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
+
+    // Parameterized varargs: the Java method's varargs slot is `List<Integer>...`
+    // (or any other parameterized type) so reflection exposes the varargs slot's
+    // formal type as a GenericArrayType, not a raw Class<Integer[]>. Covers the
+    // GenericArrayType.getGenericComponentType() unwrap branch in
+    // checkVarargsParametersGeneric — the same path BE side relies on to
+    // recover STRUCT element classes from `List<Inner>...` style varargs.
+    public static class ParameterizedVarargsEval {
+        @SafeVarargs
+        public final Integer evaluate(List<Integer>... lists) {
+            int sum = 0;
+            for (List<Integer> l : lists) {
+                if (l != null) {
+                    for (Integer v : l) {
+                        if (v != null) {
+                            sum += v;
+                        }
+                    }
+                }
+            }
+            return sum;
+        }
+    }
+
+    @Test
+    public void testParameterizedVarargsScalarUDF() {
+        try {
+            Config.enable_udf = true;
+            mockClazz(ParameterizedVarargsEval.class);
+            String sql = "CREATE FUNCTION ABC.param_varargs(array<int>, ...) \n"
+                    + "RETURNS int \n"
+                    + "properties (\n"
+                    + "    \"symbol\" = \"symbol\",\n"
+                    + "    \"type\" = \"StarrocksJar\",\n"
+                    + "    \"file\" = \"http://localhost:8080/\"\n"
+                    + ");";
+            CreateFunctionStmt stmt = (CreateFunctionStmt) com.starrocks.sql.parser.SqlParser.parse(sql, 32).get(0);
+            new CreateFunctionAnalyzer().analyze(stmt, connectContext);
+            Assertions.assertEquals("0xff", stmt.getFunction().getChecksum());
+            Assertions.assertTrue(stmt.getFunction().hasVarArgs());
+        } finally {
+            Config.enable_udf = false;
+        }
+    }
 }
