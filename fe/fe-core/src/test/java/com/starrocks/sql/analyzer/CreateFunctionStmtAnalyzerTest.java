@@ -1219,8 +1219,8 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(StructEval.class);
-            String sql = "CREATE FUNCTION ABC.addr_udf(struct<street varchar, zip int>) \n"
-                    + "RETURNS struct<full varchar, region int> \n"
+            String sql = "CREATE FUNCTION ABC.addr_udf(struct<street string, zip int>) \n"
+                    + "RETURNS struct<`full` string, region int> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1239,8 +1239,8 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(WideStructEval.class);
-            String sql = "CREATE FUNCTION ABC.wide(struct<s varchar, i int, l bigint, d double>) \n"
-                    + "RETURNS struct<s varchar, i int, l bigint, d double> \n"
+            String sql = "CREATE FUNCTION ABC.wide(struct<s string, i int, l bigint, d double>) \n"
+                    + "RETURNS struct<s string, i int, l bigint, d double> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1259,8 +1259,8 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(StructListEval.class);
-            String sql = "CREATE FUNCTION ABC.with_list(struct<name varchar, tags array<varchar>>) \n"
-                    + "RETURNS struct<name varchar, tags array<varchar>> \n"
+            String sql = "CREATE FUNCTION ABC.with_list(struct<name string, tags array<string>>) \n"
+                    + "RETURNS struct<name string, tags array<string>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1279,8 +1279,8 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(StructMapEval.class);
-            String sql = "CREATE FUNCTION ABC.with_map(struct<name varchar, attrs map<varchar,varchar>>) \n"
-                    + "RETURNS struct<name varchar, attrs map<varchar,varchar>> \n"
+            String sql = "CREATE FUNCTION ABC.with_map(struct<name string, attrs map<string,string>>) \n"
+                    + "RETURNS struct<name string, attrs map<string,string>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1300,8 +1300,8 @@ public class CreateFunctionStmtAnalyzerTest {
             try {
                 Config.enable_udf = true;
                 mockClazz(StructNonRecordEval.class);
-                String sql = "CREATE FUNCTION ABC.bad(struct<a varchar>) \n"
-                        + "RETURNS struct<full varchar, region int> \n"
+                String sql = "CREATE FUNCTION ABC.bad(struct<a string>) \n"
+                        + "RETURNS struct<`full` string, region int> \n"
                         + "properties (\n"
                         + "    \"symbol\" = \"symbol\",\n"
                         + "    \"type\" = \"StarrocksJar\",\n"
@@ -1322,8 +1322,8 @@ public class CreateFunctionStmtAnalyzerTest {
                 Config.enable_udf = true;
                 mockClazz(StructEval.class);
                 // Address record has 2 components but SQL declares 3 fields.
-                String sql = "CREATE FUNCTION ABC.bad(struct<a varchar, b int, c int>) \n"
-                        + "RETURNS struct<full varchar, region int> \n"
+                String sql = "CREATE FUNCTION ABC.bad(struct<a string, b int, c int>) \n"
+                        + "RETURNS struct<`full` string, region int> \n"
                         + "properties (\n"
                         + "    \"symbol\" = \"symbol\",\n"
                         + "    \"type\" = \"StarrocksJar\",\n"
@@ -1409,8 +1409,8 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(NestedStructEval.class);
-            String sql = "CREATE FUNCTION ABC.nested(struct<name varchar, `inner` struct<a int, b varchar>>) \n"
-                    + "RETURNS struct<name varchar, `inner` struct<a int, b varchar>> \n"
+            String sql = "CREATE FUNCTION ABC.nested(struct<name string, `inner` struct<a int, b string>>) \n"
+                    + "RETURNS struct<name string, `inner` struct<a int, b string>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1430,8 +1430,8 @@ public class CreateFunctionStmtAnalyzerTest {
             Config.enable_udf = true;
             mockClazz(NestedStructTwoFieldsEval.class);
             String sql = "CREATE FUNCTION ABC.nested2("
-                    + "struct<`left` struct<a int, b varchar>, `right` struct<a int, b varchar>>) \n"
-                    + "RETURNS struct<`left` struct<a int, b varchar>, `right` struct<a int, b varchar>> \n"
+                    + "struct<`left` struct<a int, b string>, `right` struct<a int, b string>>) \n"
+                    + "RETURNS struct<`left` struct<a int, b string>, `right` struct<a int, b string>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1451,11 +1451,11 @@ public class CreateFunctionStmtAnalyzerTest {
             Config.enable_udf = true;
             mockClazz(DeeplyNestedEval.class);
             String sql = "CREATE FUNCTION ABC.deeply(struct<"
-                    + "`outer` struct<name varchar, `inner` struct<a int, b varchar>>,"
-                    + "direct struct<a int, b varchar>>) \n"
+                    + "`outer` struct<name string, `inner` struct<a int, b string>>,"
+                    + "direct struct<a int, b string>>) \n"
                     + "RETURNS struct<"
-                    + "`outer` struct<name varchar, `inner` struct<a int, b varchar>>,"
-                    + "direct struct<a int, b varchar>> \n"
+                    + "`outer` struct<name string, `inner` struct<a int, b string>>,"
+                    + "direct struct<a int, b string>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1502,8 +1502,8 @@ public class CreateFunctionStmtAnalyzerTest {
             Config.enable_udf = true;
             mockClazz(StructArrayOfStructEval.class);
             String sql = "CREATE FUNCTION ABC.list_of_struct("
-                    + "struct<name varchar, items array<struct<a int, b varchar>>>) \n"
-                    + "RETURNS struct<name varchar, items array<struct<a int, b varchar>>> \n"
+                    + "struct<name string, items array<struct<a int, b string>>>) \n"
+                    + "RETURNS struct<name string, items array<struct<a int, b string>>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1530,8 +1530,8 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(TopLevelArrayOfStructEval.class);
-            String sql = "CREATE FUNCTION ABC.top_list(array<struct<a int, b varchar>>) \n"
-                    + "RETURNS array<struct<a int, b varchar>> \n"
+            String sql = "CREATE FUNCTION ABC.top_list(array<struct<a int, b string>>) \n"
+                    + "RETURNS array<struct<a int, b string>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
@@ -1556,8 +1556,8 @@ public class CreateFunctionStmtAnalyzerTest {
         try {
             Config.enable_udf = true;
             mockClazz(TopLevelMapOfStructEval.class);
-            String sql = "CREATE FUNCTION ABC.top_map(map<varchar, struct<a int, b varchar>>) \n"
-                    + "RETURNS map<varchar, struct<a int, b varchar>> \n"
+            String sql = "CREATE FUNCTION ABC.top_map(map<string, struct<a int, b string>>) \n"
+                    + "RETURNS map<string, struct<a int, b string>> \n"
                     + "properties (\n"
                     + "    \"symbol\" = \"symbol\",\n"
                     + "    \"type\" = \"StarrocksJar\",\n"
