@@ -23,6 +23,7 @@
 #include "column/array_column.h"
 #include "column/column.h"
 #include "column/column_helper.h"
+#include "column/const_column.h"
 #include "column/decimalv3_column.h"
 #include "column/map_column.h"
 #include "column/nullable_column.h"
@@ -756,6 +757,113 @@ TEST_F(DataConverterTest, convert_to_boxed_array_array_of_decimal) {
     run(TYPE_DECIMAL64, 18, 4);
     run(TYPE_DECIMAL128, 38, 10);
     run(TYPE_DECIMAL256, 76, 10);
+}
+
+// build_udf_type_desc on a leaf scalar slot just dispatches to
+// JVMFunctionHelper::new_udf_type_desc and ignores formal_type. Drive every
+// scalar / decimal LogicalType to make sure the leaf branch is exercised
+// across the type spectrum used by the UDF analyzer.
+TEST_F(DataConverterTest, build_udf_type_desc_scalar_leaves) {
+    auto& helper = JVMFunctionHelper::getInstance();
+    JNIEnv* env = helper.getEnv();
+
+    auto check_leaf = [&](LogicalType t, int precision, int scale) {
+        TypeDescriptor td;
+        if (precision != 0 || scale != 0) {
+            td = TypeDescriptor::create_decimalv3_type(t, precision, scale);
+        } else {
+            td = TypeDescriptor(t);
+        }
+        ASSIGN_OR_ASSERT_FAIL(jobject desc, build_udf_type_desc(env, td, /*formal_type=*/nullptr));
+        LOCAL_REF_GUARD(desc);
+        ASSERT_NE(desc, nullptr);
+
+        jclass cls = helper.udf_type_desc_class();
+        EXPECT_EQ(static_cast<jint>(t), env->GetIntField(desc, env->GetFieldID(cls, "logicalType", "I")));
+        EXPECT_EQ(precision, env->GetIntField(desc, env->GetFieldID(cls, "precision", "I")));
+        EXPECT_EQ(scale, env->GetIntField(desc, env->GetFieldID(cls, "scale", "I")));
+        // Leaf: no children, no record class.
+        EXPECT_EQ(nullptr, env->GetObjectField(desc, helper.udf_type_desc_children_field()));
+        EXPECT_EQ(nullptr, env->GetObjectField(desc, helper.udf_type_desc_record_class_field()));
+    };
+
+    check_leaf(TYPE_BOOLEAN, 0, 0);
+    check_leaf(TYPE_INT, 0, 0);
+    check_leaf(TYPE_BIGINT, 0, 0);
+    check_leaf(TYPE_DOUBLE, 0, 0);
+    check_leaf(TYPE_VARCHAR, 0, 0);
+    check_leaf(TYPE_DATE, 0, 0);
+    check_leaf(TYPE_DATETIME, 0, 0);
+    check_leaf(TYPE_DECIMAL32, 9, 2);
+    check_leaf(TYPE_DECIMAL64, 18, 4);
+    check_leaf(TYPE_DECIMAL128, 38, 10);
+    check_leaf(TYPE_DECIMAL256, 76, 10);
+}
+
+// convert_to_boxed_array passes a non-null arg_type_descs vector but with all
+// entries null (no STRUCT in any subtree). The boxer must still fall back to
+// JavaArrayConverter for ARRAY<scalar> / scalar slots — STRUCT-bearing routing
+// is gated on the per-slot UdfTypeDesc being non-null.
+TEST_F(DataConverterTest, convert_to_boxed_array_with_null_descs) {
+    auto& helper = JVMFunctionHelper::getInstance();
+    auto* env = helper.getEnv();
+
+    // ARRAY<INT> column with one populated row.
+    TypeDescriptor td = TypeDescriptor::create_array_type(TypeDescriptor(TYPE_INT));
+    auto col = ColumnHelper::create_column(td, true);
+    Datum datum = std::vector<Datum>{1, 2, 3};
+    col->append_datum(datum);
+
+    std::unique_ptr<FunctionContext> ctx(FunctionContext::create_test_context({td}, td));
+    std::vector<const Column*> cols = {col.get()};
+    std::vector<jobject> arg_descs = {nullptr};
+    std::vector<jobject> res;
+    ASSERT_OK(JavaDataTypeConverter::convert_to_boxed_array(ctx.get(), cols.data(), 1, col->size(), &res, &arg_descs));
+    ASSERT_EQ(res.size(), 1);
+    ASSERT_NE(res[0], nullptr);
+    env->DeleteLocalRef(res[0]);
+}
+
+// Constant column shortcut path of convert_to_boxed_array: the value is
+// broadcast across num_rows via create_object_array. Drive a const INT to
+// cover the non-STRUCT constant branch alongside the STRUCT-aware routing.
+TEST_F(DataConverterTest, convert_to_boxed_array_constant_short_circuit) {
+    auto& helper = JVMFunctionHelper::getInstance();
+    auto* env = helper.getEnv();
+
+    TypeDescriptor td(TYPE_INT);
+    auto inner = ColumnHelper::create_column(td, false);
+    inner->append_datum(Datum(int32_t{42}));
+    auto const_col = ConstColumn::create(std::move(inner));
+    std::unique_ptr<FunctionContext> ctx(FunctionContext::create_test_context({td}, td));
+
+    std::vector<const Column*> cols = {const_col.get()};
+    std::vector<jobject> res;
+    ASSERT_OK(JavaDataTypeConverter::convert_to_boxed_array(ctx.get(), cols.data(), 1, /*num_rows=*/4, &res));
+    ASSERT_EQ(res.size(), 1);
+    ASSERT_NE(res[0], nullptr);
+    env->DeleteLocalRef(res[0]);
+}
+
+// only-null column shortcut: convert_to_boxed_array bypasses both the STRUCT
+// path and the per-type Java helper, returning a plain Object[num_rows] of
+// nulls via JVMFunctionHelper::create_array. Exercise the early-return so the
+// branch is not stranded uncovered.
+TEST_F(DataConverterTest, convert_to_boxed_array_all_null_short_circuit) {
+    auto& helper = JVMFunctionHelper::getInstance();
+    auto* env = helper.getEnv();
+
+    TypeDescriptor td(TYPE_BIGINT);
+    auto col = ColumnHelper::create_column(td, true);
+    col->append_nulls(5);
+
+    std::unique_ptr<FunctionContext> ctx(FunctionContext::create_test_context({td}, td));
+    std::vector<const Column*> cols = {col.get()};
+    std::vector<jobject> res;
+    ASSERT_OK(JavaDataTypeConverter::convert_to_boxed_array(ctx.get(), cols.data(), 1, /*num_rows=*/5, &res));
+    ASSERT_EQ(res.size(), 1);
+    ASSERT_NE(res[0], nullptr);
+    env->DeleteLocalRef(res[0]);
 }
 
 } // namespace starrocks
