@@ -132,16 +132,24 @@ public class ScalarOperatorsReuse {
                 ImmutableMap.builder();
         for (Map.Entry<Integer, List<ScalarOperator>> kv : sortedCommonOperatorsByDepth.entrySet()) {
             ScalarOperatorRewriter rewriter = new ScalarOperatorRewriter(rewriteWith);
-            ImmutableMap.Builder<ScalarOperator, ColumnRefOperator> operatorColumnMapBuilder = ImmutableMap.builder();
+            // Dedupe by ScalarOperator#equals: two distinct OperatorIds (which compare via
+            // equalsSelf + childrenGroup) can rewrite to ScalarOperators that are equal under
+            // the operator's own equals. CompoundPredicateOperator normalizes child order for
+            // AND/OR, so `a AND b` and `b AND a` collide. Without dedup, ImmutableMap.Builder
+            // throws "Multiple entries with same key" on build.
+            Map<ScalarOperator, ColumnRefOperator> operatorColumnMap = new LinkedHashMap<>();
             for (ScalarOperator operator : kv.getValue()) {
                 ScalarOperator rewrittenOperator = operator.accept(rewriter, null);
+                if (operatorColumnMap.containsKey(rewrittenOperator)) {
+                    continue;
+                }
                 ColumnRefOperator op =
                         columnRefFactory.create(operator, rewrittenOperator.getType(), rewrittenOperator.isNullable());
-                operatorColumnMapBuilder.put(rewrittenOperator, op);
+                operatorColumnMap.put(rewrittenOperator, op);
             }
-            Map<ScalarOperator, ColumnRefOperator> operatorColumnMap = operatorColumnMapBuilder.build();
-            commonSubOperators.put(kv.getKey(), operatorColumnMap);
-            rewriteWith.putAll(operatorColumnMap);
+            Map<ScalarOperator, ColumnRefOperator> immutableOperatorColumnMap = ImmutableMap.copyOf(operatorColumnMap);
+            commonSubOperators.put(kv.getKey(), immutableOperatorColumnMap);
+            rewriteWith.putAll(immutableOperatorColumnMap);
         }
         return commonSubOperators.build();
     }
