@@ -132,24 +132,16 @@ public class ScalarOperatorsReuse {
                 ImmutableMap.builder();
         for (Map.Entry<Integer, List<ScalarOperator>> kv : sortedCommonOperatorsByDepth.entrySet()) {
             ScalarOperatorRewriter rewriter = new ScalarOperatorRewriter(rewriteWith);
-            // Dedupe by ScalarOperator#equals: two distinct OperatorIds (which compare via
-            // equalsSelf + childrenGroup) can rewrite to ScalarOperators that are equal under
-            // the operator's own equals. CompoundPredicateOperator normalizes child order for
-            // AND/OR, so `a AND b` and `b AND a` collide. Without dedup, ImmutableMap.Builder
-            // throws "Multiple entries with same key" on build.
-            Map<ScalarOperator, ColumnRefOperator> operatorColumnMap = new LinkedHashMap<>();
+            ImmutableMap.Builder<ScalarOperator, ColumnRefOperator> operatorColumnMapBuilder = ImmutableMap.builder();
             for (ScalarOperator operator : kv.getValue()) {
                 ScalarOperator rewrittenOperator = operator.accept(rewriter, null);
-                if (operatorColumnMap.containsKey(rewrittenOperator)) {
-                    continue;
-                }
                 ColumnRefOperator op =
                         columnRefFactory.create(operator, rewrittenOperator.getType(), rewrittenOperator.isNullable());
-                operatorColumnMap.put(rewrittenOperator, op);
+                operatorColumnMapBuilder.put(rewrittenOperator, op);
             }
-            Map<ScalarOperator, ColumnRefOperator> immutableOperatorColumnMap = ImmutableMap.copyOf(operatorColumnMap);
-            commonSubOperators.put(kv.getKey(), immutableOperatorColumnMap);
-            rewriteWith.putAll(immutableOperatorColumnMap);
+            Map<ScalarOperator, ColumnRefOperator> operatorColumnMap = operatorColumnMapBuilder.build();
+            commonSubOperators.put(kv.getKey(), operatorColumnMap);
+            rewriteWith.putAll(operatorColumnMap);
         }
         return commonSubOperators.build();
     }
@@ -374,13 +366,28 @@ public class ScalarOperatorsReuse {
         // enable some special logic codes only for lambda functions.
         private boolean hasLambdaFunction;
 
+        // Normalize children group ids for commutative compound predicates (AND/OR) so that
+        // expressions like `a AND b` and `b AND a` map to the same OperatorId. This mirrors
+        // CompoundPredicateOperator#equals, which sorts AND/OR children before comparing;
+        // without this normalization, the two forms would be tracked as distinct common
+        // subexpressions and later collide as a single key in the rewritten ImmutableMap.
+        private static List<Integer> normalizeChildrenGroup(ScalarOperator operator, List<Integer> groups) {
+            if (operator instanceof CompoundPredicateOperator) {
+                CompoundPredicateOperator compound = (CompoundPredicateOperator) operator;
+                if (compound.isAnd() || compound.isOr()) {
+                    return groups.stream().sorted().toList();
+                }
+            }
+            return groups;
+        }
+
         public boolean hasLambdaFunction() {
             return hasLambdaFunction;
         }
 
         private CommonResult collectCommonOperatorsByDepth(int depth, ScalarOperator operator, List<Integer> groups,
                                                            CommonOperatorContext context) {
-            OperatorId id = new OperatorId(operator, groups);
+            OperatorId id = new OperatorId(operator, normalizeChildrenGroup(operator, groups));
             Map<OperatorId, Integer> level = operatorsByDepth.computeIfAbsent(depth, c -> Maps.newHashMap());
 
             boolean isDuplicated = level.containsKey(id);
