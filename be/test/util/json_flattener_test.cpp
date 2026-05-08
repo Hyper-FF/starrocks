@@ -646,4 +646,45 @@ INSTANTIATE_TEST_SUITE_P(JsonBoolExtractionCases, JsonBoolExtractionTest,
                                            std::make_tuple(R"({"bool_field": "1"})", true),
                                            std::make_tuple(R"({"bool_field": "0"})", false)));
 
+TEST_F(JsonFlattenerTest, testMergerAllChildrenAbsentReturnsNull) {
+    // When every flat column under a path is null for a row, the merged result
+    // for that row should be NULL rather than an empty JSON object {}.
+    std::vector<std::string> paths{"a.b", "a.c", "d"};
+    std::vector<LogicalType> types{TYPE_BIGINT, TYPE_BIGINT, TYPE_BIGINT};
+
+    Columns inputs;
+    for (size_t i = 0; i < paths.size(); i++) {
+        auto col = NullableColumn::create(Int64Column::create(), NullColumn::create());
+        // Row 0: all null
+        col->append_nulls(1);
+        // Row 1: only the first leaf has a value, others null
+        if (i == 0) {
+            col->append_datum(Datum(int64_t{42}));
+        } else {
+            col->append_nulls(1);
+        }
+        inputs.emplace_back(std::move(col));
+    }
+
+    JsonMerger merger(paths, types, /*has_remain=*/false);
+    merger.set_output_nullable(true);
+    auto result = merger.merge(inputs);
+
+    auto* nullable = down_cast<const NullableColumn*>(result.get());
+    ASSERT_EQ(2, nullable->size());
+    EXPECT_TRUE(nullable->is_null(0)) << "row with all-null leaves should be NULL, not {}";
+    EXPECT_FALSE(nullable->is_null(1));
+
+    auto* json_data = down_cast<const JsonColumn*>(nullable->data_column().get());
+    auto vs = json_data->get_object(1)->to_vslice();
+    ASSERT_TRUE(vs.isObject());
+    ASSERT_TRUE(vs.hasKey("a"));
+    auto a = vs.get("a");
+    ASSERT_TRUE(a.isObject());
+    ASSERT_TRUE(a.hasKey("b"));
+    EXPECT_EQ(42, a.get("b").getInt());
+    EXPECT_FALSE(a.hasKey("c"));
+    EXPECT_FALSE(vs.hasKey("d"));
+}
+
 } // namespace starrocks
