@@ -33,6 +33,9 @@ public class LogicalMetaScanOperator extends LogicalScanOperator {
     private Map<Integer, Pair<String, Column>> aggColumnIdToColumns = ImmutableMap.of();
     private List<String> selectPartitionNames = Collections.emptyList();
     private List<Long> hintsTabletIds = Collections.emptyList();
+    // Effective low_cardinality_threshold pushed down from dict_merge(col, N).
+    // -1 means unset; the planner will fall back to Config.low_cardinality_threshold.
+    private int lowCardinalityThreshold = -1;
 
     private LogicalMetaScanOperator() {
         super(OperatorType.LOGICAL_META_SCAN);
@@ -52,6 +55,10 @@ public class LogicalMetaScanOperator extends LogicalScanOperator {
 
     public List<Long> getHintsTabletIds() {
         return hintsTabletIds;
+    }
+
+    public int getLowCardinalityThreshold() {
+        return lowCardinalityThreshold;
     }
 
     @Override
@@ -74,12 +81,14 @@ public class LogicalMetaScanOperator extends LogicalScanOperator {
         return Objects.equals(aggColumnIdToColumns, that.aggColumnIdToColumns) &&
                 Objects.equals(selectPartitionNames, that.selectPartitionNames) &&
                 Objects.equals(hintsTabletIds, that.hintsTabletIds) &&
-                selectedIndexId == that.selectedIndexId;
+                selectedIndexId == that.selectedIndexId &&
+                lowCardinalityThreshold == that.lowCardinalityThreshold;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), aggColumnIdToColumns, selectPartitionNames, hintsTabletIds, selectedIndexId);
+        return Objects.hash(super.hashCode(), aggColumnIdToColumns, selectPartitionNames, hintsTabletIds, selectedIndexId,
+                lowCardinalityThreshold);
     }
 
     public static LogicalMetaScanOperator.Builder builder() {
@@ -101,6 +110,7 @@ public class LogicalMetaScanOperator extends LogicalScanOperator {
             builder.selectPartitionNames = operator.selectPartitionNames;
             builder.hintsTabletIds = operator.hintsTabletIds;
             builder.columnAccessPaths = ImmutableList.copyOf(operator.columnAccessPaths);
+            builder.lowCardinalityThreshold = operator.lowCardinalityThreshold;
             return this;
         }
 
@@ -122,6 +132,11 @@ public class LogicalMetaScanOperator extends LogicalScanOperator {
 
         public LogicalMetaScanOperator.Builder setHintsTabletIds(List<Long> hintsTabletIds) {
             builder.hintsTabletIds = hintsTabletIds != null ? hintsTabletIds : Collections.emptyList();
+            return this;
+        }
+
+        public LogicalMetaScanOperator.Builder setLowCardinalityThreshold(int lowCardinalityThreshold) {
+            builder.lowCardinalityThreshold = lowCardinalityThreshold;
             return this;
         }
     }

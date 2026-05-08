@@ -115,6 +115,9 @@ public class PushDownAggToMetaScanRule extends TransformationRule {
         Map<Integer, Pair<String, Column>> aggColumnIdToColumns = Maps.newHashMap();
         Map<ColumnRefOperator, CallOperator> newAggCalls = Maps.newHashMap();
         Map<ColumnRefOperator, Column> newScanColumnRefs = Maps.newHashMap();
+        // Take the max N across all dict_merge(col, N) calls so BE-side collection is permissive
+        // enough for every requested dictionary; per-call truncation still happens during aggregation.
+        int dictMergeThreshold = -1;
 
         Map<ColumnRefOperator, CallOperator> aggs = agg.getAggregations();
 
@@ -182,9 +185,20 @@ public class PushDownAggToMetaScanRule extends TransformationRule {
                 Function aggFunction = ExprUtils.getBuiltinFunction(aggCall.getFnName(),
                         new Type[] {ArrayType.ARRAY_VARCHAR, IntegerType.INT}, Function.CompareMode.IS_IDENTICAL);
 
+                ScalarOperator nArg = aggCall.getChild(1);
+                if (nArg instanceof ConstantOperator) {
+                    ConstantOperator c = (ConstantOperator) nArg;
+                    if (!c.isNull() && c.getType().isIntegerType()) {
+                        int n = c.getInt();
+                        if (n > dictMergeThreshold) {
+                            dictMergeThreshold = n;
+                        }
+                    }
+                }
+
                 newAggCalls.put(kv.getKey(),
                         new CallOperator(aggCall.getFnName(), aggCall.getType(),
-                                List.of(metaColumn, aggCall.getChild(1)), aggFunction));
+                                List.of(metaColumn, nArg), aggFunction));
             } else if (aggCall.getFnName().equals(FunctionSet.COUNT)
                     || aggCall.getFnName().equals(FunctionSet.COLUMN_SIZE)
                     || aggCall.getFnName().equals(FunctionSet.COLUMN_COMPRESSED_SIZE)) {
@@ -204,6 +218,7 @@ public class PushDownAggToMetaScanRule extends TransformationRule {
                 .withOperator(metaScan)
                 .setColRefToColumnMetaMap(newScanColumnRefs)
                 .setAggColumnIdToColumns(aggColumnIdToColumns)
+                .setLowCardinalityThreshold(dictMergeThreshold)
                 .build();
 
         LogicalAggregationOperator newAggOperator = new LogicalAggregationOperator(

@@ -33,6 +33,7 @@ public class PhysicalMetaScanOperator extends PhysicalScanOperator {
     private List<String> selectPartitionNames;
     private List<Long> hintsTabletIds;
     private long selectedIndexId = -1;
+    private int lowCardinalityThreshold = -1;
 
     public PhysicalMetaScanOperator() {
         super(OperatorType.PHYSICAL_META_SCAN);
@@ -47,6 +48,7 @@ public class PhysicalMetaScanOperator extends PhysicalScanOperator {
         this.selectPartitionNames = scanOperator.getSelectPartitionNames();
         this.hintsTabletIds = scanOperator.getHintsTabletIds();
         this.selectedIndexId = scanOperator.getSelectedIndexId();
+        this.lowCardinalityThreshold = scanOperator.getLowCardinalityThreshold();
     }
 
     public Map<Integer, Pair<String, Column>> getAggColumnIdToColumns() {
@@ -63,6 +65,10 @@ public class PhysicalMetaScanOperator extends PhysicalScanOperator {
 
     public List<Long> getHintsTabletIds() {
         return hintsTabletIds;
+    }
+
+    public int getLowCardinalityThreshold() {
+        return lowCardinalityThreshold;
     }
 
     @Override
@@ -89,12 +95,14 @@ public class PhysicalMetaScanOperator extends PhysicalScanOperator {
         return Objects.equals(aggColumnIdToColumns, that.aggColumnIdToColumns) &&
                 Objects.equals(selectPartitionNames, that.selectPartitionNames) &&
                 Objects.equals(hintsTabletIds, that.hintsTabletIds) &&
-                selectedIndexId == that.selectedIndexId;
+                selectedIndexId == that.selectedIndexId &&
+                lowCardinalityThreshold == that.lowCardinalityThreshold;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), aggColumnIdToColumns, selectPartitionNames, hintsTabletIds, selectedIndexId);
+        return Objects.hash(super.hashCode(), aggColumnIdToColumns, selectPartitionNames, hintsTabletIds, selectedIndexId,
+                lowCardinalityThreshold);
     }
 
     public static Builder builder() {
@@ -116,6 +124,7 @@ public class PhysicalMetaScanOperator extends PhysicalScanOperator {
             builder.selectPartitionNames = ImmutableList.copyOf(operator.selectPartitionNames);
             builder.hintsTabletIds = ImmutableList.copyOf(operator.hintsTabletIds);
             builder.selectedIndexId = operator.selectedIndexId;
+            builder.lowCardinalityThreshold = operator.lowCardinalityThreshold;
             return this;
         }
     }

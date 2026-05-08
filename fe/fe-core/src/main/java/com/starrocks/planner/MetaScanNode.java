@@ -66,16 +66,27 @@ public class MetaScanNode extends AbstractOlapTableScanNode {
     private final List<String> selectPartitionNames;
     private final List<Long> hintsTabletIds;
     private final List<TScanRangeLocations> result = Lists.newArrayList();
+    // Pushed-down dict_merge(col, N) threshold; -1 means use Config.low_cardinality_threshold.
+    private final int lowCardinalityThreshold;
 
     public MetaScanNode(PlanNodeId id, TupleDescriptor desc, OlapTable olapTable,
                         Map<Integer, Pair<String, Column>> aggColumnIdToColumns, List<String> selectPartitionNames,
                         List<Long> hintsTabletIds, long selectedIndexId, ComputeResource computeResource) {
+        this(id, desc, olapTable, aggColumnIdToColumns, selectPartitionNames, hintsTabletIds, selectedIndexId,
+                computeResource, -1);
+    }
+
+    public MetaScanNode(PlanNodeId id, TupleDescriptor desc, OlapTable olapTable,
+                        Map<Integer, Pair<String, Column>> aggColumnIdToColumns, List<String> selectPartitionNames,
+                        List<Long> hintsTabletIds, long selectedIndexId, ComputeResource computeResource,
+                        int lowCardinalityThreshold) {
         super(id, desc, "MetaScan", olapTable, selectedIndexId);
         this.tableSchema = olapTable.getBaseSchema();
         this.columnIdToColumns = aggColumnIdToColumns;
         this.selectPartitionNames = selectPartitionNames;
         this.hintsTabletIds = hintsTabletIds != null ? hintsTabletIds : Collections.emptyList();
         this.computeResource = computeResource;
+        this.lowCardinalityThreshold = lowCardinalityThreshold;
     }
 
     public void computeRangeLocations(ComputeResource computeResource) {
@@ -211,7 +222,12 @@ public class MetaScanNode extends AbstractOlapTableScanNode {
         msg.meta_scan_node = new TMetaScanNode();
         Map<Integer, String> columnIdToNames = buildColumnIdToNames(columnIdToColumns);
         msg.meta_scan_node.setId_to_names(columnIdToNames);
-        msg.meta_scan_node.setLow_cardinality_threshold(CacheDictManager.LOW_CARDINALITY_THRESHOLD);
+        // Honor the threshold N from dict_merge(col, N) when the rule pushed it down,
+        // otherwise fall back to the FE-wide Config.low_cardinality_threshold.
+        int threshold = lowCardinalityThreshold > 0
+                ? lowCardinalityThreshold
+                : CacheDictManager.LOW_CARDINALITY_THRESHOLD;
+        msg.meta_scan_node.setLow_cardinality_threshold(threshold);
         List<TColumn> columnsDesc = Lists.newArrayList();
         for (Column column : tableSchema) {
             TColumn tColumn = column.toThrift();
