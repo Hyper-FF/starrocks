@@ -30,11 +30,19 @@ private:
     /**
      * Attempt to load type checkers from XML configuration.
      * All type checkers must be defined in XML.
-     * 
+     *
      * @param xml_file_path Path to the XML configuration file
      * @return true if XML was successfully loaded, false otherwise
      */
     bool try_load_from_xml(const std::string& xml_file_path);
+
+    /**
+     * Register the built-in hardcoded type checkers. Used as a fallback when
+     * the XML configuration is unavailable so that JDBC scans keep working
+     * even on deployments where conf/type_checker_config.xml is missing or
+     * cannot be parsed.
+     */
+    void register_hardcoded_defaults();
 
 public:
     TypeCheckerManager(const TypeCheckerManager&) = delete;

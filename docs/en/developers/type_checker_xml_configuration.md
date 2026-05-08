@@ -8,7 +8,7 @@ The StarRocks Type Checker system uses **mandatory** XML-based configuration for
 
 - **Fully XML-Configurable**: All type mappings defined in XML with explicit type validation rules
 - **Industry-Standard Parser**: Uses libxml2 for robust, standards-compliant XML parsing
-- **No Hardcoded Fallback**: XML configuration is mandatory - ensures all type mappings are explicitly defined
+- **Hardcoded Fallback**: If the XML file is missing or fails to parse, a built-in set of type checkers (matching the shipped XML) is registered automatically so that JDBC scans keep working
 - **Flexible Type Rules**: Each type can have multiple type-rule mappings for different StarRocks types
 - **Extensible**: Easy to add new type mappings or modify existing ones via XML
 - **Validated**: Comprehensive error checking for malformed XML or invalid configurations
@@ -25,7 +25,7 @@ The type checker configuration is loaded from the following location:
 
 2. **Relative Fallback**: `conf/type_checker_config.xml` (if `STARROCKS_HOME` is not set)
 
-**IMPORTANT**: XML configuration is **mandatory**. The configuration file must exist at one of the above locations. If the file is not found or fails to parse, the system will log errors and continue with an empty checker map (default checker handles unknown types).
+**NOTE**: XML configuration is the recommended way to customize type mappings. If the file is not found or fails to parse, the system logs a warning and falls back to a built-in hardcoded set of type checkers that mirrors the shipped `conf/type_checker_config.xml`, so JDBC scans (including Oracle catalogs that return `java.math.BigDecimal`) continue to work without any configuration.
 
 ## XML Configuration Format
 
@@ -321,8 +321,8 @@ To add a new type mapping:
 
 If you're upgrading from a version with hardcoded type checkers:
 
-1. **XML Configuration is Now Mandatory**: Ensure `conf/type_checker_config.xml` exists
-2. **No Hardcoded Fallback**: The system will not fall back to hardcoded configuration
+1. **XML Configuration Recommended**: Ship `conf/type_checker_config.xml` so customizations take effect
+2. **Hardcoded Fallback Available**: If the XML file is missing or unparseable, the BE registers a built-in set of type checkers that mirrors the shipped XML
 3. **New XML Format**: Update any custom XML to use `<type-rule>` elements instead of `checker` attribute
 4. **Verify Configuration**: Test your XML configuration before deployment
 
