@@ -1020,13 +1020,23 @@ RuntimeProfile* RuntimeProfile::merge_isomorphic_profiles(ObjectPool* obj_pool, 
                 }
 
                 if (!counter->skip_min_max()) {
-                    if (counter->_min_value.has_value()) {
-                        already_merged = true;
-                        min_value = std::min(counter->_min_value.value(), min_value);
+                    // Snapshot min/max under the owning profile's _counter_lock so we don't race
+                    // with concurrent Counter::set_min / set_max on a non-trivially-copyable
+                    // std::optional<int64_t> (see also RuntimeProfile::to_thrift).
+                    std::optional<int64_t> counter_min;
+                    std::optional<int64_t> counter_max;
+                    {
+                        std::lock_guard<std::mutex> l(profile->_counter_lock);
+                        counter_min = counter->_min_value;
+                        counter_max = counter->_max_value;
                     }
-                    if (counter->_max_value.has_value()) {
+                    if (counter_min.has_value()) {
                         already_merged = true;
-                        max_value = std::max(counter->_max_value.value(), max_value);
+                        min_value = std::min(counter_min.value(), min_value);
+                    }
+                    if (counter_max.has_value()) {
+                        already_merged = true;
+                        max_value = std::max(counter_max.value(), max_value);
                     }
                 }
 
