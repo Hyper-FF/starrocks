@@ -53,6 +53,15 @@ Status SpillablePartitionWiseDistinctSinkOperator::set_finishing(RuntimeState* s
         return Status::OK();
     }
 
+    // Always queue a spill task for the residual hash set.
+    // Without this, when the parent push_chunk's limit branch calls
+    // (void)set_finishing() while a non-empty hash set is still in memory,
+    // the FlushAllCallback path that runs Spiller::_acquire_input_stream() is
+    // skipped, leaving SpillerReader::_stream null. The source side then sees
+    // has_output_data()==false and is_spilled_eos()==false forever, hanging
+    // the pipeline.
+    _distinct_op->aggregator()->spill_channel()->add_spill_task(_build_spill_task(state));
+
     auto flush_function = [this](RuntimeState* state) {
         auto& spiller = _distinct_op->aggregator()->spiller();
         return spiller->flush(state, TRACKER_WITH_SPILLER_READER_GUARD(state, spiller));
@@ -156,8 +165,21 @@ ChunkPtr& SpillablePartitionWiseDistinctSinkOperator::_append_hash_column(ChunkP
 }
 
 std::function<StatusOr<ChunkPtr>()> SpillablePartitionWiseDistinctSinkOperator::_build_spill_task(RuntimeState* state) {
-    auto chunk_provider = [this, state]() -> StatusOr<ChunkPtr> {
+    std::function<StatusOr<ChunkPtr>()> chunk_provider =
+            [this, state, iterator_initialized = false]() mutable -> StatusOr<ChunkPtr> {
         auto& aggregator = _distinct_op->aggregator();
+        // Self-initialize the iterator so this task is safe to invoke even
+        // when queued from set_finishing where the hash set may be empty
+        // (e.g. when a prior in-flight task already drained and reset it).
+        if (!iterator_initialized) {
+            if (aggregator->hash_set_variant().size() == 0) {
+                return Status::EndOfFile("no more data in current aggregator");
+            }
+            aggregator->hash_set_variant().visit([&](auto& hash_set_with_key) {
+                aggregator->it_hash() = hash_set_with_key->hash_set.begin();
+            });
+            iterator_initialized = true;
+        }
         if (!aggregator->is_ht_eos()) {
             auto chunk = std::make_shared<Chunk>();
             aggregator->convert_hash_set_to_chunk(state->chunk_size(), &chunk);
