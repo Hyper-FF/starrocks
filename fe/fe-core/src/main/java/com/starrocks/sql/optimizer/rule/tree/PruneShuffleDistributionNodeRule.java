@@ -46,6 +46,13 @@ public class PruneShuffleDistributionNodeRule implements TreeRewriteRule {
                 !GlobalStateMgr.getCurrentState().getNodeMgr().getClusterInfo().isSingleBackendAndComputeNode()) {
             return root;
         }
+        // Query cache requires per-tablet lane alignment on the scan side, which is
+        // incompatible with the single-fragment ScanNode -> LocalShuffle -> AggNode shape
+        // produced by this rule. Prefer cache: keep the two-fragment plan with a real
+        // Exchange and let cache handle the per-tablet partial aggregation.
+        if (sv.isEnableQueryCache()) {
+            return root;
+        }
 
         return root.getOp().accept(VISITOR, root, null);
     }

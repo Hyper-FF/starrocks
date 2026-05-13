@@ -419,7 +419,11 @@ public class EnforceAndCostTask extends OptimizerTask implements Cloneable {
                 return false;
             }
 
-            if (sv.isEnableLocalShuffleAgg() &&
+            // Query cache prefers two-phase agg with a real Exchange so the cache can store
+            // per-tablet partial aggregation; the single-BE local-shuffle-agg shortcut would
+            // collapse the plan into a single fragment with withLocalShuffle=true, which is
+            // incompatible with the per-driver-seq scan ranges that cache requires.
+            if (sv.isEnableLocalShuffleAgg() && !sv.isEnableQueryCache() &&
                     GlobalStateMgr.getCurrentState().getNodeMgr().getClusterInfo().isSingleBackendAndComputeNode()) {
                 return true;
             }
