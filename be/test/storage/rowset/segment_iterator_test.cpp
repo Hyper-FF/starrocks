@@ -38,6 +38,7 @@
 #include "storage/column_predicate_rewriter.h"
 #include "storage/olap_common.h"
 #include "storage/rowset/column_iterator.h"
+#include "storage/rowset/dictcode_column_iterator.h"
 #include "storage/rowset/segment.h"
 #include "storage/rowset/segment_options.h"
 #include "storage/rowset/segment_writer.h"
@@ -631,6 +632,45 @@ TEST_F(SegmentIteratorTest, regression_72927_rf_on_non_predicate_col_triggers_dc
     GTEST_SKIP() << "DCHECK is disabled; run a debug build to observe SIGABRT from "
                     "segment_iterator.cpp _build_column_oriented_rf";
 #endif
+}
+
+// Direct reproduction of the SIGSEGV mechanism behind #72927.  In the
+// production trace, BE built a GlobalDictCodeColumnIterator on a flat-JSON
+// sub-column whose underlying iterator did not actually hold the local dict
+// the FE was promised (because SegmentMetaCollecter mis-reported it; see
+// PR #72953).  Later, decode_dict_codes -> SIMDGather::gather dereferenced
+// the iterator's _local_to_global pointer with codes that were not valid
+// indices into it, producing the segfault that surfaced as a crash in
+// _switch_context after a couple of iterations.
+//
+// This test rebuilds the exact failing state directly:
+//   - GlobalDictCodeColumnIterator constructed with _local_to_global = nullptr
+//   - non-zero local codes pushed into decode_dict_codes
+//   - SIMDGather reads nullptr[code]  ->  SIGSEGV
+//
+// Wrapped in ASSERT_DEATH so the suite passes while documenting the crash.
+TEST(GlobalDictCodeColumnIteratorRegressionTest, regression_72927_decode_with_null_local_to_global) {
+    ASSERT_DEATH(
+            {
+                // parent=nullptr is safe here: decode_dict_codes never touches the
+                // wrapped parent iterator (it only reads _local_to_global / _dict_size).
+                GlobalDictCodeColumnIterator iter(/*cid=*/0, /*parent=*/nullptr,
+                                                  /*code_convert_data=*/nullptr,
+                                                  /*dict_size=*/8);
+
+                auto codes = Int32Column::create();
+                // Codes 1..4 are within the (fake) dict_size=8 window, so the
+                // bounds DCHECK on line 65 of dictcode_column_iterator.cpp does
+                // not fire and we reach the SIMDGather call that segfaults.
+                codes->append(1);
+                codes->append(2);
+                codes->append(3);
+                codes->append(4);
+
+                auto words = Int32Column::create();
+                (void)iter.decode_dict_codes(*codes, words.get());
+            },
+            "");
 }
 
 // Verify `_only_output_one_predicate_col_with_filter_push_down` fast path.
