@@ -28,6 +28,7 @@
 #include "common/config_rowset_fwd.h"
 #include "common/config_scan_io_fwd.h"
 #include "common/object_pool.h"
+#include "exec/runtime_filter/runtime_filter_probe.h"
 #include "fs/fs_memory.h"
 #include "gen_cpp/tablet_schema.pb.h"
 #include "gtest/gtest.h"
@@ -437,6 +438,199 @@ TEST_F(SegmentIteratorTest, TestPredicateLateMaterializationMaterializesRestColu
 
     res_chunk->reset();
     ASSERT_TRUE(chunk_iter->get_next(res_chunk.get()).is_end_of_file());
+}
+
+// Regression reproducer for StarRocks#72927 — SIGSEGV in
+// SegmentIterator::_switch_context when a join runtime filter is pushed down
+// onto the segment scan alongside late-materialized predicate columns.
+//
+// Pre-fix (#72953), repeated execution of a query that
+//   (1) enabled join runtime-filter pushdown on a column scan, and
+//   (2) was planned with predicate late materialization (two ScanContexts
+//       linked cyclically through _context_list[0] <-> _context_list[1]),
+// could corrupt iterator pointers in one ScanContext while the other was
+// being seeked from _switch_context, surfacing as a vtable deref crash whose
+// fault address decoded as ASCII garbage ("OeergeD", "corrats", ...).
+//
+// This test drives the same code path:
+//   - forces late materialization via late_materialization_ratio=1000 so that
+//     _init_context builds both _context_list[0] (late-mat) and [1] (full),
+//   - enables enable_join_runtime_filter_pushdown,
+//   - registers a RuntimeFilterPredicate on the predicate column with a stub
+//     RuntimeFilterProbeDescriptor whose runtime_filter() returns nullptr (so
+//     predicate evaluation no-ops, but _build_column_oriented_rf still runs
+//     and ScanContext::runtime_filters_by_column is wired up),
+//   - re-creates the SegmentIterator several times to make any latent
+//     iterator-lifetime corruption observable to ASan / heap reuse.
+//
+// On a healthy build this test simply succeeds. Under ASan it provides a
+// reproducible hook for the original crash class.
+TEST_F(SegmentIteratorTest, regression_72927_runtime_filter_pushdown_with_late_materialization) {
+    using namespace starrocks::test;
+
+    auto prev_ratio = config::late_materialization_ratio;
+    config::late_materialization_ratio = 1000;
+    DeferOp reset_ratio([&]() { config::late_materialization_ratio = prev_ratio; });
+
+    std::string file_name = kSegmentDir + "/rf_pushdown_late_materialize";
+    ASSIGN_OR_ABORT(auto wfile, _fs->new_writable_file(file_name));
+
+    TabletSchemaBuilder builder;
+    std::shared_ptr<TabletSchema> tablet_schema = builder.create(1, false, TYPE_INT, true)
+                                                          .create(2, false, TYPE_INT, false)
+                                                          .create(3, false, TYPE_INT, false)
+                                                          .build();
+
+    SegmentWriterOptions opts;
+    opts.num_rows_per_block = 32;
+    SegmentWriter writer(std::move(wfile), 0, tablet_schema, opts);
+
+    const int32_t chunk_size = 64;
+    const size_t num_rows = 200;
+
+    auto c0_provider = [](int32_t i) { return i; };
+    auto c1_provider = [](int32_t i) { return i % 10; };
+    auto c2_provider = [](int32_t i) { return 1000 + i; };
+
+    TabletDataBuilder data_builder(writer, tablet_schema, chunk_size, num_rows);
+    ASSERT_OK(data_builder.append(0, c0_provider));
+    ASSERT_OK(data_builder.append(1, c1_provider));
+    ASSERT_OK(data_builder.append(2, c2_provider));
+    ASSERT_OK(data_builder.finalize_footer());
+
+    auto segment = *Segment::open(_fs, FileInfo{file_name}, 0, tablet_schema);
+    ASSERT_EQ(segment->num_rows(), num_rows);
+
+    VecSchemaBuilder schema_builder;
+    schema_builder.add(0, "c0", TYPE_INT).add(1, "c1", TYPE_INT).add(2, "c2", TYPE_INT);
+    auto vec_schema = schema_builder.build();
+
+    // Stub RuntimeFilterProbeDescriptor: never has a runtime filter attached,
+    // so RuntimeFilterPredicate::init() returns false and the predicate eval
+    // becomes a no-op, while the segment-iterator side of the pushdown
+    // (_build_column_oriented_rf, ScanContext::runtime_filters_by_column,
+    // _switch_context) is still fully wired up.
+    auto rf_desc = std::make_unique<RuntimeFilterProbeDescriptor>();
+    // Keep ownership alive for the lifetime of the seg_opts copy.
+    std::vector<std::unique_ptr<RuntimeFilterPredicate>> rf_pred_owner;
+    rf_pred_owner.emplace_back(std::make_unique<RuntimeFilterPredicate>(rf_desc.get(), /*column_id=*/1));
+
+    // Drive _init_context / _switch_context many times. Heap reuse between
+    // iterations is what tipped over the original bug after 2-5 runs.
+    constexpr int kIterations = 10;
+    for (int i = 0; i < kIterations; ++i) {
+        OlapReaderStatistics stats;
+
+        // Predicate must outlive the segment iterator since PredicateTree
+        // stores a raw ColumnPredicate*.
+        std::unique_ptr<ColumnPredicate> predicate(new_column_eq_predicate(get_type_info(TYPE_INT), 1, "5"));
+        PredicateAndNode pred_root;
+        pred_root.add_child(PredicateColumnNode{predicate.get()});
+
+        RuntimeFilterPredicates rf_preds(/*driver_sequence=*/0);
+        rf_preds.add_predicate(rf_pred_owner.back().get());
+
+        SegmentReadOptions seg_opts;
+        seg_opts.fs = _fs;
+        seg_opts.stats = &stats;
+        seg_opts.tablet_schema = tablet_schema;
+        seg_opts.enable_predicate_col_late_materialize = true;
+        seg_opts.enable_join_runtime_filter_pushdown = true;
+        seg_opts.runtime_filter_preds = std::move(rf_preds);
+        seg_opts.pred_tree = PredicateTree::create(std::move(pred_root));
+
+        auto chunk_iter = new_segment_iterator(segment, vec_schema, seg_opts);
+        ASSERT_OK(chunk_iter->init_encoded_schema(EMPTY_GLOBAL_DICTMAPS));
+        ASSERT_OK(chunk_iter->init_output_schema(std::unordered_set<uint32_t>()));
+
+        auto res_chunk = ChunkHelper::new_chunk(chunk_iter->output_schema(), config::vector_chunk_size);
+        size_t total_rows = 0;
+        Status st;
+        while ((st = chunk_iter->get_next(res_chunk.get())).ok()) {
+            total_rows += res_chunk->num_rows();
+            res_chunk->reset();
+        }
+        ASSERT_TRUE(st.is_end_of_file()) << "iteration " << i << ": " << st.to_string();
+        // c1 = row_idx % 10 == 5 → 20 hits out of 200 rows.
+        ASSERT_EQ(total_rows, 20u) << "iteration " << i;
+    }
+}
+
+// Reproduce the crash class from issue #72927: a runtime filter registered on a
+// non-predicate column triggers DCHECK(_column_ids_to_column_iterators.contains(cid))
+// inside _build_column_oriented_rf when the late-materialization context is built.
+// In the original bug the SIGSEGV came later (in _switch_context), but the DCHECK
+// pinpoints the same root condition.  Run the debug binary to observe SIGABRT.
+TEST_F(SegmentIteratorTest, regression_72927_rf_on_non_predicate_col_triggers_dcheck) {
+    using namespace starrocks::test;
+
+    auto prev_ratio = config::late_materialization_ratio;
+    config::late_materialization_ratio = 1000;
+    DeferOp reset_ratio([&]() { config::late_materialization_ratio = prev_ratio; });
+
+    std::string file_name = kSegmentDir + "/rf_pushdown_dcheck";
+    ASSIGN_OR_ABORT(auto wfile, _fs->new_writable_file(file_name));
+
+    TabletSchemaBuilder builder;
+    std::shared_ptr<TabletSchema> tablet_schema = builder.create(1, false, TYPE_INT, true)
+                                                          .create(2, false, TYPE_INT, false)
+                                                          .create(3, false, TYPE_INT, false)
+                                                          .build();
+
+    SegmentWriterOptions wopts;
+    wopts.num_rows_per_block = 32;
+    SegmentWriter seg_writer(std::move(wfile), 0, tablet_schema, wopts);
+
+    TabletDataBuilder data_builder(seg_writer, tablet_schema, 64, 200);
+    ASSERT_OK(data_builder.append(0, [](int32_t i) { return i; }));
+    ASSERT_OK(data_builder.append(1, [](int32_t i) { return i % 10; }));
+    ASSERT_OK(data_builder.append(2, [](int32_t i) { return 1000 + i; }));
+    ASSERT_OK(data_builder.finalize_footer());
+
+    auto segment = *Segment::open(_fs, FileInfo{file_name}, 0, tablet_schema);
+
+    VecSchemaBuilder schema_builder;
+    schema_builder.add(0, "c0", TYPE_INT).add(1, "c1", TYPE_INT).add(2, "c2", TYPE_INT);
+    auto vec_schema = schema_builder.build();
+
+    auto rf_desc = std::make_unique<RuntimeFilterProbeDescriptor>();
+
+#if DCHECK_IS_ON()
+    // RF is on cid=2 (c2).  The predicate is on cid=1, so in the
+    // late-materialization context only cid=1 has a column iterator.
+    // _build_column_oriented_rf then fires:
+    //   DCHECK(_column_ids_to_column_iterators.contains(cid))  // cid=2, absent → abort
+    ASSERT_DEATH(
+            {
+                OlapReaderStatistics stats;
+                std::unique_ptr<ColumnPredicate> pred(new_column_eq_predicate(get_type_info(TYPE_INT), 1, "5"));
+                PredicateAndNode pred_root;
+                pred_root.add_child(PredicateColumnNode{pred.get()});
+
+                RuntimeFilterPredicate rf_pred(rf_desc.get(), /*column_id=*/2);
+                RuntimeFilterPredicates rf_preds(/*driver_sequence=*/0);
+                rf_preds.add_predicate(&rf_pred);
+
+                SegmentReadOptions seg_opts;
+                seg_opts.fs = _fs;
+                seg_opts.stats = &stats;
+                seg_opts.tablet_schema = tablet_schema;
+                seg_opts.enable_predicate_col_late_materialize = true;
+                seg_opts.enable_join_runtime_filter_pushdown = true;
+                seg_opts.runtime_filter_preds = std::move(rf_preds);
+                seg_opts.pred_tree = PredicateTree::create(std::move(pred_root));
+
+                auto chunk_iter = new_segment_iterator(segment, vec_schema, seg_opts);
+                (void)chunk_iter->init_encoded_schema(EMPTY_GLOBAL_DICTMAPS);
+                (void)chunk_iter->init_output_schema(std::unordered_set<uint32_t>());
+                auto res_chunk = ChunkHelper::new_chunk(chunk_iter->output_schema(), 64);
+                (void)chunk_iter->get_next(res_chunk.get());
+            },
+            "_column_ids_to_column_iterators");
+#else
+    GTEST_SKIP() << "DCHECK is disabled; run a debug build to observe SIGABRT from "
+                    "segment_iterator.cpp _build_column_oriented_rf";
+#endif
 }
 
 // Verify `_only_output_one_predicate_col_with_filter_push_down` fast path.

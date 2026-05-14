@@ -22,14 +22,17 @@
 #include "base/utility/defer_op.h"
 #include "column/array_column.h"
 #include "column/chunk.h"
+#include "column/column_access_path.h"
 #include "column/fixed_length_column.h"
 #include "column/json_column.h"
 #include "column/nullable_column.h"
 #include "fs/fs_factory.h"
 #include "fs/fs_util.h"
 #include "fs/key_cache.h"
+#include "gen_cpp/PlanNodes_types.h"
 #include "storage/rowset/column_iterator.h"
 #include "storage/rowset/segment_writer.h"
+#include "storage/tablet_schema.h"
 
 namespace starrocks {
 using fs::delete_file;
@@ -636,6 +639,137 @@ TEST_F(SegmentMetaCollecterTest, test_collect_added_column_default_values) {
     EXPECT_EQ(7, default_min->get(0).get_int32());
     EXPECT_EQ(3, default_count->get(0).get_int64());
     EXPECT_EQ(0, default_size->get(0).get_int64());
+}
+
+// -----------------------------------------------------------------------------
+// Regression tests for StarRocks#72927 (SIGSEGV in SegmentIterator::_switch_context
+// on JSON-predicate semi-join). Root cause: SegmentMetaCollecter reported "global
+// dict is usable" for flat-JSON extended sub-columns even when the underlying
+// segment iterator carried real (non-only-null) data without an actual dictionary
+// page. The FE then emitted DictDecode predicates that were later executed
+// against a GlobalDictCodeColumnIterator built on top of a dict-less iterator,
+// producing use-after-free / pointer-into-string corruption that surfaced inside
+// SegmentIterator::_switch_context after a few repeated executions.
+//
+// The invariant that must hold post-fix (PR #72953) is in
+// SegmentMetaCollecter::_collect_dict_for_column:
+//   - extended sub-column + iterator that only emits NULLs and is not
+//     dict-encoded -> OK (segment legitimately lacks the sub-column data)
+//   - extended sub-column + iterator that has real data but no per-page dict
+//     -> GlobalDictError (must NOT be folded into the global dict)
+//   - non-extended column + iterator without per-page dict
+//     -> GlobalDictError (unchanged baseline)
+// -----------------------------------------------------------------------------
+
+namespace {
+
+// Minimal ColumnIterator stub whose only_nulls() / all_page_dict_encoded()
+// return values can be controlled from the test. None of the iteration entry
+// points are exercised by _collect_dict_for_column when all_page_dict_encoded()
+// is false, so we leave them as unimplemented stubs.
+class StubColumnIterator final : public ColumnIterator {
+public:
+    StubColumnIterator(bool only_nulls, bool all_page_dict_encoded)
+            : _only_nulls(only_nulls), _all_page_dict_encoded(all_page_dict_encoded) {}
+
+    Status seek_to_first() override { return Status::OK(); }
+    Status seek_to_ordinal(ordinal_t /*ord*/) override { return Status::OK(); }
+    ordinal_t num_rows() const override { return 0; }
+    Status next_batch(size_t* /*n*/, Column* /*dst*/) override { return Status::OK(); }
+    ordinal_t get_current_ordinal() const override { return 0; }
+
+    bool only_nulls() const override { return _only_nulls; }
+    bool all_page_dict_encoded() const override { return _all_page_dict_encoded; }
+
+private:
+    const bool _only_nulls;
+    const bool _all_page_dict_encoded;
+};
+
+// Build a 1-column TabletSchema. When |make_extended| is true, the column is
+// tagged with an ExtendedColumnInfo so TabletColumn::is_extended() returns
+// true (mirroring how flat-JSON sub-columns appear at scan time).
+TabletSchemaSPtr build_single_column_schema(bool make_extended, ColumnAccessPath* path_for_extended) {
+    TabletSchemaPB schema_pb;
+    auto schema = TabletSchema::create(schema_pb);
+    TabletColumn col(STORAGE_AGGREGATE_NONE, LogicalType::TYPE_VARCHAR, /*is_nullable=*/true);
+    col.set_unique_id(0);
+    col.set_name("c0");
+    col.set_length(64);
+    if (make_extended) {
+        DCHECK(path_for_extended != nullptr);
+        col.set_extended_info(std::make_unique<ExtendedColumnInfo>(path_for_extended, /*source_column_uid=*/0));
+    }
+    schema->append_column(std::move(col));
+    return schema;
+}
+
+} // namespace
+
+// Repro case: an "extended" flat-JSON sub-column whose iterator returns real
+// (non-only-null) data but no per-page dictionary. Pre-#72953 this returned
+// OK and lied to the FE that a global dict existed, ultimately corrupting
+// segment scan state. Post-fix it MUST be rejected with GlobalDictError.
+TEST_F(SegmentMetaCollecterTest, regression_72927_extended_with_real_data_rejects_global_dict) {
+    ASSIGN_OR_ABORT(auto access_path, ColumnAccessPath::create(TAccessPathType::FIELD, "$", /*index=*/0));
+    auto schema = build_single_column_schema(/*make_extended=*/true, access_path.get());
+    ASSERT_TRUE(schema->column(0).is_extended());
+
+    SegmentMetaCollecter collecter(_segment);
+    SegmentMetaCollecterParams params;
+    params.tablet_schema = schema;
+    params.low_cardinality_threshold = 255;
+    collecter._params = &params;
+
+    StubColumnIterator iter(/*only_nulls=*/false, /*all_page_dict_encoded=*/false);
+    auto out = create_array_column();
+
+    Status st = collecter._collect_dict_for_column(&iter, /*cid=*/0, out.get());
+    EXPECT_FALSE(st.ok()) << "extended sub-column without dict pages must not advertise a global dict";
+    EXPECT_TRUE(st.is_global_dict_error()) << st.to_string();
+}
+
+// Legitimate skip case: an "extended" flat-JSON sub-column whose iterator only
+// returns NULLs (e.g. heterogeneous JSON where this segment never carried the
+// sub-field). The fix explicitly allows this through with OK so that other
+// segments can still contribute to the global dict.
+TEST_F(SegmentMetaCollecterTest, regression_72927_extended_only_nulls_passes_through) {
+    ASSIGN_OR_ABORT(auto access_path, ColumnAccessPath::create(TAccessPathType::FIELD, "$", /*index=*/0));
+    auto schema = build_single_column_schema(/*make_extended=*/true, access_path.get());
+
+    SegmentMetaCollecter collecter(_segment);
+    SegmentMetaCollecterParams params;
+    params.tablet_schema = schema;
+    params.low_cardinality_threshold = 255;
+    collecter._params = &params;
+
+    StubColumnIterator iter(/*only_nulls=*/true, /*all_page_dict_encoded=*/false);
+    auto out = create_array_column();
+
+    Status st = collecter._collect_dict_for_column(&iter, /*cid=*/0, out.get());
+    EXPECT_TRUE(st.ok()) << st.to_string();
+}
+
+// Baseline: a non-extended column without per-page dict must still be rejected
+// (this branch was already correct before the fix; we lock it in here).
+TEST_F(SegmentMetaCollecterTest, regression_72927_non_extended_rejects_global_dict) {
+    auto schema = build_single_column_schema(/*make_extended=*/false, /*path=*/nullptr);
+    ASSERT_FALSE(schema->column(0).is_extended());
+
+    SegmentMetaCollecter collecter(_segment);
+    SegmentMetaCollecterParams params;
+    params.tablet_schema = schema;
+    params.low_cardinality_threshold = 255;
+    collecter._params = &params;
+
+    // only_nulls=true on a non-extended column must NOT be confused with the
+    // heterogeneous flat-JSON pass-through above.
+    StubColumnIterator iter(/*only_nulls=*/true, /*all_page_dict_encoded=*/false);
+    auto out = create_array_column();
+
+    Status st = collecter._collect_dict_for_column(&iter, /*cid=*/0, out.get());
+    EXPECT_FALSE(st.ok());
+    EXPECT_TRUE(st.is_global_dict_error()) << st.to_string();
 }
 
 } // namespace starrocks
