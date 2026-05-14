@@ -3322,14 +3322,37 @@ out.append("${{dictMgr.NO_DICT_STRING_COLUMNS.contains(cid)}}")
     def assert_is_identical_explain_plan(self, query1, query2):
         """
         assert whether two plans from query1 and query2 are identical
+
+        Estimated statistics (cardinality, avgRowSize) are stripped before
+        comparison because they can fluctuate between explain calls when
+        statistics collection has not yet stabilized, even though the plan
+        structure is identical.
         """
         sql1 = "explain %s" % query1
         sql2 = "explain %s" % query2
         res1 = self.execute_sql(sql1, True)
         res2 = self.execute_sql(sql2, True)
+        normalized1 = self._normalize_explain_plan(res1["result"])
+        normalized2 = self._normalize_explain_plan(res2["result"])
         tools.assert_true(
-            res1 == res2, "assert two plans are different, plan1: {}, plan2: {}".format(res1["result"], res2["result"])
+            normalized1 == normalized2,
+            "assert two plans are different, plan1: {}, plan2: {}".format(res1["result"], res2["result"]),
         )
+
+    @staticmethod
+    def _normalize_explain_plan(result):
+        """
+        Drop lines that contain non-deterministic statistics from an explain
+        plan so it can be compared structurally.
+        """
+        if result is None:
+            return result
+        flaky_keys = ("cardinality=", "avgRowSize=")
+        normalized = []
+        for row in result:
+            new_row = tuple(cell for cell in row if not any(key in cell for key in flaky_keys))
+            normalized.append(new_row)
+        return tuple(normalized)
 
     def assert_query_contains(self, query, *expects):
         """
