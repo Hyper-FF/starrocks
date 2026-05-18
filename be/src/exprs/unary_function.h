@@ -206,20 +206,21 @@ public:
                     // both inside the input column and inside the results.
                     auto finally_null_column =
                             FunctionHelper::union_null_column(col->null_column(), nullable_data->null_column());
-                    return NullableColumn::create(nullable_data->data_column(), std::move(finally_null_column));
+                    return NullableColumn::create(std::move(*nullable_data->data_column()).mutate(),
+                                                  std::move(finally_null_column));
 
                 } else {
                     // case 3: the result rows are all non-nulls, the data of null column should
                     // keep same as before
                     auto nul = NullColumn::create();
                     nul->append(*col->null_column(), 0, col->null_column()->size());
-                    return NullableColumn::create(nullable_data->data_column(), std::move(nul));
+                    return NullableColumn::create(std::move(*nullable_data->data_column()).mutate(), std::move(nul));
                 }
             } else {
                 // the result of data column is not NullableColumn
                 auto nul = NullColumn::create();
                 nul->append(*col->null_column(), 0, col->null_column()->size());
-                return NullableColumn::create(result, std::move(nul));
+                return NullableColumn::create(std::move(*result).mutate(), std::move(nul));
             }
         } else {
             return FN::template evaluate<Type, ResultType, Args...>(v1, std::forward<Args>(args)...);

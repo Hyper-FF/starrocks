@@ -542,11 +542,13 @@ ColumnPtr string_func_const(StringConstFuncType func, const Columns& columns, Ar
                     // inside original result and the null column inside the columns[0].
                     NullColumnPtr binary_null = binary_nullable->null_column();
                     auto union_null = FunctionHelper::union_null_column(std::move(src_null), binary_null);
-                    return NullableColumn::create(binary_nullable->data_column(), std::move(union_null));
+                    return NullableColumn::create(std::move(*binary_nullable->data_column()).mutate(),
+                                                  std::move(union_null));
                 } else {
                     // case 3: any of the result rows is not null, so return the original result.
                     // no merge is needed.
-                    return NullableColumn::create(binary_nullable->data_column(), std::move(src_null));
+                    return NullableColumn::create(std::move(*binary_nullable->data_column()).mutate(),
+                                                  std::move(src_null));
                 }
             } else {
                 return NullableColumn::create(binary, std::move(src_null));

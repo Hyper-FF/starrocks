@@ -104,7 +104,7 @@ ColumnPtr date_valid(const ColumnPtr& v1) {
             null_result[i] = nulls[i] | (!values[i].is_valid_non_strict());
         }
 
-        return NullableColumn::create(v->data_column(), std::move(null_column));
+        return NullableColumn::create(std::move(*v->data_column()).mutate(), std::move(null_column));
     } else {
         auto null_column = NullColumn::create();
         null_column->resize(v1->size());
