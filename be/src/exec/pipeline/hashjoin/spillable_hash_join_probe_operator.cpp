@@ -228,9 +228,15 @@ Status SpillableHashJoinProbeOperator::_push_probe_chunk(RuntimeState* state, co
         res->fnv_hash(hash_values.data(), 0, num_rows);
     }
 
-    auto partition_processer = [&chunk, this, state, &hash_values](spill::SpilledPartition* probe_partition,
-                                                                   const std::vector<uint32_t>& selection, int32_t from,
-                                                                   int32_t size) {
+    Status process_status;
+    auto partition_processer = [&chunk, this, state, &hash_values, &process_status](
+                                       spill::SpilledPartition* probe_partition,
+                                       const std::vector<uint32_t>& selection, int32_t from, int32_t size) {
+        // once a previous partition has failed, skip the remaining work; the error is
+        // reported after partitioned_spill returns.
+        if (!process_status.ok()) {
+            return;
+        }
         // nothing to do for empty partition
         if (could_short_circuit(_join_prober->join_type())) {
             // For left semi join and inner join we can just skip the empty partition
@@ -250,18 +256,25 @@ Status SpillableHashJoinProbeOperator::_push_probe_chunk(RuntimeState* state, co
         auto iter = _pid_to_process_id.find(probe_partition->partition_id);
         if (iter == _pid_to_process_id.end()) {
             auto mem_table = probe_partition->spill_writer->mem_table();
-            (void)mem_table->append_selective(*chunk, selection.data(), from, size);
+            if (auto st = mem_table->append_selective(*chunk, selection.data(), from, size); !st.ok()) {
+                process_status.update(std::move(st));
+                return;
+            }
         } else {
             // maybe has some small chunk problem
             // TODO: add chunk accumulator here
             auto partitioned_chunk = chunk->clone_empty();
-            (void)partitioned_chunk->append_selective(*chunk, selection.data(), from, size);
-            (void)_probers[iter->second]->push_probe_chunk(state, std::move(partitioned_chunk));
+            partitioned_chunk->append_selective(*chunk, selection.data(), from, size);
+            if (auto st = _probers[iter->second]->push_probe_chunk(state, std::move(partitioned_chunk)); !st.ok()) {
+                process_status.update(std::move(st));
+                return;
+            }
         }
         probe_partition->num_rows += size;
     };
     RETURN_IF_ERROR(_probe_spiller->partitioned_spill(state, chunk, hash_column.get(), partition_processer,
                                                       TRACKER_WITH_SPILLER_GUARD(state, _probe_spiller)));
+    RETURN_IF_ERROR(process_status);
 
     return Status::OK();
 }

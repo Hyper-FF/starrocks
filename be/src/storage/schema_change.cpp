@@ -202,7 +202,11 @@ Status HeapChunkMerger::merge(std::vector<ChunkPtr>& chunk_arr, RowsetWriter* ro
             if (_tablet->keys_type() == KeysType::AGG_KEYS) {
                 aggregate_chunk(*_aggregator, tmp_chunk, rowset_writer);
             } else {
-                (void)rowset_writer->add_chunk(*tmp_chunk);
+                if (auto st = rowset_writer->add_chunk(*tmp_chunk); !st.ok()) {
+                    LOG(WARNING) << "failed to add chunk: " << st;
+                    process_err();
+                    return st;
+                }
             }
             tmp_chunk->reset();
             nread = 0;
@@ -222,10 +226,18 @@ Status HeapChunkMerger::merge(std::vector<ChunkPtr>& chunk_arr, RowsetWriter* ro
         aggregate_chunk(*_aggregator, tmp_chunk, rowset_writer);
         if (_aggregator->has_aggregate_data()) {
             _aggregator->aggregate();
-            (void)rowset_writer->add_chunk(*_aggregator->aggregate_result());
+            if (auto st = rowset_writer->add_chunk(*_aggregator->aggregate_result()); !st.ok()) {
+                LOG(WARNING) << "failed to add chunk: " << st;
+                process_err();
+                return st;
+            }
         }
     } else {
-        (void)rowset_writer->add_chunk(*tmp_chunk);
+        if (auto st = rowset_writer->add_chunk(*tmp_chunk); !st.ok()) {
+            LOG(WARNING) << "failed to add chunk: " << st;
+            process_err();
+            return st;
+        }
     }
 
     if (auto st = rowset_writer->flush(); !st.ok()) {
