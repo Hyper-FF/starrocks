@@ -58,6 +58,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class CoordinatorTest extends PlanTestBase {
@@ -210,6 +213,76 @@ public class CoordinatorTest extends PlanTestBase {
         coordinatorWithScan.clearExternalResources();
 
         Assertions.assertEquals(1, clearCount.get());
+    }
+
+    @Test
+    public void testClearExternalResourcesAwaitsInflightAsyncCleanup() throws Exception {
+        // Reproduces the race fixed by this commit: an async cleanup scheduled from cancelInternal()
+        // wins the externalResourcesCleared CAS and starts running ScanNode.clear() (which may stall
+        // on connector close). Meanwhile StmtExecutor's finally block calls clearExternalResources()
+        // synchronously. Before the fix, the synchronous caller would see the CAS already taken and
+        // return immediately, allowing a subsequent statement to reuse scan nodes while the previous
+        // clear() is still running. After the fix, the synchronous caller must block until the
+        // async cleanup finishes.
+        CountDownLatch clearStarted = new CountDownLatch(1);
+        CountDownLatch releaseClear = new CountDownLatch(1);
+        AtomicBoolean clearReturned = new AtomicBoolean(false);
+        AtomicInteger clearCount = new AtomicInteger();
+        TupleDescriptor desc = new TupleDescriptor(new TupleId(0));
+        ScanNode blockingScanNode = new ScanNode(new PlanNodeId(0), desc, "blocking-scan") {
+            @Override
+            public void clear() {
+                clearStarted.countDown();
+                try {
+                    releaseClear.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                clearCount.incrementAndGet();
+                clearReturned.set(true);
+            }
+
+            @Override
+            public java.util.List<TScanRangeLocations> getScanRangeLocations(long maxScanRangeLength) {
+                return Collections.emptyList();
+            }
+
+            @Override
+            protected void toThrift(TPlanNode msg) {
+            }
+        };
+        DefaultCoordinator coordinatorWithScan = new DefaultCoordinator.Factory().createQueryScheduler(
+                ctx, Lists.newArrayList(), Collections.singletonList(blockingScanNode), new TDescriptorTable(), null);
+
+        // Simulate cancelInternal() kicking off async cleanup, then wait until ScanNode.clear() is
+        // actually running so the externalResourcesCleared CAS has already been taken.
+        Deencapsulation.invoke(coordinatorWithScan, "clearExternalResourcesAsync");
+        Assertions.assertTrue(clearStarted.await(5, TimeUnit.SECONDS),
+                "async cleanup task must enter scanNode.clear() within timeout");
+
+        // Synchronous caller (e.g., StmtExecutor.finally) — must wait for the in-flight async
+        // cleanup to complete, not return immediately.
+        Thread syncCaller = new Thread(coordinatorWithScan::clearExternalResources, "sync-clear-caller");
+        syncCaller.start();
+
+        // Give the synchronous caller a chance to enter awaitExternalResourcesCleared(). It must
+        // still be alive because the async cleanup is still blocked on releaseClear.
+        syncCaller.join(500);
+        Assertions.assertTrue(syncCaller.isAlive(),
+                "synchronous clearExternalResources() must block while async cleanup is in flight");
+        Assertions.assertFalse(clearReturned.get(),
+                "async cleanup must not have finished yet");
+
+        // Release the async cleanup. The synchronous caller must now unblock and observe that
+        // external resources are fully released.
+        releaseClear.countDown();
+        syncCaller.join(5000);
+        Assertions.assertFalse(syncCaller.isAlive(),
+                "synchronous clearExternalResources() must return after async cleanup completes");
+        Assertions.assertTrue(clearReturned.get(),
+                "scanNode.clear() must have returned before the synchronous caller unblocks");
+        Assertions.assertEquals(1, clearCount.get(),
+                "scanNode.clear() must run exactly once across both callers");
     }
 
 }

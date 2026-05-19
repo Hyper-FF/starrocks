@@ -122,6 +122,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -138,6 +139,9 @@ public class DefaultCoordinator extends Coordinator {
     private static final int DEFAULT_PROFILE_TIMEOUT_SECOND = 2;
     private static final ExecutorService EXTERNAL_RESOURCE_CLEANUP_EXECUTOR =
             ThreadPoolManager.newDaemonCacheThreadPool(32, 1024, "external-resource-cleanup", false);
+    // Upper bound for synchronous callers waiting on an in-flight async cleanup, so a stalled
+    // connector close cannot deadlock the statement-executor unwind path indefinitely.
+    private static final long EXTERNAL_RESOURCE_CLEANUP_AWAIT_TIMEOUT_MS = 60_000L;
 
     private final JobSpec jobSpec;
     private final ExecutionDAG executionDAG;
@@ -180,6 +184,9 @@ public class DefaultCoordinator extends Coordinator {
     private boolean isBinaryRow = false;
     private final AtomicBoolean externalResourcesCleared = new AtomicBoolean(false);
     private final AtomicBoolean externalResourcesCleanupScheduled = new AtomicBoolean(false);
+    // Counted down once doClearExternalResources() returns. Synchronous callers that lose the
+    // externalResourcesCleared CAS use this to wait for an in-flight async cleanup to finish.
+    private final CountDownLatch externalResourcesClearedLatch = new CountDownLatch(1);
 
     private long estimatedMemCost;
     private ExecutionSchedule scheduler;
@@ -1123,10 +1130,34 @@ public class DefaultCoordinator extends Coordinator {
 
     @Override
     public void clearExternalResources() {
-        if (!externalResourcesCleared.compareAndSet(false, true)) {
+        if (externalResourcesCleared.compareAndSet(false, true)) {
+            try {
+                doClearExternalResources();
+            } finally {
+                externalResourcesClearedLatch.countDown();
+            }
             return;
         }
-        doClearExternalResources();
+        // Cleanup is being performed by another caller, very likely the async task scheduled in
+        // cancelInternal(). The synchronous caller (StmtExecutor's finally block) must not return
+        // until external resources are actually released, otherwise a subsequent statement could
+        // reuse scan nodes while clear() is still running concurrently in the async executor.
+        awaitExternalResourcesCleared();
+    }
+
+    private void awaitExternalResourcesCleared() {
+        try {
+            if (!externalResourcesClearedLatch.await(
+                    EXTERNAL_RESOURCE_CLEANUP_AWAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                LOG.warn("Timed out after {} ms waiting for in-flight external resource cleanup, query id: {}",
+                        EXTERNAL_RESOURCE_CLEANUP_AWAIT_TIMEOUT_MS,
+                        DebugUtil.printId(jobSpec.getQueryId()));
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOG.warn("Interrupted while waiting for external resource cleanup, query id: {}",
+                    DebugUtil.printId(jobSpec.getQueryId()));
+        }
     }
 
     private void clearExternalResourcesAsync() {
