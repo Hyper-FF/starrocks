@@ -84,12 +84,14 @@ TEST(MergeCascadeTest, merge_cursor_test) {
 
         size_t chunk_size = 4096;
         auto l = chunk->clone_unique();
-        l->mutable_columns()[0]->append_datum(Datum(1));
-        l->mutable_columns()[0]->assign(chunk_size, 0);
+        auto* l_col = l->get_column_by_index(0)->as_mutable_raw_ptr();
+        l_col->append_datum(Datum(1));
+        l_col->assign(chunk_size, 0);
 
         auto r = chunk->clone_unique();
-        r->mutable_columns()[0]->append_datum(Datum(9999));
-        r->mutable_columns()[0]->assign(chunk_size, 0);
+        auto* r_col = r->get_column_by_index(0)->as_mutable_raw_ptr();
+        r_col->append_datum(Datum(9999));
+        r_col->assign(chunk_size, 0);
 
         l_chunk_channel.emplace(l->clone_unique());
         r_chunk_channel.emplace(r->clone_unique());
@@ -132,12 +134,14 @@ TEST(MergeCascadeTest, merge_cursor_test) {
 
         size_t chunk_size = 4096;
         auto l = chunk->clone_unique();
-        l->mutable_columns()[0]->append_datum(Datum(1));
-        l->mutable_columns()[0]->assign(chunk_size, 0);
+        auto* l_col = l->get_column_by_index(0)->as_mutable_raw_ptr();
+        l_col->append_datum(Datum(1));
+        l_col->assign(chunk_size, 0);
 
         auto r = chunk->clone_unique();
-        r->mutable_columns()[0]->append_datum(Datum(1));
-        r->mutable_columns()[0]->assign(chunk_size, 0);
+        auto* r_col = r->get_column_by_index(0)->as_mutable_raw_ptr();
+        r_col->append_datum(Datum(1));
+        r_col->assign(chunk_size, 0);
 
         l_chunk_channel.emplace(l->clone_unique());
         r_chunk_channel.emplace(r->clone_unique());
