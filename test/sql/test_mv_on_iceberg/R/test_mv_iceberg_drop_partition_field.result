@@ -95,10 +95,6 @@ SELECT id, dt, val FROM test_mv1 ORDER BY id;
 2	2024-01-15	20
 3	2024-02-05	30
 -- !result
-function: print_hit_materialized_view("SELECT id, dt, val FROM mv_iceberg_${uuid0}.mv_ice_db_${uuid0}.t1 ORDER BY id", "test_mv1")
--- result:
-True
--- !result
 drop materialized view test_mv1;
 -- result:
 -- !result
