@@ -149,7 +149,7 @@ struct ColumnType {
     bool is_nullable;
 };
 
-enum AggrMode {
+enum AggrMode : int {
     AM_DEFAULT, // normal mode(cache feature turn off)
     // A blocking operator is split into a pair {blocking operator(before cache), blocking operator(after cache)]
     // process non-passthrough chunks: (pre-cache: input-->intermediate) => (post-cache: intermediate->output)
