@@ -18,8 +18,17 @@
 
 #include "base/hash/hash_util.hpp"
 #include "base/string/string_parser.hpp"
+#include "base/utility/integer_util.h"
 
 namespace starrocks {
+
+std::string int128_to_string(__int128 value) {
+    return integer_to_string<__int128>(value);
+}
+
+std::ostream& operator<<(std::ostream& os, __int128 const& value) {
+    return os << int128_to_string(value);
+}
 
 std::istream& operator>>(std::istream& is, __int128& value) {
     std::string str;

@@ -19,8 +19,6 @@
 #include <ostream>
 #include <string>
 
-#include "base/utility/integer_util.h"
-
 namespace starrocks {
 
 using int128_t = __int128;
@@ -38,13 +36,9 @@ inline constexpr int128_t abs(int128_t value) {
     return static_cast<int128_t>(abs_as_uint128(value));
 }
 
-inline std::string int128_to_string(__int128 value) {
-    return integer_to_string<__int128>(value);
-}
+std::string int128_to_string(__int128 value);
 
-inline std::ostream& operator<<(std::ostream& os, __int128 const& value) {
-    return os << int128_to_string(value);
-}
+std::ostream& operator<<(std::ostream& os, __int128 const& value);
 
 std::istream& operator>>(std::istream& is, __int128& value);
 

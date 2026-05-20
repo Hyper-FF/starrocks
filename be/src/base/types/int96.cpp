@@ -14,23 +14,17 @@
 
 #include "base/types/int96.h"
 
-#include <sstream>
-
 #include "base/types/int128.h"
 
 namespace starrocks {
 
 std::string int96_t::to_string() const {
-    std::stringstream os;
     __int128 val128 = ((__int128)hi << 64) + lo;
-    starrocks::operator<<(os, val128);
-    return os.str();
+    return int128_to_string(val128);
 }
 
 std::ostream& operator<<(std::ostream& os, const int96_t& val) {
-    __int128 val128 = ((__int128)val.hi << 64) + val.lo;
-    starrocks::operator<<(os, val128);
-    return os;
+    return os << val.to_string();
 }
 
 } // namespace starrocks
