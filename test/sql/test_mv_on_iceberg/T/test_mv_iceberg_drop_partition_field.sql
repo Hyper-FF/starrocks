@@ -55,12 +55,7 @@ SELECT IS_ACTIVE FROM information_schema.materialized_views
 [UC]REFRESH MATERIALIZED VIEW test_mv1 WITH SYNC MODE;
 SELECT count(*) FROM test_mv1;
 SELECT id, dt, val FROM test_mv1 ORDER BY id;
--- NOTE: do not assert MV rewrite here. After the failed refresh post-evolution
--- the MV is in a stale state (base table has the new spec + new rows, MV holds
--- only the original 3 rows), and whether the optimizer picks the stale MV for
--- rewrite is non-deterministic. MV rewrite after partition evolution is not in
--- this test's scope; the IS_ACTIVE + refresh-error assertions above cover the
--- intended behavior.
+function: print_hit_materialized_view("SELECT id, dt, val FROM mv_iceberg_${uuid0}.mv_ice_db_${uuid0}.t1 ORDER BY id", "test_mv1")
 
 drop materialized view test_mv1;
 drop table mv_iceberg_${uuid0}.mv_ice_db_${uuid0}.t1 force;
