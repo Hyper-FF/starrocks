@@ -66,8 +66,18 @@ Status KafkaDataConsumerGroup::assign_topic_partitions(StreamLoadContext* ctx) {
 }
 
 KafkaDataConsumerGroup::~KafkaDataConsumerGroup() {
-    // clean the msgs left in queue
+    // Signal the queue and wait for every consumer thread to exit BEFORE any
+    // member of this object starts to be destroyed. The consumer task callback
+    // (capture2 in start_all) touches _queue / _mutex / _counter / _grp_id and
+    // also writes to the start_all-local `result_st`; without this join the
+    // threads could still be running while reverse-order member destruction
+    // tears down _counter / _mutex / _queue (declared after _thread_pool in the
+    // base class), and start_all's stack frame may already be gone.
     _queue.shutdown();
+    _thread_pool.shutdown();
+    _thread_pool.join();
+
+    // clean the msgs left in queue
     while (true) {
         RdKafka::Message* msg;
         if (_queue.blocking_get(&msg)) {
@@ -99,6 +109,12 @@ Status KafkaDataConsumerGroup::start_all(StreamLoadContext* ctx) {
                                      }
                                  }] { actual_consume(consumer, capture0, capture1, capture2); })) {
             LOG(WARNING) << "failed to submit data consumer: " << consumer->id() << ", group id: " << _grp_id;
+            // Wait for already-submitted consumer threads to drain before
+            // `result_st` (a stack local that their capture2 holds a reference
+            // to) goes out of scope on return.
+            _queue.shutdown();
+            _thread_pool.shutdown();
+            _thread_pool.join();
             return Status::InternalError("failed to submit data consumer");
         } else {
             VLOG(2) << "submit a data consumer: " << consumer->id() << ", group id: " << _grp_id;
@@ -286,8 +302,15 @@ Status PulsarDataConsumerGroup::assign_topic_partitions(StreamLoadContext* ctx) 
 }
 
 PulsarDataConsumerGroup::~PulsarDataConsumerGroup() {
-    // clean the msgs left in queue
+    // See the equivalent comment in ~KafkaDataConsumerGroup: drain the queue
+    // and join every consumer thread before any of this object's members start
+    // to be destroyed, so capture2 in start_all does not touch torn-down
+    // _queue / _mutex / _counter / _grp_id or an already-popped stack frame.
     _queue.shutdown();
+    _thread_pool.shutdown();
+    _thread_pool.join();
+
+    // clean the msgs left in queue
     while (true) {
         pulsar::Message* msg;
         if (_queue.blocking_get(&msg)) {
@@ -319,6 +342,11 @@ Status PulsarDataConsumerGroup::start_all(StreamLoadContext* ctx) {
                                      }
                                  }] { actual_consume(consumer, capture0, capture1, capture2); })) {
             LOG(WARNING) << "failed to submit data consumer: " << consumer->id() << ", group id: " << _grp_id;
+            // Join already-submitted consumer threads before `result_st` (a
+            // stack local their capture2 references) goes out of scope.
+            _queue.shutdown();
+            _thread_pool.shutdown();
+            _thread_pool.join();
             return Status::InternalError("failed to submit data consumer");
         } else {
             VLOG(2) << "submit a data consumer: " << consumer->id() << ", group id: " << _grp_id;
