@@ -182,7 +182,13 @@ public class IvmOpUtils {
                 intermediateAggScalarOp.getType());
         Function specializedFunc = newFunc.copy();
         specializedFunc.setAggStateDesc(inputAggStateDesc.clone());
-        return new CallOperator(stateUnionFunctionName, intermediateAggScalarOp.getType(),
+        // Use the wider of the two compatible types as the result type so the value
+        // produced here can be bound to the MV sink without truncation. The delta
+        // side's CallOperator type is typically VARCHAR(N) (narrow), while the MV
+        // state column is VARCHAR(65533) (wide).
+        Type resultType = widerStateUnionType(intermediateAggScalarOp.getType(),
+                aggStateAggStateColumnRef.getType());
+        return new CallOperator(stateUnionFunctionName, resultType,
                 List.of(intermediateAggScalarOp, aggStateAggStateColumnRef), specializedFunc);
     }
 
@@ -200,5 +206,29 @@ public class IvmOpUtils {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Pick the wider of two state-union-compatible types. For string types with the
+     * same primitive kind this picks the longer length (wildcard length -1 wins, as
+     * it represents an unbounded length). For all other compatible cases the types
+     * are equal so either side works.
+     */
+    @VisibleForTesting
+    static Type widerStateUnionType(Type intermediate, Type mvColumn) {
+        Preconditions.checkArgument(typesCompatibleForStateUnion(intermediate, mvColumn),
+                "types must be state-union-compatible: %s vs %s", intermediate, mvColumn);
+        if (intermediate.equals(mvColumn)) {
+            return mvColumn;
+        }
+        ScalarType a = (ScalarType) intermediate;
+        ScalarType b = (ScalarType) mvColumn;
+        if (a.getLength() == -1) {
+            return a;
+        }
+        if (b.getLength() == -1) {
+            return b;
+        }
+        return a.getLength() >= b.getLength() ? a : b;
     }
 }

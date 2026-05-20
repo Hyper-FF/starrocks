@@ -82,4 +82,32 @@ public class IvmOpUtilsTest {
         Assertions.assertFalse(IvmOpUtils.typesCompatibleForStateUnion(a, b));
         Assertions.assertFalse(IvmOpUtils.typesCompatibleForStateUnion(b, a));
     }
+
+    @Test
+    public void widerStateUnionTypePicksLongerVarchar() {
+        // The state_union CallOperator's result type must be the wider of the
+        // delta-side VARCHAR(N) and the MV-side VARCHAR(65533), otherwise binding
+        // it to the MV sink can truncate.
+        ScalarType narrow = TypeFactory.createVarcharType(50);
+        ScalarType wide = TypeFactory.createVarcharType(65533);
+        Assertions.assertEquals(wide, IvmOpUtils.widerStateUnionType(narrow, wide));
+        Assertions.assertEquals(wide, IvmOpUtils.widerStateUnionType(wide, narrow));
+    }
+
+    @Test
+    public void widerStateUnionTypeWildcardWins() {
+        // Wildcard varchar (length -1) represents an unbounded length and must
+        // beat any concrete length.
+        ScalarType wildcard = TypeFactory.createVarcharType(-1);
+        ScalarType concrete = TypeFactory.createVarcharType(65533);
+        Assertions.assertEquals(wildcard, IvmOpUtils.widerStateUnionType(wildcard, concrete));
+        Assertions.assertEquals(wildcard, IvmOpUtils.widerStateUnionType(concrete, wildcard));
+    }
+
+    @Test
+    public void widerStateUnionTypeEqualTypesReturnsEither() {
+        ScalarType a = TypeFactory.createVarcharType(100);
+        ScalarType b = TypeFactory.createVarcharType(100);
+        Assertions.assertEquals(a, IvmOpUtils.widerStateUnionType(a, b));
+    }
 }
