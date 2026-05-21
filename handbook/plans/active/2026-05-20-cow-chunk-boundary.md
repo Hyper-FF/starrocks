@@ -1,6 +1,6 @@
 # Chunk COW Boundary Tightening
 
-- Status: active
+- Status: active (cautious subset of [`2026-05-20-cow-full-refactor.md`](2026-05-20-cow-full-refactor.md))
 - Owner: Storage / Execution
 - Last Updated: 2026-05-20
 
