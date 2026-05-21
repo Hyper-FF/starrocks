@@ -24,10 +24,8 @@ namespace starrocks {
 
 template <typename T>
 class DecimalV3Column final
-        : public CowFactory<ColumnFactory<FixedLengthColumnBase<T>, DecimalV3Column<DecimalType<T>>>,
-                            DecimalV3Column<DecimalType<T>>, Column> {
-    friend class CowFactory<ColumnFactory<FixedLengthColumnBase<T>, DecimalV3Column<DecimalType<T>>>,
-                            DecimalV3Column<DecimalType<T>>, Column>;
+        : public ColumnCRTPBase<DecimalV3Column<DecimalType<T>>, FixedLengthColumnBase<T>> {
+    friend class ColumnCRTPBase<DecimalV3Column<DecimalType<T>>, FixedLengthColumnBase<T>>;
 
 public:
     DecimalV3Column() = default;

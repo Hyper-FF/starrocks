@@ -20,9 +20,9 @@
 #include "common/cow.h"
 
 namespace starrocks {
-class ColumnView final : public CowFactory<ColumnFactory<ColumnViewBase, ColumnView>, ColumnView, Column> {
+class ColumnView final : public ColumnCRTPBase<ColumnView, ColumnViewBase> {
 public:
-    using Super = CowFactory<ColumnFactory<ColumnViewBase, ColumnView>, ColumnView, Column>;
+    using Super = ColumnCRTPBase<ColumnView, ColumnViewBase>;
     explicit ColumnView(ColumnPtr&& default_column, long concat_rows_limit, long concat_bytes_limit)
             : Super(std::move(default_column), concat_rows_limit, concat_bytes_limit) {}
     DISALLOW_COPY(ColumnView);

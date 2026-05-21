@@ -842,8 +842,7 @@ void BinaryColumnBase<T>::deserialize_and_append_batch_nullable(Buffer<Slice>& s
                                          ? 4
                                          : *((uint32_t*)(srcs[0].data + sizeof(bool))); // first string size
     get_bytes().reserve(chunk_size * string_size * 2);
-    ColumnFactory<Column, BinaryColumnBase<T> >::deserialize_and_append_batch_nullable(srcs, chunk_size, is_nulls,
-                                                                                       has_null);
+    ColumnCRTPBase<BinaryColumnBase<T>>::deserialize_and_append_batch_nullable(srcs, chunk_size, is_nulls, has_null);
 }
 
 template <typename T>

@@ -29,10 +29,10 @@ namespace starrocks {
 // JsonColumn column for JSON type
 // format_version 1: store each JSON in binary encoding individually
 // format_version 2: TODO columnar encoding for JSON
-class JsonColumn final : public CowFactory<ColumnFactory<ObjectColumn<JsonValue>, JsonColumn>, JsonColumn, Column> {
+class JsonColumn final : public ColumnCRTPBase<JsonColumn, ObjectColumn<JsonValue>> {
 public:
     using ValueType = JsonValue;
-    using SuperClass = CowFactory<ColumnFactory<ObjectColumn<JsonValue>, JsonColumn>, JsonColumn, Column>;
+    using SuperClass = ColumnCRTPBase<JsonColumn, ObjectColumn<JsonValue>>;
     using BaseClass = JsonColumnBase;
 
     JsonColumn() = default;

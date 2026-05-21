@@ -18,9 +18,9 @@
 #include "column/column.h"
 #include "column/fixed_length_column.h"
 namespace starrocks {
-class StructColumn final : public CowFactory<ColumnFactory<Column, StructColumn>, StructColumn> {
-    friend class CowFactory<ColumnFactory<Column, StructColumn>, StructColumn>;
-    using Base = CowFactory<ColumnFactory<Column, StructColumn>, StructColumn>;
+class StructColumn final : public ColumnCRTPBase<StructColumn> {
+    friend class ColumnCRTPBase<StructColumn>;
+    using Base = ColumnCRTPBase<StructColumn>;
 
 public:
     using ValueType = void;

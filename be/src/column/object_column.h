@@ -31,8 +31,8 @@
 namespace starrocks {
 
 template <typename T>
-class ObjectColumn : public CowFactory<ColumnFactory<Column, ObjectColumn<T>>, ObjectColumn<T>> {
-    friend class CowFactory<ColumnFactory<Column, ObjectColumn>, ObjectColumn>;
+class ObjectColumn : public ColumnCRTPBase<ObjectColumn<T>> {
+    friend class ColumnCRTPBase<ObjectColumn<T>>;
 
 public:
     using ValueType = T;

@@ -17,16 +17,13 @@
 #include "column/fixed_length_column_base.h"
 namespace starrocks {
 template <typename T>
-class FixedLengthColumn final : public CowFactory<ColumnFactory<FixedLengthColumnBase<T>, FixedLengthColumn<T>>,
-                                                  FixedLengthColumn<T>, Column> {
-    friend class CowFactory<ColumnFactory<FixedLengthColumnBase<T>, FixedLengthColumn<T>>, FixedLengthColumn<T>,
-                            Column>;
+class FixedLengthColumn final : public ColumnCRTPBase<FixedLengthColumn<T>, FixedLengthColumnBase<T>> {
+    friend class ColumnCRTPBase<FixedLengthColumn<T>, FixedLengthColumnBase<T>>;
 
 public:
     using ValueType = T;
     using Container = Buffer<ValueType>;
-    using SuperClass =
-            CowFactory<ColumnFactory<FixedLengthColumnBase<T>, FixedLengthColumn<T>>, FixedLengthColumn<T>, Column>;
+    using SuperClass = ColumnCRTPBase<FixedLengthColumn<T>, FixedLengthColumnBase<T>>;
     FixedLengthColumn() = default;
 
     explicit FixedLengthColumn(const size_t n) : SuperClass(n) {}

@@ -31,8 +31,8 @@ using NullValueType = NullColumn::ValueType;
 static constexpr NullValueType DATUM_NULL = NullValueType(1);
 static constexpr NullValueType DATUM_NOT_NULL = NullValueType(0);
 
-class NullableColumn : public CowFactory<ColumnFactory<Column, NullableColumn>, NullableColumn> {
-    friend class CowFactory<ColumnFactory<Column, NullableColumn>, NullableColumn>;
+class NullableColumn : public ColumnCRTPBase<NullableColumn> {
+    friend class ColumnCRTPBase<NullableColumn>;
 
 public:
     using ValueType = void;
@@ -70,7 +70,7 @@ public:
         return *this;
     }
 
-    using Base = CowFactory<ColumnFactory<Column, NullableColumn>, NullableColumn>;
+    using Base = ColumnCRTPBase<NullableColumn>;
     static Ptr create(const ColumnPtr& data_column, const ColumnPtr& null_column) {
         return NullableColumn::create(data_column->as_mutable_ptr(), null_column->as_mutable_ptr());
     }

@@ -554,4 +554,152 @@ public:
     }
 };
 
+// Unified CRTP base for Column subclasses. Combines CowFactory + ColumnFactory into a single
+// template, reducing the verbose nested-template inheritance that every column class previously
+// required.
+//
+// Usage:
+//   Direct from Column:       class Foo final : public ColumnCRTPBase<Foo> { ... };
+//   With intermediate base:   class Bar final : public ColumnCRTPBase<Bar, SomeBase> { ... };
+template <typename Derived, typename Base = Column>
+class ColumnCRTPBase : public Base {
+    Derived* derived() { return down_cast<Derived*>(this); }
+    const Derived* derived() const { return down_cast<const Derived*>(this); }
+
+public:
+    using Ptr = typename Column::template ImmutPtr<Derived>;
+    using MutablePtr = typename Column::template MutPtr<Derived>;
+    using WrappedPtr = typename Column::template ChameleonPtr<Derived>;
+
+    template <typename... Args>
+    ColumnCRTPBase(Args&&... args) : Base(std::forward<Args>(args)...) {}
+
+    template <typename... Args>
+    static MutablePtr create(Args&&... args) {
+        return MutablePtr(new Derived(std::forward<Args>(args)...));
+    }
+
+    template <typename T>
+    static MutablePtr create(std::initializer_list<T>&& arg) {
+        return MutablePtr(new Derived(std::forward<std::initializer_list<T>>(arg)));
+    }
+
+    Column::MutablePtr clone() const override = 0;
+
+    Status accept(ColumnVisitor* visitor) const override {
+        return visitor->visit(*static_cast<const Derived*>(this));
+    }
+
+    Status accept_mutable(ColumnVisitorMutable* visitor) override {
+        return visitor->visit(static_cast<Derived*>(this));
+    }
+
+    void deserialize_and_append_batch_nullable(Buffer<Slice>& srcs, size_t chunk_size, Buffer<uint8_t>& is_nulls,
+                                               bool& has_null) override {
+        is_nulls.reserve(is_nulls.size() + chunk_size);
+        for (size_t i = 0; i < chunk_size; ++i) {
+            bool null;
+            memcpy(&null, srcs[i].data, sizeof(bool));
+            srcs[i].data += sizeof(bool);
+            is_nulls.emplace_back(null);
+
+            if (null == 0) {
+                srcs[i].data = (char*)derived()->deserialize_and_append((uint8_t*)srcs[i].data);
+            } else {
+                has_null = true;
+                derived()->append_default();
+            }
+        }
+    }
+
+    static Ptr static_pointer_cast(const ColumnPtr& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
+        return Ptr(down_cast<const Derived*>(ptr.get()));
+    }
+
+    static MutablePtr static_pointer_cast(MutableColumnPtr&& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
+        return MutablePtr(down_cast<Derived*>(ptr.detach()), false);
+    }
+
+    static Ptr static_pointer_cast(ColumnPtr&& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
+        return Ptr(down_cast<const Derived*>(ptr.detach()), false);
+    }
+
+    static Ptr dynamic_pointer_cast(ColumnPtr&& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        if (auto* p = dynamic_cast<const Derived*>(ptr.detach())) {
+            return Ptr(p, false);
+        }
+        return Ptr();
+    }
+
+    static MutablePtr dynamic_pointer_cast(MutableColumnPtr&& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        if (auto* p = dynamic_cast<Derived*>(ptr.detach())) {
+            return MutablePtr(p, false);
+        }
+        return MutablePtr();
+    }
+
+    static Ptr dynamic_pointer_cast(const ColumnPtr& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        if (auto* p = dynamic_cast<const Derived*>(ptr.get())) {
+            return Ptr(p);
+        }
+        return Ptr();
+    }
+
+    static MutablePtr static_pointer_cast(MutableColumnPtr& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
+        return MutablePtr(down_cast<Derived*>(ptr.get()));
+    }
+
+    static MutablePtr dynamic_pointer_cast(const MutableColumnPtr& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        if (auto* p = dynamic_cast<Derived*>(ptr.get())) {
+            return MutablePtr(p);
+        }
+        return MutablePtr();
+    }
+
+    static Ptr static_pointer_cast(const Column::WrappedPtr& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        DCHECK(down_cast<const Derived*>(ptr.get()) != nullptr);
+        return Ptr(down_cast<const Derived*>(ptr.get()));
+    }
+
+    static MutablePtr static_pointer_cast(Column::WrappedPtr& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        DCHECK(down_cast<Derived*>(ptr.get()) != nullptr);
+        return MutablePtr(down_cast<Derived*>(ptr.get()));
+    }
+
+    static Ptr dynamic_pointer_cast(const Column::WrappedPtr& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        if (auto* p = dynamic_cast<const Derived*>(ptr.get())) {
+            return Ptr(p);
+        }
+        return Ptr();
+    }
+
+    static MutablePtr dynamic_pointer_cast(Column::WrappedPtr& ptr) {
+        DCHECK(ptr.get() != nullptr);
+        if (auto* p = dynamic_cast<Derived*>(ptr.get())) {
+            return MutablePtr(p);
+        }
+        return MutablePtr();
+    }
+
+protected:
+    MutablePtr try_mutate() const {
+        return MutablePtr(down_cast<Derived*>(Base::try_mutate().get()));
+    }
+};
+
 } // namespace starrocks

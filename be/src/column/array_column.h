@@ -32,9 +32,9 @@ namespace starrocks {
 ///             - null_column: (0, 0, 0, 0, 1, 0)
 ///             - data_column: (1, 2, 3, 4, <default>, 6)
 ///         - offsets_column: (0, 0, 3, 6)
-class ArrayColumn final : public CowFactory<ColumnFactory<Column, ArrayColumn>, ArrayColumn> {
-    friend class CowFactory<ColumnFactory<Column, ArrayColumn>, ArrayColumn>;
-    using Base = CowFactory<ColumnFactory<Column, ArrayColumn>, ArrayColumn>;
+class ArrayColumn final : public ColumnCRTPBase<ArrayColumn> {
+    friend class ColumnCRTPBase<ArrayColumn>;
+    using Base = ColumnCRTPBase<ArrayColumn>;
 
 public:
     using ValueType = void;

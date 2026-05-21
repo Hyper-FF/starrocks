@@ -52,13 +52,11 @@ namespace starrocks {
 // when append null data to AdaptiveNullableColumn, we only need increase _size in AdaptiveNullableColumn,
 // no need to append default to data column and 1 to null column.
 // At the end of AdaptiveNullableColumn, you need to call materialized_nullable() if you want to use the data column and null column.
-class AdaptiveNullableColumn final
-        : public CowFactory<ColumnFactory<NullableColumn, AdaptiveNullableColumn>, AdaptiveNullableColumn, Column> {
+class AdaptiveNullableColumn final : public ColumnCRTPBase<AdaptiveNullableColumn, NullableColumn> {
 public:
-    friend class CowFactory<ColumnFactory<NullableColumn, AdaptiveNullableColumn>, AdaptiveNullableColumn, Column>;
+    friend class ColumnCRTPBase<AdaptiveNullableColumn, NullableColumn>;
 
-    using SuperClass =
-            CowFactory<ColumnFactory<NullableColumn, AdaptiveNullableColumn>, AdaptiveNullableColumn, Column>;
+    using SuperClass = ColumnCRTPBase<AdaptiveNullableColumn, NullableColumn>;
 
     enum class State {
         kUninitialized,

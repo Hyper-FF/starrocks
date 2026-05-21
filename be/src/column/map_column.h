@@ -22,9 +22,9 @@
 #include "column/vectorized_fwd.h"
 namespace starrocks {
 
-class MapColumn final : public CowFactory<ColumnFactory<Column, MapColumn>, MapColumn> {
-    friend class CowFactory<ColumnFactory<Column, MapColumn>, MapColumn>;
-    using Base = CowFactory<ColumnFactory<Column, MapColumn>, MapColumn>;
+class MapColumn final : public ColumnCRTPBase<MapColumn> {
+    friend class ColumnCRTPBase<MapColumn>;
+    using Base = ColumnCRTPBase<MapColumn>;
 
 public:
     using ValueType = void;

@@ -58,8 +58,8 @@ private:
 };
 
 template <typename T>
-class BinaryColumnBase final : public CowFactory<ColumnFactory<Column, BinaryColumnBase<T>>, BinaryColumnBase<T>> {
-    friend class CowFactory<ColumnFactory<Column, BinaryColumnBase<T>>, BinaryColumnBase<T>>;
+class BinaryColumnBase final : public ColumnCRTPBase<BinaryColumnBase<T>> {
+    friend class ColumnCRTPBase<BinaryColumnBase<T>>;
 
 public:
     using ValueType = Slice;

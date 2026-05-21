@@ -25,8 +25,8 @@
 #include "column/vectorized_fwd.h"
 namespace starrocks {
 
-class ArrayViewColumn final : public CowFactory<ColumnFactory<Column, ArrayViewColumn>, ArrayViewColumn> {
-    friend class CowFactory<ColumnFactory<Column, ArrayViewColumn>, ArrayViewColumn>;
+class ArrayViewColumn final : public ColumnCRTPBase<ArrayViewColumn> {
+    friend class ColumnCRTPBase<ArrayViewColumn>;
 
 public:
     using ValueType = void;

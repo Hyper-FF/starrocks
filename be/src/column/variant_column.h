@@ -33,8 +33,7 @@
 
 namespace starrocks {
 
-class VariantColumn final
-        : public CowFactory<ColumnFactory<ObjectColumn<VariantRowValue>, VariantColumn>, VariantColumn, Column> {
+class VariantColumn final : public ColumnCRTPBase<VariantColumn, ObjectColumn<VariantRowValue>> {
 public:
     enum class EncodedVariantState : uint8_t {
         kNull,
@@ -47,7 +46,7 @@ public:
     };
 
     using ValueType = VariantRowValue;
-    using SuperClass = CowFactory<ColumnFactory<ObjectColumn<VariantRowValue>, VariantColumn>, VariantColumn, Column>;
+    using SuperClass = ColumnCRTPBase<VariantColumn, ObjectColumn<VariantRowValue>>;
     using BaseClass = VariantColumnBase;
 
     VariantColumn();

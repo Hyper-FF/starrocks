@@ -24,8 +24,8 @@
 
 namespace starrocks {
 
-class ConstColumn final : public CowFactory<ColumnFactory<Column, ConstColumn>, ConstColumn> {
-    friend class CowFactory<ColumnFactory<Column, ConstColumn>, ConstColumn>;
+class ConstColumn final : public ColumnCRTPBase<ConstColumn> {
+    friend class ColumnCRTPBase<ConstColumn>;
 
 public:
     using ValueType = void;

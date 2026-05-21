@@ -150,6 +150,8 @@ protected:
         friend class Cow;
         template <typename, typename, typename>
         friend class CowFactory;
+        template <typename, typename>
+        friend class ColumnCRTPBase;
         template <typename>
         friend class MutPtr; // Allow MutPtr<U> to access MutPtr<T>'s private constructor
 
@@ -206,6 +208,8 @@ protected:
         friend class Cow;
         template <typename, typename, typename>
         friend class CowFactory;
+        template <typename, typename>
+        friend class ColumnCRTPBase;
 
         explicit ImmutPtr(const T* ptr, bool add_ref = true) : Base(ptr, add_ref) {}
     };
