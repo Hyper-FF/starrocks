@@ -142,9 +142,10 @@ symbol = "main.echo"
 | **SCALAR**                           |                         |
 | BOOLEAN                              | bool                    |
 | TINYINT/SMALLINT/INT/BIGINT          | int                     |
-| LARGEINT                             | decimal.Decimal（Decimal128(38, 0)） |
+| LARGEINT                             | int                     |
 | FLOAT/DOUBLE                         | float                   |
-| DECIMAL                              | decimal.Decimal         |
+| DECIMAL(p, s)（s > 0）               | decimal.Decimal         |
+| DECIMAL(p, 0)                        | int                     |
 | CHAR/VARCHAR                         | str                     |
 | DATE                                 | datetime.date           |
 | DATETIME                             | datetime.datetime       |

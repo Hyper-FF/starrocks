@@ -101,6 +101,12 @@ def _normalize_scalar(value, arrow_type):
                 _normalize_scalar(value[arrow_type.field(i).name],
                                   arrow_type.field(i).type)
                 for i in range(arrow_type.num_fields)}
+    # LARGEINT is sent as Decimal128(38, 0) because Arrow has no int128. For
+    # the user it is semantically an integer, so unwrap any zero-scale decimal
+    # to a Python int. DECIMAL(p, 0) is captured by the same rule, which is
+    # consistent with its SQL meaning (no fractional digits).
+    if pa.types.is_decimal(arrow_type) and arrow_type.scale == 0:
+        return int(value)
     return value
 
 
