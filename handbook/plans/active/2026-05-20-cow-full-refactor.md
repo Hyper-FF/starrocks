@@ -50,10 +50,13 @@ exactly four entry points plus a tightened `Column` contract.
 ### Chunk entry points
 
 ```cpp
-// Read-only.
-const ColumnPtr& column_at(SlotId) const;
-const ColumnPtr& column_at(size_t idx) const;
-const Columns&   columns() const;
+// Read-only. Returns by value: bumps use_count by one for the caller's
+// scope. This is what protects expressions like `a + a` and patterns
+// where the result is written back into a slot that an in-flight read
+// still observes — see "Aliasing and self-reference" below.
+ColumnPtr column_at(SlotId) const;
+ColumnPtr column_at(size_t idx) const;
+const Columns& columns() const;
 
 // Take ownership of one slot and write. RAII; on destruction the slot
 // receives the (possibly cloned) MutableColumnPtr back as ColumnPtr.
@@ -65,13 +68,43 @@ const Columns&   columns() const;
 // (slots present, columns null) until set_columns is called.
 [[nodiscard]] MutableColumns take_mutable_columns();
 
-// Put columns back. Mandatory pair for take_mutable_columns.
+// Put columns back. Mandatory pair for take_mutable_columns. The
+// single-slot variant is also the way a transform that returned a new
+// column writes the result back into a slot the chunk owns.
+void set_column(SlotId, MutableColumnPtr);
+void set_column(size_t idx, MutableColumnPtr);
 void set_columns(MutableColumns columns);
 ```
 
 The non-const `get_column_raw_ptr_by_name / _index / _id / _slot_id`
 overloads are deleted. The const versions returning `const Column*`
 stay.
+
+#### Aliasing and self-reference
+
+`column_at` returns `ColumnPtr` **by value**, not `const ColumnPtr&`.
+The bump-and-drop of `use_count` per access is a deliberate cost; it
+buys two important properties:
+
+1. **Self-reference is safe.** Expressions like `a + a`, or
+   `chunk.set_column(slot_a, add(column_at(slot_a), column_at(slot_a)))`,
+   keep the original column alive through the call site's local
+   `ColumnPtr` even if the slot is rewritten mid-expression.
+2. **No dangling reference.** Holding a reference into the slot's
+   storage and then rewriting the slot would otherwise be UB. By
+   value, each caller has its own owning handle.
+
+A side effect is intentional: while a caller holds the value returned
+by `column_at`, the slot's `use_count` is at least 2, so a concurrent
+`take_mut` on the same slot triggers a deep clone. That is the
+correct semantics — a reader of the old value must not see in-place
+mutation.
+
+Aliased self-modification (`a := f(a)` in place) is expressed
+exclusively through `take_mut`, which leaves the slot empty for the
+lifetime of the handle. Attempting `column_at` on a slot whose ref
+has been taken is a programming error, caught by `DCHECK` in debug
+builds and by Phase 0 diagnostics in the migration window.
 
 ### Column contract
 
@@ -292,6 +325,11 @@ conversion:
   `Column::mutate(Ptr)` static. They remain the path for code that
   holds a `ColumnPtr` outside a Chunk (cache, intermediate result,
   spill).
+- 2026-05-20: `Chunk::column_at` returns `ColumnPtr` by value, not by
+  reference. The atomic refcount bump is the cost of safe
+  self-reference (`a + a`, in-place `set_column` with the old value
+  still on the stack); a reference-returning accessor would dangle as
+  soon as the slot is rewritten.
 - 2026-05-20: Treat the existing
   [`2026-05-20-cow-chunk-boundary.md`](2026-05-20-cow-chunk-boundary.md)
   plan as the cautious first slice (≈ Phase 0 + a degenerate Phase 1
