@@ -1,0 +1,46 @@
+-- name: test_schema_change_add_chunk_failure @sequential
+create database db_${uuid0};
+-- result:
+-- !result
+use db_${uuid0};
+-- result:
+-- !result
+CREATE TABLE `t` (
+    `k1` INT NOT NULL,
+    `k2` INT NOT NULL,
+    `v`  INT
+)
+PRIMARY KEY(`k1`, `k2`)
+DISTRIBUTED BY HASH(`k1`) BUCKETS 1
+ORDER BY (`k1`, `k2`)
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+insert into t select generate_series, generate_series, generate_series
+    from table(generate_series(1, 10000));
+-- result:
+-- !result
+admin enable failpoint 'schema_change_add_chunk_failure';
+-- result:
+-- !result
+alter table t order by (k2, k1);
+-- result:
+-- !result
+function: wait_alter_table_cancelled()
+-- result:
+None
+-- !result
+admin disable failpoint 'schema_change_add_chunk_failure';
+-- result:
+-- !result
+alter table t order by (k2, k1);
+-- result:
+-- !result
+function: wait_alter_table_finish()
+-- result:
+None
+-- !result
+select count(*) from t;
+-- result:
+10000
+-- !result

@@ -202,7 +202,11 @@ Status HeapChunkMerger::merge(std::vector<ChunkPtr>& chunk_arr, RowsetWriter* ro
             if (_tablet->keys_type() == KeysType::AGG_KEYS) {
                 aggregate_chunk(*_aggregator, tmp_chunk, rowset_writer);
             } else {
-                if (auto st = rowset_writer->add_chunk(*tmp_chunk); !st.ok()) {
+                auto st = rowset_writer->add_chunk(*tmp_chunk);
+                FAIL_POINT_TRIGGER_EXECUTE(schema_change_add_chunk_failure, {
+                    st = Status::InternalError("schema_change_add_chunk_failure failpoint triggered failure");
+                });
+                if (!st.ok()) {
                     LOG(WARNING) << "failed to add chunk: " << st;
                     process_err();
                     return st;
@@ -226,14 +230,22 @@ Status HeapChunkMerger::merge(std::vector<ChunkPtr>& chunk_arr, RowsetWriter* ro
         aggregate_chunk(*_aggregator, tmp_chunk, rowset_writer);
         if (_aggregator->has_aggregate_data()) {
             _aggregator->aggregate();
-            if (auto st = rowset_writer->add_chunk(*_aggregator->aggregate_result()); !st.ok()) {
+            auto st = rowset_writer->add_chunk(*_aggregator->aggregate_result());
+            FAIL_POINT_TRIGGER_EXECUTE(schema_change_add_chunk_failure, {
+                st = Status::InternalError("schema_change_add_chunk_failure failpoint triggered failure");
+            });
+            if (!st.ok()) {
                 LOG(WARNING) << "failed to add chunk: " << st;
                 process_err();
                 return st;
             }
         }
     } else {
-        if (auto st = rowset_writer->add_chunk(*tmp_chunk); !st.ok()) {
+        auto st = rowset_writer->add_chunk(*tmp_chunk);
+        FAIL_POINT_TRIGGER_EXECUTE(schema_change_add_chunk_failure, {
+            st = Status::InternalError("schema_change_add_chunk_failure failpoint triggered failure");
+        });
+        if (!st.ok()) {
             LOG(WARNING) << "failed to add chunk: " << st;
             process_err();
             return st;
@@ -696,6 +708,7 @@ Status SchemaChangeHandler::process_alter_tablet(const TAlterTabletReqV2& reques
 DEFINE_FAIL_POINT(base_tablet_max_version_greater_than_alter_version);
 DEFINE_FAIL_POINT(add_rowset_already_exist);
 DEFINE_FAIL_POINT(add_rowset_failed);
+DEFINE_FAIL_POINT(schema_change_add_chunk_failure);
 Status SchemaChangeHandler::_do_process_alter_tablet(const TAlterTabletReqV2& request) {
     TabletSharedPtr base_tablet = StorageEngine::instance()->tablet_manager()->get_tablet(request.base_tablet_id);
     RETURN_IF((base_tablet == nullptr),

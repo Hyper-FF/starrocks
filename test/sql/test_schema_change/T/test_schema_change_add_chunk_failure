@@ -1,0 +1,45 @@
+-- name: test_schema_change_add_chunk_failure @sequential
+create database db_${uuid0};
+use db_${uuid0};
+
+-- A primary-key table with explicit sort keys. Reordering the sort keys forces
+-- TabletUpdates::reorder_from to invoke SchemaChangeWithSorting::_internal_sorting
+-- and, when more than one chunk is produced, HeapChunkMerger::merge -- the code
+-- path whose RowsetWriter::add_chunk Status return was previously dropped.
+CREATE TABLE `t` (
+    `k1` INT NOT NULL,
+    `k2` INT NOT NULL,
+    `v`  INT
+)
+PRIMARY KEY(`k1`, `k2`)
+DISTRIBUTED BY HASH(`k1`) BUCKETS 1
+ORDER BY (`k1`, `k2`)
+PROPERTIES ("replication_num" = "1");
+
+-- Insert enough rows (> vector_chunk_size, i.e. 4096) so HeapChunkMerger::merge
+-- is actually used instead of the single-chunk fast path in _internal_sorting.
+insert into t select generate_series, generate_series, generate_series
+    from table(generate_series(1, 10000));
+
+admin enable failpoint 'schema_change_add_chunk_failure';
+
+-- Reorder the sort key. With the failpoint enabled, add_chunk inside
+-- HeapChunkMerger::merge is treated as failing; the fix is what makes that
+-- failure visible to the upper layer and aborts the schema change job.
+alter table t order by (k2, k1);
+
+function: wait_alter_table_cancelled()
+
+admin disable failpoint 'schema_change_add_chunk_failure';
+
+-- Sanity check: with the failpoint disabled the same reorder must succeed and
+-- the row count is preserved.
+alter table t order by (k2, k1);
+
+function: wait_alter_table_finish()
+
+select count(*) from t;
+
+CLEANUP {
+    admin disable failpoint 'schema_change_add_chunk_failure';
+} END CLEANUP

@@ -2446,6 +2446,32 @@ class StarrocksSQLApiLib(object):
             sleep_time += 0.5
         tools.assert_equal("FINISHED", status, "wait alter table finish error")
 
+    def wait_alter_table_cancelled(self, alter_type="COLUMN", off=9):
+        """
+        wait alter table job reach a terminal state and assert that it ended in CANCELLED.
+
+        Used by failpoint-driven tests that verify a backend failure correctly
+        propagates upward and causes the schema change to abort.
+        """
+        status = ""
+        sleep_time = 0
+        while True:
+            res = self.execute_sql(
+                "SHOW ALTER TABLE %s ORDER BY JobId DESC LIMIT 1" % alter_type,
+                True,
+            )
+            if (not res["status"]) or len(res["result"]) <= 0:
+                return ""
+
+            status = res["result"][0][off]
+            if status == "FINISHED" or status == "CANCELLED" or status == "":
+                if sleep_time <= 1:
+                    time.sleep(1)
+                break
+            time.sleep(0.5)
+            sleep_time += 0.5
+        tools.assert_equal("CANCELLED", status, "expected alter table to be CANCELLED, got %s" % status)
+
     @staticmethod
     def _canonical_json(value):
         return json.dumps(value, separators=(",", ":"), sort_keys=True)

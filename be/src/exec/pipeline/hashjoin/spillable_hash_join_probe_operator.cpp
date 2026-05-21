@@ -41,6 +41,7 @@
 namespace starrocks::pipeline {
 
 DEFINE_FAIL_POINT(spill_hash_join_throw_bad_alloc)
+DEFINE_FAIL_POINT(spillable_hash_join_probe_append_failure)
 
 Status SpillableHashJoinProbeOperator::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(HashJoinProbeOperator::prepare(state));
@@ -256,7 +257,12 @@ Status SpillableHashJoinProbeOperator::_push_probe_chunk(RuntimeState* state, co
         auto iter = _pid_to_process_id.find(probe_partition->partition_id);
         if (iter == _pid_to_process_id.end()) {
             auto mem_table = probe_partition->spill_writer->mem_table();
-            if (auto st = mem_table->append_selective(*chunk, selection.data(), from, size); !st.ok()) {
+            auto st = mem_table->append_selective(*chunk, selection.data(), from, size);
+            FAIL_POINT_TRIGGER_EXECUTE(spillable_hash_join_probe_append_failure, {
+                st = Status::InternalError(
+                        "spillable_hash_join_probe_append_failure failpoint triggered failure");
+            });
+            if (!st.ok()) {
                 process_status.update(std::move(st));
                 return;
             }
