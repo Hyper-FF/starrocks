@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/failpoint/fail_point.h"
 #include "column/column.h"
 #include "column/column_helper.h"
 #include "column/column_viewer.h"
@@ -48,6 +49,8 @@
 #include "velocypack/vpack.h"
 
 namespace starrocks {
+
+DEFINE_FAIL_POINT(flat_json_write_column_fail);
 
 FlatJsonColumnWriter::FlatJsonColumnWriter(const ColumnWriterOptions& opts, TypeInfoPtr type_info, WritableFile* wfile,
                                            std::unique_ptr<ObjectColumnWriter> json_writer)
@@ -234,6 +237,11 @@ Status FlatJsonColumnWriter::_init_flat_writers() {
 Status FlatJsonColumnWriter::_write_flat_column() {
     DCHECK(!_flat_columns.empty());
     DCHECK_EQ(_flat_columns.size(), _flat_writers.size());
+
+    // Inject failure between _init_flat_writers() and the per-column append loop.
+    // Exercises the FlatJsonColumnWriter::finish() fallback path that still iterates
+    // _flat_writers[i]->finish() even when no sub-writer has received any append().
+    FAIL_POINT_TRIGGER_RETURN_ERROR(flat_json_write_column_fail);
 
     // IMPORTANT: Final integrity check before writing to prevent  inconsistency
     for (const auto& flat_col : _flat_columns) {
