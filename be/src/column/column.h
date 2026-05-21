@@ -522,18 +522,21 @@ struct IsMutableColumns<> {
 template <typename Base, typename Derived>
 class ColumnFactory : public Base {
 private:
-    Derived* derived() { return down_cast<Derived*>(this); }
-    const Derived* derived() const { return down_cast<const Derived*>(this); }
+    // C++23 deducing-this (P0847): a single function replaces the const/non-const
+    // CRTP `derived()` pair. `self`'s const-ness is propagated to the returned reference.
+    template <typename Self>
+    auto& derived(this Self& self) {
+        using D = std::conditional_t<std::is_const_v<Self>, const Derived, Derived>;
+        return down_cast<D&>(self);
+    }
 
 public:
     template <typename... Args>
     ColumnFactory(Args&&... args) : Base(std::forward<Args>(args)...) {}
 
-    Status accept(ColumnVisitor* visitor) const override { return visitor->visit(*static_cast<const Derived*>(this)); }
+    Status accept(ColumnVisitor* visitor) const override { return visitor->visit(derived()); }
 
-    Status accept_mutable(ColumnVisitorMutable* visitor) override {
-        return visitor->visit(static_cast<Derived*>(this));
-    }
+    Status accept_mutable(ColumnVisitorMutable* visitor) override { return visitor->visit(&derived()); }
 
     void deserialize_and_append_batch_nullable(Buffer<Slice>& srcs, size_t chunk_size, Buffer<uint8_t>& is_nulls,
                                                bool& has_null) override {
@@ -545,10 +548,10 @@ public:
             is_nulls.emplace_back(null);
 
             if (null == 0) {
-                srcs[i].data = (char*)derived()->deserialize_and_append((uint8_t*)srcs[i].data);
+                srcs[i].data = (char*)derived().deserialize_and_append((uint8_t*)srcs[i].data);
             } else {
                 has_null = true;
-                derived()->append_default();
+                derived().append_default();
             }
         }
     }

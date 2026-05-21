@@ -57,35 +57,28 @@ protected:
     PredicateNodeId _id = 0;
 };
 
-template <typename Derived>
+// C++23 deducing-this (P0847) lets us drop the `Derived` template parameter:
+// `self` is deduced as the most-derived type at the call site, so we can call
+// the derived overloads directly without `static_cast<Derived*>(this)`.
 class PredicateNodeFactory : public PredicateBaseNode {
 public:
-    Status evaluate(CompoundNodeContexts& contexts, const Chunk* chunk, uint8_t* selection) const {
-        return derived()->evaluate(contexts, chunk, selection, 0, chunk->num_rows());
+    Status evaluate(this const auto& self, CompoundNodeContexts& contexts, const Chunk* chunk, uint8_t* selection) {
+        return self.evaluate(contexts, chunk, selection, 0, chunk->num_rows());
     }
-    Status evaluate_and(CompoundNodeContexts& contexts, const Chunk* chunk, uint8_t* selection) const {
-        return derived()->evaluate_and(contexts, chunk, selection, 0, chunk->num_rows());
+    Status evaluate_and(this const auto& self, CompoundNodeContexts& contexts, const Chunk* chunk, uint8_t* selection) {
+        return self.evaluate_and(contexts, chunk, selection, 0, chunk->num_rows());
     }
-    Status evaluate_or(CompoundNodeContexts& contexts, const Chunk* chunk, uint8_t* selection) const {
-        return derived()->evaluate_or(contexts, chunk, selection, 0, chunk->num_rows());
-    }
-
-    template <typename Vistor, typename... Args>
-    auto visit(Vistor&& visitor, Args&&... args) const {
-        return visitor(*derived(), std::forward<Args>(args)...);
+    Status evaluate_or(this const auto& self, CompoundNodeContexts& contexts, const Chunk* chunk, uint8_t* selection) {
+        return self.evaluate_or(contexts, chunk, selection, 0, chunk->num_rows());
     }
 
-    template <typename Vistor, typename... Args>
-    auto visit(Vistor&& visitor, Args&&... args) {
-        return visitor(*derived(), std::forward<Args>(args)...);
+    template <typename Self, typename Vistor, typename... Args>
+    auto visit(this Self&& self, Vistor&& visitor, Args&&... args) {
+        return visitor(self, std::forward<Args>(args)...);
     }
-
-private:
-    Derived* derived() { return static_cast<Derived*>(this); }
-    const Derived* derived() const { return static_cast<const Derived*>(this); }
 };
 
-class PredicateColumnNode final : public PredicateNodeFactory<PredicateColumnNode> {
+class PredicateColumnNode final : public PredicateNodeFactory {
 public:
     explicit PredicateColumnNode(const ColumnPredicate* col_pred) : _col_pred(DCHECK_NOTNULL(col_pred)) {}
 
@@ -102,7 +95,7 @@ public:
 
     std::string debug_string() const;
 
-    using PredicateNodeFactory<PredicateColumnNode>::evaluate;
+    using PredicateNodeFactory::evaluate;
 
 private:
     const ColumnPredicate* _col_pred;
@@ -122,7 +115,7 @@ struct CompoundNodeTraits<CompoundNodeType::OR> {
 };
 
 template <CompoundNodeType Type>
-class PredicateCompoundNode final : public PredicateNodeFactory<PredicateCompoundNode<Type>> {
+class PredicateCompoundNode final : public PredicateNodeFactory {
 public:
     static constexpr auto DualType = CompoundNodeTraits<Type>::DualType;
 
@@ -162,7 +155,7 @@ public:
     template <typename Vistor>
     void partition_move(Vistor&& cond, PredicateAndNode* true_pred_tree, PredicateAndNode* false_pred_tree);
 
-    using PredicateNodeFactory<PredicateCompoundNode>::evaluate;
+    using PredicateNodeFactory::evaluate;
 
 private:
     PredicateColumnNodeMap _col_children_map;

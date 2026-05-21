@@ -363,12 +363,22 @@ public:
 
 template <typename State, typename Derived>
 class AggregateFunctionBatchHelper : public AggregateFunctionStateHelper<State> {
+private:
+    // C++23 deducing-this (P0847) replaces `static_cast<const Derived*>(this)`
+    // with a single helper. Const-ness of `self` flows to the returned reference,
+    // so we no longer need separate const/non-const CRTP helpers.
+    template <typename Self>
+    auto& derived(this Self& self) {
+        using D = std::conditional_t<std::is_const_v<Self>, const Derived, Derived>;
+        return static_cast<D&>(self);
+    }
+
 public:
     void batch_create_with_selection(FunctionContext* ctx, size_t chunk_size, Buffer<AggDataPtr>& states,
                                      size_t state_offset, const Filter& selection) const override {
         for (size_t i = 0; i < chunk_size; i++) {
             if (selection[i] == 0) {
-                static_cast<const Derived*>(this)->create(ctx, states[i] + state_offset);
+                derived().create(ctx, states[i] + state_offset);
             }
         }
     }
@@ -380,7 +390,7 @@ public:
         } else {
             for (size_t i = 0; i < chunk_size; i++) {
                 if (selection[i] == 0) {
-                    static_cast<const Derived*>(this)->destroy(ctx, states[i] + state_offset);
+                    derived().destroy(ctx, states[i] + state_offset);
                 }
             }
         }
@@ -390,7 +400,7 @@ public:
                                        size_t state_offset, Column* to, const Filter& selection) const override {
         for (size_t i = 0; i < chunk_size; i++) {
             if (selection[i] == 0) {
-                static_cast<const Derived*>(this)->finalize_to_column(ctx, agg_states[i] + state_offset, to);
+                derived().finalize_to_column(ctx, agg_states[i] + state_offset, to);
             }
         }
     }
@@ -399,7 +409,7 @@ public:
                                         size_t state_offset, Column* to, const Filter& selection) const override {
         for (size_t i = 0; i < chunk_size; i++) {
             if (selection[i] == 0) {
-                static_cast<const Derived*>(this)->serialize_to_column(ctx, agg_states[i] + state_offset, to);
+                derived().serialize_to_column(ctx, agg_states[i] + state_offset, to);
             }
         }
     }
@@ -407,7 +417,7 @@ public:
     void update_batch(FunctionContext* ctx, size_t chunk_size, size_t state_offset, const Column** columns,
                       AggDataPtr* states) const override {
         for (size_t i = 0; i < chunk_size; ++i) {
-            static_cast<const Derived*>(this)->update(ctx, columns, states[i] + state_offset, i);
+            derived().update(ctx, columns, states[i] + state_offset, i);
         }
     }
 
@@ -416,7 +426,7 @@ public:
         for (size_t i = 0; i < chunk_size; i++) {
             // TODO: optimize with simd ?
             if (filter[i] == 0) {
-                static_cast<const Derived*>(this)->update(ctx, columns, states[i] + state_offset, i);
+                derived().update(ctx, columns, states[i] + state_offset, i);
             }
         }
     }
@@ -424,7 +434,7 @@ public:
     void update_batch_single_state(FunctionContext* ctx, size_t chunk_size, const Column** columns,
                                    AggDataPtr __restrict state) const override {
         for (size_t i = 0; i < chunk_size; ++i) {
-            static_cast<const Derived*>(this)->update(ctx, columns, state, i);
+            derived().update(ctx, columns, state, i);
         }
     }
 
@@ -435,11 +445,11 @@ public:
             DCHECK_EQ(false, nullable_column->has_null());
             auto* data_column = nullable_column->data_column().get();
             for (size_t i = 0; i < chunk_size; ++i) {
-                static_cast<const Derived*>(this)->merge(ctx, data_column, states[i] + state_offset, i);
+                derived().merge(ctx, data_column, states[i] + state_offset, i);
             }
         } else {
             for (size_t i = 0; i < chunk_size; ++i) {
-                static_cast<const Derived*>(this)->merge(ctx, column, states[i] + state_offset, i);
+                derived().merge(ctx, column, states[i] + state_offset, i);
             }
         }
     }
@@ -449,7 +459,7 @@ public:
         auto merge_selectively = [&](const Column* merge_column) {
             for (size_t i = 0; i < chunk_size; ++i) {
                 if (filter[i] == 0) {
-                    static_cast<const Derived*>(this)->merge(ctx, merge_column, states[i] + state_offset, i);
+                    derived().merge(ctx, merge_column, states[i] + state_offset, i);
                 }
             }
         };
@@ -471,11 +481,11 @@ public:
             DCHECK_EQ(false, nullable_column->has_null());
             auto* data_column = nullable_column->data_column().get();
             for (size_t i = start; i < start + size; ++i) {
-                static_cast<const Derived*>(this)->merge(ctx, data_column, state, i);
+                derived().merge(ctx, data_column, state, i);
             }
         } else {
             for (size_t i = start; i < start + size; ++i) {
-                static_cast<const Derived*>(this)->merge(ctx, input, state, i);
+                derived().merge(ctx, input, state, i);
             }
         }
     }
@@ -483,14 +493,14 @@ public:
     void batch_serialize(FunctionContext* ctx, size_t chunk_size, const Buffer<AggDataPtr>& agg_states,
                          size_t state_offset, Column* to) const override {
         for (size_t i = 0; i < chunk_size; i++) {
-            static_cast<const Derived*>(this)->serialize_to_column(ctx, agg_states[i] + state_offset, to);
+            derived().serialize_to_column(ctx, agg_states[i] + state_offset, to);
         }
     }
 
     void batch_finalize(FunctionContext* ctx, size_t chunk_size, const Buffer<AggDataPtr>& agg_states,
                         size_t state_offset, Column* to) const override {
         for (size_t i = 0; i < chunk_size; i++) {
-            static_cast<const Derived*>(this)->finalize_to_column(ctx, agg_states[i] + state_offset, to);
+            derived().finalize_to_column(ctx, agg_states[i] + state_offset, to);
         }
     }
 };

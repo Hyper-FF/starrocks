@@ -18,7 +18,6 @@
 
 namespace starrocks {
 
-template <typename Derived>
 class PredicateNodeFactory;
 
 enum class CompoundNodeType : uint8_t { AND, OR };

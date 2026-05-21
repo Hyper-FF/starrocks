@@ -16,6 +16,7 @@
 
 #include <cstdlib>
 #include <new>
+#include <type_traits>
 
 #include "common/compiler_util.h"
 
@@ -44,24 +45,31 @@ public:
 
 template <class Base, class Derived>
 class AllocatorFactory : public Base {
-public:
-    void* alloc(size_t size) override { return static_cast<Derived*>(this)->alloc(size); }
-    void free(void* ptr) override { static_cast<Derived*>(this)->free(ptr); }
-    void* realloc(void* ptr, size_t size) override { return static_cast<Derived*>(this)->realloc(ptr, size); }
-    void* calloc(size_t n, size_t size) override { return static_cast<Derived*>(this)->calloc(n, size); }
-    void cfree(void* ptr) override { static_cast<Derived*>(this)->cfree(ptr); }
-    void* memalign(size_t align, size_t size) override { return static_cast<Derived*>(this)->memalign(align, size); }
-    void* aligned_alloc(size_t align, size_t size) override {
-        return static_cast<Derived*>(this)->aligned_alloc(align, size);
+private:
+    // C++23 deducing-this (P0847) collapses the CRTP `derived()` helper into a
+    // single function that propagates const-ness from `self`.
+    template <typename Self>
+    auto& derived(this Self& self) {
+        using D = std::conditional_t<std::is_const_v<Self>, const Derived, Derived>;
+        return static_cast<D&>(self);
     }
-    void* valloc(size_t size) override { return static_cast<Derived*>(this)->valloc(size); }
-    void* pvalloc(size_t size) override { return static_cast<Derived*>(this)->pvalloc(size); }
+
+public:
+    void* alloc(size_t size) override { return derived().alloc(size); }
+    void free(void* ptr) override { derived().free(ptr); }
+    void* realloc(void* ptr, size_t size) override { return derived().realloc(ptr, size); }
+    void* calloc(size_t n, size_t size) override { return derived().calloc(n, size); }
+    void cfree(void* ptr) override { derived().cfree(ptr); }
+    void* memalign(size_t align, size_t size) override { return derived().memalign(align, size); }
+    void* aligned_alloc(size_t align, size_t size) override { return derived().aligned_alloc(align, size); }
+    void* valloc(size_t size) override { return derived().valloc(size); }
+    void* pvalloc(size_t size) override { return derived().pvalloc(size); }
     int posix_memalign(void** ptr, size_t align, size_t size) override {
-        return static_cast<Derived*>(this)->posix_memalign(ptr, align, size);
+        return derived().posix_memalign(ptr, align, size);
     }
 
     void* checked_alloc(size_t size) override {
-        void* result = static_cast<Derived*>(this)->alloc(size);
+        void* result = derived().alloc(size);
         if (UNLIKELY(result == nullptr)) {
             throw std::bad_alloc();
         }
