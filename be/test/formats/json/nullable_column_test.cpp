@@ -316,17 +316,19 @@ TEST_F(AddNullableColumnTest, test_add_map_null) {
     ASSERT_EQ("[NULL]", column->debug_string());
 }
 
-// Regression: a malformed map inside a row used to leave keys/values larger than offsets,
-// triggering MapColumn::check_or_die() later. After the fix, the partial-append must be
-// rewound and the row materialized as NULL when invalid_as_null is set.
-TEST_F(AddNullableColumnTest, test_add_map_partial_append_invalid_as_null) {
+// Regression: a malformed inner map used to leave keys/values larger than offsets,
+// triggering MapColumn::check_or_die() later (SIGABRT). After the fix:
+//   (a) the partial-append is rewound, so the column stays structurally consistent; and
+//   (b) because TAPE_ERROR is a critical simdjson error, the call returns DataQualityError
+//       even with invalid_as_null=true -- structurally broken JSON should reject the row
+//       upstream, not silently become a NULL column entry.
+TEST_F(AddNullableColumnTest, test_add_map_partial_append_critical_error_rejects) {
     TypeDescriptor type_desc = TypeDescriptor::create_map_type(TypeDescriptor::create_varchar_type(10),
                                                                TypeDescriptor::create_varchar_type(10));
 
     auto column = ColumnHelper::create_column(type_desc, true);
 
     simdjson::ondemand::parser parser;
-    // Good row first, then a malformed map (missing comma between entries).
     auto good = R"(  { "key0": {"a": "1", "b": "2"}}  )"_padded;
     auto bad = R"(  { "key0": {"a": "1" "b": "2"}}  )"_padded;
 
@@ -338,17 +340,20 @@ TEST_F(AddNullableColumnTest, test_add_map_partial_append_invalid_as_null) {
     {
         auto doc = parser.iterate(bad);
         simdjson::ondemand::value val = doc.find_field_unordered("key0");
-        ASSERT_OK(add_nullable_column(column.get(), type_desc, "root_key", &val, true));
+        // invalid_as_null=true, but TAPE_ERROR is critical -> reject, not NULL.
+        auto st = add_nullable_column(column.get(), type_desc, "root_key", &val, true);
+        ASSERT_FALSE(st.ok());
     }
 
-    ASSERT_EQ(2u, column->size());
-    ASSERT_EQ("[{'a':'1','b':'2'}, NULL]", column->debug_string());
-    // Must be structurally consistent: no orphaned keys/values left over.
+    ASSERT_EQ(1u, column->size());
+    ASSERT_EQ("[{'a':'1','b':'2'}]", column->debug_string());
+    // Critically: no orphaned keys/values left from the partial drill.
     column->check_or_die();
 }
 
-// Same scenario but with strict semantics: the malformed map must propagate the error
-// and leave the column untouched (no half-written row).
+// Same scenario in strict mode: also rejects, also leaves the column structurally
+// consistent. The path is the same -- the difference between strict and invalid_as_null
+// only matters for *value-level* errors (type mismatch / range), not critical ones.
 TEST_F(AddNullableColumnTest, test_add_map_partial_append_strict) {
     TypeDescriptor type_desc = TypeDescriptor::create_map_type(TypeDescriptor::create_varchar_type(10),
                                                                TypeDescriptor::create_varchar_type(10));
@@ -376,9 +381,9 @@ TEST_F(AddNullableColumnTest, test_add_map_partial_append_strict) {
     column->check_or_die();
 }
 
-// Same as above but on the AdaptiveNullableColumn path that JsonScanner actually uses
-// in its src chunk before materialization.
-TEST_F(AddNullableColumnTest, test_add_adaptive_map_partial_append_invalid_as_null) {
+// Same as above on the AdaptiveNullableColumn path that JsonScanner uses in its src chunk
+// before materialization. Critical errors still reject; column stays consistent.
+TEST_F(AddNullableColumnTest, test_add_adaptive_map_partial_append_critical_error_rejects) {
     TypeDescriptor type_desc = TypeDescriptor::create_map_type(TypeDescriptor::create_varchar_type(10),
                                                                TypeDescriptor::create_varchar_type(10));
 
@@ -397,10 +402,11 @@ TEST_F(AddNullableColumnTest, test_add_adaptive_map_partial_append_invalid_as_nu
     {
         auto doc = parser.iterate(bad);
         simdjson::ondemand::value val = doc.find_field_unordered("key0");
-        ASSERT_OK(add_adaptive_nullable_column(column.get(), type_desc, "root_key", &val, true));
+        auto st = add_adaptive_nullable_column(column.get(), type_desc, "root_key", &val, true);
+        ASSERT_FALSE(st.ok());
     }
 
-    ASSERT_EQ(2u, column->size());
+    ASSERT_EQ(1u, column->size());
     column->check_or_die();
 }
 

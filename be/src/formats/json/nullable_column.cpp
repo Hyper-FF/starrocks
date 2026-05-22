@@ -310,6 +310,11 @@ static Status add_adaptive_nullable_array_column(Column* column, const TypeDescr
             return Status::InvalidArgument(err_msg);
         }
     } catch (simdjson::simdjson_error& e) {
+        if (is_simdjson_critical_error(e.error())) {
+            // Structural JSON corruption inside the array: re-throw so the row is rejected
+            // rather than NULL-ed. See is_simdjson_critical_error() for the rationale.
+            throw;
+        }
         auto err_msg = strings::Substitute("Failed to parse value as array, column=$0, error=$1", name,
                                            simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
@@ -344,6 +349,10 @@ static Status add_nullable_array_column(Column* column, const TypeDescriptor& ty
             return Status::InvalidArgument(err_msg);
         }
     } catch (simdjson::simdjson_error& e) {
+        if (is_simdjson_critical_error(e.error())) {
+            // Same rationale as add_adaptive_nullable_array_column above.
+            throw;
+        }
         auto err_msg = strings::Substitute("Failed to parse value as array, column=$0, error=$1", name,
                                            simdjson::error_message(e.error()));
         return Status::DataQualityError(err_msg);
@@ -506,17 +515,6 @@ Status add_adaptive_nullable_column(Column* column, const TypeDescriptor& type_d
         if (!st.ok()) {
             column->resize(snapshot);
             if (invalid_as_null) {
-                // The inner add_*_column may have partially drilled into `value` before the
-                // failure was caught and translated to a Status, which leaves simdjson's tape
-                // cursor at an undefined depth inside `value`. Because we are about to return
-                // OK and let the caller's outer iteration proceed (e.g. the row's for-loop
-                // moving to the next field), we must first push the cursor past `value`.
-                // raw_json() walks only structural tokens, so it can finish consuming `value`
-                // even if its content is semantically broken. In the strict path below we
-                // don't need this -- the caller (_read_rows) calls raw_json() on the whole
-                // row when _construct_row returns an error, which performs the same cleanup.
-                std::string_view _;
-                (void)value->raw_json().get(_);
                 column->append_nulls(1);
                 return Status::OK();
             }
@@ -543,10 +541,6 @@ Status add_nullable_column(Column* column, const TypeDescriptor& type_desc, std:
         if (!st.ok()) {
             column->resize(snapshot);
             if (invalid_as_null) {
-                // See the comment in add_adaptive_nullable_column above. Same rationale:
-                // structurally consume `value` so the outer iteration's cursor is clean.
-                std::string_view _;
-                (void)value->raw_json().get(_);
                 column->append_nulls(1);
                 return Status::OK();
             }
