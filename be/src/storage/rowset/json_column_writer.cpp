@@ -280,6 +280,26 @@ Status FlatJsonColumnWriter::finish() {
         for (auto& col : _json_datas) {
             RETURN_IF_ERROR(_json_writer->append(*col));
         }
+        // _flat_column() may have run partway: _init_flat_writers() can have
+        // created sub-writers and stamped is_flat=true plus per-sub-column
+        // children into _json_meta before _write_flat_column() failed. The
+        // column data now belongs entirely to _json_writer, so undo the flat
+        // metadata and drop the half-populated sub-writers. The invariant
+        // checked downstream by get_next_rowid()/write_data()/write_*_index()
+        // is _flat_writers.empty() iff !_is_flat, and a stale is_flat=true
+        // would also mislead the reader into looking for flat sub-columns
+        // that do not exist on disk.
+        _flat_writers.clear();
+        _flat_paths.clear();
+        _flat_types.clear();
+        _flat_columns.clear();
+        _subcolumn_dict_valid.clear();
+        _has_remain = false;
+        _remain_filter.reset();
+        _json_meta->clear_children_columns();
+        _json_meta->mutable_json_meta()->set_is_flat(false);
+        _json_meta->mutable_json_meta()->set_has_remain(false);
+        _json_meta->mutable_json_meta()->clear_remain_filter();
     }
     _json_datas.clear(); // release after write
 
