@@ -316,6 +316,94 @@ TEST_F(AddNullableColumnTest, test_add_map_null) {
     ASSERT_EQ("[NULL]", column->debug_string());
 }
 
+// Regression: a malformed map inside a row used to leave keys/values larger than offsets,
+// triggering MapColumn::check_or_die() later. After the fix, the partial-append must be
+// rewound and the row materialized as NULL when invalid_as_null is set.
+TEST_F(AddNullableColumnTest, test_add_map_partial_append_invalid_as_null) {
+    TypeDescriptor type_desc = TypeDescriptor::create_map_type(TypeDescriptor::create_varchar_type(10),
+                                                               TypeDescriptor::create_varchar_type(10));
+
+    auto column = ColumnHelper::create_column(type_desc, true);
+
+    simdjson::ondemand::parser parser;
+    // Good row first, then a malformed map (missing comma between entries).
+    auto good = R"(  { "key0": {"a": "1", "b": "2"}}  )"_padded;
+    auto bad = R"(  { "key0": {"a": "1" "b": "2"}}  )"_padded;
+
+    {
+        auto doc = parser.iterate(good);
+        simdjson::ondemand::value val = doc.find_field_unordered("key0");
+        ASSERT_OK(add_nullable_column(column.get(), type_desc, "root_key", &val, true));
+    }
+    {
+        auto doc = parser.iterate(bad);
+        simdjson::ondemand::value val = doc.find_field_unordered("key0");
+        ASSERT_OK(add_nullable_column(column.get(), type_desc, "root_key", &val, true));
+    }
+
+    ASSERT_EQ(2u, column->size());
+    ASSERT_EQ("[{'a':'1','b':'2'}, NULL]", column->debug_string());
+    // Must be structurally consistent: no orphaned keys/values left over.
+    column->check_or_die();
+}
+
+// Same scenario but with strict semantics: the malformed map must propagate the error
+// and leave the column untouched (no half-written row).
+TEST_F(AddNullableColumnTest, test_add_map_partial_append_strict) {
+    TypeDescriptor type_desc = TypeDescriptor::create_map_type(TypeDescriptor::create_varchar_type(10),
+                                                               TypeDescriptor::create_varchar_type(10));
+
+    auto column = ColumnHelper::create_column(type_desc, true);
+
+    simdjson::ondemand::parser parser;
+    auto good = R"(  { "key0": {"a": "1", "b": "2"}}  )"_padded;
+    auto bad = R"(  { "key0": {"a": "1" "b": "2"}}  )"_padded;
+
+    {
+        auto doc = parser.iterate(good);
+        simdjson::ondemand::value val = doc.find_field_unordered("key0");
+        ASSERT_OK(add_nullable_column(column.get(), type_desc, "root_key", &val, false));
+    }
+    {
+        auto doc = parser.iterate(bad);
+        simdjson::ondemand::value val = doc.find_field_unordered("key0");
+        auto st = add_nullable_column(column.get(), type_desc, "root_key", &val, false);
+        ASSERT_FALSE(st.ok());
+    }
+
+    ASSERT_EQ(1u, column->size());
+    ASSERT_EQ("[{'a':'1','b':'2'}]", column->debug_string());
+    column->check_or_die();
+}
+
+// Same as above but on the AdaptiveNullableColumn path that JsonScanner actually uses
+// in its src chunk before materialization.
+TEST_F(AddNullableColumnTest, test_add_adaptive_map_partial_append_invalid_as_null) {
+    TypeDescriptor type_desc = TypeDescriptor::create_map_type(TypeDescriptor::create_varchar_type(10),
+                                                               TypeDescriptor::create_varchar_type(10));
+
+    // create_column(..., is_nullable=true, is_const=false, size=0, use_adaptive_nullable_column=true)
+    auto column = ColumnHelper::create_column(type_desc, true, false, 0, true);
+
+    simdjson::ondemand::parser parser;
+    auto good = R"(  { "key0": {"a": "1", "b": "2"}}  )"_padded;
+    auto bad = R"(  { "key0": {"a": "1" "b": "2"}}  )"_padded;
+
+    {
+        auto doc = parser.iterate(good);
+        simdjson::ondemand::value val = doc.find_field_unordered("key0");
+        ASSERT_OK(add_adaptive_nullable_column(column.get(), type_desc, "root_key", &val, true));
+    }
+    {
+        auto doc = parser.iterate(bad);
+        simdjson::ondemand::value val = doc.find_field_unordered("key0");
+        ASSERT_OK(add_adaptive_nullable_column(column.get(), type_desc, "root_key", &val, true));
+    }
+
+    ASSERT_EQ(2u, column->size());
+    column->check_or_die();
+}
+
 TEST_F(AddNullableColumnTest, test_invalid_json_convert) {
     {
         simdjson::ondemand::parser parser;
