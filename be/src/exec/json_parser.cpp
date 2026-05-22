@@ -184,7 +184,6 @@ Status JsonArrayParser::parse(char* data, size_t len, size_t allocated) noexcept
 
         _data = data;
         _len = len;
-        _allocated = allocated;
         _next_row_index = 0;
 
         if (_doc.type() != simdjson::ondemand::json_type::array) {
@@ -242,15 +241,12 @@ Status JsonArrayParser::advance() noexcept {
     } catch (simdjson::simdjson_error&) {
         // The previous row's malformed inner value left the simdjson tape cursor at an
         // undefined depth, so ++_array_itr couldn't structurally skip to the next element.
-        // The structural index for the whole buffer is still valid though, so we recover by
-        // re-iterating from scratch and fast-forwarding past the rows we already emitted.
-        // Stage 1 reruns on the buffer (O(_len)); this is paid only when a row actually
-        // fails, not on the happy path.
+        // The structural index built by stage 1 is still valid (it indexes the buffer, not
+        // the iteration state), so resetting _doc's internal cursor via rewind() is enough
+        // to recover -- no re-parse required. We then fast-forward past the rows already
+        // emitted, using raw_json() as a structural-only skip.
         try {
-            _doc = _parser->iterate(_data, _len, _allocated);
-            if (_doc.type() != simdjson::ondemand::json_type::array) {
-                return status_from_json_parse_error("Failed to re-seat array iterator after row error.");
-            }
+            _doc.rewind();
             _array = _doc.get_array();
             _array_itr = _array.begin();
             for (size_t i = 0; i < _next_row_index; ++i) {

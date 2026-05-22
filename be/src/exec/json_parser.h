@@ -115,12 +115,10 @@ private:
     simdjson::ondemand::array_iterator _array_itr;
 
     // Index of the row that the next get_current() will return. Used by advance() to
-    // re-seat the array iterator from scratch if a previous row's failed inner parse
-    // left the underlying simdjson tape cursor in an undefined position. Incremented
-    // on every advance() call (both successful and recovering).
+    // re-seat the array iterator (via document::rewind()) if a previous row's failed
+    // inner parse left the underlying simdjson tape cursor at an undefined depth.
+    // Incremented on every advance() call (both successful and recovering).
     size_t _next_row_index = 0;
-    // Allocated capacity passed to parser->iterate; needed for the re-seat path.
-    size_t _allocated = 0;
 
     // Iterator (value, object, array, etc) in simdjson could be only parsed once.
     // If we want to access iterator twice, a call of rewind/reset is needed.
