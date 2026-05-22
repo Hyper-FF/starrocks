@@ -114,13 +114,13 @@ private:
     simdjson::ondemand::array _array;
     simdjson::ondemand::array_iterator _array_itr;
 
-    // Per-row isolated parser. Each array element is re-parsed here via its raw_json()
-    // slice so that a parsing error inside one row cannot leave the outer array iterator
-    // (_array_itr / _doc) in an undefined state. This lets us continue with the next row
-    // after a bad one, instead of losing the rest of the array.
-    simdjson::ondemand::parser _row_parser;
-    simdjson::padded_string _row_buf;
-    simdjson::ondemand::document _row_doc;
+    // Index of the row that the next get_current() will return. Used by advance() to
+    // re-seat the array iterator from scratch if a previous row's failed inner parse
+    // left the underlying simdjson tape cursor in an undefined position. Incremented
+    // on every advance() call (both successful and recovering).
+    size_t _next_row_index = 0;
+    // Allocated capacity passed to parser->iterate; needed for the re-seat path.
+    size_t _allocated = 0;
 
     // Iterator (value, object, array, etc) in simdjson could be only parsed once.
     // If we want to access iterator twice, a call of rewind/reset is needed.
