@@ -107,6 +107,11 @@ public:
     std::string left_bytes_string(size_t sz) noexcept override;
 
 private:
+    // Recovery path used by advance() when the simdjson tape cursor was left at an
+    // undefined depth by a previous row's failed inner parse. Rewinds the document and
+    // structurally skips forward to _next_row_index. Caller has already incremented
+    // _next_row_index for the row this call is meant to land on.
+    Status _reseat_to_current_row() noexcept;
     // data is parsed as a document in array type.
     simdjson::ondemand::document _doc;
 
