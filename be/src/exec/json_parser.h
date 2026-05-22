@@ -107,23 +107,12 @@ public:
     std::string left_bytes_string(size_t sz) noexcept override;
 
 private:
-    // Recovery path used by advance() when the simdjson tape cursor was left at an
-    // undefined depth by a previous row's failed inner parse. Rewinds the document and
-    // structurally skips forward to _next_row_index. Caller has already incremented
-    // _next_row_index for the row this call is meant to land on.
-    Status _reseat_to_current_row() noexcept;
     // data is parsed as a document in array type.
     simdjson::ondemand::document _doc;
 
     // iterator context for array.
     simdjson::ondemand::array _array;
     simdjson::ondemand::array_iterator _array_itr;
-
-    // Index of the row that the next get_current() will return. Used by advance() to
-    // re-seat the array iterator (via document::rewind()) if a previous row's failed
-    // inner parse left the underlying simdjson tape cursor at an undefined depth.
-    // Incremented on every advance() call (both successful and recovering).
-    size_t _next_row_index = 0;
 
     // Iterator (value, object, array, etc) in simdjson could be only parsed once.
     // If we want to access iterator twice, a call of rewind/reset is needed.

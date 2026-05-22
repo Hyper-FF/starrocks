@@ -184,7 +184,6 @@ Status JsonArrayParser::parse(char* data, size_t len, size_t allocated) noexcept
 
         _data = data;
         _len = len;
-        _next_row_index = 0;
 
         if (_doc.type() != simdjson::ondemand::json_type::array) {
             auto err_msg = fmt::format("the value should be array type with strip_outer_array=true, value: {}",
@@ -230,54 +229,16 @@ Status JsonArrayParser::get_current(simdjson::ondemand::object* row) noexcept {
     }
 }
 
-// raw_json() walks only structural tokens (matching braces), so it can structurally
-// consume an array element regardless of whether the element's content is semantically
-// valid. After this, ++itr is guaranteed safe.
-static Status structurally_skip_one(simdjson::ondemand::array_iterator& itr) noexcept {
-    std::string_view raw;
-    if (auto e = (*itr).raw_json().get(raw); e != simdjson::SUCCESS) {
-        return status_from_json_parse_error(strings::Substitute(
-                "Failed to structurally skip array element. error: $0", simdjson::error_message(e)));
-    }
-    ++itr;
-    return Status::OK();
-}
-
 Status JsonArrayParser::advance() noexcept {
     _curr_ready = false;
-    ++_next_row_index;
     try {
         if (++_array_itr == _array.end()) {
             return Status::EndOfFile("all values of the array are iterated");
         }
         return Status::OK();
-    } catch (simdjson::simdjson_error&) {
-        // The previous row's malformed inner value left the simdjson tape cursor at an
-        // undefined depth. The structural index built by stage 1 is still valid (it indexes
-        // the buffer, not the iteration state), so we recover via document::rewind() and
-        // skip forward to where we should be.
-        return _reseat_to_current_row();
-    }
-}
-
-Status JsonArrayParser::_reseat_to_current_row() noexcept {
-    try {
-        _doc.rewind();
-        _array = _doc.get_array();
-        _array_itr = _array.begin();
-        for (size_t i = 0; i < _next_row_index; ++i) {
-            if (_array_itr == _array.end()) {
-                return Status::EndOfFile("all values of the array are iterated");
-            }
-            RETURN_IF_ERROR(structurally_skip_one(_array_itr));
-        }
-        if (_array_itr == _array.end()) {
-            return Status::EndOfFile("all values of the array are iterated");
-        }
-        return Status::OK();
     } catch (simdjson::simdjson_error& e) {
-        auto err_msg = strings::Substitute("Failed to iterate json as array. error: $0",
-                                           simdjson::error_message(e.error()));
+        auto err_msg =
+                strings::Substitute("Failed to iterate json as array. error: $0", simdjson::error_message(e.error()));
         return status_from_json_parse_error(err_msg);
     }
 }
