@@ -1028,6 +1028,73 @@ TEST_F(JsonParserTest, test_json_document_stream_parser_error) {
     }
 }
 
+// Regression: a malformed JSON value nested inside one array element must not poison
+// iteration of subsequent elements. Before the fix, an inner simdjson parse error left
+// the outer array iterator's tape cursor in an undefined position, so advance() threw
+// and every row after the bad one was silently lost.
+TEST_F(JsonParserTest, test_json_array_parser_recovers_after_bad_row) {
+    simdjson::ondemand::parser simdjson_parser;
+
+    // Row 2's inner object is structurally fine (matched braces) but semantically broken
+    // (missing comma). Stage 1 still indexes it correctly, so we can rely on raw_json()
+    // to structurally skip the row and stay in a clean state for row 3.
+    std::string input =
+            R"([{"id": 1, "m": {"a": "1", "b": "2"}}, )"
+            R"({"id": 2, "m": {"a": "1" "b": "2"}}, )"
+            R"({"id": 3, "m": {"x": "1", "y": "2"}}])";
+    auto size = input.size();
+    input.resize(input.size() + simdjson::SIMDJSON_PADDING);
+    auto padded_size = input.size();
+
+    std::unique_ptr<JsonParser> parser(new JsonArrayParser(&simdjson_parser));
+    ASSERT_OK(parser->parse(input.data(), size, padded_size));
+
+    simdjson::ondemand::object row;
+
+    // Row 1: clean.
+    ASSERT_OK(parser->get_current(&row));
+    ASSERT_EQ(1, row.find_field("id").get_int64());
+
+    ASSERT_OK(parser->advance());
+
+    // Row 2: outer object parses, but drilling into "m" trips the missing-comma error.
+    // The bug we are fixing is what happens AFTER this point.
+    ASSERT_OK(parser->get_current(&row));
+    ASSERT_EQ(2, row.find_field("id").get_int64());
+    {
+        // Simulate the JsonScanner's behavior of trying to read the malformed map; we
+        // expect simdjson to surface an error here, but the parser's outer state must
+        // still be recoverable on advance().
+        simdjson::ondemand::value m_val = row.find_field("m");
+        simdjson::ondemand::object m_obj;
+        auto err = m_val.get_object().get(m_obj);
+        ASSERT_TRUE(err == simdjson::SUCCESS);
+        bool saw_error = false;
+        try {
+            for (auto f : m_obj) {
+                (void)f.escaped_key();
+                std::string_view v;
+                if (auto e = f.value().get_string().get(v); e != simdjson::SUCCESS) {
+                    saw_error = true;
+                    break;
+                }
+            }
+        } catch (simdjson::simdjson_error&) {
+            saw_error = true;
+        }
+        ASSERT_TRUE(saw_error);
+    }
+
+    // The key assertion: advance past the bad row succeeds.
+    ASSERT_OK(parser->advance());
+
+    // Row 3: must still be reachable.
+    ASSERT_OK(parser->get_current(&row));
+    ASSERT_EQ(3, row.find_field("id").get_int64());
+
+    ASSERT_TRUE(parser->advance().is_end_of_file());
+}
+
 TEST_F(JsonParserTest, test_json_array_parser_error) {
     simdjson::ondemand::parser simdjson_parser;
 

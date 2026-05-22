@@ -217,7 +217,20 @@ Status JsonArrayParser::get_current(simdjson::ondemand::object* row) noexcept {
 
         simdjson::ondemand::value val = *_array_itr;
 
-        _curr = val.get_object();
+        // Snapshot the element's raw bytes via simdjson's structural skip and re-parse them
+        // in an isolated parser. raw_json() only walks structural tokens (matching braces) for
+        // this element, so the outer array iterator is left at a clean position past it. If the
+        // caller later fails while iterating fields of the returned object, only the isolated
+        // _row_parser is affected; ++_array_itr can still safely move to the next element.
+        std::string_view raw;
+        if (auto err = val.raw_json().get(raw); err != simdjson::SUCCESS) {
+            auto err_msg = strings::Substitute("Failed to take raw json of array element. error: $0",
+                                               simdjson::error_message(err));
+            return status_from_json_parse_error(err_msg);
+        }
+        _row_buf = simdjson::padded_string(raw);
+        _row_doc = _row_parser.iterate(_row_buf);
+        _curr = _row_doc.get_object();
         *row = _curr;
         _curr_ready = true;
 
