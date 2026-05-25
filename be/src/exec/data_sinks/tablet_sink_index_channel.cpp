@@ -771,11 +771,14 @@ Status NodeChannel::_send_request(bool eos, bool finished) {
         _finished = true;
     }
 
-    // Serialize the chunk once into requests(0); for colocate (is_repeated_chunk=true)
-    // the server-side will fan it out to the other requests.
-    if (chunk->num_rows() > 0) {
-        auto pchunk = request.mutable_requests(0)->mutable_chunk();
-        RETURN_IF_ERROR(_serialize_chunk(chunk.get(), pchunk));
+    // For colocate (is_repeated_chunk=true) only requests(0) carries the chunk;
+    // the server-side fans it out. For non-colocate, requests_size() == 1.
+    // The loop also makes the requests_size() == 0 case a natural no-op.
+    for (int i = 0; i < request.requests_size(); i++) {
+        if ((!_enable_colocate_mv_index || i == 0) && chunk->num_rows() > 0) {
+            auto pchunk = request.mutable_requests(i)->mutable_chunk();
+            RETURN_IF_ERROR(_serialize_chunk(chunk.get(), pchunk));
+        }
     }
 
     _add_batch_closures[_current_request_index]->ref();
