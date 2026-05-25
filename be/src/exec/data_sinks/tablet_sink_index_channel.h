@@ -143,23 +143,15 @@ struct AddChunksSendOptions {
     bool finished = false; // -> set_wait_all_sender_close
 };
 
-// Owns the channel spec and the in-progress tablet_ids accumulator;
-// produces a fresh proto request on each send.
+// Owns the channel spec and produces a fresh proto request on each send.
+// Read-only after init(): the send path can safely call build()/index_count()/
+// index_id_at() without worrying about per-batch state mutation.
 class AddChunksRequestBuilder {
 public:
     void init(AddChunksChannelSpec spec);
 
     size_t index_count() const { return _spec.indexes.size(); }
     int64_t index_id_at(size_t i) const { return _spec.indexes[i].index_id; }
-
-    // Accumulate tablet_ids for the in-progress batch (called by add_chunk/add_chunks).
-    void append_tablet_id(size_t index_i, int64_t tablet_id) {
-        _pending_tablet_ids[index_i].push_back(tablet_id);
-    }
-
-    // Move out the accumulated tablet_ids together with the provided chunk;
-    // reset the accumulator so the next batch starts clean.
-    AddChunksBatchPayload take_batch(ChunkUniquePtr chunk);
 
     // Build a fresh request proto from a batch + per-send options. tablet_ids is
     // passed by const-ref on purpose: the proto's RepeatedField copies the ids
@@ -174,6 +166,24 @@ public:
 
 private:
     AddChunksChannelSpec _spec;
+};
+
+// Owns the in-progress per-index tablet_ids for the current (un-enqueued) batch.
+// Decoupled from the builder so the send path never has to reach into accumulator
+// state — only the input path (add_chunk/add_chunks) and the flush helper touch it.
+class AddChunksBatchAccumulator {
+public:
+    void reset(size_t index_count) { _pending_tablet_ids.assign(index_count, {}); }
+
+    void append_tablet_id(size_t index_i, int64_t tablet_id) {
+        _pending_tablet_ids[index_i].push_back(tablet_id);
+    }
+
+    // Pair the accumulated tablet_ids with the given chunk into a BatchPayload and
+    // reset the accumulator so the next batch starts empty.
+    AddChunksBatchPayload take_batch(ChunkUniquePtr chunk);
+
+private:
     std::vector<std::vector<int64_t>> _pending_tablet_ids;
 };
 
@@ -258,6 +268,11 @@ private:
                std::vector<PTabletWithPartition>& tablets, bool incrmental_open);
     Status _open_wait(RefCountClosure<PTabletWriterOpenResult>* open_closure);
     Status _send_request(bool eos, bool wait_all_sender_close = false);
+    // Push (_cur_chunk, accumulated tablet_ids) into _request_queue as one
+    // BatchPayload. Requires _cur_chunk to be non-null. _cur_chunk is moved-from
+    // (becomes null) after this call; the caller is responsible for any chunk
+    // reset that the surrounding flow needs.
+    void _enqueue_current_batch();
     void _cancel(int64_t index_id, const Status& err_st);
     Status _filter_indexes_with_where_expr(Chunk* input, const std::vector<uint32_t>& indexes,
                                            std::vector<uint32_t>& filtered_indexes);
@@ -325,6 +340,7 @@ private:
     int64_t _cur_chunk_mem_usage = 0;
 
     AddChunksRequestBuilder _builder;
+    AddChunksBatchAccumulator _accumulator;
     std::deque<AddChunksBatchPayload> _request_queue;
 
     size_t _current_request_index = 0;

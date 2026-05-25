@@ -50,14 +50,13 @@ DEFINE_FAIL_POINT(node_channel_set_brpc_timeout);
 
 void AddChunksRequestBuilder::init(AddChunksChannelSpec spec) {
     _spec = std::move(spec);
-    _pending_tablet_ids.assign(_spec.indexes.size(), {});
 }
 
-AddChunksBatchPayload AddChunksRequestBuilder::take_batch(ChunkUniquePtr chunk) {
+AddChunksBatchPayload AddChunksBatchAccumulator::take_batch(ChunkUniquePtr chunk) {
     AddChunksBatchPayload p;
     p.chunk = std::move(chunk);
     p.tablet_ids = std::move(_pending_tablet_ids);
-    _pending_tablet_ids.assign(_spec.indexes.size(), {});
+    _pending_tablet_ids.assign(p.tablet_ids.size(), {});
     return p;
 }
 
@@ -183,6 +182,7 @@ Status NodeChannel::init(RuntimeState* state) {
         spec.indexes.emplace_back(s);
     }
     _builder.init(std::move(spec));
+    _accumulator.reset(_builder.index_count());
 
     if (state->query_options().__isset.load_transmission_compression_type) {
         _compress_type = CompressionUtils::to_compression_pb(state->query_options().load_transmission_compression_type);
@@ -557,7 +557,7 @@ Status NodeChannel::add_chunk(Chunk* input, const std::vector<int64_t>& tablet_i
     if (_where_clause == nullptr) {
         _append_data_to_cur_chunk(*input, indexes.data(), from, size);
         for (size_t i = 0; i < size; ++i) {
-            _builder.append_tablet_id(0, tablet_ids[indexes[from + i]]);
+            _accumulator.append_tablet_id(0, tablet_ids[indexes[from + i]]);
         }
     } else {
         std::vector<uint32_t> filtered_indexes;
@@ -566,7 +566,7 @@ Status NodeChannel::add_chunk(Chunk* input, const std::vector<int64_t>& tablet_i
         _append_data_to_cur_chunk(*input, filtered_indexes.data(), from, filter_size);
 
         for (size_t i = 0; i < filter_size; ++i) {
-            _builder.append_tablet_id(0, tablet_ids[filtered_indexes[from + i]]);
+            _accumulator.append_tablet_id(0, tablet_ids[filtered_indexes[from + i]]);
         }
     }
 
@@ -579,8 +579,7 @@ Status NodeChannel::add_chunk(Chunk* input, const std::vector<int64_t>& tablet_i
         // passthrough: try to send data if queue not empty
     } else {
         // 3. chunk full push back to queue
-        _mem_tracker->consume(_cur_chunk->memory_usage());
-        _request_queue.emplace_back(_builder.take_batch(std::move(_cur_chunk)));
+        _enqueue_current_batch();
         _reset_cur_chunk(input);
     }
 
@@ -617,7 +616,7 @@ Status NodeChannel::add_chunks(Chunk* input, const std::vector<std::vector<int64
 
     for (size_t index_i = 0; index_i < index_tablet_ids.size(); ++index_i) {
         for (size_t i = from; i < size; ++i) {
-            _builder.append_tablet_id(index_i, index_tablet_ids[index_i][indexes[from + i]]);
+            _accumulator.append_tablet_id(index_i, index_tablet_ids[index_i][indexes[from + i]]);
         }
     }
 
@@ -630,8 +629,7 @@ Status NodeChannel::add_chunks(Chunk* input, const std::vector<std::vector<int64
         // passthrough: try to send data if queue not empty
     } else {
         // 3. chunk full push back to queue
-        _mem_tracker->consume(_cur_chunk->memory_usage());
-        _request_queue.emplace_back(_builder.take_batch(std::move(_cur_chunk)));
+        _enqueue_current_batch();
         _reset_cur_chunk(input);
     }
 
@@ -704,15 +702,22 @@ void serialize_to_iobuf(T& proto_obj, butil::IOBuf* iobuf) {
     iobuf->append(chunk_iobuf);
 }
 
+void NodeChannel::_enqueue_current_batch() {
+    DCHECK(_cur_chunk != nullptr);
+    _mem_tracker->consume(_cur_chunk->memory_usage());
+    _request_queue.emplace_back(_accumulator.take_batch(std::move(_cur_chunk)));
+}
+
 Status NodeChannel::_send_request(bool eos, bool finished) {
     if (eos || finished) {
         if (_request_queue.empty()) {
+            // No queued batch and eos arrived: flush whatever is pending into a
+            // final BatchPayload that will carry the eos signal. If no chunk has
+            // been built yet, push an empty Chunk as the carrier.
             if (_cur_chunk.get() == nullptr) {
                 _cur_chunk = std::make_unique<Chunk>();
             }
-            _mem_tracker->consume(_cur_chunk->memory_usage());
-            _request_queue.emplace_back(_builder.take_batch(std::move(_cur_chunk)));
-            _cur_chunk = nullptr;
+            _enqueue_current_batch();
             _cur_chunk_mem_usage = 0;
         }
 
