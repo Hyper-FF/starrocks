@@ -103,6 +103,80 @@ struct TabletSinkProfile {
 // map index_id to TabletBEMap(map tablet_id to backend id)
 using IndexIdToTabletBEMap = std::unordered_map<int64_t, std::unordered_map<int64_t, std::vector<int64_t>>>;
 
+// ---------------------------------------------------------------------------
+// AddChunks RPC request structure, separated into three layers:
+//   1. Channel-level immutable spec  (AddChunksChannelSpec)
+//   2. Per-batch mutable payload     (AddChunksBatchPayload, queued)
+//   3. Per-send mutable options      (AddChunksSendOptions, stack-only)
+// The builder owns layer 1 plus the in-progress accumulator for layer 2, and
+// builds a fresh PTabletWriterAddChunksRequest on each send.
+// ---------------------------------------------------------------------------
+
+// Per-index static fields that are fixed for the channel's lifetime.
+struct PerIndexSpec {
+    int64_t index_id = 0;
+    int64_t txn_id = 0;
+    int32_t sender_id = 0;
+    int64_t timeout_ms = 0;
+    int64_t sink_id = 0;
+};
+
+// Channel-wide immutable spec. Pointers are borrowed and must outlive the channel.
+struct AddChunksChannelSpec {
+    const PUniqueId* load_id = nullptr;
+    std::vector<PerIndexSpec> indexes; // order matches proto requests(i) order
+    bool enable_colocate_mv_index = false;
+    // Looked up at eos time only. Owned by OlapTableSink, borrowed here.
+    const std::unordered_map<int64_t, std::set<int64_t>>* index_id_to_partition_ids = nullptr;
+};
+
+// One batched send unit: a chunk plus the tablet_ids it routes to per index.
+struct AddChunksBatchPayload {
+    ChunkUniquePtr chunk;
+    std::vector<std::vector<int64_t>> tablet_ids; // [index_i][row]
+};
+
+// Per-RPC mutable options. Lives only on the send-path stack frame.
+struct AddChunksSendOptions {
+    int64_t packet_seq = 0;
+    bool eos = false;
+    bool finished = false; // -> set_wait_all_sender_close
+};
+
+// Owns the channel spec and the in-progress tablet_ids accumulator;
+// produces a fresh proto request on each send.
+class AddChunksRequestBuilder {
+public:
+    void init(AddChunksChannelSpec spec);
+
+    size_t index_count() const { return _spec.indexes.size(); }
+    int64_t index_id_at(size_t i) const { return _spec.indexes[i].index_id; }
+
+    // Accumulate tablet_ids for the in-progress batch (called by add_chunk/add_chunks).
+    void append_tablet_id(size_t index_i, int64_t tablet_id) {
+        _pending_tablet_ids[index_i].push_back(tablet_id);
+    }
+
+    // Move out the accumulated tablet_ids together with the provided chunk;
+    // reset the accumulator so the next batch starts clean.
+    AddChunksBatchPayload take_batch(ChunkUniquePtr chunk);
+
+    // Build a fresh request proto from a batch + per-send options. tablet_ids is
+    // passed by const-ref on purpose: the proto's RepeatedField copies the ids
+    // (RepeatedField has no move-from-vector primitive anyway), and keeping the
+    // source vectors owned by the caller means their lifetime stays under the
+    // caller's mem-tracker scope, while the proto's buffers live entirely under
+    // whatever scope was active at build() time.
+    // The caller must serialize the chunk into requests(0)->mutable_chunk()
+    // afterwards when chunk->num_rows() > 0.
+    PTabletWriterAddChunksRequest build(const std::vector<std::vector<int64_t>>& tablet_ids,
+                                        const AddChunksSendOptions& opts) const;
+
+private:
+    AddChunksChannelSpec _spec;
+    std::vector<std::vector<int64_t>> _pending_tablet_ids;
+};
+
 class NodeChannel {
 public:
     NodeChannel(OlapTableSink* parent, int64_t node_id, bool is_incremental, ExprContext* where_clause = nullptr);
@@ -250,9 +324,8 @@ private:
     ChunkUniquePtr _cur_chunk;
     int64_t _cur_chunk_mem_usage = 0;
 
-    PTabletWriterAddChunksRequest _rpc_request;
-    using AddMultiChunkReq = std::pair<ChunkUniquePtr, PTabletWriterAddChunksRequest>;
-    std::deque<AddMultiChunkReq> _request_queue;
+    AddChunksRequestBuilder _builder;
+    std::deque<AddChunksBatchPayload> _request_queue;
 
     size_t _current_request_index = 0;
     size_t _max_request_queue_size = 8;
