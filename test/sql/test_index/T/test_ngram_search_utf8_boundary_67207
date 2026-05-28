@@ -1,0 +1,112 @@
+-- name: test_ngram_search_utf8_boundary_67207
+-- ----------------------------------------------------------------------------
+-- Boundary characterization test for PR #67207 (UTF-8 support for ngram_search)
+-- Branch: claude/zealous-turing-N3BQQ
+--
+-- WHAT THIS TEST IS, AND IS NOT:
+--   This is NOT a reproduction of a live bug. During review I claimed the
+--   `num_chars > MAX_STRING_SIZE` defensive guard inside
+--   `calculateDistanceWithHaystack` (be/src/exprs/ngram.cpp) could be reached
+--   and would silently return similarity 0 for valid input. A standalone
+--   C++ reproduction against the PR's actual ICU call (`ucasemap_utf8ToLower`
+--   under root locale) showed that claim is wrong:
+--
+--     * The only Unicode codepoint whose lowercased form has MORE characters
+--       than the original is U+0130 (LATIN CAPITAL LETTER I WITH DOT ABOVE,
+--       "İ"): 2 bytes / 1 char  ->  3 bytes / 2 chars.
+--     * The outer length check rejects haystacks with byte length
+--       > MAX_STRING_SIZE (32768), so the densest character-expanding input
+--       reaching the inner guard is 16384 * İ = 32768 bytes, which folds to
+--       exactly 32768 chars. The guard tests `num_chars > 32768`, strict, so
+--       it never fires.
+--   In short, the guard is currently unreachable -- "dead defensive code".
+--
+--   This test therefore serves a different purpose: it LOCKS IN the current
+--   correct behavior at the exact boundary. If a future change swaps
+--   `ucasemap_utf8ToLower` for `ucasemap_utf8FoldCase`, adds a non-root
+--   locale (e.g. lt_LT), or otherwise introduces a lower mapping that
+--   produces more output characters per input byte, this test will start
+--   returning similarity 0 instead of >0 and a maintainer will catch it.
+--
+-- WHY KEEP THE TEST DESPITE THIS:
+--   1. It documents the boundary assumption in executable form.
+--   2. It guards the dead-code branch from silently becoming live.
+--   3. It exercises the densest UTF-8 expansion case the API admits today,
+--      which the PR's own test suite does not cover.
+--
+-- WHAT TO COMMENT ON:
+--   Reviewers, please weigh in on:
+--     (a) Should the guard be deleted (since unreachable) and replaced with
+--         a `DCHECK(num_chars <= MAX_STRING_SIZE)` plus a comment, instead
+--         of a silent return that hides future bugs?
+--     (b) Should `map_restore_helper` be sized to `2 * MAX_STRING_SIZE` so
+--         the guard can be removed without risk if the lowering API ever
+--         changes? Stack cost is ~64KB vs ~32KB, negligible.
+--     (c) Is there value in adding a `static_assert`-style runtime check
+--         in `ngram_search_prepare_impl` that ICU's lowering does not exceed
+--         the buffer assumption?
+--
+-- HOW TO RUN ONCE PR #67207 IS MERGED INTO THIS FORK:
+--   This test assumes `ngram_search_support_utf8` exists as a session var
+--   and that `ngram_search_case_insensitive` dispatches to the UTF-8 path
+--   when it is true. Both are added by PR #67207 -- this branch does NOT
+--   yet have that PR cherry-picked, so the test will fail with "Unknown
+--   system variable" until the PR lands.
+-- ----------------------------------------------------------------------------
+
+create database ngram_utf8_boundary_db;
+use ngram_utf8_boundary_db;
+
+CREATE TABLE ngram_utf8_haystack(
+    id INT NOT NULL,
+    payload STRING
+) PROPERTIES ("replication_num" = "1");
+
+-- Build a haystack of exactly 32768 bytes by concatenating 16384 copies of
+-- the 2-byte UTF-8 encoding of U+0130 (İ).
+--   repeat('İ', 16384)
+-- After ICU lowercasing, every İ becomes "i" + U+0307 (combining dot above),
+-- so the lowered byte length is 16384 * 3 = 49152 bytes and the lowered
+-- character count is 16384 * 2 = 32768 chars. That equals MAX_STRING_SIZE
+-- exactly -- the inner `num_chars > MAX_STRING_SIZE` guard does NOT trigger.
+insert into ngram_utf8_haystack
+select 1, repeat('İ', 16384);
+
+-- Sanity: payload is exactly 32768 bytes pre-fold.
+select id, length(payload) as byte_len, char_length(payload) as char_count
+from ngram_utf8_haystack;
+
+-- Default mode (ngram_search_support_utf8 = false, byte-wise).
+-- This is here only to confirm the row is present and to show that the
+-- pre-UTF-8 behavior on this input is the legacy byte-by-byte result.
+select id, ngram_search_case_insensitive(payload, 'İİİ', 3) as sim_legacy
+from ngram_utf8_haystack;
+
+-- Switch to UTF-8 mode. After PR #67207 lands this should dispatch to the
+-- character-wise n-gram path.
+set ngram_search_support_utf8 = true;
+
+-- Boundary row: similarity must be > 0. Every 3-gram of the (lowered)
+-- haystack is "i̇i̇i" repeating -- a strict superset of any
+-- 3-gram that comes from lowering the needle "İİİ". A correct
+-- implementation returns 1.0; a regression that lets the dead guard
+-- become live would return exactly 0.0.
+select id,
+       ngram_search_case_insensitive(payload, 'İİİ', 3) > 0 as nonzero_similarity,
+       ngram_search_case_insensitive(payload, 'İİİ', 3) as actual_similarity
+from ngram_utf8_haystack;
+
+-- Off-by-one: feed a haystack one character over the boundary so byte length
+-- is 32770. The outer `get_size() > MAX_STRING_SIZE` check should produce 0
+-- (defined behavior: "haystack too large, treat as no similarity"). This
+-- pins down the difference between "expected zero from the outer check"
+-- and "unexpected zero from the inner dead guard".
+insert into ngram_utf8_haystack
+select 2, repeat('İ', 16385);
+
+select id, length(payload) as byte_len,
+       ngram_search_case_insensitive(payload, 'İİİ', 3) as similarity
+from ngram_utf8_haystack
+order by id;
+
+drop database ngram_utf8_boundary_db;
