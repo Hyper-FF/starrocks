@@ -344,7 +344,13 @@ void PartitionedHashJoinProberImpl::reset(RuntimeState* runtime_state) {
     for (auto& prober : _probers) {
         prober->reset(runtime_state);
     }
-    _partition_input_channels.clear();
+    // Keep _partition_input_channels.size() == _probers.size() across reset.
+    // probe_chunk_empty / probe_chunk / probe_remain index channels with probers.size() as the
+    // upper bound and use unchecked operator[]; leaving channels empty until the next
+    // push_probe_chunk lets MultilaneOperator-driven need_input()/has_output() queries
+    // OOB-read deque storage that was freed by clear(), which surfaces as a SIGSEGV in
+    // Chunk::memory_usage from a subsequent pull().
+    _partition_input_channels.assign(_probers.size(), PartitionChunkChannel(&_mem_tracker));
     _all_input_finished = false;
     _remain_partition_idx = 0;
 }
