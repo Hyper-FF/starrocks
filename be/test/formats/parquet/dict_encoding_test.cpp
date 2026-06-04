@@ -173,6 +173,16 @@ void dict_encoding_test() {
         EXPECTED_UNQUOTE(dst->debug_item(0), "6");
         EXPECTED_UNQUOTE(dst->debug_item(2), "NULL");
         EXPECTED_UNQUOTE(dst->debug_item(2000), "6");
+        // Regression for #70215: row 1000 is a non-null row that is filtered out
+        // (filter[1000] == 0) while the cache-aware path is active (dict size
+        // threshold forced to 0). It must be deterministically initialized with the
+        // type default instead of being left as uninitialized memory, otherwise query
+        // results become non-deterministic.
+        if constexpr (TARGET_TYPE == LogicalType::TYPE_VARCHAR) {
+            EXPECTED_UNQUOTE(dst->debug_item(1000), "");
+        } else {
+            EXPECTED_UNQUOTE(dst->debug_item(1000), "0");
+        }
         EXPECT_EQ(dst->size(), chunk_size);
     }
     {

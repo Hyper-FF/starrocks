@@ -264,6 +264,13 @@ public:
             for (int i = 0; i < count; i++) {
                 if (filter[i] & !is_nulls[i]) {
                     data[i] = _dict[_indexes[cnt]];
+                } else {
+                    // Rows that are filtered out (or null) are still resized with
+                    // resize_uninitialized above. Initialize them with a default value
+                    // instead of doing a (cache-missing) dictionary lookup, so that no
+                    // uninitialized memory can leak into downstream processing before the
+                    // filter is physically applied.
+                    data[i] = T{};
                 }
                 cnt += !is_nulls[i];
             }
@@ -316,6 +323,13 @@ private:
             for (int i = 0; i < count; i++) {
                 if (filter[i]) {
                     data[i] = _dict[_indexes[i]];
+                } else {
+                    // Rows that are filtered out are still resized with
+                    // resize_uninitialized above. Initialize them with a default value
+                    // instead of doing a (cache-missing) dictionary lookup, so that no
+                    // uninitialized memory can leak into downstream processing before the
+                    // filter is physically applied.
+                    data[i] = T{};
                 }
             }
         } else {
