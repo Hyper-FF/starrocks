@@ -103,6 +103,27 @@ public class ReduceCastRuleTest {
     }
 
     @Test
+    public void testFloatingPointToIntegerCastNotReduced() {
+        // see issue #51545: cast(cast(<double> as bigint) as string) returned the un-truncated
+        // double (e.g. "3.6666666666666665") because the intermediate bigint cast was dropped.
+        // The fractional part must be truncated by the bigint cast, so the chain cannot be reduced.
+        ScalarOperatorRewriteRule rule = new ReduceCastRule();
+
+        ScalarOperator operator = new CastOperator(VarcharType.VARCHAR,
+                new CastOperator(IntegerType.BIGINT, ConstantOperator.createDouble(3.6666666666666665)));
+
+        ScalarOperator result = rule.apply(operator, null);
+
+        assertTrue(result instanceof CastOperator);
+        assertTrue(result.getType().isVarchar());
+        // the intermediate cast(... as bigint) must be preserved
+        assertTrue(result.getChild(0) instanceof CastOperator);
+        assertTrue(result.getChild(0).getType().isBigint());
+        assertEquals(OperatorType.CONSTANT, result.getChild(0).getChild(0).getOpType());
+        assertTrue(result.getChild(0).getChild(0).getType().isFloatingPointType());
+    }
+
+    @Test
     public void testSameTypeCast() {
         ScalarOperatorRewriteRule rule = new ReduceCastRule();
 
