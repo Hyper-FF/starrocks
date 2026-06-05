@@ -157,6 +157,7 @@ template <typename HashMap, typename Impl>
 struct AggHashMapWithKey {
     AggHashMapWithKey(int chunk_size, AggStatistics* agg_stat_) : agg_stat(agg_stat_) {}
     using HashMapType = HashMap;
+    using KeyType = typename HashMap::key_type;
     HashMap hash_map;
     AggStatistics* agg_stat;
 
@@ -214,6 +215,47 @@ struct AggHashMapWithKey {
                 chunk_size, key_columns, pool, std::forward<Func>(allocate_func), agg_states, &extra);
         defer.cancel();
     }
+
+    ////// Shared helpers ////////
+    // Default null-key behavior for variants without a single null group (serialized / fixed-size /
+    // compressed keys). Variants with a dedicated null group override these.
+    static constexpr bool has_single_null_key = false;
+    AggDataPtr get_null_key_data() { return nullptr; }
+    void set_null_key_data(AggDataPtr data) {}
+
+    // Emplace helpers shared by variants whose key is stored by value in the hash map
+    // (one-number key, fixed-size serialized key, compressed fixed-size key). Variants that need to
+    // persist the key bytes (string / serialized slice keys) define their own overloads instead.
+    template <AllocFunc<Impl> Func, typename EmplaceCallBack>
+    ALWAYS_INLINE void _emplace_key(KeyType key, AggDataPtr& target_state, Func&& allocate_func,
+                                    EmplaceCallBack&& callback) {
+        auto iter = hash_map.lazy_emplace(key, [&](const auto& ctor) {
+            callback();
+            AggDataPtr pv = allocate_func(key);
+            ctor(key, pv);
+        });
+        target_state = iter->second;
+    }
+
+    template <AllocFunc<Impl> Func, typename EmplaceCallBack>
+    ALWAYS_INLINE void _emplace_key_with_hash(KeyType key, size_t hash, AggDataPtr& target_state, Func&& allocate_func,
+                                              EmplaceCallBack&& callback) {
+        auto iter = hash_map.lazy_emplace_with_hash(key, hash, [&](const auto& ctor) {
+            callback();
+            AggDataPtr pv = allocate_func(key);
+            ctor(key, pv);
+        });
+        target_state = iter->second;
+    }
+
+    template <typename... Args>
+    ALWAYS_INLINE void _find_key(AggDataPtr& target_state, uint8_t& not_found, Args&&... args) {
+        if (auto iter = hash_map.find(std::forward<Args>(args)...); iter != hash_map.end()) {
+            target_state = iter->second;
+        } else {
+            not_found = 1;
+        }
+    }
 };
 
 // ==============================================================
@@ -234,6 +276,10 @@ struct AggHashMapWithOneNumberKeyWithNullable
 
     template <class... Args>
     AggHashMapWithOneNumberKeyWithNullable(Args&&... args) : Base(std::forward<Args>(args)...) {}
+
+    using Base::_emplace_key;
+    using Base::_emplace_key_with_hash;
+    using Base::_find_key;
 
     AggDataPtr get_null_key_data() { return null_key_data; }
 
@@ -393,37 +439,6 @@ struct AggHashMapWithOneNumberKeyWithNullable
         }
     }
 
-    template <AllocFunc<Self> Func, typename EmplaceCallBack>
-    ALWAYS_INLINE void _emplace_key(KeyType key, AggDataPtr& target_state, Func&& allocate_func,
-                                    EmplaceCallBack&& callback) {
-        auto iter = this->hash_map.lazy_emplace(key, [&](const auto& ctor) {
-            callback();
-            AggDataPtr pv = allocate_func(key);
-            ctor(key, pv);
-        });
-        target_state = iter->second;
-    }
-
-    template <AllocFunc<Self> Func, typename EmplaceCallBack>
-    ALWAYS_INLINE void _emplace_key_with_hash(KeyType key, size_t hash, AggDataPtr& target_state, Func&& allocate_func,
-                                              EmplaceCallBack&& callback) {
-        auto iter = this->hash_map.lazy_emplace_with_hash(key, hash, [&](const auto& ctor) {
-            callback();
-            AggDataPtr pv = allocate_func(key);
-            ctor(key, pv);
-        });
-        target_state = iter->second;
-    }
-
-    template <typename... Args>
-    ALWAYS_INLINE void _find_key(AggDataPtr& target_state, uint8_t& not_found, Args&&... args) {
-        if (auto iter = this->hash_map.find(std::forward<Args>(args)...); iter != this->hash_map.end()) {
-            target_state = iter->second;
-        } else {
-            not_found = 1;
-        }
-    }
-
     void insert_keys_to_columns(const ResultVector& keys, MutableColumns& key_columns, size_t chunk_size) {
         if constexpr (is_nullable) {
             auto* nullable_column = down_cast<NullableColumn*>(key_columns[0].get());
@@ -458,6 +473,8 @@ struct AggHashMapWithOneStringKeyWithNullable
 
     template <class... Args>
     AggHashMapWithOneStringKeyWithNullable(Args&&... args) : Base(std::forward<Args>(args)...) {}
+
+    using Base::_find_key;
 
     AggDataPtr get_null_key_data() { return null_key_data; }
 
@@ -635,15 +652,6 @@ struct AggHashMapWithOneStringKeyWithNullable
         target_state = iter->second;
     }
 
-    template <typename... Args>
-    ALWAYS_INLINE void _find_key(AggDataPtr& target_state, uint8_t& not_found, Args&&... args) {
-        if (auto iter = this->hash_map.find(std::forward<Args>(args)...); iter != this->hash_map.end()) {
-            target_state = iter->second;
-        } else {
-            not_found = 1;
-        }
-    }
-
     void insert_keys_to_columns(ResultVector& keys, MutableColumns& key_columns, size_t chunk_size) {
         if constexpr (is_nullable) {
             DCHECK(key_columns[0]->is_nullable());
@@ -692,8 +700,7 @@ struct AggHashMapWithSerializedKey : public AggHashMapWithKey<HashMap, AggHashMa
               buffer(mem_pool->allocate(max_one_row_size * chunk_size + SLICE_MEMEQUAL_OVERFLOW_PADDING)),
               _chunk_size(chunk_size) {}
 
-    AggDataPtr get_null_key_data() { return nullptr; }
-    void set_null_key_data(AggDataPtr data) {}
+    using Base::_find_key;
 
     template <AllocFunc<Self> Func, typename HTBuildOp>
     void compute_agg_states(size_t chunk_size, const Columns& key_columns, MemPool* pool, Func&& allocate_func,
@@ -869,15 +876,6 @@ struct AggHashMapWithSerializedKey : public AggHashMapWithKey<HashMap, AggHashMa
         target_state = iter->second;
     }
 
-    template <typename... Args>
-    ALWAYS_INLINE void _find_key(AggDataPtr& target_state, uint8_t& not_found, Args&&... args) {
-        if (auto iter = this->hash_map.find(std::forward<Args>(args)...); iter != this->hash_map.end()) {
-            target_state = iter->second;
-        } else {
-            not_found = 1;
-        }
-    }
-
     uint32_t get_max_serialize_size(const Columns& key_columns) {
         uint32_t max_size = 0;
         for (const auto& key_column : key_columns) {
@@ -906,8 +904,6 @@ struct AggHashMapWithSerializedKey : public AggHashMapWithKey<HashMap, AggHashMa
             }
         }
     }
-
-    static constexpr bool has_single_null_key = false;
 
     Buffer<uint32_t> slice_sizes;
     uint32_t max_one_row_size = 8;
@@ -951,8 +947,9 @@ struct AggHashMapWithSerializedKeyFixedSize
         memset(buffer, 0x0, max_fixed_size * _chunk_size);
     }
 
-    AggDataPtr get_null_key_data() { return nullptr; }
-    void set_null_key_data(AggDataPtr data) {}
+    using Base::_emplace_key;
+    using Base::_emplace_key_with_hash;
+    using Base::_find_key;
 
     template <AllocFunc<Self> Func, typename HTBuildOp>
     ALWAYS_NOINLINE void compute_agg_prefetch(size_t chunk_size, const Columns& key_columns,
@@ -1049,37 +1046,6 @@ struct AggHashMapWithSerializedKeyFixedSize
         }
     }
 
-    template <AllocFunc<Self> Func, typename EmplaceCallBack>
-    ALWAYS_INLINE void _emplace_key(KeyType key, AggDataPtr& target_state, Func&& allocate_func,
-                                    EmplaceCallBack&& callback) {
-        auto iter = this->hash_map.lazy_emplace(key, [&](const auto& ctor) {
-            callback();
-            AggDataPtr pv = allocate_func(key);
-            ctor(key, pv);
-        });
-        target_state = iter->second;
-    }
-
-    template <AllocFunc<Self> Func, typename EmplaceCallBack>
-    ALWAYS_INLINE void _emplace_key_with_hash(KeyType key, size_t hash, AggDataPtr& target_state, Func&& allocate_func,
-                                              EmplaceCallBack&& callback) {
-        auto iter = this->hash_map.lazy_emplace_with_hash(key, hash, [&](const auto& ctor) {
-            callback();
-            AggDataPtr pv = allocate_func(key);
-            ctor(key, pv);
-        });
-        target_state = iter->second;
-    }
-
-    template <typename... Args>
-    ALWAYS_INLINE void _find_key(AggDataPtr& target_state, uint8_t& not_found, Args&&... args) {
-        if (auto iter = this->hash_map.find(std::forward<Args>(args)...); iter != this->hash_map.end()) {
-            target_state = iter->second;
-        } else {
-            not_found = 1;
-        }
-    }
-
     void insert_keys_to_columns(ResultVector& keys, MutableColumns& key_columns, int32_t chunk_size) {
         DCHECK(fixed_byte_size != -1);
         tmp_slices.reserve(chunk_size);
@@ -1103,8 +1069,6 @@ struct AggHashMapWithSerializedKeyFixedSize
             key_column->deserialize_and_append_batch(tmp_slices, chunk_size);
         }
     }
-
-    static constexpr bool has_single_null_key = false;
 
     Buffer<uint32_t> slice_sizes;
     std::unique_ptr<MemPool> mem_pool;
@@ -1131,8 +1095,9 @@ struct AggHashMapWithCompressedKeyFixedSize
         fixed_keys.reserve(chunk_size);
     }
 
-    AggDataPtr get_null_key_data() { return nullptr; }
-    void set_null_key_data(AggDataPtr data) {}
+    using Base::_emplace_key;
+    using Base::_emplace_key_with_hash;
+    using Base::_find_key;
 
     template <AllocFunc<Self> Func, typename HTBuildOp>
     ALWAYS_NOINLINE void compute_agg_noprefetch(size_t chunk_size, const Columns& key_columns, MemPool* pool,
@@ -1212,43 +1177,10 @@ struct AggHashMapWithCompressedKeyFixedSize
         }
     }
 
-    template <AllocFunc<Self> Func, typename EmplaceCallBack>
-    ALWAYS_INLINE void _emplace_key(KeyType key, AggDataPtr& target_state, Func&& allocate_func,
-                                    EmplaceCallBack&& callback) {
-        auto iter = this->hash_map.lazy_emplace(key, [&](const auto& ctor) {
-            callback();
-            AggDataPtr pv = allocate_func(key);
-            ctor(key, pv);
-        });
-        target_state = iter->second;
-    }
-
-    template <AllocFunc<Self> Func, typename EmplaceCallBack>
-    ALWAYS_INLINE void _emplace_key_with_hash(KeyType key, size_t hash, AggDataPtr& target_state, Func&& allocate_func,
-                                              EmplaceCallBack&& callback) {
-        auto iter = this->hash_map.lazy_emplace_with_hash(key, hash, [&](const auto& ctor) {
-            callback();
-            AggDataPtr pv = allocate_func(key);
-            ctor(key, pv);
-        });
-        target_state = iter->second;
-    }
-
-    template <typename... Args>
-    ALWAYS_INLINE void _find_key(AggDataPtr& target_state, uint8_t& not_found, Args&&... args) {
-        if (auto iter = this->hash_map.find(std::forward<Args>(args)...); iter != this->hash_map.end()) {
-            target_state = iter->second;
-        } else {
-            not_found = 1;
-        }
-    }
-
     void insert_keys_to_columns(ResultVector& keys, MutableColumns& key_columns, int32_t chunk_size) {
         bitcompress_deserialize(key_columns, bases, offsets, used_bits, chunk_size, sizeof(FixedSizeSliceKey),
                                 keys.data());
     }
-
-    static constexpr bool has_single_null_key = false;
 
     std::vector<int> used_bits;
     std::vector<int> offsets;
