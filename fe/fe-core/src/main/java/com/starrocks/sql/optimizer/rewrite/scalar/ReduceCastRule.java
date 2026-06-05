@@ -166,11 +166,12 @@ public class ReduceCastRule extends TopDownScalarOperatorRewriteRule {
         }
 
         // cascaded cast cannot be reduced when the middle cast truncates the fractional part
-        // of a floating-point value, because dropping it would expose the untruncated value to
-        // the outer cast. The slot-size check above does not catch this since e.g. double and
-        // bigint share the same size.
+        // of a floating-point value and the outer cast would otherwise expose the untruncated
+        // value. The slot-size check above does not catch this since e.g. double and bigint
+        // share the same size. When the outer type is also an integer type it re-applies the
+        // truncation, so reducing float -> integer -> integer is still safe.
         // e.g. cast(cast(8.0 / 3 + 1 as bigint) as string) must stay "3", not "3.6666666666666665"
-        if (grandChild.isFloatingPointType() && !child.isFloatingPointType()) {
+        if (grandChild.isFloatingPointType() && !child.isFloatingPointType() && !parent.isFixedPointType()) {
             return false;
         }
 

@@ -124,6 +124,24 @@ public class ReduceCastRuleTest {
     }
 
     @Test
+    public void testFloatingPointToIntegerToIntegerStillReduced() {
+        // when the outer cast is also an integer type it re-applies the truncation, so
+        // float -> integer -> integer can still be reduced without changing the result.
+        ScalarOperatorRewriteRule rule = new ReduceCastRule();
+
+        ScalarOperator operator = new CastOperator(IntegerType.INT,
+                new CastOperator(IntegerType.BIGINT, ConstantOperator.createDouble(3.6666666666666665)));
+
+        ScalarOperator result = rule.apply(operator, null);
+
+        assertTrue(result instanceof CastOperator);
+        assertTrue(result.getType().isInt());
+        // the intermediate cast(... as bigint) is removed, leaving cast(<double> as int)
+        assertEquals(OperatorType.CONSTANT, result.getChild(0).getOpType());
+        assertTrue(result.getChild(0).getType().isFloatingPointType());
+    }
+
+    @Test
     public void testSameTypeCast() {
         ScalarOperatorRewriteRule rule = new ReduceCastRule();
 
