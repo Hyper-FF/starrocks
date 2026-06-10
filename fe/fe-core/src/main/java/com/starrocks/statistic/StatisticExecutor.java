@@ -746,11 +746,14 @@ public class StatisticExecutor {
             return Collections.emptyList();
         }
         Stopwatch watch = Stopwatch.createStarted();
+        // Disable MV rewrite before planning: planning runs MVRewriteValidator, which would
+        // otherwise add the queried base table's related MVs as candidates and pollute MV
+        // metrics (e.g. mv_query_total_considered_count) with internal statistics queries.
+        context.getSessionVariable().setEnableMaterializedViewRewrite(false);
         StatementBase parsedStmt = SqlParser.parseOneWithStarRocksDialect(sql, context.getSessionVariable());
         ExecPlan execPlan = StatementPlanner.plan(parsedStmt, context, TResultSinkType.STATISTIC);
         StmtExecutor executor = StmtExecutor.newInternalExecutor(context, parsedStmt);
         context.setExecutor(executor);
-        context.getSessionVariable().setEnableMaterializedViewRewrite(false);
         Pair<List<TResultBatch>, Status> sqlResult = executor.executeStmtWithExecPlan(context, execPlan);
         if (!sqlResult.second.ok()) {
             String errorMsg = context.getState().getErrorMessage();
