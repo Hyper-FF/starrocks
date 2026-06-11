@@ -210,11 +210,30 @@ public class TaskRunHistoryTable {
             predicates.add(" task_state = " + Strings.quote(params.getState()));
         }
         sql += Joiner.on(" AND ").join(predicates);
-        // If user explicitly specify the LIMIT in sql, we don't apply default limit
-        if (params.isSetPagination() && params.getPagination().getLimit() > 0) {
-            sql += " LIMIT " + params.getPagination().getLimit();
-        } else if (Config.task_runs_max_history_number > 0) {
-            sql += " ORDER BY create_time DESC LIMIT " + Config.task_runs_max_history_number;
+
+        // Resolve the pagination window. `task_run_id` is added as a tiebreaker so that the
+        // ordering is total and the offset/limit window stays stable across consecutive requests
+        // (the BE schema scanner fetches the history in batches by advancing the offset).
+        long offset = 0;
+        long limit = -1;
+        if (params.isSetPagination()) {
+            if (params.getPagination().isSetOffset() && params.getPagination().getOffset() > 0) {
+                offset = params.getPagination().getOffset();
+            }
+            if (params.getPagination().getLimit() > 0) {
+                limit = params.getPagination().getLimit();
+            }
+        }
+        // If user explicitly specify the LIMIT (via pagination), we don't apply the default limit.
+        if (limit < 0 && Config.task_runs_max_history_number > 0) {
+            limit = Config.task_runs_max_history_number;
+        }
+        sql += " ORDER BY create_time DESC, task_run_id DESC";
+        if (limit > 0) {
+            sql += " LIMIT " + limit;
+            if (offset > 0) {
+                sql += " OFFSET " + offset;
+            }
         }
 
         List<TResultBatch> batch = SimpleExecutor.getRepoExecutor().executeDQL(sql);

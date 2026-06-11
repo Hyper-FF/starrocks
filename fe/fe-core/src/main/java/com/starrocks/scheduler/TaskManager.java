@@ -57,6 +57,7 @@ import com.starrocks.sql.common.DmlException;
 import com.starrocks.sql.optimizer.Utils;
 import com.starrocks.sql.plan.ExecPlan;
 import com.starrocks.thrift.TGetTasksParams;
+import com.starrocks.thrift.TRequestPagination;
 import com.starrocks.type.TypeFactory;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections4.ListUtils;
@@ -955,25 +956,74 @@ public class TaskManager implements MemoryTrackable {
     }
 
     public List<TaskRunStatus> getMatchedTaskRunStatus(TGetTasksParams params) {
-        List<TaskRunStatus> taskRunList = Lists.newArrayList();
+        // The in-memory segment (pending + running + in-memory history) holds the freshest task runs
+        // and is bounded by config, so it is always materialized in full. The archived history table
+        // is the only potentially large source, which is why pagination is pushed down to it.
+        List<TaskRunStatus> memTaskRunList = Lists.newArrayList();
         // pending task runs
         List<TaskRun> pendingTaskRuns = taskRunScheduler.getCopiedPendingTaskRuns();
         pendingTaskRuns.stream()
                 .map(TaskRun::getStatus)
                 .filter(t -> t.match(params))
-                .forEach(taskRunList::add);
+                .forEach(memTaskRunList::add);
 
         // running task runs
         Set<TaskRun> runningTaskRuns = taskRunScheduler.getCopiedRunningTaskRuns();
         runningTaskRuns.stream()
                 .map(TaskRun::getStatus)
                 .filter(t -> t.match(params))
-                .forEach(taskRunList::add);
+                .forEach(memTaskRunList::add);
 
-        // history task runs
-        taskRunList.addAll(taskRunManager.getTaskRunHistory().lookupHistory(params));
+        // in-memory history task runs
+        TaskRunHistory history = taskRunManager.getTaskRunHistory();
+        memTaskRunList.addAll(history.lookupInMemoryHistory(params));
 
+        // Without pagination keep the original "fetch everything" semantics.
+        if (params == null || !params.isSetPagination()) {
+            List<TaskRunStatus> taskRunList = Lists.newArrayList(memTaskRunList);
+            taskRunList.addAll(history.lookupArchiveHistory(params));
+            return taskRunList;
+        }
+
+        // Paginated path: stream a single [offset, offset + limit) window. The in-memory segment is
+        // served first, and only the remaining part of the window is fetched from the archived
+        // history table, so each request materializes just the slice it needs.
+        long offset = params.getPagination().isSetOffset() && params.getPagination().getOffset() > 0
+                ? params.getPagination().getOffset() : 0;
+        long limit = params.getPagination().getLimit() > 0 ? params.getPagination().getLimit() : -1;
+
+        List<TaskRunStatus> taskRunList = Lists.newArrayList();
+        int memSize = memTaskRunList.size();
+        if (offset < memSize) {
+            int fromIdx = (int) offset;
+            int toIdx = limit < 0 ? memSize : (int) Math.min(memSize, offset + limit);
+            taskRunList.addAll(memTaskRunList.subList(fromIdx, toIdx));
+            // The window is not yet filled by the in-memory segment, continue from the archive.
+            long archiveLimit = limit < 0 ? -1 : limit - (toIdx - fromIdx);
+            if (archiveLimit != 0) {
+                taskRunList.addAll(history.lookupArchiveHistory(withPagination(params, 0, archiveLimit)));
+            }
+        } else {
+            long archiveOffset = offset - memSize;
+            taskRunList.addAll(history.lookupArchiveHistory(withPagination(params, archiveOffset, limit)));
+        }
         return taskRunList;
+    }
+
+    /**
+     * Build a copy of {@code params} whose pagination window is rebased onto the archived history
+     * table. A negative {@code limit} means "no explicit limit" and lets the history table fall back
+     * to its default cap.
+     */
+    private static TGetTasksParams withPagination(TGetTasksParams params, long offset, long limit) {
+        TGetTasksParams copy = params.deepCopy();
+        TRequestPagination pagination = new TRequestPagination();
+        pagination.setOffset(offset);
+        if (limit > 0) {
+            pagination.setLimit(limit);
+        }
+        copy.setPagination(pagination);
+        return copy;
     }
 
     /**

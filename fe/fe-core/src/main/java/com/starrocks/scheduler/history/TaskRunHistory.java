@@ -111,13 +111,31 @@ public class TaskRunHistory {
     }
 
     public List<TaskRunStatus> lookupHistory(TGetTasksParams params) {
-        List<TaskRunStatus> result = getInMemoryHistory().stream()
+        List<TaskRunStatus> result = lookupInMemoryHistory(params);
+        result.addAll(lookupArchiveHistory(params));
+        return result;
+    }
+
+    /**
+     * Return the matched in-memory history task runs. The in-memory history is bounded by config
+     * (e.g. {@code task_runs_max_history_number}), so it is always materialized in full.
+     */
+    public List<TaskRunStatus> lookupInMemoryHistory(TGetTasksParams params) {
+        return getInMemoryHistory().stream()
                 .filter(x -> x.match(params))
                 .collect(Collectors.toList());
-        if (isEnableArchiveHistory()) {
-            result.addAll(historyTable.lookup(params));
+    }
+
+    /**
+     * Return the matched archived history task runs. When archiving is disabled there is no archived
+     * history at all. The {@code pagination} carried by {@code params} (if any) is pushed down to the
+     * underlying history table query so that callers can fetch the history in batches.
+     */
+    public List<TaskRunStatus> lookupArchiveHistory(TGetTasksParams params) {
+        if (!isEnableArchiveHistory()) {
+            return Lists.newArrayList();
         }
-        return result;
+        return historyTable.lookup(params);
     }
 
     // TODO: make it thread safe

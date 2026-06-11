@@ -99,7 +99,7 @@ public class TaskRunHistoryTest {
             {
                 repo.executeDQL("SELECT history_content_json FROM _statistics_.task_run_history WHERE TRUE AND  " +
                         "get_json_string(history_content_json, 'dbName') = 'default_cluster:d1' " +
-                        "ORDER BY create_time DESC LIMIT 10000");
+                        "ORDER BY create_time DESC, task_run_id DESC LIMIT 10000");
             }
         };
         params.setDb("d1");
@@ -109,7 +109,7 @@ public class TaskRunHistoryTest {
             {
                 repo.executeDQL("SELECT history_content_json FROM _statistics_.task_run_history WHERE TRUE AND  " +
                         "task_state = 'SUCCESS'" +
-                        " ORDER BY create_time DESC LIMIT 10000");
+                        " ORDER BY create_time DESC, task_run_id DESC LIMIT 10000");
             }
         };
         params.setDb(null);
@@ -120,7 +120,7 @@ public class TaskRunHistoryTest {
             {
                 repo.executeDQL("SELECT history_content_json FROM _statistics_.task_run_history WHERE TRUE AND  " +
                         "task_name = 't1'" +
-                        " ORDER BY create_time DESC LIMIT 10000");
+                        " ORDER BY create_time DESC, task_run_id DESC LIMIT 10000");
             }
         };
         params.setDb(null);
@@ -132,7 +132,7 @@ public class TaskRunHistoryTest {
             {
                 repo.executeDQL("SELECT history_content_json FROM _statistics_.task_run_history WHERE TRUE AND  " +
                         "task_run_id = 'q1'" +
-                        " ORDER BY create_time DESC LIMIT 10000");
+                        " ORDER BY create_time DESC, task_run_id DESC LIMIT 10000");
             }
         };
         params.setDb(null);
@@ -158,7 +158,19 @@ public class TaskRunHistoryTest {
         new Expectations() {
             {
                 repo.executeDQL("SELECT history_content_json FROM _statistics_.task_run_history WHERE TRUE AND  " +
-                        "task_run_id = 'q1' LIMIT 100");
+                        "task_run_id = 'q1' ORDER BY create_time DESC, task_run_id DESC LIMIT 100");
+            }
+        };
+        history.lookup(params);
+
+        // test for pagination with both offset and limit, which the BE schema scanner uses to fetch
+        // the history in batches.
+        params.getPagination().setOffset(200);
+        params.getPagination().setLimit(100);
+        new Expectations() {
+            {
+                repo.executeDQL("SELECT history_content_json FROM _statistics_.task_run_history WHERE TRUE AND  " +
+                        "task_run_id = 'q1' ORDER BY create_time DESC, task_run_id DESC LIMIT 100 OFFSET 200");
             }
         };
         history.lookup(params);

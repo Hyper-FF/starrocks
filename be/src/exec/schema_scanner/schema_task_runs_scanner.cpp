@@ -14,6 +14,8 @@
 
 #include "exec/schema_scanner/schema_task_runs_scanner.h"
 
+#include <algorithm>
+
 #include "base/time/timezone_utils.h"
 #include "exec/schema_scanner.h"
 #include "exec/schema_scanner/schema_helper.h"
@@ -54,28 +56,56 @@ Status SchemaTaskRunsScanner::start(RuntimeState* state) {
     std::string task_name;
     std::string query_id;
     std::string task_run_state;
-    TGetTasksParams task_params;
     // task_name
     if (_parse_expr_predicate("TASK_NAME", task_name)) {
-        task_params.__set_task_name(task_name);
+        _task_params.__set_task_name(task_name);
     }
     // query_id
     if (_parse_expr_predicate("QUERY_ID", query_id)) {
-        task_params.__set_query_id(query_id);
+        _task_params.__set_query_id(query_id);
     }
     // task_run_state
     if (_parse_expr_predicate("STATE", task_run_state)) {
-        task_params.__set_state(task_run_state);
+        _task_params.__set_state(task_run_state);
     }
     if (nullptr != _param->current_user_ident) {
-        task_params.__set_current_user_ident(*(_param->current_user_ident));
+        _task_params.__set_current_user_ident(*(_param->current_user_ident));
     }
-    if (_param->limit > 0) {
-        task_params.__isset.pagination = true;
-        task_params.pagination.__set_limit(_param->limit);
-    }
-    RETURN_IF_ERROR(SchemaHelper::get_task_runs(_ss_state, task_params, &_task_run_result));
+    // The task runs are fetched lazily in batches via `_fetch_next_batch`, so that a single RPC no
+    // longer needs to pull the whole result set.
+    _task_run_offset = 0;
     _task_run_index = 0;
+    _no_more = false;
+    return Status::OK();
+}
+
+Status SchemaTaskRunsScanner::_fetch_next_batch() {
+    int64_t batch_size = kFetchBatchSize;
+    // Respect the query LIMIT to avoid over-fetching beyond what the consumer needs.
+    if (_param->limit > 0) {
+        int64_t remaining = _param->limit - _task_run_offset;
+        if (remaining <= 0) {
+            _task_run_result.task_runs.clear();
+            _task_run_index = 0;
+            _no_more = true;
+            return Status::OK();
+        }
+        batch_size = std::min(batch_size, remaining);
+    }
+
+    _task_params.__isset.pagination = true;
+    _task_params.pagination.__set_offset(_task_run_offset);
+    _task_params.pagination.__set_limit(batch_size);
+
+    _task_run_result.task_runs.clear();
+    RETURN_IF_ERROR(SchemaHelper::get_task_runs(_ss_state, _task_params, &_task_run_result));
+    _task_run_index = 0;
+    // Advance by the requested batch size (the FE applies offset/limit on the raw, pre-auth stream),
+    // and stop once the FE returns an empty page.
+    _task_run_offset += batch_size;
+    if (_task_run_result.task_runs.empty()) {
+        _no_more = true;
+    }
     return Status::OK();
 }
 
@@ -348,12 +378,13 @@ Status SchemaTaskRunsScanner::get_next(ChunkPtr* chunk, bool* eos) {
     if (!_is_init || chunk == nullptr || eos == nullptr) {
         return Status::InternalError("Used before initialized.");
     }
-    if (_task_run_index >= _task_run_result.task_runs.size()) {
-        *eos = true;
-        return Status::OK();
-    }
-    if (nullptr == chunk || nullptr == eos) {
-        return Status::InternalError("input pointer is nullptr.");
+    // Keep fetching batches until the current one still has rows to emit or the FE signals no more.
+    while (_task_run_index >= static_cast<int>(_task_run_result.task_runs.size())) {
+        if (_no_more) {
+            *eos = true;
+            return Status::OK();
+        }
+        RETURN_IF_ERROR(_fetch_next_batch());
     }
     *eos = false;
     return fill_chunk(chunk);

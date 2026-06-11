@@ -29,8 +29,19 @@ public:
 
 private:
     Status fill_chunk(ChunkPtr* chunk);
+    // Fetch the next batch of task runs from the FE by advancing the pagination offset.
+    Status _fetch_next_batch();
+
+    // Number of task runs requested from the FE per RPC. The scanner keeps fetching batches until
+    // the FE returns an empty page (or the query LIMIT is satisfied) instead of pulling everything
+    // in a single RPC.
+    static constexpr int64_t kFetchBatchSize = 1000;
 
     int _task_run_index{0};
+    // Offset of the next batch to fetch, advanced by the requested batch size each RPC.
+    int64_t _task_run_offset{0};
+    bool _no_more{false};
+    TGetTasksParams _task_params;
     TGetTaskRunInfoResult _task_run_result;
     static SchemaScanner::ColumnDesc _s_tbls_columns[];
 };
