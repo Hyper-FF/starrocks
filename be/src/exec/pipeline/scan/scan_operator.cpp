@@ -41,6 +41,12 @@
 
 namespace starrocks::pipeline {
 
+// Fault injection: force the close-before-start race in _trigger_next_scan(). When enabled,
+// a queued IO task closes its own chunk source slot right before it starts running, simulating
+// the case where the slot was already closed (e.g. by ~ScanOperator on cancel) after the task
+// had been accounted as running but before it actually executed.
+DEFINE_FAIL_POINT(scan_close_source_before_task_start);
+
 // ========== ScanOperator ==========
 
 ScanOperator::ScanOperator(OperatorFactory* factory, int32_t id, int32_t driver_sequence, int32_t dop,
@@ -415,15 +421,19 @@ void ScanOperator::_finish_chunk_source_task(RuntimeState* state, int chunk_sour
     _last_scan_bytes += scan_bytes;
     _num_running_io_tasks--;
 
-    DCHECK(_chunk_sources[chunk_source_index] != nullptr);
     {
         // - close() closes the chunk source which is not running.
         // - _finish_chunk_source_task() closes the chunk source conditionally and then make it as not running.
         // Therefore, closing chunk source and storing/loading `_is_finished` and `_is_io_task_running`
         // must be protected by lock
+        //
+        // The chunk source may already have been closed (reset to nullptr) before this task ran, e.g. when
+        // the slot was closed in ~ScanOperator while this IO task was still queued. In that case we only
+        // need to release the IO-task bookkeeping reserved by _trigger_next_scan().
         std::lock_guard guard(_task_mutex);
-        if (!_chunk_sources[chunk_source_index]->has_next_chunk() || _is_finished) {
-            _chunk_sources[chunk_source_index]->update_chunk_exec_stats(state);
+        auto& chunk_source = _chunk_sources[chunk_source_index];
+        if (chunk_source != nullptr && (!chunk_source->has_next_chunk() || _is_finished)) {
+            chunk_source->update_chunk_exec_stats(state);
             _close_chunk_source_unlocked(state, chunk_source_index);
         }
         _is_io_task_running[chunk_source_index] = false;
@@ -459,7 +469,27 @@ Status ScanOperator::_trigger_next_scan(RuntimeState* state, int chunk_source_in
             SCOPED_THREAD_LOCAL_MEM_TRACKER_SETTER(state->instance_mem_tracker());
             DUMP_TRACE_IF_TIMEOUT(config::pipeline_scan_timeout_guard_ms);
 
-            auto chunk_source = _chunk_sources[chunk_source_index];
+            FAIL_POINT_TRIGGER_EXECUTE(scan_close_source_before_task_start,
+                                       { _close_chunk_source(state, chunk_source_index); });
+
+            // Hold a local reference to the chunk source so it cannot be destroyed while this task
+            // runs. The slot may have been reset to nullptr if it was closed before this queued task
+            // started; reading it must be protected by the same lock used to close it.
+            ChunkSourcePtr chunk_source;
+            {
+                std::shared_lock guard(_task_mutex);
+                chunk_source = _chunk_sources[chunk_source_index];
+            }
+
+            // Always release the IO-task bookkeeping reserved by _trigger_next_scan() and notify the
+            // operator, even when the slot was already closed. Declaring `notify` before the early
+            // return guarantees the operator is woken up to re-evaluate is_finished()/scheduling.
+            auto notify = scan_defer_notify(this);
+            if (chunk_source == nullptr) {
+                _finish_chunk_source_task(state, chunk_source_index, 0, 0, 0);
+                return;
+            }
+
             SCOPED_SET_CUSTOM_COREDUMP_MSG(chunk_source->get_custom_coredump_msg());
 
 #if !defined(ADDRESS_SANITIZER) && !defined(LEAK_SANITIZER) && !defined(THREAD_SANITIZER)
@@ -469,7 +499,6 @@ Status ScanOperator::_trigger_next_scan(RuntimeState* state, int chunk_source_in
                 COUNTER_SET(chunk_source->scan_timer(), COUNTER_VALUE(chunk_source->io_task_wait_timer()) +
                                                                 COUNTER_VALUE(chunk_source->io_task_exec_timer()));
             });
-            auto notify = scan_defer_notify(this);
             COUNTER_UPDATE(chunk_source->io_task_wait_timer(), MonotonicNanos() - io_task_start_nano);
             SCOPED_TIMER(chunk_source->io_task_exec_timer());
 

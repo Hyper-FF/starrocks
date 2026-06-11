@@ -1,0 +1,41 @@
+-- name: test_scan_close_before_task_start @sequential
+-- description: Verify the close-before-start race in ScanOperator. When a queued scan IO task
+-- starts after its chunk source slot was already closed, the operator must still run the
+-- IO-task finalization bookkeeping (decrement _num_running_io_tasks, clear _is_io_task_running,
+-- notify) so the query completes cleanly instead of hanging. The race is forced deterministically
+-- via the 'scan_close_source_before_task_start' fail point: every queued IO task closes its own
+-- chunk source slot right before it would start running.
+
+create database db_${uuid0};
+use db_${uuid0};
+
+CREATE TABLE t1 (
+    k1 INT,
+    v1 INT
+) DUPLICATE KEY(k1)
+DISTRIBUTED BY HASH(k1) BUCKETS 8
+PROPERTIES('replication_num' = '1');
+
+insert into t1 select generate_series, generate_series from TABLE(generate_series(1, 5000));
+
+-- Baseline before fault injection.
+select count(*) from t1;
+
+-- Force the close-before-start race for every scan IO task. Without the bookkeeping fix the
+-- running-IO-task count is leaked, is_finished() never becomes true and these queries hang;
+-- with the fix they finalize and return (scanning no rows because every slot is closed early).
+admin enable failpoint 'scan_close_source_before_task_start';
+
+[UC] select count(*) from t1;
+[UC] select * from t1 order by k1 limit 10;
+[UC] select sum(v1) from t1;
+
+admin disable failpoint 'scan_close_source_before_task_start';
+
+-- The operators must have finalized cleanly: BE stays healthy and normal scans return full data.
+select count(*) from t1;
+select sum(v1) from t1;
+
+CLEANUP {
+    admin disable failpoint 'scan_close_source_before_task_start';
+} END CLEANUP
