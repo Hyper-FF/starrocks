@@ -145,11 +145,6 @@ public class RoutineLoadDesc {
     }
 
     private String pack(String str) {
-        // toSql() output for COLUMNS/PARTITION clauses is persisted via
-        // RoutineLoadJob.mergeLoadDescToOriginStatement and re-parsed on FE restart, so the
-        // identifiers must be backquoted with embedded backticks doubled (a`b -> `a``b`).
-        // Naive concatenation produces malformed SQL that fails to re-parse and loses the
-        // routine load description.
         return ParseUtil.backquote(str);
     }
 
