@@ -222,7 +222,10 @@ public class DeriveRangeJoinPredicateRule extends TransformationRule {
                     input.inputAt(1)));
         }
 
-        return null;
+        // Unhandled join types (full-outer / left|right semi / left|right anti): no rewrite.
+        // Return an empty list rather than null so RewriteTreeTask's
+        // checkState(result.size() <= 1) does not dereference a null result (NPE).
+        return Lists.newArrayList();
     }
 
     private Statistics getStatistics(OptExpression input, OptimizerContext context) {
