@@ -1,0 +1,42 @@
+-- name: test_zonemap_string_max_truncation
+CREATE DATABASE IF NOT EXISTS test_zonemap_string_max_truncation_db;
+-- result:
+-- !result
+USE test_zonemap_string_max_truncation_db;
+-- result:
+-- !result
+CREATE TABLE zm_v (
+  id INT,
+  v VARCHAR(64)
+) ENGINE=OLAP
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO zm_v VALUES (1, unhex(concat(repeat('41', 16), 'FFFF')));
+-- result:
+-- !result
+SELECT count(*) FROM zm_v;
+-- result:
+1
+-- !result
+SELECT count(*) FROM zm_v WHERE v = unhex(concat(repeat('41', 16), 'FFFF'));
+-- result:
+1
+-- !result
+SELECT count(*) FROM zm_v WHERE v >= unhex(concat(repeat('41', 16), 'FFFF'));
+-- result:
+1
+-- !result
+SELECT count(*) FROM zm_v WHERE hex(v) = concat(repeat('41', 16), 'FFFF');
+-- result:
+1
+-- !result
+INSERT INTO zm_v VALUES (2, repeat('B', 10));
+-- result:
+-- !result
+SELECT count(*) FROM zm_v WHERE v = repeat('B', 10);
+-- result:
+1
+-- !result

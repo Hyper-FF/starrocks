@@ -1,0 +1,33 @@
+-- name: test_zonemap_string_max_truncation
+-- description: Regression for string-prefix zone-map max truncation. The truncated max
+--              used to be `prefix + 0xFF`, which under-estimates the true max when the
+--              byte just past the prefix is 0xFF with more bytes following, so the zone
+--              map wrongly pruned the page/segment and =/>=/> queries silently lost rows.
+
+CREATE DATABASE IF NOT EXISTS test_zonemap_string_max_truncation_db;
+USE test_zonemap_string_max_truncation_db;
+
+CREATE TABLE zm_v (
+  id INT,
+  v VARCHAR(64)
+) ENGINE=OLAP
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+-- v = 16 x 'A' (0x41) + 0xFF + 0xFF (18 bytes): byte[16]=0xFF with a further byte,
+-- exactly the case where appending 0xFF to the 16-byte prefix is NOT an upper bound.
+INSERT INTO zm_v VALUES (1, unhex(concat(repeat('41', 16), 'FFFF')));
+
+-- the row exists
+SELECT count(*) FROM zm_v;
+-- exact match: must find the row (zone map must not prune the segment)
+SELECT count(*) FROM zm_v WHERE v = unhex(concat(repeat('41', 16), 'FFFF'));
+-- range match: must find the row
+SELECT count(*) FROM zm_v WHERE v >= unhex(concat(repeat('41', 16), 'FFFF'));
+-- cross-check via row-level eval (never used the zone map): always found
+SELECT count(*) FROM zm_v WHERE hex(v) = concat(repeat('41', 16), 'FFFF');
+
+-- control: a <=16-byte value is not truncated and works either way
+INSERT INTO zm_v VALUES (2, repeat('B', 10));
+SELECT count(*) FROM zm_v WHERE v = repeat('B', 10);

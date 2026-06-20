@@ -232,7 +232,8 @@ ZoneMapIndexWriterImpl<type>::ZoneMapIndexWriterImpl(TypeInfo* type_info) : _typ
 }
 
 // Truncate string min/max values at write time to reduce comparison/metadata overhead.
-// For max values that are truncated, append 0xFF to preserve an upper bound.
+// The truncated min stays a valid lower bound (a prefix is <= the full value); the
+// truncated max is rounded up to the shortest valid upper bound for the prefix.
 template <LogicalType LT>
 void ZoneMapIndexWriterImpl<LT>::_truncate_string_minmax_if_needed(ZoneMap<LT>* zm) {
     if (!_truncate_string) {
@@ -246,9 +247,23 @@ void ZoneMapIndexWriterImpl<LT>::_truncate_string_minmax_if_needed(ZoneMap<LT>* 
             min_slice.size = kPrefixLen;
         }
         if (max_slice.size > kPrefixLen) {
-            // Safe, original buffer has length > kPrefixLen, ensure buffer has room for 0xFF
-            max_slice.data[kPrefixLen] = static_cast<char>(0xFF);
-            max_slice.size = kPrefixLen + 1;
+            // Round the prefix up to the shortest string that is >= every value sharing
+            // it: drop trailing 0xFF bytes, then increment the last byte that is < 0xFF.
+            // Appending 0xFF (the previous behavior) is NOT a valid upper bound -- when the
+            // byte just past the prefix is itself 0xFF with more bytes following, the real
+            // value `prefix + 0xFF + ...` sorts after `prefix + 0xFF` under memcmp, so the
+            // zone map would under-estimate max and wrongly prune pages/segments that hold
+            // matching rows (silent missing rows for =/>=/> predicates).
+            size_t len = kPrefixLen;
+            while (len > 0 && static_cast<unsigned char>(max_slice.data[len - 1]) == 0xFF) {
+                --len;
+            }
+            if (len > 0) {
+                max_slice.data[len - 1] = static_cast<char>(static_cast<unsigned char>(max_slice.data[len - 1]) + 1);
+                max_slice.size = len;
+            }
+            // else: the whole prefix is 0xFF, so no shorter string is a valid upper bound;
+            // keep the original (exact, already-valid) max value untruncated.
         }
     }
 }
