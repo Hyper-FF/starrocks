@@ -112,7 +112,17 @@ public class EliminateAggRule extends TransformationRule {
 
         ColumnRefSet groupByIds = new ColumnRefSet();
         groupBys.stream().map(ColumnRefOperator::getId).forEach(groupByIds::union);
-        return uniqueKeys.stream().anyMatch(constraint -> groupByIds.containsAll(constraint.ukColumnRefs));
+
+        // A unique constraint over a NULLABLE column does not make a GROUP BY key unique for
+        // aggregation: SQL UNIQUE permits multiple NULLs, but GROUP BY collapses all NULLs into
+        // a single group. Eliminating the aggregation would keep those NULL rows separate and
+        // produce a wrong result, so a constraint whose key columns include a nullable grouping
+        // key must not trigger elimination.
+        ColumnRefSet nullableGroupByIds = new ColumnRefSet();
+        groupBys.stream().filter(ColumnRefOperator::isNullable).map(ColumnRefOperator::getId)
+                .forEach(nullableGroupByIds::union);
+        return uniqueKeys.stream().anyMatch(constraint -> groupByIds.containsAll(constraint.ukColumnRefs)
+                && !constraint.ukColumnRefs.isIntersect(nullableGroupByIds));
     }
 
     @Override

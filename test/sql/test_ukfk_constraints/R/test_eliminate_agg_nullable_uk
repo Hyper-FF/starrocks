@@ -1,0 +1,48 @@
+-- name: test_eliminate_agg_nullable_uk
+CREATE DATABASE IF NOT EXISTS test_eliminate_agg_nullable_uk_db;
+-- result:
+-- !result
+USE test_eliminate_agg_nullable_uk_db;
+-- result:
+-- !result
+CREATE TABLE ea (k INT, v INT) DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1", "unique_constraints" = "k");
+-- result:
+-- !result
+INSERT INTO ea VALUES (NULL, 1), (NULL, 2), (5, 9);
+-- result:
+-- !result
+SET enable_eliminate_agg = false;
+-- result:
+-- !result
+SELECT k, count(*) c, sum(v) s FROM ea GROUP BY k ORDER BY k;
+-- result:
+None	2	3
+5	1	9
+-- !result
+SET enable_eliminate_agg = true;
+-- result:
+-- !result
+SELECT k, count(*) c, sum(v) s FROM ea GROUP BY k ORDER BY k;
+-- result:
+None	2	3
+5	1	9
+-- !result
+CREATE TABLE ea_nn (k INT NOT NULL, v INT) DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1", "unique_constraints" = "k");
+-- result:
+-- !result
+INSERT INTO ea_nn VALUES (1, 10), (2, 20), (3, 30);
+-- result:
+-- !result
+SET enable_eliminate_agg = true;
+-- result:
+-- !result
+SELECT k, count(*) c, sum(v) s FROM ea_nn GROUP BY k ORDER BY k;
+-- result:
+1	1	10
+2	1	20
+3	1	30
+-- !result

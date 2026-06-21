@@ -1,0 +1,30 @@
+-- name: test_eliminate_agg_nullable_uk
+-- description: EliminateAggRule must not drop a GROUP BY when the covering unique constraint
+--              is on a NULLABLE column. SQL UNIQUE allows multiple NULLs but GROUP BY collapses
+--              all NULLs into one group; eliminating the aggregation kept them as separate rows
+--              (wrong result). With the fix, the answer is identical with the rule on and off.
+
+CREATE DATABASE IF NOT EXISTS test_eliminate_agg_nullable_uk_db;
+USE test_eliminate_agg_nullable_uk_db;
+
+-- k is declared unique but is nullable; two NULL rows are legal under UNIQUE.
+CREATE TABLE ea (k INT, v INT) DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1", "unique_constraints" = "k");
+INSERT INTO ea VALUES (NULL, 1), (NULL, 2), (5, 9);
+
+-- rule OFF: correct baseline (the two NULL rows collapse to one group)
+SET enable_eliminate_agg = false;
+SELECT k, count(*) c, sum(v) s FROM ea GROUP BY k ORDER BY k;
+
+-- rule ON: must match (elimination declined for the nullable unique key); was 2 NULL rows
+SET enable_eliminate_agg = true;
+SELECT k, count(*) c, sum(v) s FROM ea GROUP BY k ORDER BY k;
+
+-- a non-nullable unique key can still be eliminated and stays correct
+CREATE TABLE ea_nn (k INT NOT NULL, v INT) DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1", "unique_constraints" = "k");
+INSERT INTO ea_nn VALUES (1, 10), (2, 20), (3, 30);
+SET enable_eliminate_agg = true;
+SELECT k, count(*) c, sum(v) s FROM ea_nn GROUP BY k ORDER BY k;
