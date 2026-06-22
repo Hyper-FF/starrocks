@@ -1,0 +1,33 @@
+-- name: test_jit_bit_shift_mixed_width
+-- description: JIT codegen for bit_shift_*(value, count) must keep both operands the same
+--              integer type. The shift count is materialized as BIGINT (i64) while the value
+--              keeps its own width (i32 for INT), so the generated shl/ashr/lshr previously had
+--              mismatched operands: a forward INT<<BIGINT shift failed IR verification (query
+--              error at the default jit level) and the reversed BIGINT<<INT form returned a
+--              wrong result. JIT must match the interpreter.
+
+CREATE DATABASE IF NOT EXISTS test_jit_bit_shift_mixed_width_db;
+USE test_jit_bit_shift_mixed_width_db;
+
+CREATE TABLE jit3 (k INT, a INT NULL, b BIGINT NULL) DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1 PROPERTIES ("replication_num" = "1");
+INSERT INTO jit3 SELECT s, s % 1000, 70 FROM TABLE(generate_series(1, 5000)) g(s);
+
+-- forward INT<<BIGINT, complex enough to JIT at the default level: must execute, not error
+SELECT sum(bit_shift_left(a,b)+a*2-b+a*3-b*2+a*4-b*3+a*5-b*4+a*6-b*5+a*7-b*6+a*8-b*7+a*9-b*8+k) FROM jit3;
+
+-- forced JIT, simple mixed-width forms: must execute and match the interpreter
+SET jit_level = 0;
+SELECT sum(bit_shift_left(a, b) + k - k) AS interp_l FROM jit3;
+SET jit_level = -1;
+SELECT sum(bit_shift_left(a, b) + k - k) AS jit_l FROM jit3;
+SET jit_level = 0;
+SELECT sum(bit_shift_right(a, b) + k - k) AS interp_r FROM jit3;
+SET jit_level = -1;
+SELECT sum(bit_shift_right(a, b) + k - k) AS jit_r FROM jit3;
+
+-- reversed operands BIGINT<<INT: JIT must equal the interpreter (was -350 vs 384829069716000)
+SET jit_level = 0;
+SELECT sum(bit_shift_left(b, a) + k - k) AS interp_rev FROM jit3;
+SET jit_level = -1;
+SELECT sum(bit_shift_left(b, a) + k - k) AS jit_rev FROM jit3;

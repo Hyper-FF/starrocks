@@ -330,16 +330,30 @@ struct ArithmeticBinaryOperator {
             result.value = b.CreateOr(l, r);
         } else if constexpr (is_bitxor_op<Op>) {
             result.value = b.CreateXor(l, r);
-        } else if constexpr (is_bit_shift_left_op<Op>) {
-            result.value = b.CreateShl(l, r);
-        } else if constexpr (is_bit_shift_right_op<Op>) {
-            if constexpr (lt_is_unsigned<Type>) {
-                result.value = b.CreateLShr(l, r);
+        } else if constexpr (is_bit_shift_left_op<Op> || is_bit_shift_right_op<Op> ||
+                             is_bit_shift_right_logical_op<Op>) {
+            // LLVM shift instructions require both operands to share the integer type, but the
+            // shift-count operand is materialized as BIGINT (i64) while the value keeps its own
+            // width (e.g. i32 for INT). Emitting shl/ashr/lshr on mismatched types makes the IR
+            // verifier reject the whole function (query failure at the default jit_level), and the
+            // reversed-operand form slips through as a wrong result. Cast the count to the value's
+            // type, then mask it to the bit width: an LLVM shift by >= the width is poison, whereas
+            // the interpreter compiles to an x86 shift that masks the count to the width. Masking
+            // makes the JIT match the interpreter (and removes the undefined behaviour).
+            auto* lty = l->getType();
+            auto* shift = b.CreateZExtOrTrunc(r, lty);
+            shift = b.CreateAnd(shift, llvm::ConstantInt::get(lty, lty->getIntegerBitWidth() - 1));
+            if constexpr (is_bit_shift_left_op<Op>) {
+                result.value = b.CreateShl(l, shift);
+            } else if constexpr (is_bit_shift_right_op<Op>) {
+                if constexpr (lt_is_unsigned<Type>) {
+                    result.value = b.CreateLShr(l, shift);
+                } else {
+                    result.value = b.CreateAShr(l, shift);
+                }
             } else {
-                result.value = b.CreateAShr(l, r);
+                result.value = b.CreateLShr(l, shift);
             }
-        } else if constexpr (is_bit_shift_right_logical_op<Op>) {
-            result.value = b.CreateLShr(l, r);
         } else {
             static_assert(is_binary_op<Op>, "Invalid binary operators");
         }
