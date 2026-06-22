@@ -1086,10 +1086,14 @@ public class MvRewritePartialPartitionTest extends MVTestBase {
         }
 
         {
+            // A raw-timestamp equality `k1 = c` filters a single instant, not the whole time_slice
+            // bucket [c, c+interval). Rewriting it to the MV's `ds = c` would over-select every row in
+            // the bucket, so the MV must NOT be used here; the query reads the base table directly.
             String query = "select time_slice(k1, interval 1 hour) AS ds, sum(v1) " +
                     " FROM base_tbl1 where `k1` = '2020-02-11' group by ds";
             String plan = getFragmentPlan(query);
-            PlanTestBase.assertContains(plan, "test_mv1", "ds = '2020-02-11 00:00:00'");
+            PlanTestBase.assertContains(plan, "base_tbl1", "1: k1 = '2020-02-11 00:00:00'");
+            PlanTestBase.assertNotContains(plan, "test_mv1");
         }
 
         {

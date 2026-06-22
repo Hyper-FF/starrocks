@@ -3349,8 +3349,11 @@ public class MaterializedViewTest extends MaterializedViewTestBase {
                 ")");
 
         String mv = "SELECT time_slice(dt, interval 5 minute) as t, sum(c1) FROM t_time_slice GROUP BY t";
+        // time_slice() floors dt to its bucket, so a raw-timestamp predicate is only equivalent to a
+        // predicate on the bucket for >= and <. Use a sound half-open range here; `dt <= c` / `dt = c`
+        // (e.g. via BETWEEN) would over-select the whole boundary bucket and must NOT be rewritten.
         testRewriteOK(mv, "SELECT time_slice(dt, interval 5 minute) as t FROM t_time_slice " +
-                "WHERE dt BETWEEN '2023-06-01' AND '2023-06-02' GROUP BY t");
+                "WHERE dt >= '2023-06-01' AND dt < '2023-06-02' GROUP BY t");
         starRocksAssert.dropTable("t_time_slice");
     }
 

@@ -145,7 +145,12 @@ public class PredicateExtractor extends ScalarOperatorVisitor<RangePredicate, Pr
             TreeRangeSet<ConstantOperator> rangeSet = TreeRangeSet.create();
             rangeSet.addAll(range);
             return new ColumnRangePredicate(op1.getChild(1).cast(), rangeSet);
-        } else if (TimeSliceRewriteEquivalent.INSTANCE.isEquivalent(op1, op2)) {
+        } else if (TimeSliceRewriteEquivalent.isSupportedBinaryType(predicate.getBinaryType()) &&
+                TimeSliceRewriteEquivalent.INSTANCE.isEquivalent(op1, op2)) {
+            // Only flatten `time_slice(col) OP c` to a range on the raw `col` for operators where the
+            // floor bucketing keeps the equivalence (>= , <). For =, <=, > the predicate must stay on
+            // time_slice(col) so it maps to the MV bucket column directly instead of over-selecting the
+            // whole bucket on the raw column.
             TreeRangeSet<ConstantOperator> rangeSet = TreeRangeSet.create();
             rangeSet.addAll(range);
             return new ColumnRangePredicate(op1.getChild(0).cast(), rangeSet);
