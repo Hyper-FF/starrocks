@@ -83,6 +83,13 @@ public class JsonPathRewriteRule extends TransformationRule {
             java.util.regex.Pattern.compile("^[a-zA-Z0-9_-]+$");
     public static final String COLUMN_REF_HINT = "JsonPathExtended";
 
+    // Reserved physical sub-column names used by the flat-JSON writer
+    // (be/src/storage/rowset/json_column_writer.cpp). A user JSON key named "nulls" or
+    // "remain" collides with these on name-based subfield binding, so a typed flat read
+    // returns the engine-internal bucket / 0 instead of the user value. Never rewrite a
+    // get_json_* on such a key into a typed flat column; keep the original whole-JSON read.
+    private static final Set<String> RESERVED_FLAT_JSON_NAMES = Set.of("nulls", "remain");
+
     private static final Set<String> SUPPORTED_JSON_FUNCTIONS = Set.of(
             FunctionSet.GET_JSON_STRING,
             FunctionSet.GET_JSON_INT,
@@ -509,7 +516,8 @@ public class JsonPathRewriteRule extends TransformationRule {
             }
 
             return jsonPath.stream().allMatch(field ->
-                    JSON_PATH_VALID_PATTERN.matcher(field).matches());
+                    JSON_PATH_VALID_PATTERN.matcher(field).matches()
+                            && !RESERVED_FLAT_JSON_NAMES.contains(field));
         }
     }
 }

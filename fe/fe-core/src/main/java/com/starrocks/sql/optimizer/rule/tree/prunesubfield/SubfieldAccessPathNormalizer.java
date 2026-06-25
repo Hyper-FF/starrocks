@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -155,6 +156,22 @@ public class SubfieldAccessPathNormalizer {
         return allAccessPaths.stream().anyMatch(path -> path.root().equals(root));
     }
 
+    // Reserved physical sub-column names used by the flat-JSON writer
+    // (be/src/storage/rowset/json_column_writer.cpp). A user JSON key with one of these names,
+    // or any key containing '.', cannot be served by a typed flat subfield read.
+    private static final Set<String> RESERVED_FLAT_JSON_NAMES = Set.of("nulls", "remain");
+
+    private static boolean containsUnflattableJsonName(List<String> flatPaths) {
+        for (String f : flatPaths) {
+            // dotted/quoted keys are wrapped as "a.b" by formatJsonPath; the flat encoder splits
+            // them into a nested a->b path that a typed lookup cannot match.
+            if (f.contains(".") || RESERVED_FLAT_JSON_NAMES.contains(f)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static class Collector extends ScalarOperatorVisitor<Optional<AccessPath>, List<Optional<AccessPath>>> {
         private final int jsonFlattenDepth;
 
@@ -217,10 +234,19 @@ public class SubfieldAccessPathNormalizer {
                     && call.getArguments().size() > 1 && call.getArguments().get(1).isConstantRef()) {
 
                 String path = ((ConstantOperator) call.getArguments().get(1)).getVarchar();
+                List<String> flatPaths = Lists.newArrayList();
+                boolean isOverflown = formatJsonPath(path, flatPaths);
+                // A key that collides with a flat-JSON reserved physical sub-column ("nulls"/"remain"),
+                // or that contains a '.' (a dotted/quoted key the flat encoder splits into a nested
+                // path the typed lookup can't match), cannot be served correctly by a typed flat
+                // subfield read -- the BE returns 0/NULL/the internal bucket. Pushed into a predicate,
+                // join key or grouping this silently drops rows / blows up joins. Skip the subfield
+                // optimization here so the whole JSON column is read (matches the rule-off behavior).
+                if (containsUnflattableJsonName(flatPaths)) {
+                    return Optional.empty();
+                }
                 // we flatten whole json path, and control the query hierarchy dynamically through BE-self
                 return childrenAccessPaths.get(0).map(p -> {
-                    List<String> flatPaths = Lists.newArrayList();
-                    boolean isOverflown = formatJsonPath(path, flatPaths);
                     p.appendFieldNames(flatPaths);
                     if (isOverflown || FunctionSet.JSON_LENGTH.equals(call.getFnName())
                             || FunctionSet.GET_JSON_BOOL.equals(call.getFnName())
