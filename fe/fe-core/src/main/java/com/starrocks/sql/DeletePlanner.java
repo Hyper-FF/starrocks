@@ -173,12 +173,19 @@ public class DeletePlanner {
         boolean canUsePipeline = isEnablePipeline && DataSink.canTableSinkUsePipeline(table);
         boolean forceDisablePipeline = isEnablePipeline && !canUsePipeline;
         boolean prevIsEnableLocalShuffleAgg = session.getSessionVariable().isEnableLocalShuffleAgg();
+        // JsonPathRewriteRule (cbo_json_v2_rewrite) rewrites get_json_*(j, '$.x') into a synthetic
+        // typed scan column. For a DELETE whose predicate is persisted (PK delete predicate), the
+        // rewritten form (referencing a synthetic column) gets baked into the stored predicate, so a
+        // later UPDATE that re-applies it builds a plan whose output-expr count diverges from the
+        // sink slots -> "number of exprs is not same with slots". Keep the original get_json_* form.
+        boolean prevEnableJSONV2Rewrite = session.getSessionVariable().isEnableJSONV2Rewrite();
         try {
             if (forceDisablePipeline) {
                 session.getSessionVariable().setEnablePipelineEngine(false);
             }
             // Non-query must use the strategy assign scan ranges per driver sequence, which local shuffle agg cannot use.
             session.getSessionVariable().setEnableLocalShuffleAgg(false);
+            session.getSessionVariable().setEnableJSONV2Rewrite(false);
 
             Optimizer optimizer = OptimizerFactory.create(OptimizerFactory.initContext(session, columnRefFactory));
             OptExpression optimizedPlan = optimizer.optimize(
@@ -203,6 +210,7 @@ public class DeletePlanner {
             return execPlan;
         } finally {
             session.getSessionVariable().setEnableLocalShuffleAgg(prevIsEnableLocalShuffleAgg);
+            session.getSessionVariable().setEnableJSONV2Rewrite(prevEnableJSONV2Rewrite);
             if (forceDisablePipeline) {
                 session.getSessionVariable().setEnablePipelineEngine(true);
             }
