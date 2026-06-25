@@ -114,11 +114,20 @@ public class UpdatePlanner {
         boolean canUsePipeline = isEnablePipeline && DataSink.canTableSinkUsePipeline(targetTable);
         boolean forceDisablePipeline = isEnablePipeline && !canUsePipeline;
         boolean prevIsEnableLocalShuffleAgg = session.getSessionVariable().isEnableLocalShuffleAgg();
+        // JsonPathRewriteRule (cbo_json_v2_rewrite) rewrites get_json_*(j, '$.x') into a synthetic
+        // typed scan column and adds it to the plan's required/output columns. That is fine for a
+        // SELECT, but an UPDATE feeds an OlapTableSink whose slots are derived strictly from the
+        // target table schema (key + assignment columns). The extra synthetic column makes the
+        // output-expr count diverge from the sink slot count -> the BE rejects the fragment with
+        // "number of exprs is not same with slots". This also breaks a later plain UPDATE when a
+        // stored get_json_* delete predicate is re-applied. Disable the rewrite for the DML plan.
+        boolean prevEnableJSONV2Rewrite = session.getSessionVariable().isEnableJSONV2Rewrite();
         try {
             if (forceDisablePipeline) {
                 session.getSessionVariable().setEnablePipelineEngine(false);
             }
             session.getSessionVariable().setEnableLocalShuffleAgg(false);
+            session.getSessionVariable().setEnableJSONV2Rewrite(false);
 
             // Optimize
             OptimizerContext optimizerContext = OptimizerFactory.initContext(session, columnRefFactory);
@@ -150,6 +159,7 @@ public class UpdatePlanner {
             return execPlan;
         } finally {
             session.getSessionVariable().setEnableLocalShuffleAgg(prevIsEnableLocalShuffleAgg);
+            session.getSessionVariable().setEnableJSONV2Rewrite(prevEnableJSONV2Rewrite);
             if (forceDisablePipeline) {
                 session.getSessionVariable().setEnablePipelineEngine(true);
             }
