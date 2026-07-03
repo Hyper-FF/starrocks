@@ -1958,6 +1958,11 @@ CONF_mBool(enable_json_flat_remain_filter, "true");
 // enable flat complex type (/array/object/hyper type), diables for save storage
 CONF_mBool(enable_json_flat_complex_type, "false");
 
+// when a flat-json key mixes integers and floats in one segment it is typed DOUBLE; if it also
+// carried an integer beyond the exact-double range (|v| > 2^53) that loses precision, so keep the
+// key as JSON instead. Set false to restore the old (lossy) behavior of flattening it as DOUBLE.
+CONF_mBool(enable_json_flat_int_precision_guard, "true");
+
 // flat json use dict-encoding
 CONF_mBool(json_flat_use_dict_encoding, "true");
 
