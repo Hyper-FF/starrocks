@@ -116,6 +116,15 @@ This topic introduces the following types of BE configurations:
 - Description: Whether to enable the Flat JSON feature. After this feature is enabled, newly loaded JSON data will be automatically flattened, improving JSON query performance.
 - Introduced in: v3.3.0
 
+### enable_json_flat_int_precision_guard
+
+- Default: true
+- Type: Boolean
+- Unit: -
+- Is mutable: Yes
+- Description: When a Flat JSON key holds both integer and floating-point values within a segment, its flattened sub-column is typed DOUBLE. If such a key also carried an integer beyond the exact-double range (absolute value greater than 2^53), storing it as DOUBLE silently loses precision and distinct large integers can merge. When true, such a key is kept as JSON instead of being flattened to DOUBLE, so the exact value is preserved and matches a non-flattened JSON column. Set to false to restore the previous behavior. This parameter takes effect only when `enable_json_flat` is set to `true`.
+- Introduced in: v4.2.0
+
 ### enable_lazy_dynamic_flat_json
 
 - Default: True

@@ -322,6 +322,7 @@
         "enable_lazy_dynamic_flat_json",
         "enable_json_flat_remain_filter",
         "enable_json_flat_complex_type",
+        "enable_json_flat_int_precision_guard",
         "json_flat_use_dict_encoding",
         "json_flat_create_zonemap",
         "json_flat_complex_type_factor",

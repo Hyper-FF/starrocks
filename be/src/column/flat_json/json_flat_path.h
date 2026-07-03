@@ -65,6 +65,10 @@ public:
     uint32_t hits = 0;
     // for json-uint, json-uint is uint64_t, check the maximum value and downgrade to bigint
     uint64_t max_uint = 0;
+    // whether any integer value on this path has a magnitude beyond the exact-double range
+    // (|v| > 2^53). If such a path is demoted to DOUBLE (int mixed with float in one segment),
+    // flattening it as double would silently lose precision, so keep it as JSON instead.
+    bool has_inexact_double_int = false;
     // same key may appear many times in json, so we need avoid duplicate compute hits
     uint32_t last_row = -1;
     uint32_t multi_times = 0;

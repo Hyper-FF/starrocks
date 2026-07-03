@@ -1,0 +1,32 @@
+-- name: test_flat_json_int_double_precision
+-- Regression for flat-JSON integer precision loss. When a key is an integer in most rows but a
+-- float in >=1 row of the same segment, its flattened sub-column was typed DOUBLE (int-bits AND
+-- double-bits = double); integers > 2^53 then read back with silent precision loss and distinct
+-- large integers merged. Such a key is now kept as JSON so the exact value is preserved.
+create table t(id int, j json) duplicate key(id)
+  distributed by hash(id) buckets 1
+  properties("replication_num"="1","flat_json.enable"="true");
+insert into t values
+  (1, parse_json('{"a":9007199254740993}')),
+  (2, parse_json('{"a":9007199254740993}')),
+  (3, parse_json('{"a":9007199254740993}')),
+  (4, parse_json('{"a":9007199254740993}')),
+  (5, parse_json('{"a":9007199254740993}')),
+  (6, parse_json('{"a":9007199254740993}')),
+  (7, parse_json('{"a":9007199254740993}')),
+  (8, parse_json('{"a":9007199254740993}')),
+  (9, parse_json('{"a":9007199254740993}')),
+  (10, parse_json('{"a":9007199254740993}')),
+  (11, parse_json('{"a":9007199254740993}')),
+  (12, parse_json('{"a":9007199254740993}')),
+  (13, parse_json('{"a":9007199254740993}')),
+  (14, parse_json('{"a":9007199254740993}')),
+  (15, parse_json('{"a":9007199254740993}')),
+  (16, parse_json('{"a":9007199254740993}')),
+  (17, parse_json('{"a":9007199254740993}')),
+  (18, parse_json('{"a":9007199254740993}')),
+  (19, parse_json('{"a":9007199254740993}')),
+  (20, parse_json('{"a":1.5}'));
+select get_json_string(j,'$.a') from t where id=1;
+select cast(j->'$.a' as bigint) from t where id=1;
+select count(distinct get_json_string(j,'$.a')) from t;

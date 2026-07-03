@@ -343,6 +343,10 @@ void JsonPathDeriver::_visit_json_paths(const vpack::Slice& value, JsonFlatPath*
             child->base_type_count += flat_json::JSON_BASE_TYPE.count(json_type);
             if (json_type == vpack::ValueType::UInt) {
                 child->max_uint = std::max(child->max_uint, v.getUIntUnchecked());
+                child->has_inexact_double_int |= (v.getUIntUnchecked() > (1ULL << 53));
+            } else if (json_type == vpack::ValueType::Int || json_type == vpack::ValueType::SmallInt) {
+                int64_t iv = v.getIntUnchecked();
+                child->has_inexact_double_int |= (iv > (1LL << 53) || iv < -(1LL << 53));
             }
         }
     }
@@ -353,6 +357,14 @@ void dfs_downgrade_uint(JsonFlatPath* node) {
     int128_t max = RunTimeTypeLimits<TYPE_BIGINT>::max_value();
     if (node->json_type == flat_json::JSON_TYPE_BITS.at(vpack::ValueType::UInt) && node->max_uint <= max) {
         node->json_type = flat_json::JSON_BIGINT_TYPE_BITS;
+    }
+    // A path that mixes integers and floats within one segment is demoted to DOUBLE by
+    // get_compatibility_type. If it also carried an integer beyond the exact-double range
+    // (|v| > 2^53), flattening it as double would silently lose precision (e.g. 2^53+1 reads
+    // back as 2^53, and distinct large integers merge). Keep the whole value as JSON instead.
+    if (config::enable_json_flat_int_precision_guard &&
+        node->json_type == flat_json::JSON_TYPE_BITS.at(vpack::ValueType::Double) && node->has_inexact_double_int) {
+        node->json_type = flat_json::JSON_BASE_TYPE_BITS;
     }
     for (auto& [_, child] : node->children) {
         dfs_downgrade_uint(child.get());

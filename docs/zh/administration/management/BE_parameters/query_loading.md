@@ -113,6 +113,15 @@ SELECT * FROM information_schema.be_configs [WHERE NAME LIKE "%<name_pattern>%"]
 - 描述：是否开启 Flat JSON 特性。开启后新导入的 JSON 数据会自动打平，提升 JSON 数据查询性能。
 - 引入版本：v3.3.0
 
+### enable_json_flat_int_precision_guard
+
+- 默认值：true
+- 类型：Boolean
+- 单位：-
+- 是否动态：是
+- 描述：当某个 Flat JSON 键在同一个 Segment 内既有整数又有浮点数时，其打平后的子列会被定为 DOUBLE 类型。如果该键还包含超出 double 精确表示范围（绝对值大于 2^53）的整数，以 DOUBLE 存储会静默丢失精度，且不同的大整数可能被合并。设置为 true 时，此类键会保留为 JSON 而不打平为 DOUBLE，从而精确保留原值，与未打平的 JSON 列结果一致。设置为 false 可恢复之前的行为。该参数仅在 `enable_json_flat` 设置为 `true` 时生效。
+- 引入版本：v4.2.0
+
 ### enable_lazy_dynamic_flat_json
 
 - 默认值：True
