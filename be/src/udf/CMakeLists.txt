@@ -24,6 +24,8 @@ set(UDF_FILES
   java/java_udf_context.cpp
   java/java_udf_reflection.cpp
   java/java_data_converter.cpp
+  java/arrow_udf_jni.cpp
+  java/jni_arrow_func_call_stub.cpp
   python/env.cpp
   python/callstub.cpp
   udf_call_stub.cpp

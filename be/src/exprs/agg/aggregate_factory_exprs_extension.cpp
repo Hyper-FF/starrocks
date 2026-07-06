@@ -20,13 +20,16 @@ namespace starrocks {
 namespace {
 
 const AggregateFunction* exprs_non_builtin_aggregate_function_provider(TFunctionBinaryType::type binary_type,
-                                                                       bool is_window_function,
-                                                                       bool is_input_nullable) {
+                                                                       bool is_window_function, bool is_input_nullable,
+                                                                       bool is_arrow_input) {
     if (binary_type != TFunctionBinaryType::SRJAR) {
         return nullptr;
     }
     if (is_window_function) {
         return getJavaWindowFunction();
+    }
+    if (is_arrow_input) {
+        return getArrowJavaUDAFFunction();
     }
     return getJavaUDAFFunction(is_input_nullable);
 }

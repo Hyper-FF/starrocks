@@ -30,7 +30,7 @@ DEFINE_FAIL_POINT(not_exist_agg_function);
 
 namespace {
 
-const AggregateFunction* null_non_builtin_aggregate_function_provider(TFunctionBinaryType::type, bool, bool) {
+const AggregateFunction* null_non_builtin_aggregate_function_provider(TFunctionBinaryType::type, bool, bool, bool) {
     return nullptr;
 }
 
@@ -40,8 +40,10 @@ NonBuiltinAggregateFunctionProvider& non_builtin_aggregate_function_provider() {
 }
 
 AggregateFunctionPtr resolve_non_builtin_aggregate_function(TFunctionBinaryType::type binary_type,
-                                                            bool is_window_function, bool is_input_nullable) {
-    return non_builtin_aggregate_function_provider()(binary_type, is_window_function, is_input_nullable);
+                                                            bool is_window_function, bool is_input_nullable,
+                                                            bool is_arrow_input) {
+    return non_builtin_aggregate_function_provider()(binary_type, is_window_function, is_input_nullable,
+                                                     is_arrow_input);
 }
 
 } // namespace
@@ -146,7 +148,7 @@ AggregateFunctionPtr AggregateFactory::MakeNtileWindowFunction() {
 
 static AggregateFunctionPtr get_function(const std::string& name, LogicalType arg_type, LogicalType return_type,
                                          bool is_window_function, bool is_null, TFunctionBinaryType::type binary_type,
-                                         int func_version) {
+                                         int func_version, bool is_arrow_input = false) {
     std::string func_name = name;
     if (func_version > 1) {
         if (name == "multi_distinct_sum") {
@@ -189,7 +191,7 @@ static AggregateFunctionPtr get_function(const std::string& name, LogicalType ar
         }
         return AggregateFuncResolver::instance()->get_general_info(func_name, is_window_function, is_null);
     }
-    return resolve_non_builtin_aggregate_function(binary_type, is_window_function, is_null);
+    return resolve_non_builtin_aggregate_function(binary_type, is_window_function, is_null, is_arrow_input);
 }
 
 AggregateFunctionPtr get_aggregate_function(const std::string& name, LogicalType arg_type, LogicalType return_type,
@@ -205,7 +207,8 @@ AggregateFunctionPtr get_window_function(const std::string& name, LogicalType ar
 
 AggregateFunctionPtr get_aggregate_function(const std::string& agg_func_name, const TypeDescriptor& return_type,
                                             const std::vector<TypeDescriptor>& arg_types, bool is_result_nullable,
-                                            TFunctionBinaryType::type binary_type, int func_version) {
+                                            TFunctionBinaryType::type binary_type, int func_version,
+                                            bool is_arrow_input) {
     // get function
     if (agg_func_name == "count") {
         return get_aggregate_function("count", TYPE_BIGINT, TYPE_BIGINT, is_result_nullable);
@@ -252,6 +255,11 @@ AggregateFunctionPtr get_aggregate_function(const std::string& agg_func_name, co
             arg_type = arg_type.children[0];
         }
 
+        if (is_arrow_input) {
+            // Vectorized ("input"="arrow") Java UDAF: route to the arrow function impl.
+            return get_function(agg_func_name, arg_type.type, ret_type.type, false, is_result_nullable, binary_type,
+                                func_version, /*is_arrow_input=*/true);
+        }
         return get_aggregate_function(agg_func_name, arg_type.type, ret_type.type, is_result_nullable, binary_type,
                                       func_version);
     }

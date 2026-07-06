@@ -97,6 +97,19 @@ public class AggregateFunction extends Function {
     @SerializedName(value = "isolated")
     private boolean isolationType = true;
 
+    // Input format passed to the BE ("arrow" for vectorized Java UDAFs); null = the default
+    // per-row boxed path. See TFunction.input_type.
+    @SerializedName(value = "inputType")
+    private String inputType;
+
+    public void setInputType(String inputType) {
+        this.inputType = inputType;
+    }
+
+    public String getInputType() {
+        return inputType;
+    }
+
     public List<Boolean> getIsAscOrder() {
         return isAscOrder;
     }
@@ -257,6 +270,7 @@ public class AggregateFunction extends Function {
         String symbolName;
         CloudConfiguration cloudConfiguration;
         private boolean isolationType = true;
+        private String inputType;
 
         private AggregateFunctionBuilder(TFunctionBinaryType binaryType) {
             this.binaryType = binaryType;
@@ -316,6 +330,11 @@ public class AggregateFunction extends Function {
             return this;
         }
 
+        public AggregateFunctionBuilder inputType(String inputType) {
+            this.inputType = inputType;
+            return this;
+        }
+
         public void setIntermediateType(Type intermediateType) {
             this.intermediateType = intermediateType;
         }
@@ -329,6 +348,7 @@ public class AggregateFunction extends Function {
             fn.setLocation(new HdfsURI(objectFile));
             fn.setCloudConfiguration(cloudConfiguration);
             fn.setIsolationType(isolationType);
+            fn.setInputType(inputType);
             return fn;
         }
     }
@@ -399,6 +419,9 @@ public class AggregateFunction extends Function {
         if (isAnalyticFn) {
             props.put(CreateFunctionStmt.IS_ANALYTIC_NAME, "true");
         }
+        if (!Strings.isEmpty(inputType)) {
+            props.put(CreateFunctionStmt.INPUT_TYPE, inputType);
+        }
         return props;
     }
 
@@ -435,6 +458,9 @@ public class AggregateFunction extends Function {
         }
         aggFn.setIs_distinct(isDistinct);
         fn.setIsolated(isolationType);
+        if (inputType != null) {
+            fn.setInput_type(inputType);
+        }
 
         aggFn.setSymbol(getSymbolName());
         fn.setAggregate_fn(aggFn);

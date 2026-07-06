@@ -57,6 +57,10 @@ public class TableFunction extends Function {
     private List<Type> tableFnReturnTypes;
     @SerializedName(value = "symbolName")
     private String symbolName = "";
+    // Input format passed to the BE ("arrow" for vectorized Java UDTFs); null = the default
+    // per-row boxed path. See TFunction.input_type.
+    @SerializedName(value = "inputType")
+    private String inputType;
 
     // only used for serialization
 
@@ -100,6 +104,7 @@ public class TableFunction extends Function {
         defaultColumnNames = other.defaultColumnNames;
         tableFnReturnTypes = other.tableFnReturnTypes;
         symbolName = other.symbolName;
+        inputType = other.inputType;
     }
 
     public static void initBuiltins(FunctionSet functionSet) {
@@ -164,6 +169,14 @@ public class TableFunction extends Function {
         this.symbolName = symbolName;
     }
 
+    public void setInputType(String inputType) {
+        this.inputType = inputType;
+    }
+
+    public String getInputType() {
+        return inputType;
+    }
+
     public void setIsLeftJoin(boolean isLeftJoin) {
         this.isLeftJoin = isLeftJoin;
     }
@@ -182,6 +195,9 @@ public class TableFunction extends Function {
         tableFn.setRet_types(tableFnReturnTypes.stream().map(TypeSerializer::toThrift).collect(Collectors.toList()));
         tableFn.setIs_left_join(isLeftJoin);
         fn.setTable_fn(tableFn);
+        if (inputType != null) {
+            fn.setInput_type(inputType);
+        }
         return fn;
     }
 
@@ -209,6 +225,9 @@ public class TableFunction extends Function {
         }
         if (symbolName != null && !symbolName.isEmpty()) {
             props.put(CreateFunctionStmt.SYMBOL_KEY, symbolName);
+        }
+        if (inputType != null && !inputType.isEmpty()) {
+            props.put(CreateFunctionStmt.INPUT_TYPE, inputType);
         }
         return props;
     }
