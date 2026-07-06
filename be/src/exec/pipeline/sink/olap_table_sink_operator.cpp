@@ -30,12 +30,12 @@ Status OlapTableSinkOperator::prepare(RuntimeState* state) {
 
     state->set_per_fragment_instance_idx(_sender_id);
 
-    _automatic_partition_chunk.reset();
-
     _sink->set_profile(_unique_metrics.get());
     RETURN_IF_ERROR(_sink->prepare(state));
 
-    RETURN_IF_ERROR(_sink->try_open(state));
+    // Kick off the async open (the first advance() issues the open RPCs; state() becomes kOpen once
+    // they return and need_input()/pending_finish() pump advance() again).
+    RETURN_IF_ERROR(_sink->advance(state));
 
     return Status::OK();
 }
@@ -53,53 +53,16 @@ bool OlapTableSinkOperator::is_finished() const {
 }
 
 bool OlapTableSinkOperator::pending_finish() const {
-    // sink's open not finish, we need check util finish
-    if (!_is_open_done) {
-        if (!_sink->is_open_done()) {
-            return true;
-        }
-        _is_open_done = true;
-        // since is_open_done(), open_wait will not block
-        auto st = _sink->open_wait();
-        if (!st.ok()) {
-            cancel_fragment_context(_fragment_ctx, st);
-            return false;
-        }
-    }
-
-    // last chunk trigger automatic partition creation
-    // we need handle it before close sink
-    if (!_is_cancelled && _automatic_partition_chunk) {
-        if (_sink->is_full()) {
-            return true;
-        }
-        auto st = _sink->send_chunk_nonblocking(_fragment_ctx->runtime_state(), _automatic_partition_chunk.get());
-        _automatic_partition_chunk.reset();
-        if (!st.ok()) {
-            cancel_fragment_context(_fragment_ctx, st);
-            return false;
-        }
-    }
-
-    if (!_sink->is_close_done()) {
-        auto st = _sink->try_close(_fragment_ctx->runtime_state());
-        if (!st.ok()) {
-            cancel_fragment_context(_fragment_ctx, st);
-            return false;
-        }
-        return true;
-    }
-
-    auto st = _sink->close(_fragment_ctx->runtime_state(), Status::OK());
-    if (!st.ok()) {
+    // Pump the sink FSM one non-blocking step (finalize open, flush any auto-partition chunk, send
+    // EOS, drain, commit); pending until it reaches the terminal kClosed.
+    if (auto st = _sink->advance(_fragment_ctx->runtime_state()); !st.ok()) {
         cancel_fragment_context(_fragment_ctx, st);
+        return false;
     }
-
-    return false;
+    return _sink->state() != AsyncSinkState::kClosed;
 }
 
 Status OlapTableSinkOperator::set_cancelled(RuntimeState* state) {
-    _is_cancelled = true;
     auto final_status = state->fragment_ctx()->final_status();
     std::string reason = "Cancelled by pipeline engine, reason: " + final_status.to_string();
     return _sink->close(state, Status::Cancelled(reason));
@@ -112,59 +75,33 @@ Status OlapTableSinkOperator::set_finishing(RuntimeState* state) {
         _fragment_ctx->workgroup()->executors()->driver_executor()->report_audit_statistics(state->query_ctx(),
                                                                                             state->fragment_ctx());
     }
-    if (_is_open_done && !_automatic_partition_chunk) {
-        // sink's open already finish, we can try_close
-        return _sink->try_close(state);
-    } else {
-        // sink's open not finish or automatic partition in processing, we need check in pending_finish() before close
-        return Status::OK();
-    }
+    // Signal end-of-input. The sink withholds EOS internally until any stashed auto-partition chunk
+    // is flushed (EOS after data), so this is unconditional.
+    _sink->mark_finishing();
+    return Status::OK();
 }
 
 bool OlapTableSinkOperator::need_input() const {
-    if (is_finished()) {
+    if (_is_finished) {
         return false;
     }
-
-    if (!_is_open_done && !_sink->is_open_done()) {
+    // Pump the FSM forward; this finalizes the async open once the open RPCs return (kOpening ->
+    // kOpen) and flushes an auto-partition chunk when its partition is ready. It is a no-op once
+    // kOpen with nothing pending, so it is cheap on the hot per-chunk path.
+    if (auto st = _sink->advance(_fragment_ctx->runtime_state()); !st.ok()) {
+        cancel_fragment_context(_fragment_ctx, st);
         return false;
     }
-
-    return !_sink->is_full();
+    return _sink->state() == AsyncSinkState::kOpen && !_sink->is_full();
 }
 
 Status OlapTableSinkOperator::push_chunk(RuntimeState* state, const ChunkPtr& chunk) {
-    if (!_is_open_done) {
-        _is_open_done = true;
-        // we can be here cause _sink->is_open_done() return true
-        // so that open_wait() will not block
-        RETURN_IF_ERROR(_sink->open_wait());
-    }
-
-    // previous push_chunk() trigger automatic partition creation
-    if (_automatic_partition_chunk) {
-        // resend previous chunk before send new chunk
-        auto st = _sink->send_chunk_nonblocking(state, _automatic_partition_chunk.get());
-        _automatic_partition_chunk.reset();
-        if (!st.ok()) {
-            return st;
-        }
-    }
-
-    uint16_t num_rows = chunk->num_rows();
-    if (num_rows == 0) {
+    if (chunk->num_rows() == 0) {
         return Status::OK();
     }
-
-    // send_chunk_nonblocking() will return EAGAIN to avoid block
-    auto st = _sink->send_chunk_nonblocking(state, chunk.get());
-    if (st.is_eagain()) {
-        // temporarily save the chunk, wait for the partition to be created and send again
-        _automatic_partition_chunk = chunk;
-        return Status::OK();
-    } else {
-        return st;
-    }
+    // The sink accepts the chunk without blocking; if it kicks off automatic partition creation it
+    // retains the chunk and resends it itself from a later advance() (is_full() gates us meanwhile).
+    return _sink->send_chunk_nonblocking(state, chunk);
 }
 
 OperatorPtr OlapTableSinkOperatorFactory::create(int32_t degree_of_parallelism, int32_t driver_sequence) {

@@ -14,92 +14,62 @@
 
 #pragma once
 
+#include "column/vectorized_fwd.h"
 #include "exec_primitive/data_sink.h"
 
 namespace starrocks {
 
+// Lifecycle of an AsyncDataSink, advanced non-blockingly by the caller via advance().
+//   kOpening : open RPCs issued, not yet ready to accept chunks
+//   kOpen    : open finished, accepting chunks (subject to is_full() back-pressure)
+//   kClosing : end-of-input signalled (mark_finishing), EOS sent, draining in-flight requests
+//   kClosed  : fully closed and committed (terminal)
+enum class AsyncSinkState { kOpening, kOpen, kClosing, kClosed };
+
 /**
- * @brief The AsyncDataSink class is a data sink that can handle multiple OLAP table sinks.
- * 
- * This class inherits from the DataSink class and provides methods for preparing, opening, adding chunks, closing
+ * @brief A DataSink whose open/send/close work is asynchronous and driven as a state machine.
+ *
+ * The pipeline drives the sink by repeatedly calling advance() (which performs one non-blocking
+ * step of open finalize / EOS / drain / commit) and reading state(). The three
+ * try_open/is_open_done/open_wait and try_close/is_close_done/close_wait triplets that used to be
+ * orchestrated by the caller are subsumed by advance()/state(); implementations keep whatever
+ * internal machinery they need private. The synchronous DataSink open()/send_chunk()/close()
+ * interface (used by the non-pipeline executor and unit tests) is inherited unchanged.
  */
 class AsyncDataSink : public DataSink {
 public:
     /**
-     * @brief Tries to open the AsyncDataSink asynchronously.
-     * 
-     * This method is called to try opening the sink asynchronously.
-     * call order: try_open() -> [is_open_done()] -> open_wait()
-     * if is_open_done() return true, open_wait() will not block
-     * otherwise open_wait() will block
-     * 
-     * @param state The runtime state.
-     * @return The status of the try open operation.
+     * @brief Advance the async lifecycle by at most one non-blocking step.
+     *
+     * Finalizes open once the open RPCs return; after mark_finishing(), sends EOS and drains the
+     * in-flight requests, then commits. Idempotent and cheap once state()==kClosed, so it is safe
+     * to call on every driver tick. Returns an error status if the underlying async work failed.
      */
-    virtual Status try_open(RuntimeState* state) = 0;
+    virtual Status advance(RuntimeState* state) = 0;
 
     /**
-     * @brief Checks if the AsyncDataSink is open.
-     * 
-     * This method is called to check if the sink is open.
-     * 
-     * @return True if the sink is open, false otherwise.
+     * @brief The current lifecycle state. Pure query (no side effects); reflects the progress made
+     * by the most recent advance() call.
      */
-    virtual bool is_open_done() = 0;
+    virtual AsyncSinkState state() const = 0;
 
     /**
-     * @brief Waits for the AsyncDataSink to open.
-     * 
-     * This method is called to wait for the sink to finish opening.
-     * 
-     * @return The status of the open wait operation.
+     * @brief Signal that no more chunks will be appended. The next advance() transitions the sink
+     * from kOpen to kClosing (sending EOS).
      */
-    virtual Status open_wait() = 0;
+    virtual void mark_finishing() = 0;
 
     /**
-     * @brief Checks if the AsyncDataSink is full.
-     * 
-     * This method is called to check if the sink is full and cannot accept more data.
-     * 
-     * @return True if the sink is full, false otherwise.
+     * @brief Whether the sink is full and cannot accept more data right now (back-pressure within
+     * kOpen). Orthogonal to state().
      */
     virtual bool is_full() = 0;
 
-    // async add chunk interface
-    virtual Status send_chunk_nonblocking(RuntimeState* state, Chunk* chunk) = 0;
-
-    /**
-     * @brief Tries to close the AsyncDataSink asynchronously.
-     * 
-     * This method is called to try closing the sink asynchronously.
-     * call order: try_close() -> [is_close_done()] -> close_wait()
-     * if is_close_done() return true, close_wait() will not block
-     * otherwise close_wait() will block
-     * 
-     * @param state The runtime state.
-     * @return The status of the try close operation.
-     */
-    virtual Status try_close(RuntimeState* state) = 0;
-
-    /**
-     * @brief Waits for the AsyncDataSink to close.
-     * 
-     * This method is called to wait for the sink to finish closing.
-     * 
-     * @param state The runtime state.
-     * @param close_status The status of the close operation.
-     * @return The status of the close wait operation.
-     */
-    virtual Status close_wait(RuntimeState* state, Status close_status) = 0;
-
-    /**
-     * @brief Checks if the AsyncDataSink is closed.
-     * 
-     * This method is called to check if the sink is closed.
-     * 
-     * @return True if the sink is closed, false otherwise.
-     */
-    virtual bool is_close_done() = 0;
+    // Append a chunk without blocking. Precondition: state()==kOpen and !is_full(). If the chunk
+    // triggers automatic partition creation, the sink stashes it internally and resends it from a
+    // later advance() once the partition exists (is_full() stays true until then) — the caller does
+    // not manage any retry. Takes a ChunkPtr so the sink can retain the chunk across advance() ticks.
+    virtual Status send_chunk_nonblocking(RuntimeState* state, const ChunkPtr& chunk) = 0;
 
     virtual void set_profile(RuntimeProfile* profile) = 0;
 };

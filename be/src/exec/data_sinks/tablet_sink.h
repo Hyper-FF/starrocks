@@ -58,36 +58,26 @@ public:
 
     Status prepare(RuntimeState* state) override;
 
-    // sync open interface
+    // sync open interface (non-pipeline executor + unit tests)
     Status open(RuntimeState* state) override;
-
-    // async open interface: try_open() -> [is_open_done()] -> open_wait()
-    // if is_open_done() return true, open_wait() will not block
-    // otherwise open_wait() will block
-    Status try_open(RuntimeState* state) override;
-
-    bool is_open_done() override;
-
-    Status open_wait() override;
 
     // if is_full() return false, add_chunk() will not block
     Status send_chunk(RuntimeState* state, Chunk* chunk) override;
 
     // async add chunk interface
-    Status send_chunk_nonblocking(RuntimeState* state, Chunk* chunk) override;
+    Status send_chunk_nonblocking(RuntimeState* state, const ChunkPtr& chunk) override;
 
     bool is_full() override;
 
-    // async close interface: try_close() -> [is_close_done()] -> close_wait()
-    // if is_close_done() return true, close_wait() will not block
-    // otherwise close_wait() will block
-    Status try_close(RuntimeState* state) override { return _tablet_sink_sender->try_close(state); }
+    // Async lifecycle state machine, driven by the pipeline. advance() performs one non-blocking
+    // step (finalize open; after mark_finishing() send EOS, drain, commit); state() reports where
+    // we are. Internally sequenced over the private _try_open/_open_wait/_try_close/_close_wait
+    // helpers below.
+    Status advance(RuntimeState* state) override;
+    AsyncSinkState state() const override { return _async_state; }
+    void mark_finishing() override { _finishing = true; }
 
-    Status close_wait(RuntimeState* state, Status close_status) override;
-
-    bool is_close_done() override;
-
-    // sync close() interface
+    // sync close() interface (non-pipeline executor + unit tests)
     Status close(RuntimeState* state, const Status& close_status) override;
 
     // This should be called in OlapTableSinkOperator::prepare only once
@@ -102,6 +92,16 @@ public:
     const PLoadChannelProfileConfig& load_channel_profile_config() const { return _load_channel_profile_config; }
 
 private:
+    // --- Async open/close primitives, sequenced by advance() and reused by the sync open()/close()
+    // wrappers. Not part of the AsyncDataSink interface. Call order:
+    //   _try_open() -> [_is_open_done()] -> _open_wait()   and   _try_close() -> [_is_close_done()] -> _close_wait()
+    Status _try_open(RuntimeState* state);
+    bool _is_open_done();
+    Status _open_wait();
+    Status _try_close(RuntimeState* state) { return _tablet_sink_sender->try_close(state); }
+    bool _is_close_done();
+    Status _close_wait(RuntimeState* state, Status close_status);
+
     void _prepare_profile(RuntimeState* state);
 
     template <LogicalType LT>
@@ -218,6 +218,17 @@ private:
     // Store the output expr comput result column
     ChunkUniquePtr _output_chunk;
     bool _open_done{false};
+
+    // Async lifecycle state driven by advance(); see AsyncSinkState. _open_issued guards the
+    // one-time try_open() kick; _finishing records that mark_finishing() was called so the next
+    // advance() moves kOpen -> kClosing.
+    AsyncSinkState _async_state = AsyncSinkState::kOpening;
+    bool _open_issued = false;
+    bool _finishing = false;
+    // A chunk whose send triggered automatic partition creation: retained here and resent from
+    // advance() once the partition exists. While set, is_full() reports true so no new chunk is
+    // accepted and EOS is withheld until it is flushed (EOS must follow the data).
+    ChunkPtr _pending_auto_partition_chunk;
 
     std::unique_ptr<TabletSinkSender> _tablet_sink_sender;
 

@@ -61,13 +61,11 @@ private:
     FragmentContext* const _fragment_ctx;
     std::atomic<int32_t>& _num_sinkers;
 
+    // The only operator-side state: set_finishing() seen. The whole sink lifecycle
+    // (opening/open/closing/closed) and the automatic-partition retry live in the sink, read via
+    // _sink->state()/is_full().
     bool _is_finished = false;
-    mutable bool _is_open_done = false;
     int32_t _sender_id;
-    bool _is_cancelled = false;
-
-    // temporarily save chunk during automatic partition creation
-    mutable ChunkPtr _automatic_partition_chunk;
 };
 
 class OlapTableSinkOperatorFactory final : public OperatorFactory {

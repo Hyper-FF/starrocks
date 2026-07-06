@@ -52,30 +52,32 @@ Status MultiOlapTableSink::open(RuntimeState* state) {
     return Status::OK();
 }
 
-Status MultiOlapTableSink::try_open(RuntimeState* state) {
+Status MultiOlapTableSink::advance(RuntimeState* state) {
     for (auto& sink : _sinks) {
-        RETURN_IF_ERROR(sink->try_open(state));
+        RETURN_IF_ERROR(sink->advance(state));
     }
     return Status::OK();
 }
 
-bool MultiOlapTableSink::is_open_done() {
-    for (auto& sink : _sinks) {
-        if (!sink->is_open_done()) {
-            return false;
+AsyncSinkState MultiOlapTableSink::state() const {
+    // Aggregate = the least-advanced child (kOpening < kOpen < kClosing < kClosed): we are only
+    // fully kOpen when every child is open, and only kClosed when every child has committed.
+    auto least = AsyncSinkState::kClosed;
+    for (const auto& sink : _sinks) {
+        if (static_cast<int>(sink->state()) < static_cast<int>(least)) {
+            least = sink->state();
         }
     }
-    return true;
+    return least;
 }
 
-Status MultiOlapTableSink::open_wait() {
+void MultiOlapTableSink::mark_finishing() {
     for (auto& sink : _sinks) {
-        RETURN_IF_ERROR(sink->open_wait());
+        sink->mark_finishing();
     }
-    return Status::OK();
 }
 
-Status MultiOlapTableSink::send_chunk_nonblocking(RuntimeState* state, Chunk* chunk) {
+Status MultiOlapTableSink::send_chunk_nonblocking(RuntimeState* state, const ChunkPtr& chunk) {
     for (auto& sink : _sinks) {
         RETURN_IF_ERROR(sink->send_chunk_nonblocking(state, chunk));
     }
@@ -89,29 +91,6 @@ bool MultiOlapTableSink::is_full() {
         }
     }
     return false;
-}
-
-Status MultiOlapTableSink::try_close(RuntimeState* state) {
-    for (auto& sink : _sinks) {
-        RETURN_IF_ERROR(sink->try_close(state));
-    }
-    return Status::OK();
-}
-
-Status MultiOlapTableSink::close_wait(RuntimeState* state, Status close_status) {
-    for (auto& sink : _sinks) {
-        RETURN_IF_ERROR(sink->close_wait(state, close_status));
-    }
-    return Status::OK();
-}
-
-bool MultiOlapTableSink::is_close_done() {
-    for (auto& sink : _sinks) {
-        if (!sink->is_close_done()) {
-            return false;
-        }
-    }
-    return true;
 }
 
 Status MultiOlapTableSink::close(RuntimeState* state, const Status& close_status) {

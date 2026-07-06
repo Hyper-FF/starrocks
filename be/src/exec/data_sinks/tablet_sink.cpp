@@ -423,26 +423,83 @@ Status OlapTableSink::open(RuntimeState* state) {
     auto open_span = Tracer::Instance().add_span("open", _span);
     SCOPED_TIMER(_profile->total_time_counter());
     SCOPED_TIMER(_ts_profile->open_timer);
-    RETURN_IF_ERROR(try_open(state));
-    RETURN_IF_ERROR(open_wait());
+    _open_issued = true;
+    RETURN_IF_ERROR(_try_open(state));
+    RETURN_IF_ERROR(_open_wait());
+    _async_state = AsyncSinkState::kOpen;
 
     return Status::OK();
 }
 
-Status OlapTableSink::try_open(RuntimeState* state) {
+Status OlapTableSink::advance(RuntimeState* state) {
+    switch (_async_state) {
+    case AsyncSinkState::kOpening:
+        if (!_open_issued) {
+            _open_issued = true;
+            RETURN_IF_ERROR(_try_open(state)); // issue the async open RPCs on the first advance()
+        }
+        if (!_is_open_done()) {
+            return Status::OK(); // open RPCs still in flight
+        }
+        RETURN_IF_ERROR(_open_wait()); // won't block: is_open_done() is true
+        _async_state = AsyncSinkState::kOpen;
+        [[fallthrough]];
+    case AsyncSinkState::kOpen:
+        // Flush a chunk stashed for automatic partition creation once the partition exists. This
+        // must happen before EOS below (EOS must follow the data).
+        if (_pending_auto_partition_chunk != nullptr &&
+            !_is_automatic_partition_running.load(std::memory_order_acquire)) {
+            ChunkPtr chunk = std::move(_pending_auto_partition_chunk);
+            auto st = _send_chunk(state, chunk.get(), true);
+            if (st.is_eagain()) {
+                _pending_auto_partition_chunk = std::move(chunk); // needs another partition; retry later
+            } else {
+                RETURN_IF_ERROR(st);
+            }
+        }
+        if (_pending_auto_partition_chunk != nullptr) {
+            return Status::OK(); // still creating the partition; wait
+        }
+        if (!_finishing) {
+            return Status::OK(); // still accepting chunks
+        }
+        // end-of-input: kick off close (sends EOS)
+        RETURN_IF_ERROR(_try_close(state));
+        _async_state = AsyncSinkState::kClosing;
+        [[fallthrough]];
+    case AsyncSinkState::kClosing:
+        if (!_is_close_done()) {
+            RETURN_IF_ERROR(_try_close(state)); // process responses / drain in-flight requests
+            if (!_is_close_done()) {
+                return Status::OK(); // still draining
+            }
+        }
+        RETURN_IF_ERROR(_close_wait(state, Status::OK())); // commit; won't block: is_close_done() is true
+        _async_state = AsyncSinkState::kClosed;
+        [[fallthrough]];
+    case AsyncSinkState::kClosed:
+        return Status::OK();
+    }
+    return Status::OK();
+}
+
+Status OlapTableSink::_try_open(RuntimeState* state) {
     return _tablet_sink_sender->try_open(state);
 }
 
-bool OlapTableSink::is_open_done() {
+bool OlapTableSink::_is_open_done() {
     return _tablet_sink_sender->is_open_done();
 }
 
-Status OlapTableSink::open_wait() {
+Status OlapTableSink::_open_wait() {
     return _tablet_sink_sender->open_wait();
 }
 
 bool OlapTableSink::is_full() {
-    return _is_automatic_partition_running.load(std::memory_order_acquire) || _tablet_sink_sender->is_full();
+    // Full while a partition is being created, while a chunk is stashed awaiting that partition, or
+    // when the underlying channels are full.
+    return _is_automatic_partition_running.load(std::memory_order_acquire) ||
+           _pending_auto_partition_chunk != nullptr || _tablet_sink_sender->is_full();
 }
 
 Status OlapTableSink::_automatic_create_partition() {
@@ -633,8 +690,16 @@ Status OlapTableSink::send_chunk(RuntimeState* state, Chunk* chunk) {
     return _send_chunk(state, chunk, false);
 }
 
-Status OlapTableSink::send_chunk_nonblocking(RuntimeState* state, Chunk* chunk) {
-    return _send_chunk(state, chunk, true);
+Status OlapTableSink::send_chunk_nonblocking(RuntimeState* state, const ChunkPtr& chunk) {
+    auto st = _send_chunk(state, chunk.get(), true);
+    if (st.is_eagain()) {
+        // The send kicked off automatic partition creation and did not consume the chunk. Retain it
+        // and resend from advance() once the partition exists; is_full() reports true meanwhile so
+        // the caller stops feeding us. The caller does not manage this retry.
+        _pending_auto_partition_chunk = chunk;
+        return Status::OK();
+    }
+    return st;
 }
 
 Status OlapTableSink::_send_chunk(RuntimeState* state, Chunk* chunk, bool nonblocking) {
@@ -878,7 +943,7 @@ Status OlapTableSink::_fill_auto_increment_id_internal(Chunk* chunk, SlotDescrip
     return Status::OK();
 }
 
-bool OlapTableSink::is_close_done() {
+bool OlapTableSink::_is_close_done() {
     if (_tablet_sink_sender == nullptr) {
         return true;
     }
@@ -891,15 +956,16 @@ Status OlapTableSink::close(RuntimeState* state, const Status& close_status) {
         SCOPED_TIMER(_profile->total_time_counter());
         SCOPED_TIMER(_ts_profile->close_timer);
         do {
-            mutable_close_status = try_close(state);
+            mutable_close_status = _try_close(state);
             if (!mutable_close_status.ok()) break;
             SleepFor(MonoDelta::FromMilliseconds(5));
-        } while (!is_close_done());
+        } while (!_is_close_done());
     }
-    return close_wait(state, std::move(mutable_close_status));
+    _async_state = AsyncSinkState::kClosed;
+    return _close_wait(state, std::move(mutable_close_status));
 }
 
-Status OlapTableSink::close_wait(RuntimeState* state, Status close_status) {
+Status OlapTableSink::_close_wait(RuntimeState* state, Status close_status) {
     DeferOp end_span([&] { _span->End(); });
     _span->AddEvent("close");
     _span->SetAttribute("input_rows", _number_input_rows);

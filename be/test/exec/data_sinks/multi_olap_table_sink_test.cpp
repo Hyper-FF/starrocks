@@ -34,7 +34,7 @@ public:
     MOCK_METHOD(Status, init, (const TDataSink& sink, RuntimeState* state), (override));
     MOCK_METHOD(Status, prepare, (RuntimeState * state), (override));
     MOCK_METHOD(Status, open, (RuntimeState * state), (override));
-    MOCK_METHOD(Status, send_chunk_nonblocking, (RuntimeState * state, Chunk* chunk), (override));
+    MOCK_METHOD(Status, send_chunk_nonblocking, (RuntimeState * state, const ChunkPtr& chunk), (override));
     MOCK_METHOD(Status, close, (RuntimeState * state, const Status& close_status), (override));
     // Add other methods as needed for your tests
 };
@@ -68,8 +68,8 @@ TEST_F(MultiOlapTableSinkTest, SendChunkFailure) {
                 send_chunk_nonblocking(_, _))
             .WillOnce(Return(Status::InternalError("Send failed")));
 
-    Chunk chunk;
-    EXPECT_FALSE(multi_sink->send_chunk_nonblocking(&state, &chunk).ok());
+    auto chunk = std::make_shared<Chunk>();
+    EXPECT_FALSE(multi_sink->send_chunk_nonblocking(&state, chunk).ok());
 }
 
 TEST_F(MultiOlapTableSinkTest, PreparationSuccess) {
@@ -100,14 +100,14 @@ TEST_F(MultiOlapTableSinkTest, CloseSuccess) {
 
 TEST_F(MultiOlapTableSinkTest, MultipleSinksSendChunk) {
     addMockSinks(2); // Testing with two sinks
-    Chunk chunk;
+    auto chunk = std::make_shared<Chunk>();
     for (int i = 0; i < 2; ++i) {
         EXPECT_CALL(*(static_cast<MockOlapTableSink*>(multi_sink->get_olap_table_sink(i).get())),
-                    send_chunk_nonblocking(_, &chunk))
+                    send_chunk_nonblocking(_, _))
                 .WillOnce(Return(Status::OK()));
     }
 
-    EXPECT_TRUE(multi_sink->send_chunk_nonblocking(&state, &chunk).ok());
+    EXPECT_TRUE(multi_sink->send_chunk_nonblocking(&state, chunk).ok());
 }
 
 TEST_F(MultiOlapTableSinkTest, PreparationPartialFailure) {
@@ -132,15 +132,15 @@ TEST_F(MultiOlapTableSinkTest, OpenPartialFailure) {
 
 TEST_F(MultiOlapTableSinkTest, SendChunkPartialFailure) {
     addMockSinks(2);
-    Chunk chunk;
+    auto chunk = std::make_shared<Chunk>();
     EXPECT_CALL(*(static_cast<MockOlapTableSink*>(multi_sink->get_olap_table_sink(0).get())),
-                send_chunk_nonblocking(_, &chunk))
+                send_chunk_nonblocking(_, _))
             .WillOnce(Return(Status::OK()));
     EXPECT_CALL(*(static_cast<MockOlapTableSink*>(multi_sink->get_olap_table_sink(1).get())),
-                send_chunk_nonblocking(_, &chunk))
+                send_chunk_nonblocking(_, _))
             .WillOnce(Return(Status::InternalError("Send chunk failed")));
 
-    EXPECT_FALSE(multi_sink->send_chunk_nonblocking(&state, &chunk).ok());
+    EXPECT_FALSE(multi_sink->send_chunk_nonblocking(&state, chunk).ok());
 }
 
 TEST_F(MultiOlapTableSinkTest, ClosePartialFailure) {
