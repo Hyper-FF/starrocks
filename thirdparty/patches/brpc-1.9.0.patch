@@ -1,8 +1,6 @@
-diff --git a/config_brpc.sh b/config_brpc.sh
-index ddaa6daa..2269587a 100755
 --- a/config_brpc.sh
 +++ b/config_brpc.sh
-@@ -341,7 +341,7 @@ if [ "$PROTOBUF_VERSION" -ge 4022000 ]; then
+@@ -341,7 +341,7 @@
      done
      CXXFLAGS="-std=c++17"
  else
@@ -11,3 +9,61 @@ index ddaa6daa..2269587a 100755
  fi
  
  LEVELDB_HDR=$(find_dir_of_header_or_die leveldb/db.h)
+--- a/src/bthread/timer_thread.cpp
++++ b/src/bthread/timer_thread.cpp
+@@ -28,6 +28,11 @@
+ #include "bthread/sys_futex.h"
+ #include "bthread/timer_thread.h"
+ #include "bthread/log.h"
++#include <gflags/gflags.h>
++
++DEFINE_int64(bthread_timer_thread_compact_threshold, 8192,
++             "Sweep the TimerThread's task heap to drop already-unscheduled "
++             "tasks once its size reaches this threshold. <= 0 disables it.");
+ 
+ namespace bthread {
+ 
+@@ -324,6 +329,10 @@
+     // min heap of tasks (ordered by run_time)
+     std::vector<Task*> tasks;
+     tasks.reserve(4096);
++    // The heap size beyond which we sweep the heap to drop tasks that have been
++    // unscheduled. It advances after each sweep so we don't repeatedly scan a
++    // large heap that is mostly composed of live tasks.
++    size_t heap_compact_watermark = 0;
+ 
+     // vars
+     size_t nscheduled = 0;
+@@ -366,6 +375,32 @@
+             }
+         }
+ 
++        // When the task heap grows large, it may retain many tasks that have
++        // been unscheduled but whose run_time is still in the future, so they
++        // have not reached the top of the heap to be dropped yet. Sweep the
++        // whole heap to remove such unscheduled tasks and rebuild it, so the
++        // heap does not keep holding a large number of dead tasks.
++        const int64_t compact_threshold =
++            FLAGS_bthread_timer_thread_compact_threshold;
++        if (compact_threshold > 0 &&
++            tasks.size() >= (size_t)compact_threshold &&
++            tasks.size() > heap_compact_watermark) {
++            size_t remaining = 0;
++            for (size_t i = 0; i < tasks.size(); ++i) {
++                if (!tasks[i]->try_delete()) {
++                    tasks[remaining++] = tasks[i];
++                }
++            }
++            if (remaining != tasks.size()) {
++                tasks.resize(remaining);
++                std::make_heap(tasks.begin(), tasks.end(), task_greater);
++            }
++            // Only sweep again after the heap grows by another threshold worth
++            // of tasks, to bound both the scan frequency and the number of dead
++            // tasks retained between sweeps.
++            heap_compact_watermark = tasks.size() + (size_t)compact_threshold;
++        }
++
+         bool pull_again = false;
+         while (!tasks.empty()) {
+             Task* task1 = tasks[0];  // the about-to-run task
