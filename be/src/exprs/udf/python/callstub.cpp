@@ -127,7 +127,18 @@ StatusOr<std::shared_ptr<arrow::RecordBatch>> ArrowFlightFuncCallStub::do_evalua
 auto PyWorkerManager::get_client(const PyFunctionDescriptor& func_desc) -> StatusOr<WorkerClientPtr> {
     std::shared_ptr<PyWorker> handle;
     std::string url;
-    ASSIGN_OR_RETURN(handle, _acquire_worker(func_desc.driver_id, config::python_worker_reuse, &url));
+    if (!func_desc.service_url.empty()) {
+        // External-worker mode: connect to the user-provided Arrow Flight worker service (the
+        // CREATE FUNCTION "service_url" property) instead of spawning and managing a local worker.
+        // The user owns the worker's lifecycle and isolation. Use a detached PyWorker handle
+        // (pid == -1) so terminate()/wait() are no-ops and we never kill or reap a process we
+        // don't own; "dead" here just means "drop and reconnect".
+        url = func_desc.service_url;
+        handle = std::make_shared<PyWorker>(-1);
+        handle->set_url(url);
+    } else {
+        ASSIGN_OR_RETURN(handle, _acquire_worker(func_desc.driver_id, config::python_worker_reuse, &url));
+    }
     auto arrow_client = std::make_unique<ArrowFlightWithRW>();
     RETURN_IF_ERROR(arrow_client->init(url, func_desc, std::move(handle)));
     return arrow_client;
@@ -155,6 +166,7 @@ StatusOr<std::string> PyFunctionDescriptor::to_json_string() const {
     doc.AddMember("location", rapidjson::Value().SetString(location.c_str(), allocator), allocator);
     doc.AddMember("input_type", rapidjson::Value().SetString(input_type.c_str(), allocator), allocator);
     doc.AddMember("content", rapidjson::Value().SetString(content.c_str(), content.size(), allocator), allocator);
+    doc.AddMember("checksum", rapidjson::Value().SetString(checksum.c_str(), checksum.size(), allocator), allocator);
 
     {
         // serialize return type schema

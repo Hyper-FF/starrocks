@@ -62,6 +62,10 @@ void PyWorker::wait() {
 }
 
 void PyWorker::remove_unix_socket() {
+    // Detached handles (pid == -1, e.g. external-worker mode) own no local socket file.
+    if (_pid == -1) {
+        return;
+    }
     unlink(PyWorkerManager::unix_socket_path(_pid).c_str());
 }
 
