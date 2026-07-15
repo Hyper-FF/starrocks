@@ -418,6 +418,11 @@ struct TQueryOptions {
   222: optional i64 topn_back_pressure_num_rows = 1024;
   223: optional i64 topn_back_pressure_throttle_time_ms = 8;
   224: optional i64 topn_back_pressure_throttle_time_upper_bound_ms = 100;
+
+  // Evaluate UDF projections on a background thread so the blocking Arrow Flight RPC does
+  // not hold the pipeline execution thread. Gates both the FE projection split (Python UDF calls
+  // get their own project node) and the BE async operator routing. Default false.
+  225: optional bool enable_async_udf = false;
 }
 
 // A scan range plus the parameters needed to execute that scan.

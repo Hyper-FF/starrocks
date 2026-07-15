@@ -651,6 +651,20 @@ public class PlanFragmentBuilder {
         @Override
         public PlanFragment visitPhysicalProject(OptExpression optExpr, ExecPlan context) {
             PhysicalProjectOperator node = (PhysicalProjectOperator) optExpr.getOp();
+
+            // Split a projection that contains a Python UDF into pre/UDF/post project nodes so only the
+            // UDF node runs on the BE async (non-pipeline-blocking) operator. Emitted by recursing into
+            // the split stack, which lowers each stage through this same method.
+            if (context.getConnectContext() != null &&
+                    context.getConnectContext().getSessionVariable().isEnableAsyncUdf() &&
+                    AsyncUdfProjectionSplitter.containsArrowUdf(node.getColumnRefMap(),
+                            node.getCommonSubOperatorMap())) {
+                OptExpression split = AsyncUdfProjectionSplitter.trySplit(optExpr, columnRefFactory);
+                if (split != null) {
+                    return visit(split, context);
+                }
+            }
+
             PlanFragment inputFragment = visit(optExpr.inputAt(0), context);
 
             Preconditions.checkState(!node.getColumnRefMap().isEmpty());
@@ -712,6 +726,70 @@ public class PlanFragmentBuilder {
             return inputFragment;
         }
 
+        // Emits a single ProjectNode from a columnRefMap (+ optional common-sub map) stacked on
+        // inputFragment, registering each output column in colRefToExpr. Used to lower the pre/UDF/post
+        // stages of an async-UDF projection split.
+        private PlanFragment emitProjectNode(OptExpression optExpression,
+                                             Map<ColumnRefOperator, ScalarOperator> columnRefMap,
+                                             Map<ColumnRefOperator, ScalarOperator> commonSubMap,
+                                             PlanFragment inputFragment, ExecPlan context) {
+            TupleDescriptor tupleDescriptor = context.getDescTbl().createTupleDescriptor();
+
+            Map<SlotId, Expr> commonSubOperatorMap = Maps.newHashMap();
+            for (Map.Entry<ColumnRefOperator, ScalarOperator> entry : commonSubMap.entrySet()) {
+                Expr expr = ScalarOperatorToExpr.buildExecExpression(entry.getValue(),
+                        new ScalarOperatorToExpr.FormatterContext(context.getColRefToExpr(), commonSubMap));
+                commonSubOperatorMap.put(new SlotId(entry.getKey().getId()), expr);
+                SlotDescriptor slotDescriptor =
+                        context.getDescTbl().addSlotDescriptor(tupleDescriptor, new SlotId(entry.getKey().getId()));
+                slotDescriptor.setIsNullable(expr.isNullable());
+                slotDescriptor.setIsMaterialized(false);
+                slotDescriptor.setType(expr.getType());
+                context.getColRefToExpr().put(entry.getKey(), new SlotRef(entry.getKey().toString(), slotDescriptor));
+            }
+
+            Map<SlotId, Expr> projectMap = Maps.newHashMap();
+            for (Map.Entry<ColumnRefOperator, ScalarOperator> entry : columnRefMap.entrySet()) {
+                Expr expr = ScalarOperatorToExpr.buildExecExpression(entry.getValue(),
+                        new ScalarOperatorToExpr.FormatterContext(context.getColRefToExpr(), columnRefMap));
+                projectMap.put(new SlotId(entry.getKey().getId()), expr);
+                SlotDescriptor slotDescriptor =
+                        context.getDescTbl().addSlotDescriptor(tupleDescriptor, new SlotId(entry.getKey().getId()));
+                slotDescriptor.setIsNullable(expr.isNullable());
+                slotDescriptor.setIsMaterialized(true);
+                slotDescriptor.setType(expr.getType());
+                context.getColRefToExpr().put(entry.getKey(), new SlotRef(entry.getKey().toString(), slotDescriptor));
+            }
+
+            ProjectNode projectNode = new ProjectNode(context.getNextNodeId(), tupleDescriptor,
+                    inputFragment.getPlanRoot(), projectMap, commonSubOperatorMap);
+            projectNode.setHasNullableGenerateChild();
+
+            Optional.ofNullable(optExpression.getStatistics()).ifPresent(statistics -> {
+                Statistics.Builder b = Statistics.builder();
+                b.setOutputRowCount(statistics.getOutputRowCount());
+                b.addColumnStatisticsFromOtherStatistic(statistics,
+                        new ColumnRefSet(new ArrayList<>(columnRefMap.keySet())), true);
+                projectNode.computeStatistics(b.build());
+            });
+
+            for (Map.Entry<SlotId, Expr> entry : projectMap.entrySet()) {
+                SlotDescriptor slotDescriptor = tupleDescriptor.getSlot(entry.getKey().asInt());
+                if (ExprUtils.isLiteral(entry.getValue()) && !entry.getValue().isNullable()) {
+                    slotDescriptor.setIsNullable(false);
+                } else {
+                    slotDescriptor.setIsNullable(
+                            slotDescriptor.getIsNullable() | projectNode.isHasNullableGenerateChild());
+                }
+            }
+            tupleDescriptor.computeMemLayout();
+
+            projectNode.setLimit(inputFragment.getPlanRoot().getLimit());
+            inputFragment.setPlanRoot(projectNode);
+            currentExecGroup.add(projectNode);
+            return inputFragment;
+        }
+
         public PlanFragment buildProjectNode(OptExpression optExpression, Projection node, PlanFragment inputFragment,
                                              ExecPlan context) {
             if (node == null) {
@@ -719,6 +797,23 @@ public class PlanFragmentBuilder {
             }
 
             Preconditions.checkState(!node.getColumnRefMap().isEmpty());
+
+            // Split an inline projection that contains a UDF into pre/UDF/post project nodes so only the
+            // UDF node runs on the BE async (non-pipeline-blocking) operator; the UDF node's map holds
+            // only the UDF calls. Bypasses the heavy-expr push-down below (mutually exclusive here).
+            if (context.getConnectContext() != null &&
+                    context.getConnectContext().getSessionVariable().isEnableAsyncUdf() &&
+                    AsyncUdfProjectionSplitter.containsArrowUdf(node.getColumnRefMap(),
+                            node.getCommonSubOperatorMap())) {
+                List<Map<ColumnRefOperator, ScalarOperator>> stages = AsyncUdfProjectionSplitter.splitMaps(
+                        node.getColumnRefMap(), node.getCommonSubOperatorMap(), columnRefFactory);
+                if (stages != null) {
+                    for (Map<ColumnRefOperator, ScalarOperator> stage : stages) {
+                        inputFragment = emitProjectNode(optExpression, stage, Maps.newHashMap(), inputFragment, context);
+                    }
+                    return inputFragment;
+                }
+            }
 
             // TODO(by satanson): At present we only support OlapTable
             if (context.getConnectContext().getSessionVariable().isPushDownHeavyExprs() &&

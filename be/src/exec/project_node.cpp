@@ -14,6 +14,7 @@
 
 #include "exec/project_node.h"
 
+#include <algorithm>
 #include <cstring>
 #include <memory>
 #include <set>
@@ -27,11 +28,14 @@
 #include "column/vectorized_fwd.h"
 #include "common/global_types.h"
 #include "common/status.h"
+#include "common/config_exec_fwd.h"
 #include "compute_env/global_dict/parser.h"
 #include "exec/pipeline/exec_node_pipeline_adapter.h"
 #include "exec/pipeline/limit_operator.h"
 #include "exec/pipeline/pipeline_builder.h"
 #include "exec/pipeline/project_operator.h"
+#include "exec/pipeline/async_udf_project_operator.h"
+#include "exprs/arrow_function_call.h"
 #include "exprs/column_ref.h"
 #include "exprs/expr.h"
 #include "exprs/expr_context.h"
@@ -290,15 +294,56 @@ void ProjectNode::push_down_join_runtime_filter(RuntimeState* state, RuntimeFilt
     }
 }
 
+static bool expr_tree_has_arrow_udf(const Expr* expr) {
+    if (expr == nullptr) {
+        return false;
+    }
+    // ArrowFunctionCallExpr is created only for UDFs (Python UDFs and arrow-input Java UDFs); both
+    // evaluate out-of-line (Flight RPC / JNI) and benefit from async offload.
+    if (dynamic_cast<const ArrowFunctionCallExpr*>(expr) != nullptr) {
+        return true;
+    }
+    for (const auto* child : expr->children()) {
+        if (expr_tree_has_arrow_udf(child)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool exprs_have_arrow_udf(const std::vector<ExprContext*>& expr_ctxs) {
+    for (auto* ctx : expr_ctxs) {
+        if (ctx != nullptr && expr_tree_has_arrow_udf(ctx->root())) {
+            return true;
+        }
+    }
+    return false;
+}
+
 StatusOr<pipeline::OpFactories> ProjectNode::decompose_to_pipeline(pipeline::PipelineBuilderContext* context) {
     using namespace pipeline;
     ASSIGN_OR_RETURN(auto operators, _children[0]->decompose_to_pipeline(context));
     // Create a shared RefCountedRuntimeFilterCollector
     auto&& rc_rf_probe_collector = std::make_shared<RcRfProbeCollector>(1, std::move(this->runtime_filter_collector()));
 
-    operators.emplace_back(std::make_shared<ProjectOperatorFactory>(
-            context->next_operator_id(), id(), std::move(_slot_ids), std::move(_expr_ctxs),
-            std::move(_type_is_nullable), std::move(_common_sub_slot_ids), std::move(_common_sub_expr_ctxs)));
+    // Route projections that contain a (blocking) Python UDF onto the async operator so the Flight
+    // RPC does not hold the pipeline execution thread. Gated by the enable_async_udf session
+    // variable (same switch that drives the FE projection split).
+    const auto& query_options = context->runtime_state()->query_options();
+    const bool use_async_udf =
+            query_options.__isset.enable_async_udf && query_options.enable_async_udf &&
+            (exprs_have_arrow_udf(_expr_ctxs) || exprs_have_arrow_udf(_common_sub_expr_ctxs));
+
+    if (use_async_udf) {
+        operators.emplace_back(std::make_shared<AsyncUdfProjectOperatorFactory>(
+                context->next_operator_id(), id(), std::move(_slot_ids), std::move(_expr_ctxs),
+                std::move(_type_is_nullable), std::move(_common_sub_slot_ids), std::move(_common_sub_expr_ctxs),
+                std::max(1, config::udf_async_max_inflight_chunks)));
+    } else {
+        operators.emplace_back(std::make_shared<ProjectOperatorFactory>(
+                context->next_operator_id(), id(), std::move(_slot_ids), std::move(_expr_ctxs),
+                std::move(_type_is_nullable), std::move(_common_sub_slot_ids), std::move(_common_sub_expr_ctxs)));
+    }
     // Initialize OperatorFactory's fields involving runtime filters.
     pipeline::init_runtime_filter_for_operator(*this, operators.back().get(), context, rc_rf_probe_collector);
     if (limit() != -1) {

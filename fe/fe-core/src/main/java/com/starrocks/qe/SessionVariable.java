@@ -303,6 +303,7 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
     public static final String INSERT_TIMEOUT = "insert_timeout";
     public static final String DYNAMIC_OVERWRITE = "dynamic_overwrite";
     public static final String ENABLE_CACHE_UDAF = "enable_cache_udaf";
+    public static final String ENABLE_ASYNC_UDF = "enable_async_udf";
     public static final String ENABLE_SPILL = "enable_spill";
     public static final String ENABLE_SPILL_TO_REMOTE_STORAGE = "enable_spill_to_remote_storage";
     public static final String DISABLE_SPILL_TO_LOCAL_DISK = "disable_spill_to_local_disk";
@@ -1707,6 +1708,11 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     @VariableMgr.VarAttr(name = ENABLE_CACHE_UDAF)
     private boolean enableCacheUdaf = false;
+
+    // Evaluate UDF projections asynchronously so the blocking Arrow Flight RPC does not hold
+    // the pipeline execution thread. Gates the FE projection split and the BE async operator routing.
+    @VariableMgr.VarAttr(name = ENABLE_ASYNC_UDF)
+    private boolean enableAsyncUdf = false;
 
     @VariableMgr.VarAttr(name = ENABLE_SPILL)
     private boolean enableSpill = false;
@@ -4285,6 +4291,14 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
         this.enableCacheUdaf = enableCacheUdaf;
     }
 
+    public boolean isEnableAsyncUdf() {
+        return enableAsyncUdf;
+    }
+
+    public void setEnableAsyncUdf(boolean enableAsyncUdf) {
+        this.enableAsyncUdf = enableAsyncUdf;
+    }
+
     public boolean isEnableSpill() {
         return enableSpill;
     }
@@ -6514,6 +6528,7 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
         }
 
         tResult.setEnable_cache_udaf(enableCacheUdaf);
+        tResult.setEnable_async_udf(enableAsyncUdf);
         tResult.setEnable_spill(enableSpill);
         if (enableSpill) {
             TSpillOptions spillOptions = new TSpillOptions();

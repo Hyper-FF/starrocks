@@ -23,4 +23,10 @@ namespace starrocks::config {
 // The chunk size for vector query engine
 CONF_Int32(vector_chunk_size, "4096");
 
+// Max number of chunks a single driver keeps in flight for async Python-UDF evaluation. 1 means
+// one at a time (frees the pipeline thread but the worker idles between chunks). >1 pipelines: each
+// in-flight chunk uses its own worker/connection (so a driver may hold up to this many workers) and
+// results are reordered back to input order. Keep modest; the worker/connection cost scales with it.
+CONF_mInt32(udf_async_max_inflight_chunks, "1");
+
 } // namespace starrocks::config

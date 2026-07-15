@@ -10,7 +10,8 @@
     {
       "path": "be/src/common/config_exec_fwd.h",
       "configs": [
-        "vector_chunk_size"
+        "vector_chunk_size",
+        "udf_async_max_inflight_chunks"
       ]
     },
     {

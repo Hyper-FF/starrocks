@@ -2053,6 +2053,11 @@ CONF_Strings(python_envs, "");
 CONF_Bool(report_python_worker_error, "true");
 CONF_Bool(python_worker_reuse, "true");
 CONF_Int32(python_worker_expire_time_sec, "300");
+// Max number of chunks a single driver keeps in flight for async Python-UDF evaluation. 1 means
+// one at a time (frees the pipeline thread but the worker idles between chunks). >1 pipelines: each
+// in-flight chunk uses its own worker/connection (so a driver may hold up to this many workers) and
+// results are reordered back to input order. Keep modest; the worker/connection cost scales with it.
+CONF_mInt32(udf_async_max_inflight_chunks, "1");
 CONF_mBool(enable_pk_strict_memcheck, "true");
 // Reduce core file size by not dumping jemalloc retain pages
 CONF_mBool(enable_core_file_size_optimization, "true");
