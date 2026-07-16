@@ -89,6 +89,12 @@ public:
 
     virtual bool support_event_scheduler() const { return false; }
 
+    // Whether an idle sibling driver may steal work units produced/buffered by this operator
+    // instance and process them on its own operator chain (see PIPELINE_WORK_STEALING_PLAN.md).
+    // Default false; only stateless / partition-aware operators opt in. Used at pipeline-build
+    // time to compute the stealable prefix of a pipeline.
+    virtual bool is_stealable() const { return false; }
+
 protected:
     // when an operator waiting for local runtime filters is woken, the factory prepares
     // the shared instance-level filters exactly once before binding them to operators.

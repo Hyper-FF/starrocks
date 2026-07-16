@@ -24,6 +24,7 @@
 #include "exec_primitive/pipeline/operator_factory.h"
 #include "exec_primitive/pipeline/pipeline_fwd.h"
 #include "exec_primitive/pipeline/primitives/pipeline_observer.h"
+#include "exec_primitive/pipeline/scan/scan_morsel.h" // for MorselPtr in StealUnit
 #include "gen_cpp/Partitions_types.h"
 #include "gutil/casts.h"
 
@@ -35,6 +36,20 @@ namespace pipeline {
 
 class SourceOperator;
 using SourceOperatorPtr = std::shared_ptr<SourceOperator>;
+
+// A unit of work stolen from a sibling driver's source operator: either a buffered chunk
+// (for exchange-like sources) or an unassigned morsel (for scan sources) -- exactly one is set.
+// `partition_id` carries the victim's driver_sequence so a partition-aware consumer (e.g. a
+// shuffle hash-join probe) can look up the right peer hash table; -1 means the unit has no
+// partition semantics. Move-only, because MorselPtr is a std::unique_ptr.
+// See PIPELINE_WORK_STEALING_PLAN.md for the full design.
+struct StealUnit {
+    ChunkPtr chunk;
+    MorselPtr morsel;
+    int32_t partition_id = -1;
+
+    bool valid() const { return chunk != nullptr || morsel != nullptr; }
+};
 
 class SourceOperatorFactory : public OperatorFactory {
 public:
@@ -169,6 +184,20 @@ public:
 
     virtual void add_morsel_queue(MorselQueue* morsel_queue) { _morsel_queue = morsel_queue; };
     MorselQueue* morsel_queue() const { return _morsel_queue; }
+
+    // ===== work-stealing interface (Phase 0: no-op defaults; wired up in later phases) =====
+    // Whether this source instance can currently hand out work units to an idle sibling driver.
+    virtual bool support_steal() const { return false; }
+    // Approximate number of pending work units available to steal right now (0 == nothing to steal).
+    virtual size_t stealable_backlog() const { return 0; }
+    // Invoked on the VICTIM source to detach one pending work unit for a thief.
+    // Returns an invalid StealUnit when nothing could be stolen (e.g. lost a race).
+    virtual StatusOr<StealUnit> try_steal_unit() { return StealUnit{}; }
+    // Invoked on the THIEF source to accept a unit stolen from a sibling; the thief then
+    // pulls it out on its own operator chain via the normal has_output()/pull_chunk() path.
+    virtual Status accept_stolen_unit(StealUnit unit) {
+        return Status::NotSupported("source operator does not support work-stealing");
+    }
 
     size_t degree_of_parallelism() const { return _source_factory()->degree_of_parallelism(); }
     const std::vector<const Pipeline*>& group_dependent_pipelines() const {

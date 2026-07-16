@@ -418,6 +418,12 @@ struct TQueryOptions {
   222: optional i64 topn_back_pressure_num_rows = 1024;
   223: optional i64 topn_back_pressure_throttle_time_ms = 8;
   224: optional i64 topn_back_pressure_throttle_time_upper_bound_ms = 100;
+
+  // Pipeline work-stealing (see PIPELINE_WORK_STEALING_PLAN.md); default-off master switch + tuning knobs.
+  225: optional bool enable_pipeline_work_stealing;
+  226: optional i32 pipeline_steal_backlog_threshold;
+  227: optional i64 pipeline_steal_cooldown_ns;
+  228: optional i32 pipeline_steal_max_per_round;
 }
 
 // A scan range plus the parameters needed to execute that scan.

@@ -417,6 +417,11 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     public static final String TABLET_INTERNAL_PARALLEL_MODE = "tablet_internal_parallel_mode";
     public static final String ENABLE_SHARED_SCAN = "enable_shared_scan";
+    // Pipeline work-stealing (see PIPELINE_WORK_STEALING_PLAN.md).
+    public static final String ENABLE_PIPELINE_WORK_STEALING = "enable_pipeline_work_stealing";
+    public static final String PIPELINE_STEAL_BACKLOG_THRESHOLD = "pipeline_steal_backlog_threshold";
+    public static final String PIPELINE_STEAL_COOLDOWN_NS = "pipeline_steal_cooldown_ns";
+    public static final String PIPELINE_STEAL_MAX_PER_ROUND = "pipeline_steal_max_per_round";
     public static final String PIPELINE_DOP = "pipeline_dop";
     public static final String MAX_PIPELINE_DOP = "max_pipeline_dop";
 
@@ -1340,6 +1345,16 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     @VariableMgr.VarAttr(name = ENABLE_SHARED_SCAN)
     private boolean enableSharedScan = false;
+
+    // Pipeline work-stealing: master switch (default off, zero behavior change) + tuning knobs.
+    @VariableMgr.VarAttr(name = ENABLE_PIPELINE_WORK_STEALING)
+    private boolean enablePipelineWorkStealing = false;
+    @VariableMgr.VarAttr(name = PIPELINE_STEAL_BACKLOG_THRESHOLD, flag = VariableMgr.INVISIBLE)
+    private int pipelineStealBacklogThreshold = 2;
+    @VariableMgr.VarAttr(name = PIPELINE_STEAL_COOLDOWN_NS, flag = VariableMgr.INVISIBLE)
+    private long pipelineStealCooldownNs = 100000;
+    @VariableMgr.VarAttr(name = PIPELINE_STEAL_MAX_PER_ROUND, flag = VariableMgr.INVISIBLE)
+    private int pipelineStealMaxPerRound = 1;
 
     // max memory used on each fragment instance
     // NOTE: only used for non-pipeline engine and stream_load
@@ -4832,6 +4847,22 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
         return false;
     }
 
+    public boolean isEnablePipelineWorkStealing() {
+        return enablePipelineWorkStealing;
+    }
+
+    public int getPipelineStealBacklogThreshold() {
+        return pipelineStealBacklogThreshold;
+    }
+
+    public long getPipelineStealCooldownNs() {
+        return pipelineStealCooldownNs;
+    }
+
+    public int getPipelineStealMaxPerRound() {
+        return pipelineStealMaxPerRound;
+    }
+
     public int getResourceGroupId() {
         return resourceGroupId;
     }
@@ -6595,6 +6626,10 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
         tResult.setLower_upper_support_utf8(lowerUpperSupportUTF8);
         tResult.setNgram_search_support_utf8(ngramSearchSupportUTF8);
         tResult.setEnable_global_late_materialization(enableGlobalLateMaterialization);
+        tResult.setEnable_pipeline_work_stealing(enablePipelineWorkStealing);
+        tResult.setPipeline_steal_backlog_threshold(pipelineStealBacklogThreshold);
+        tResult.setPipeline_steal_cooldown_ns(pipelineStealCooldownNs);
+        tResult.setPipeline_steal_max_per_round(pipelineStealMaxPerRound);
         tResult.setPipeline_dop(pipelineDop);
         if (pipelineProfileLevel == 2) {
             tResult.setPipeline_profile_level(TPipelineProfileLevel.DETAIL);
