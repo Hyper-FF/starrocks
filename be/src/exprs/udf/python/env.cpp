@@ -20,6 +20,7 @@
 #include <poll.h>
 #include <spawn.h>
 #include <sys/poll.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -62,22 +63,37 @@ void PyWorker::wait() {
 }
 
 void PyWorker::remove_unix_socket() {
-    unlink(PyWorkerManager::unix_socket_path(_pid).c_str());
+    if (!_sock_path.empty()) {
+        unlink(_sock_path.c_str());
+    }
 }
 
-std::string PyWorkerManager::unix_socket(pid_t pid) {
-    std::string unix_socket = fmt::format("grpc+unix://{}/pyworker_{}", config::local_library_dir, pid);
-    return unix_socket;
+std::string PyWorkerManager::socket_dir() {
+    return fmt::format("{}/pyworker", config::local_library_dir);
 }
 
-std::string PyWorkerManager::unix_socket_prefix() {
-    std::string unix_socket = fmt::format("grpc+unix://{}/pyworker_", config::local_library_dir);
-    return unix_socket;
+Status PyWorkerManager::ensure_socket_dir() {
+    std::string dir = socket_dir();
+    if (mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) {
+        return Status::InternalError(
+                fmt::format("create pyworker socket dir {} error: {}", dir, std::strerror(errno)));
+    }
+    // Tighten permissions to the BE user even if the directory pre-existed with
+    // a looser mode: any local user able to reach the socket can drive the
+    // worker's Flight server, which executes arbitrary UDF code.
+    if (chmod(dir.c_str(), 0700) != 0) {
+        return Status::InternalError(fmt::format("chmod pyworker socket dir {} error: {}", dir, std::strerror(errno)));
+    }
+    return Status::OK();
 }
 
-std::string PyWorkerManager::unix_socket_path(pid_t pid) {
-    std::string unix_socket_path = fmt::format("{}/pyworker_{}", config::local_library_dir, pid);
-    return unix_socket_path;
+std::string PyWorkerManager::new_socket_path() {
+    // A process-local counter keeps names unique among live workers; the random
+    // suffix avoids colliding with a stale socket left behind by a prior BE run.
+    static std::atomic<uint64_t> seq{0};
+    uint64_t n = seq.fetch_add(1, std::memory_order_relaxed);
+    uint32_t r = Random::GetTLSInstance()->Next();
+    return fmt::format("{}/pyworker_{}_{:08x}", socket_dir(), n, r);
 }
 
 Status PyWorkerManager::_fork_py_worker(std::unique_ptr<PyWorker>* child_process) {
@@ -139,11 +155,13 @@ Status PyWorkerManager::_fork_py_worker(std::unique_ptr<PyWorker>* child_process
     }
 #endif
 
+    RETURN_IF_ERROR(ensure_socket_dir());
     std::string script = PyWorkerManager::bootstrap();
-    std::string unix_socket = PyWorkerManager::unix_socket_prefix();
+    std::string sock_path = new_socket_path();
+    std::string sock_url = "grpc+unix://" + sock_path;
     std::string python_home_env = fmt::format("PYTHONHOME={}", py_env.home);
 
-    const char* args[] = {"python3", script.c_str(), unix_socket.c_str(), nullptr};
+    const char* args[] = {"python3", script.c_str(), sock_url.c_str(), nullptr};
     const char* envs[] = {python_home_env.c_str(), nullptr};
 
     int rc = posix_spawnp(&pid, python_path.c_str(), &actions, &attrs, const_cast<char* const*>(args),
@@ -155,6 +173,9 @@ Status PyWorkerManager::_fork_py_worker(std::unique_ptr<PyWorker>* child_process
     }
 
     *child_process = std::make_unique<PyWorker>(pid);
+    // Record the socket path up front so it is removed on every failure/cleanup
+    // path below, even if the worker bound the socket before failing to start.
+    (*child_process)->set_sock_path(sock_path);
 
     pollfd fds[1];
     fds[0].fd = pipefd[0];
@@ -194,7 +215,7 @@ Status PyWorkerManager::_fork_py_worker(std::unique_ptr<PyWorker>* child_process
         (*child_process)->terminate_and_wait();
         return Status::InternalError(fmt::format("worker start failed:{}", result.to_string()));
     }
-    (*child_process)->set_url(PyWorkerManager::unix_socket(pid));
+    (*child_process)->set_url(sock_url);
 
     return Status::OK();
 }
