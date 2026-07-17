@@ -25,13 +25,29 @@ namespace starrocks::pipeline {
 // The input chunk is most likely full, so we don't merge it to avoid copying chunk data.
 void LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk) {
     auto notify = defer_notify();
-    std::lock_guard<std::mutex> l(_chunk_lock);
-    if (_is_finished) {
-        return;
+    bool wake_siblings = false;
+    {
+        std::lock_guard<std::mutex> l(_chunk_lock);
+        if (_is_finished) {
+            return;
+        }
+        auto memory_entry = std::make_shared<ChunkBufferMemoryEntry>(_memory_manager.get(), chunk->memory_usage(),
+                                                                     chunk->num_rows());
+        _full_chunk_queue.push(PassthroughChunk{std::move(chunk), std::move(memory_entry)});
+        // Work-stealing: when this backlog first crosses the threshold, wake idle siblings so
+        // they can steal a chunk. Edge-triggered (see _steal_notified) to avoid a notify storm,
+        // and gated on the session switch so there is zero behavior change when disabled.
+        if (!_steal_notified && support_steal() &&
+            _factory->runtime_state()->query_options().enable_pipeline_work_stealing &&
+            _full_chunk_queue.size() >= _steal_backlog_threshold()) {
+            _steal_notified = true;
+            wake_siblings = true;
+        }
     }
-    auto memory_entry =
-            std::make_shared<ChunkBufferMemoryEntry>(_memory_manager.get(), chunk->memory_usage(), chunk->num_rows());
-    _full_chunk_queue.push(PassthroughChunk{std::move(chunk), std::move(memory_entry)});
+    if (wake_siblings) {
+        // notify_source_observers must run outside _chunk_lock (never notify while locked).
+        _source_factory()->observes().notify_source_observers();
+    }
 }
 
 // Used for PartitionExchanger.
@@ -80,14 +96,16 @@ Status LocalExchangeSourceOperator::add_chunk(const std::vector<std::optional<st
 
 bool LocalExchangeSourceOperator::is_finished() const {
     std::lock_guard<std::mutex> l(_chunk_lock);
-    return _is_finished && _full_chunk_queue.empty() && !_partition_rows_num && _key_partition_pending_chunk_empty();
+    return _is_finished && _stolen_chunk == nullptr && _full_chunk_queue.empty() && !_partition_rows_num &&
+           _key_partition_pending_chunk_empty();
 }
 
 bool LocalExchangeSourceOperator::has_output() const {
     std::lock_guard<std::mutex> l(_chunk_lock);
 
-    return !_full_chunk_queue.empty() || _partition_rows_num >= _factory->runtime_state()->chunk_size() ||
-           _key_partition_max_rows() > 0 || ((_is_finished || _memory_manager->is_full()) && _partition_rows_num > 0);
+    return _stolen_chunk != nullptr || !_full_chunk_queue.empty() ||
+           _partition_rows_num >= _factory->runtime_state()->chunk_size() || _key_partition_max_rows() > 0 ||
+           ((_is_finished || _memory_manager->is_full()) && _partition_rows_num > 0);
 }
 
 Status LocalExchangeSourceOperator::set_finished(RuntimeState* state) {
@@ -106,6 +124,7 @@ Status LocalExchangeSourceOperator::set_finished(RuntimeState* state) {
     _partition_chunk_queue = {};
     _partition_key2partial_chunks.clear();
     _partition_rows_num = 0;
+    _stolen_chunk = nullptr;
     return Status::OK();
 }
 
@@ -113,6 +132,13 @@ StatusOr<ChunkPtr> LocalExchangeSourceOperator::pull_chunk(RuntimeState* state) 
     // notify sink
     auto* exchanger = down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
     auto notify = exchanger->defer_notify_sink();
+    {
+        // Work-stealing: a chunk stolen from a sibling is emitted first and only once.
+        std::lock_guard<std::mutex> l(_chunk_lock);
+        if (_stolen_chunk != nullptr) {
+            return std::move(_stolen_chunk);
+        }
+    }
     ChunkPtr chunk = _pull_passthrough_chunk(state);
     if (chunk == nullptr && _key_partition_pending_chunk_empty()) {
         chunk = _pull_shuffle_chunk(state);
@@ -148,6 +174,10 @@ ChunkPtr LocalExchangeSourceOperator::_pull_passthrough_chunk(RuntimeState* stat
         }
         popped = std::move(_full_chunk_queue.front());
         _full_chunk_queue.pop();
+        // work-stealing: re-arm the sibling-wakeup edge once the backlog drains below threshold.
+        if (_steal_notified && _full_chunk_queue.size() < _steal_backlog_threshold()) {
+            _steal_notified = false;
+        }
     }
     // popped.memory_entry destructs at function exit and refunds memory/rows to the
     // manager outside the lock.
@@ -247,6 +277,67 @@ LocalExchangeSourceOperator::_max_row_partition_chunks() {
                                    [](auto& lhs, auto& rhs) { return lhs.second.num_rows < rhs.second.num_rows; });
 
     return max_it;
+}
+
+// ===== work-stealing (see PIPELINE_WORK_STEALING_PLAN.md) =====
+
+size_t LocalExchangeSourceOperator::_steal_backlog_threshold() const {
+    const int t = _factory->runtime_state()->query_options().pipeline_steal_backlog_threshold;
+    return t > 0 ? static_cast<size_t>(t) : 1;
+}
+
+bool LocalExchangeSourceOperator::support_steal() const {
+    return down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->is_stealable();
+}
+
+size_t LocalExchangeSourceOperator::stealable_backlog() const {
+    std::lock_guard<std::mutex> l(_chunk_lock);
+    return _full_chunk_queue.size();
+}
+
+StatusOr<StealUnit> LocalExchangeSourceOperator::try_steal_unit() {
+    PassthroughChunk popped;
+    {
+        std::lock_guard<std::mutex> l(_chunk_lock);
+        // Re-check under the lock: the owning driver may have drained the queue since the
+        // thief observed stealable_backlog(), and _pull_shuffle_chunk-style paths DCHECK
+        // non-empty, so a stealer must never trust a stale has_output()/backlog reading.
+        if (_is_finished || _full_chunk_queue.empty()) {
+            return StealUnit{};
+        }
+        popped = std::move(_full_chunk_queue.front());
+        _full_chunk_queue.pop();
+        if (_steal_notified && _full_chunk_queue.size() < _steal_backlog_threshold()) {
+            _steal_notified = false;
+        }
+    }
+    // popped.memory_entry destructs here, refunding the shared manager (the chunk left this
+    // buffer); the thief carries only the raw chunk, consumed immediately on its own driver.
+    StealUnit unit;
+    unit.chunk = std::move(popped.chunk);
+    unit.partition_id = -1; // passthrough family: no partition semantics
+    return unit;
+}
+
+Status LocalExchangeSourceOperator::accept_stolen_unit(StealUnit unit) {
+    if (unit.chunk == nullptr) {
+        return Status::InternalError("local exchange steal expects a chunk work unit");
+    }
+    std::lock_guard<std::mutex> l(_chunk_lock);
+    // A thief holds at most one stolen chunk at a time (the driver steals once per round and
+    // only when its own source is empty). Refuse rather than drop if one is still pending.
+    if (_stolen_chunk != nullptr) {
+        return Status::InternalError("local exchange source already holds a stolen chunk");
+    }
+    if (_is_finished) {
+        return Status::InternalError("local exchange source is finished");
+    }
+    _stolen_chunk = std::move(unit.chunk);
+    return Status::OK();
+}
+
+bool LocalExchangeSourceOperatorFactory::is_stealable() const {
+    return _exchanger != nullptr && _exchanger->source_partition_free();
 }
 
 } // namespace starrocks::pipeline

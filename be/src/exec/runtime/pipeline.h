@@ -111,6 +111,11 @@ public:
     // is computed once at construction.
     void compute_steal_barrier();
     size_t steal_barrier_idx() const { return _steal_barrier_idx; }
+    // True when every operator in the pipeline is stealable, i.e. a foreign (or here
+    // partition-free) work unit can flow all the way to the sink correctly. This is the
+    // gate for the partition-free (partition_id == -1) steal path; partition-aware
+    // consumers (a later phase) will relax it to a partial barrier.
+    bool fully_stealable() const { return _steal_barrier_idx > 0 && _steal_barrier_idx == _op_factories.size(); }
 
 private:
     uint32_t _id = 0;

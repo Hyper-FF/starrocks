@@ -126,6 +126,12 @@ public:
     virtual Status prepare(RuntimeState* state) { return Status::OK(); }
     virtual void close(RuntimeState* state) {}
 
+    // Work-stealing (see PIPELINE_WORK_STEALING_PLAN.md): true when each source's buffered
+    // chunks carry no partition semantics tied to its driver_sequence, so a whole ready
+    // chunk may be handed to an idle sibling and processed on its (partition-agnostic)
+    // operator chain. True for the passthrough family; false for hash/key/ordered/broadcast.
+    virtual bool source_partition_free() const { return false; }
+
     virtual Status accept(const ChunkPtr& chunk, int32_t sink_driver_sequence) = 0;
 
     virtual void finish(RuntimeState* state) {
@@ -280,6 +286,8 @@ public:
 
     ~PassthroughExchanger() override = default;
 
+    bool source_partition_free() const override { return true; }
+
     Status accept(const ChunkPtr& chunk, int32_t sink_driver_sequence) override;
 
 private:
@@ -324,6 +332,8 @@ public:
 
     ~RandomPassthroughExchanger() override = default;
 
+    bool source_partition_free() const override { return true; }
+
     void incr_sinker() override;
     Status accept(const ChunkPtr& chunk, int32_t sink_driver_sequence) override;
 
@@ -340,6 +350,8 @@ public:
             : LocalExchanger("AdaptivePassthrough", memory_manager, source) {}
 
     ~AdaptivePassthroughExchanger() override = default;
+
+    bool source_partition_free() const override { return true; }
 
     void incr_sinker() override;
     Status accept(const ChunkPtr& chunk, int32_t sink_driver_sequence) override;

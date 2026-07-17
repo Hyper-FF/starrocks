@@ -97,6 +97,13 @@ public:
 
     std::string get_name() const override;
 
+    // ===== work-stealing (see PIPELINE_WORK_STEALING_PLAN.md) =====
+    // Only the passthrough family opts in: buffered units are whole, partition-free chunks.
+    bool support_steal() const override;
+    size_t stealable_backlog() const override;
+    StatusOr<StealUnit> try_steal_unit() override;
+    Status accept_stolen_unit(StealUnit unit) override;
+
 private:
     ChunkPtr _pull_passthrough_chunk(RuntimeState* state);
 
@@ -118,10 +125,21 @@ private:
         return true;
     }
 
+    // work-stealing: read the backlog threshold (session var) via the factory's runtime state.
+    size_t _steal_backlog_threshold() const;
+
     bool _is_finished = false;
     std::queue<PassthroughChunk> _full_chunk_queue;
     std::queue<PartitionChunk> _partition_chunk_queue;
     size_t _partition_rows_num = 0;
+
+    // work-stealing: a single chunk stolen from a sibling, awaiting emit on this driver.
+    // Kept out of _full_chunk_queue so it bypasses the shared ChunkBufferMemoryManager
+    // accounting (it was already refunded on the victim side). Guarded by _chunk_lock.
+    ChunkPtr _stolen_chunk = nullptr;
+    // edge-trigger for waking idle siblings: set when backlog crosses the threshold, reset
+    // when it drains back below, so a busy victim does not fire a notify on every push.
+    bool _steal_notified = false;
 
     // TODO(KKS): make it lock free
     mutable std::mutex _chunk_lock;
@@ -139,6 +157,11 @@ public:
     ~LocalExchangeSourceOperatorFactory() override = default;
 
     bool support_event_scheduler() const override { return true; }
+
+    // Work-stealing: passthrough-family local exchanges hand out whole, partition-free
+    // chunks that any sibling can process, so their source pipeline prefix is stealable.
+    // Defined in the .cpp because it dereferences the (here forward-declared) LocalExchanger.
+    bool is_stealable() const override;
 
     OperatorPtr create(int32_t degree_of_parallelism, int32_t driver_sequence) override {
         std::shared_ptr<LocalExchangeSourceOperator> source = std::make_shared<LocalExchangeSourceOperator>(

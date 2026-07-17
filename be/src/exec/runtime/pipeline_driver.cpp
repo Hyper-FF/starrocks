@@ -600,9 +600,11 @@ bool PipelineDriver::steal_enabled() const {
     if (_state == DriverState::PRECONDITION_BLOCK) {
         return false;
     }
-    // The owning pipeline exposes the stealable-prefix length; 0 means nothing can be stolen.
+    // Partition-free steal path: require the whole pipeline to be stealable so a stolen
+    // (partition-agnostic) unit can flow to the sink correctly. Relaxed once partition-aware
+    // consumers exist.
     const auto* pipeline = down_cast<const Pipeline*>(_driver_observer);
-    return pipeline != nullptr && pipeline->steal_barrier_idx() > 0;
+    return pipeline != nullptr && pipeline->fully_stealable();
 }
 
 bool PipelineDriver::try_steal_from_siblings() {
