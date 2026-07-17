@@ -114,6 +114,18 @@ public:
     DriverAcct& driver_acct() { return _driver_acct; }
     DriverState driver_state() const { return _state; }
 
+    // ===== work-stealing (see PIPELINE_WORK_STEALING_PLAN.md) =====
+    // True when this driver is allowed to steal work from siblings right now:
+    // the session switch is on, the pipeline has a non-empty stealable prefix,
+    // and the driver is not precondition-blocked. Defaults to false because no
+    // source opts into stealing yet (Phase 0/1), so the steal path is a no-op.
+    bool steal_enabled() const;
+    // Try to steal one work unit from a sibling driver's source and hand it to
+    // this driver's own source. Returns true iff a unit was accepted, in which
+    // case the caller should re-loop (the source now has output) instead of
+    // parking. No-op (returns false) while steal_enabled() is false.
+    bool try_steal_from_siblings();
+
     Status prepare_local_state(RuntimeState* runtime_state);
 
     void increment_schedule_times();
@@ -524,6 +536,14 @@ protected:
     RuntimeProfile::Counter* _block_by_precondition_counter = nullptr;
     RuntimeProfile::Counter* _block_by_output_full_counter = nullptr;
     RuntimeProfile::Counter* _block_by_input_empty_counter = nullptr;
+
+    // work-stealing counters (all 0 unless the feature is enabled)
+    RuntimeProfile::Counter* _steal_attempts_counter = nullptr;
+    RuntimeProfile::Counter* _steal_success_counter = nullptr;
+    RuntimeProfile::Counter* _steal_fail_counter = nullptr;
+    RuntimeProfile::Counter* _stolen_rows_counter = nullptr;
+    // throttles steal attempts to once per process() invocation
+    bool _steal_attempted_this_round = false;
 
     RuntimeProfile::Counter* _pending_timer = nullptr;
     RuntimeProfile::Counter* _precondition_block_timer = nullptr;

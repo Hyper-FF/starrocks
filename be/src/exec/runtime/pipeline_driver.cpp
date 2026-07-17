@@ -44,6 +44,7 @@
 #include "exec_primitive/pipeline/primitives/pipeline_observer.h"
 #include "exec_primitive/pipeline/scan/morsel_queue.h"
 #include "exec_primitive/pipeline/scan/split_morsel_ticket_checker.h"
+#include "exec/runtime/pipeline.h"
 #include "exec_primitive/pipeline/scan/ticketed_morsel_queue.h"
 #include "exec_primitive/pipeline/source_operator.h"
 #include "gen_cpp/InternalService_types.h"
@@ -150,6 +151,11 @@ void PipelineDriver::prepare_profile() {
     _block_by_precondition_counter = ADD_COUNTER(_runtime_profile, "BlockByPrecondition", TUnit::UNIT);
     _block_by_output_full_counter = ADD_COUNTER(_runtime_profile, "BlockByOutputFull", TUnit::UNIT);
     _block_by_input_empty_counter = ADD_COUNTER(_runtime_profile, "BlockByInputEmpty", TUnit::UNIT);
+
+    _steal_attempts_counter = ADD_COUNTER(_runtime_profile, "StealAttempts", TUnit::UNIT);
+    _steal_success_counter = ADD_COUNTER(_runtime_profile, "StealSuccess", TUnit::UNIT);
+    _steal_fail_counter = ADD_COUNTER(_runtime_profile, "StealFail", TUnit::UNIT);
+    _stolen_rows_counter = ADD_COUNTER(_runtime_profile, "StolenRows", TUnit::UNIT);
 
     _pending_timer = ADD_TIMER_WITH_THRESHOLD(_runtime_profile, "PendingTime", 1_ms);
     _precondition_block_timer =
@@ -353,6 +359,7 @@ StatusOr<DriverState> PipelineDriver::process(RuntimeState* runtime_state, int w
     SCOPED_TIMER(_active_timer);
     DCHECK(_local_prepare_is_done);
     set_driver_state(DriverState::RUNNING);
+    _steal_attempted_this_round = false;
     size_t total_chunks_moved = 0;
     size_t total_rows_moved = 0;
     int64_t time_spent = 0;
@@ -565,6 +572,12 @@ StatusOr<DriverState> PipelineDriver::process(RuntimeState* runtime_state, int w
                 set_driver_state(DriverState::OUTPUT_FULL);
                 COUNTER_UPDATE(_block_by_output_full_counter, 1);
             } else if (!source_operator()->has_output() && !source_operator()->is_finished()) {
+                // Before parking on an empty source, try to steal work from a sibling.
+                // On success the source now has output, so re-loop instead of blocking.
+                // Do not steal when yielding: the time slice is up and we must free the core.
+                if (!should_yield && try_steal_from_siblings()) {
+                    continue;
+                }
                 if (source_operator()->is_mutable()) {
                     set_driver_state(DriverState::LOCAL_WAITING);
                     COUNTER_UPDATE(_yield_by_local_wait_counter, 1);
@@ -578,6 +591,70 @@ StatusOr<DriverState> PipelineDriver::process(RuntimeState* runtime_state, int w
             return _state;
         }
     }
+}
+
+bool PipelineDriver::steal_enabled() const {
+    if (!_runtime_state->query_options().enable_pipeline_work_stealing) {
+        return false;
+    }
+    if (_state == DriverState::PRECONDITION_BLOCK) {
+        return false;
+    }
+    // The owning pipeline exposes the stealable-prefix length; 0 means nothing can be stolen.
+    const auto* pipeline = down_cast<const Pipeline*>(_driver_observer);
+    return pipeline != nullptr && pipeline->steal_barrier_idx() > 0;
+}
+
+bool PipelineDriver::try_steal_from_siblings() {
+    if (!steal_enabled() || _steal_attempted_this_round) {
+        return false;
+    }
+    _steal_attempted_this_round = true;
+
+    auto* me_src = source_operator();
+    if (!me_src->support_steal()) {
+        return false;
+    }
+    auto* pipeline = down_cast<Pipeline*>(_driver_observer);
+    if (pipeline == nullptr) {
+        return false;
+    }
+
+    COUNTER_UPDATE(_steal_attempts_counter, 1);
+    const auto& q = _runtime_state->query_options();
+    const size_t threshold = q.pipeline_steal_backlog_threshold > 0 ? q.pipeline_steal_backlog_threshold : 1;
+
+    // Visit siblings starting just past ourselves so concurrent thieves don't all
+    // converge on the same victim (a cheap, state-free spread of the scan order).
+    const auto& siblings = pipeline->drivers();
+    const size_t n = siblings.size();
+    for (size_t k = 1; k <= n; ++k) {
+        const auto& peer = siblings[(static_cast<size_t>(_driver_id) + k) % n];
+        if (peer.get() == this) {
+            continue;
+        }
+        auto* peer_src = peer->source_operator();
+        if (peer_src == nullptr || !peer_src->support_steal() || peer_src->stealable_backlog() < threshold) {
+            continue;
+        }
+        auto unit_or = peer_src->try_steal_unit();
+        if (!unit_or.ok() || !unit_or.value().valid()) {
+            continue;
+        }
+        StealUnit unit = std::move(unit_or.value());
+        const size_t rows = unit.chunk != nullptr ? unit.chunk->num_rows() : 0;
+        if (Status st = me_src->accept_stolen_unit(std::move(unit)); !st.ok()) {
+            COUNTER_UPDATE(_steal_fail_counter, 1);
+            continue;
+        }
+        COUNTER_UPDATE(_steal_success_counter, 1);
+        if (rows > 0) {
+            COUNTER_UPDATE(_stolen_rows_counter, rows);
+        }
+        return true;
+    }
+    COUNTER_UPDATE(_steal_fail_counter, 1);
+    return false;
 }
 
 Status PipelineDriver::check_short_circuit() {

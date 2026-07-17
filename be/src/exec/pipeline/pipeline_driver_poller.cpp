@@ -154,6 +154,13 @@ void PipelineDriverPoller::run_internal() {
                         driver->set_driver_state(DriverState::READY);
                         remove_blocked_driver(_local_blocked_drivers, driver_it);
                         ready_drivers.emplace_back(driver);
+                    } else if (driver->try_steal_from_siblings()) {
+                        // Work-stealing fallback for the poller backend (no event scheduler):
+                        // a still-blocked driver that manages to steal a unit becomes runnable.
+                        // No-op while the feature is disabled (try_steal returns false).
+                        driver->set_driver_state(DriverState::READY);
+                        remove_blocked_driver(_local_blocked_drivers, driver_it);
+                        ready_drivers.emplace_back(driver);
                     } else {
                         ++driver_it;
                     }

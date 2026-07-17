@@ -24,6 +24,17 @@ namespace starrocks::pipeline {
 Pipeline::Pipeline(uint32_t id, OpFactories op_factories, PipelineGroupRawPtr group)
         : _id(id), _op_factories(std::move(op_factories)), _pipeline_event(Event::create_event()), _group(group) {
     _runtime_profile = std::make_shared<RuntimeProfile>(strings::Substitute("Pipeline (id=$0)", _id));
+    compute_steal_barrier();
+}
+
+void Pipeline::compute_steal_barrier() {
+    // The stealable prefix ends at the first operator that is not stealable.
+    // A source that is not itself stealable yields a barrier of 0 (nothing to steal).
+    _steal_barrier_idx = 0;
+    for (const auto& factory : _op_factories) {
+        if (!factory->is_stealable()) break;
+        ++_steal_barrier_idx;
+    }
 }
 
 size_t Pipeline::degree_of_parallelism() const {

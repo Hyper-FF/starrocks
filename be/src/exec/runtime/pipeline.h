@@ -103,10 +103,20 @@ public:
     size_t output_amplification_factor() const;
     Event* pipeline_event() const { return _pipeline_event.get(); }
 
+    // ===== work-stealing (see PIPELINE_WORK_STEALING_PLAN.md) =====
+    // Compute the length of the pipeline's "stealable prefix": operator indexes
+    // [0, steal_barrier_idx) may process work units stolen from a sibling driver.
+    // The barrier is the index of the first non-stealable operator; 0 means the
+    // whole pipeline is unstealable. Depends only on the op-factory chain, so it
+    // is computed once at construction.
+    void compute_steal_barrier();
+    size_t steal_barrier_idx() const { return _steal_barrier_idx; }
+
 private:
     uint32_t _id = 0;
     std::shared_ptr<RuntimeProfile> _runtime_profile = nullptr;
     OpFactories _op_factories;
+    size_t _steal_barrier_idx = 0;
     Drivers _drivers;
     std::atomic<size_t> _num_finished_drivers = 0;
 
