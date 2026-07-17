@@ -41,6 +41,33 @@ public:
     HashJoinerPtr create_prober(int32_t prober_dop, int32_t prober_driver_seq);
     HashJoinerPtr get_builder(int32_t prober_dop, int32_t prober_driver_seq);
 
+    // ===== work-stealing: partition-aware probe (see PIPELINE_WORK_STEALING_PLAN.md) =====
+    // A stolen probe chunk carries the victim's partition id; to look it up correctly a thief
+    // must probe against that partition's build hash table, which is only safe once EVERY
+    // partition's build has completed (post-build the table is read-only). This is the
+    // all-builds-ready barrier a steal-enabled probe pipeline waits on.
+    bool all_builds_ready() const {
+        if (_builder_map.empty()) {
+            return false;
+        }
+        for (const auto& kv : _builder_map) {
+            const HashJoinerPtr& builder = kv.second;
+            if (builder == nullptr || !builder->is_build_done()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // The builder joiner that owns partition `partition_id`'s (read-only) hash table.
+    HashJoinerPtr builder_for_partition(int32_t partition_id) const {
+        if (_builder_dop <= 0) {
+            return nullptr;
+        }
+        auto it = _builder_map.find(partition_id % _builder_dop);
+        return it != _builder_map.end() ? it->second : nullptr;
+    }
+
     const starrocks::HashJoinerParam& hash_join_param() { return _param; }
 
 private:
