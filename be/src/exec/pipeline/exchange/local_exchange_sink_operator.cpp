@@ -78,4 +78,9 @@ void LocalExchangeSinkOperatorFactory::close(RuntimeState* state) {
     OperatorFactory::close(state);
 }
 
+bool LocalExchangeSinkOperatorFactory::is_stealable() const {
+    // Stealable only when the target exchanger routes without partition/driver-seq semantics.
+    return _exchanger != nullptr && _exchanger->source_partition_free();
+}
+
 } // namespace starrocks::pipeline

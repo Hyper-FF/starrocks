@@ -68,6 +68,11 @@ public:
 
     bool support_event_scheduler() const override { return true; }
 
+    // Work-stealing: this sink is stealable only when its exchanger distributes without
+    // partition/driver-seq semantics (passthrough family), so a stolen unit can be routed
+    // downstream correctly. Defined in the .cpp (dereferences the fwd-declared LocalExchanger).
+    bool is_stealable() const override;
+
     OperatorPtr create(int32_t degree_of_parallelism, int32_t driver_sequence) override {
         return std::make_shared<LocalExchangeSinkOperator>(this, _id, _plan_node_id, driver_sequence, _exchanger);
     }

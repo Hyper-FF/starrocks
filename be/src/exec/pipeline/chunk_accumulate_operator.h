@@ -58,6 +58,10 @@ public:
 
     ~ChunkAccumulateOperatorFactory() override = default;
 
+    // Work-stealing: only batches rows to a target size with no partition semantics, so a
+    // stolen unit merges into the thief's accumulator and flushes downstream correctly.
+    bool is_stealable() const override { return true; }
+
     OperatorPtr create(int32_t degree_of_parallelism, int32_t driver_sequence) override {
         return std::make_shared<ChunkAccumulateOperator>(this, _id, _plan_node_id, driver_sequence);
     }

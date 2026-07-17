@@ -87,6 +87,10 @@ public:
 
     ~ProjectOperatorFactory() override = default;
 
+    // Work-stealing: projection is stateless and partition-agnostic, so a stolen unit
+    // can be evaluated on any driver without affecting correctness.
+    bool is_stealable() const override { return true; }
+
     OperatorPtr create(int32_t degree_of_parallelism, int32_t driver_sequence) override {
         return std::make_shared<ProjectOperator>(this, _id, _plan_node_id, driver_sequence, _column_ids, _expr_ctxs,
                                                  _type_is_nullable, _common_sub_column_ids, _common_sub_expr_ctxs);
