@@ -394,4 +394,96 @@ TEST_F(LocalExchangeMemoryTest, send_after_all_sources_finished_refunds_immediat
     EXPECT_EQ(0, _memory_manager->get_memory_usage());
 }
 
+// ===== work-stealing (see PIPELINE_WORK_STEALING_PLAN.md) =====
+
+// A passthrough local exchange is stealable and its sources opt into stealing.
+TEST_F(LocalExchangeMemoryTest, steal_support_predicate) {
+    EXPECT_TRUE(_source_op_factory->is_stealable());
+    EXPECT_TRUE(_source(0)->support_steal());
+    EXPECT_EQ(0u, _source(0)->stealable_backlog()); // nothing buffered yet
+}
+
+// try_steal_unit detaches exactly one whole, partition-free chunk from the victim and
+// refunds its memory on the victim side; accept_stolen_unit hands it to a sibling, which
+// then emits it via has_output()/pull_chunk(). The stolen chunk bypasses the shared
+// ChunkBufferMemoryManager (already refunded), so manager usage tracks only the victim's
+// remaining buffer.
+TEST_F(LocalExchangeMemoryTest, steal_transfers_one_chunk_between_siblings) {
+    auto c0 = _make_int_chunk(100);
+    auto c1 = _make_int_chunk(100);
+    const size_t mem = c0->memory_usage();
+    _source(0)->add_chunk(c0);
+    _source(0)->add_chunk(c1);
+    EXPECT_EQ(2u, _source(0)->stealable_backlog());
+    EXPECT_EQ(2 * mem, _memory_manager->get_memory_usage());
+
+    auto unit_or = _source(0)->try_steal_unit();
+    ASSERT_OK(unit_or);
+    StealUnit unit = std::move(unit_or.value());
+    ASSERT_TRUE(unit.valid());
+    EXPECT_TRUE(unit.chunk != nullptr);
+    EXPECT_EQ(-1, unit.partition_id);
+    EXPECT_EQ(1u, _source(0)->stealable_backlog());
+    EXPECT_EQ(mem, _memory_manager->get_memory_usage()); // one chunk refunded on the victim side
+
+    EXPECT_FALSE(_source(1)->has_output());
+    ASSERT_OK(_source(1)->accept_stolen_unit(std::move(unit)));
+    EXPECT_TRUE(_source(1)->has_output());
+
+    auto pulled = _source(1)->pull_chunk(_runtime_state.get());
+    ASSERT_OK(pulled);
+    ASSERT_TRUE(pulled.value() != nullptr);
+    EXPECT_EQ(100, pulled.value()->num_rows());
+    EXPECT_EQ(mem, _memory_manager->get_memory_usage()); // stolen chunk never re-accounted
+    EXPECT_FALSE(_source(1)->has_output());
+}
+
+// Stealing from an empty (or drained) source yields an invalid unit, never a crash.
+TEST_F(LocalExchangeMemoryTest, steal_from_empty_is_invalid) {
+    auto unit_or = _source(0)->try_steal_unit();
+    ASSERT_OK(unit_or);
+    EXPECT_FALSE(unit_or.value().valid());
+}
+
+// A thief holds at most one stolen chunk; a second accept before draining is refused
+// rather than silently dropping the pending chunk.
+TEST_F(LocalExchangeMemoryTest, steal_second_accept_refused_while_pending) {
+    _source(0)->add_chunk(_make_int_chunk(10));
+    _source(0)->add_chunk(_make_int_chunk(10));
+    auto u1 = _source(0)->try_steal_unit();
+    ASSERT_OK(u1);
+    auto u2 = _source(0)->try_steal_unit();
+    ASSERT_OK(u2);
+    ASSERT_OK(_source(1)->accept_stolen_unit(std::move(u1.value())));
+    EXPECT_FALSE(_source(1)->accept_stolen_unit(std::move(u2.value())).ok());
+}
+
+// End-to-end row conservation: chunks buffered on one source, one stolen by a sibling,
+// draining both yields exactly the original row count -- no loss, no duplication.
+TEST_F(LocalExchangeMemoryTest, steal_conserves_rows) {
+    size_t total_added = 0;
+    for (size_t r : {30u, 40u, 50u}) {
+        _source(0)->add_chunk(_make_int_chunk(r));
+        total_added += r;
+    }
+
+    auto unit_or = _source(0)->try_steal_unit();
+    ASSERT_OK(unit_or);
+    ASSERT_TRUE(unit_or.value().valid());
+    ASSERT_OK(_source(1)->accept_stolen_unit(std::move(unit_or.value())));
+
+    size_t total_pulled = 0;
+    for (int s : {0, 1}) {
+        while (_source(s)->has_output()) {
+            auto pulled = _source(s)->pull_chunk(_runtime_state.get());
+            ASSERT_OK(pulled);
+            if (pulled.value() != nullptr) {
+                total_pulled += pulled.value()->num_rows();
+            }
+        }
+    }
+    EXPECT_EQ(total_added, total_pulled);
+    EXPECT_EQ(0, _memory_manager->get_memory_usage());
+}
+
 } // namespace starrocks::pipeline
