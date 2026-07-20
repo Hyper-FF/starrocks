@@ -41,6 +41,15 @@ public:
 
     StatusOr<ChunkPtr> pull_chunk(RuntimeState* state) override;
 
+    // ===== work-stealing: partition-aware (see PIPELINE_WORK_STEALING_PLAN.md) =====
+    // For a pipeline-level hash shuffle, receiver queue `driver_sequence` holds exactly
+    // partition driver_sequence's rows, so a whole received chunk can be handed to an idle
+    // sibling and probed against that partition's peer build table. The receiver queue is a
+    // lock-free MPMC queue, so a concurrent steal pop is safe.
+    bool support_steal() const override;
+    size_t stealable_backlog() const override;
+    StatusOr<StealUnit> try_steal_unit() override;
+
     std::string get_name() const override;
 
 private:
@@ -73,6 +82,11 @@ public:
 
     bool could_local_shuffle() const override;
     TPartitionType::type partition_type() const override;
+
+    // Work-stealing: true iff the sender did a pipeline-level HASH_PARTITIONED shuffle, so each
+    // receiver queue is partition-pure (queue i == partition i == driver_sequence i) and a
+    // stolen chunk can be tagged with its partition for a partition-aware probe.
+    bool is_pipeline_level_hash_shuffle() const;
 
     std::shared_ptr<DataStreamRecvr> create_stream_recvr(RuntimeState* state);
     void close_stream_recvr();

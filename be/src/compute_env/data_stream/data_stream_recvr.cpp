@@ -321,6 +321,21 @@ Status DataStreamRecvr::get_chunk_for_pipeline(ChunkUniquePtr* chunk, const int3
     return status;
 }
 
+Status DataStreamRecvr::steal_chunk_for_pipeline(ChunkUniquePtr* chunk, const int32_t driver_sequence) {
+    DCHECK(!_is_merging);
+    DCHECK_EQ(_sender_queues.size(), 1);
+    Chunk* tmp_chunk = nullptr;
+    Status status = static_cast<PipelineSenderQueue*>(_sender_queues[0])->steal_chunk(&tmp_chunk, driver_sequence);
+    chunk->reset(tmp_chunk);
+    return status;
+}
+
+size_t DataStreamRecvr::buffered_chunks_for_pipeline(const int32_t driver_sequence) const {
+    DCHECK(!_is_merging);
+    DCHECK_EQ(_sender_queues.size(), 1);
+    return static_cast<PipelineSenderQueue*>(_sender_queues[0])->buffered_chunks(driver_sequence);
+}
+
 void DataStreamRecvr::short_circuit_for_pipeline(const int32_t driver_sequence) {
     auto notify = this->defer_notify();
     DCHECK(_is_pipeline);

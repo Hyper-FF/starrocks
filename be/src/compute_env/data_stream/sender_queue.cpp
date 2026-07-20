@@ -486,6 +486,60 @@ Status DataStreamRecvr::PipelineSenderQueue::get_chunk(Chunk** chunk, const int3
     return Status::OK();
 }
 
+size_t DataStreamRecvr::PipelineSenderQueue::buffered_chunks(const int32_t driver_sequence) const {
+    const size_t index = _is_pipeline_level_shuffle ? driver_sequence : 0;
+    return _chunk_queues[index].size_approx();
+}
+
+Status DataStreamRecvr::PipelineSenderQueue::steal_chunk(Chunk** chunk, const int32_t driver_sequence) {
+    if (_is_cancelled) {
+        return Status::Cancelled("Cancelled SenderQueueForPipeline::steal_chunk");
+    }
+    const size_t index = _is_pipeline_level_shuffle ? driver_sequence : 0;
+    auto& chunk_queue = _chunk_queues[index];
+    auto& chunk_queue_state = _chunk_queue_states[index];
+    auto& metrics = _recvr->_metrics[driver_sequence];
+
+    ChunkItem item;
+    if (!chunk_queue.try_dequeue(item)) {
+        // A steal MUST NOT write chunk_queue_state.unpluging here. Unlike get_chunk (called only
+        // by the queue's owning consumer driver), steal runs on a foreign thief driver
+        // concurrently with the owner; a racy write to the non-atomic unpluging flag can make
+        // the owner's has_output() spuriously return false and strand buffered chunks.
+        return Status::OK();
+    }
+    // Everything below is concurrency-safe against the owner: the closure is per-item;
+    // blocked_closure_num / _total_chunks / _num_buffered_bytes are atomic; _deserialize_chunk
+    // is reentrant (shared read-only _chunk_meta, per-call scratch, atomic per-sequence metrics).
+    DeferOp defer_op([&]() {
+        auto* closure = item.closure;
+        if (closure != nullptr) {
+#ifndef BE_TEST
+            MemTracker* prev_tracker =
+                    tls_thread_status.set_mem_tracker(RuntimeEnv::GetInstance()->process_mem_tracker());
+            DeferOp op([&] { tls_thread_status.set_mem_tracker(prev_tracker); });
+#endif
+            COUNTER_UPDATE(metrics.closure_block_timer, MonotonicNanos() - item.queue_enter_time);
+            closure->Run();
+            chunk_queue_state.blocked_closure_num--;
+        }
+    });
+
+    if (item.chunk_ptr == nullptr) {
+        ChunkUniquePtr chunk_ptr = std::make_unique<Chunk>();
+        faststring uncompressed_buffer;
+        RETURN_IF_ERROR(_deserialize_chunk(item.pchunk, chunk_ptr.get(), metrics, &uncompressed_buffer));
+        *chunk = chunk_ptr.release();
+    } else {
+        *chunk = item.chunk_ptr.release();
+    }
+
+    _total_chunks--;
+    _recvr->_num_buffered_bytes -= item.chunk_bytes;
+    COUNTER_ADD(metrics.peak_buffer_mem_bytes, -item.chunk_bytes);
+    return Status::OK();
+}
+
 bool DataStreamRecvr::PipelineSenderQueue::has_chunk() {
     if (_is_cancelled) {
         return true;

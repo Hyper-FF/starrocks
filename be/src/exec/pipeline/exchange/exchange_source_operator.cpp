@@ -63,6 +63,35 @@ StatusOr<ChunkPtr> ExchangeSourceOperator::pull_chunk(RuntimeState* state) {
     return std::move(chunk);
 }
 
+// ===== work-stealing (see PIPELINE_WORK_STEALING_PLAN.md) =====
+
+bool ExchangeSourceOperator::support_steal() const {
+    return static_cast<ExchangeSourceOperatorFactory*>(_factory)->is_pipeline_level_hash_shuffle();
+}
+
+size_t ExchangeSourceOperator::stealable_backlog() const {
+    // Approximate buffered chunk count, read WITHOUT touching the owner-only unplug flag (using
+    // has_output_for_pipeline here would race the owning driver's has_output() state machine).
+    return _stream_recvr->buffered_chunks_for_pipeline(_driver_sequence);
+}
+
+StatusOr<StealUnit> ExchangeSourceOperator::try_steal_unit() {
+    // Pop one received chunk from this receiver's own partition queue via the steal path, which
+    // is lock-free (MPMC), runs the sender closure, updates the buffered atomics, and deserializes
+    // an undeserialized item, but does NOT mutate the owner-only unplug flag -- so a concurrent
+    // thief pop is safe against the owning driver. Tag the chunk with this receiver's partition
+    // id (== driver_sequence) for a partition-aware probe.
+    auto chunk = std::make_unique<Chunk>();
+    RETURN_IF_ERROR(_stream_recvr->steal_chunk_for_pipeline(&chunk, _driver_sequence));
+    if (chunk == nullptr || chunk->is_empty()) {
+        return StealUnit{};
+    }
+    StealUnit unit;
+    unit.chunk = std::move(chunk);
+    unit.partition_id = _driver_sequence;
+    return unit;
+}
+
 std::string ExchangeSourceOperator::get_name() const {
     std::string finished = is_finished() ? "X" : "O";
     return fmt::format("{}_{}_{}({}) {{ has_output:{}}}", _name, _plan_node_id, (void*)this, finished, has_output());
@@ -123,6 +152,15 @@ TPartitionType::type ExchangeSourceOperatorFactory::partition_type() const {
         return SourceOperatorFactory::partition_type();
     }
     return _texchange_node.partition_type;
+}
+
+bool ExchangeSourceOperatorFactory::is_pipeline_level_hash_shuffle() const {
+    // Only a pipeline-level HASH_PARTITIONED shuffle gives partition-pure per-driver receiver
+    // queues (queue i == partition i). Without pipeline-level shuffle a local re-shuffle is
+    // inserted at the receiver, so queue i is not partition-pure; exclude that (and bucket
+    // shuffle) from partition-aware stealing for now.
+    return _enable_pipeline_level_shuffle && _texchange_node.__isset.partition_type &&
+           _texchange_node.partition_type == TPartitionType::HASH_PARTITIONED;
 }
 
 } // namespace starrocks::pipeline

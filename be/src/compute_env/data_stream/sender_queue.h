@@ -174,6 +174,14 @@ public:
 
     bool has_output(const int32_t driver_sequence);
 
+    // Work-stealing: pop one chunk from another driver_sequence's queue for an idle sibling.
+    // Same lock-free MPMC pop as get_chunk() but MUST NOT touch chunk_queue_state.unpluging
+    // (owner-only batching flag), since a concurrent thief write would race the owning driver's
+    // has_output() state machine. See steal_chunk() impl.
+    Status steal_chunk(Chunk** chunk, const int32_t driver_sequence);
+    // Approximate buffered chunk count for driver_sequence, without touching unpluging.
+    size_t buffered_chunks(const int32_t driver_sequence) const;
+
     bool is_finished() const;
 
 private:

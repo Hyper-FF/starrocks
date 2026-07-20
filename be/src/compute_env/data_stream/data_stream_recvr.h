@@ -131,6 +131,12 @@ public:
 
     bool has_output_for_pipeline(const int32_t driver_sequence) const;
 
+    // Work-stealing: pop one chunk from `driver_sequence`'s queue for an idle sibling, and query
+    // its buffered chunk count -- both without mutating the owner-only unplug flag. Only valid
+    // for the non-merging pipeline shuffle receiver.
+    Status steal_chunk_for_pipeline(ChunkUniquePtr* chunk, const int32_t driver_sequence);
+    size_t buffered_chunks_for_pipeline(const int32_t driver_sequence) const;
+
     bool is_finished() const;
 
     bool is_data_ready();
