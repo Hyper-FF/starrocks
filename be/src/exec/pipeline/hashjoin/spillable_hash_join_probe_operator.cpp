@@ -603,7 +603,7 @@ OperatorPtr SpillableHashJoinProbeOperatorFactory::create(int32_t degree_of_para
     auto prober = std::make_shared<SpillableHashJoinProbeOperator>(
             this, _id, "spillable_hash_join_probe", _plan_node_id, driver_sequence,
             _hash_joiner_factory->create_prober(degree_of_parallelism, driver_sequence),
-            _hash_joiner_factory->get_builder(degree_of_parallelism, driver_sequence));
+            _hash_joiner_factory->get_builder(degree_of_parallelism, driver_sequence), _hash_joiner_factory);
 
     prober->set_probe_spiller(spiller);
     prober->set_degree_of_parallelism(degree_of_parallelism);

@@ -23,12 +23,22 @@ namespace starrocks::pipeline {
 
 HashJoinProbeOperator::HashJoinProbeOperator(OperatorFactory* factory, int32_t id, const string& name,
                                              int32_t plan_node_id, int32_t driver_sequence, HashJoinerPtr join_prober,
-                                             HashJoinerPtr join_builder)
+                                             HashJoinerPtr join_builder, HashJoinerFactoryPtr hash_joiner_factory)
         : OperatorWithDependency(factory, id, name, plan_node_id, false, driver_sequence),
           _join_prober(std::move(join_prober)),
-          _join_builder(std::move(join_builder)) {}
+          _join_builder(std::move(join_builder)),
+          _hash_joiner_factory(std::move(hash_joiner_factory)) {}
 
 void HashJoinProbeOperator::close(RuntimeState* state) {
+    // Work-stealing: close the read-only peer probers created for stolen partitions. Each holds
+    // a clone_readable table (shared items via shared_ptr), so closing just drops this driver's
+    // clone; the owning partition's build table is unaffected.
+    for (auto& [partition_id, peer_prober] : _peer_probers) {
+        peer_prober->close(state);
+    }
+    _peer_probers.clear();
+    _stolen_output.clear();
+
     if (_join_prober != _join_builder) {
         _join_prober->unref(state);
     }
@@ -54,7 +64,8 @@ Status HashJoinProbeOperator::prepare(RuntimeState* state) {
 }
 
 bool HashJoinProbeOperator::has_output() const {
-    return _join_prober->has_output();
+    // Work-stealing: join output produced from stolen chunks is emitted first.
+    return !_stolen_output.empty() || _join_prober->has_output();
 }
 
 bool HashJoinProbeOperator::need_input() const {
@@ -70,6 +81,10 @@ bool HashJoinProbeOperator::need_input() const {
 }
 
 bool HashJoinProbeOperator::is_finished() const {
+    // Not finished while stolen join output is still pending emit.
+    if (!_stolen_output.empty()) {
+        return false;
+    }
     return _join_prober->is_done() || _join_builder->is_done();
 }
 
@@ -84,6 +99,12 @@ Status HashJoinProbeOperator::push_chunk(RuntimeState* state, const ChunkPtr& ch
 }
 
 StatusOr<ChunkPtr> HashJoinProbeOperator::pull_chunk(RuntimeState* state) {
+    // Work-stealing: drain join output produced from stolen chunks first.
+    if (!_stolen_output.empty()) {
+        ChunkPtr chunk = std::move(_stolen_output.front());
+        _stolen_output.pop_front();
+        return chunk;
+    }
     RETURN_IF_ERROR(_reference_builder_hash_table_once());
     return _join_prober->pull_chunk(state);
 }
@@ -114,6 +135,57 @@ Status HashJoinProbeOperator::_reference_builder_hash_table_once() {
     TRY_CATCH_ALLOC_SCOPE_START()
     _join_prober->reference_hash_table(_join_builder.get());
     TRY_CATCH_ALLOC_SCOPE_END()
+    return Status::OK();
+}
+
+// ===== work-stealing: partition-aware probe (see PIPELINE_WORK_STEALING_PLAN.md) =====
+
+bool HashJoinProbeOperator::accepts_stolen_input() const {
+    // Only a hash-PARTITIONED join whose type never mutates the build side during probe
+    // (INNER / LEFT_*) can look up a foreign-partition chunk against a peer read-only table.
+    return _join_prober->distribution_mode() == TJoinDistributionMode::PARTITIONED &&
+           !has_post_probe(_join_prober->join_type());
+}
+
+StatusOr<HashJoiner*> HashJoinProbeOperator::_peer_prober(RuntimeState* state, int32_t partition_id) {
+    if (auto it = _peer_probers.find(partition_id); it != _peer_probers.end()) {
+        return it->second.get();
+    }
+    if (_hash_joiner_factory == nullptr) {
+        return nullptr;
+    }
+    HashJoinerPtr peer_builder = _hash_joiner_factory->builder_for_partition(partition_id);
+    if (peer_builder == nullptr || !peer_builder->is_build_done()) {
+        return nullptr;
+    }
+    // A fresh joiner whose prober references (clone_readable) the peer partition's build table.
+    // The clone shares the peer's hash-table items via shared_ptr, so it stays alive
+    // independently of the peer driver's own prober; it owns a private probe state, so
+    // concurrent probing of the same read-only table is safe.
+    auto peer_prober = std::make_shared<HashJoiner>(_hash_joiner_factory->hash_join_param());
+    RETURN_IF_ERROR(peer_prober->prepare_prober(state, _unique_metrics.get()));
+    TRY_CATCH_ALLOC_SCOPE_START()
+    peer_prober->reference_hash_table(peer_builder.get());
+    TRY_CATCH_ALLOC_SCOPE_END()
+    auto* raw = peer_prober.get();
+    _peer_probers.emplace(partition_id, std::move(peer_prober));
+    return raw;
+}
+
+Status HashJoinProbeOperator::push_stolen_chunk(RuntimeState* state, const ChunkPtr& chunk, int32_t partition_id) {
+    ASSIGN_OR_RETURN(HashJoiner* peer_prober, _peer_prober(state, partition_id));
+    if (peer_prober == nullptr) {
+        return Status::InternalError("partition-aware steal: peer build table unavailable");
+    }
+    // One-shot probe of the stolen chunk against the peer partition's read-only table; drain all
+    // its join output into the stolen-output buffer. INNER / LEFT_* need no post-probe pass.
+    RETURN_IF_ERROR(peer_prober->push_chunk(state, ChunkPtr(chunk)));
+    while (peer_prober->has_output()) {
+        ASSIGN_OR_RETURN(ChunkPtr out, peer_prober->pull_chunk(state));
+        if (out != nullptr && !out->is_empty()) {
+            _stolen_output.emplace_back(std::move(out));
+        }
+    }
     return Status::OK();
 }
 
@@ -158,7 +230,8 @@ void HashJoinProbeOperatorFactory::close(RuntimeState* state) {
 OperatorPtr HashJoinProbeOperatorFactory::create(int32_t dop, int32_t driver_sequence) {
     return std::make_shared<HashJoinProbeOperator>(this, _id, _name, _plan_node_id, driver_sequence,
                                                    _hash_joiner_factory->create_prober(dop, driver_sequence),
-                                                   _hash_joiner_factory->get_builder(dop, driver_sequence));
+                                                   _hash_joiner_factory->get_builder(dop, driver_sequence),
+                                                   _hash_joiner_factory);
 }
 
 } // namespace starrocks::pipeline

@@ -79,6 +79,10 @@ public:
 
     StatusOr<ChunkPtr> pull_chunk(RuntimeState* state) override;
 
+    // Work-stealing: the spill path overrides has_output/pull_chunk and does not drain the
+    // base stolen-output buffer, so partition-aware steal is disabled for spillable probes (v1).
+    bool accepts_stolen_input() const override { return false; }
+
     void set_probe_spiller(std::shared_ptr<spill::Spiller> spiller) { _probe_spiller = std::move(spiller); }
 
     void set_degree_of_parallelism(int32_t degree_of_parallelism) { _degree_of_parallelism = degree_of_parallelism; }
