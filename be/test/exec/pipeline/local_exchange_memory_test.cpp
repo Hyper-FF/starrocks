@@ -486,4 +486,33 @@ TEST_F(LocalExchangeMemoryTest, steal_conserves_rows) {
     EXPECT_EQ(0, _memory_manager->get_memory_usage());
 }
 
+// Partition (hash shuffle) steal: try_steal_unit materializes one chunk's worth of the
+// victim partition's buffered slices into a fresh chunk tagged with the victim's partition id
+// (== driver_sequence), refunding the materialized slices' memory and leaving the tail behind.
+TEST_F(LocalExchangeMemoryTest, steal_shuffle_unit_materializes_and_tags) {
+    // Feed source(0) three 2000-row partition slices (6000 rows > chunk_size 4096).
+    const size_t slice_rows = 2000;
+    auto chunk = _make_int_chunk(slice_rows);
+    const size_t mem = chunk->memory_usage();
+    auto indexes = std::make_shared<std::vector<uint32_t>>(slice_rows);
+    std::iota(indexes->begin(), indexes->end(), 0);
+    for (int i = 0; i < 3; ++i) {
+        auto entry = std::make_shared<ChunkBufferMemoryEntry>(_memory_manager.get(), mem, slice_rows);
+        ASSERT_OK(_source(0)->add_chunk(chunk, indexes, 0, slice_rows, entry));
+    }
+    EXPECT_EQ(3 * mem, _memory_manager->get_memory_usage());
+    EXPECT_EQ(1u, _source(0)->stealable_backlog()); // 6000 rows / 4096 = 1 full stealable chunk
+
+    auto unit_or = _source(0)->try_steal_unit();
+    ASSERT_OK(unit_or);
+    StealUnit unit = std::move(unit_or.value());
+    ASSERT_TRUE(unit.valid());
+    ASSERT_TRUE(unit.chunk != nullptr);
+    EXPECT_EQ(0, unit.partition_id); // source(0) owns partition 0
+    // Two 2000-row slices fit under chunk_size (4096); the third would overflow, so it stays.
+    EXPECT_EQ(2 * slice_rows, unit.chunk->num_rows());
+    // The two materialized slices' memory entries were refunded; one slice remains buffered.
+    EXPECT_EQ(mem, _memory_manager->get_memory_usage());
+}
+
 } // namespace starrocks::pipeline

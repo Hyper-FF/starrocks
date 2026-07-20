@@ -109,6 +109,11 @@ private:
 
     ChunkPtr _pull_shuffle_chunk(RuntimeState* state);
 
+    // Work-stealing (partition-aware): materialize one chunk's worth of this partition's
+    // buffered shuffle slices into a fresh chunk, tagged with this source's driver_sequence
+    // as its partition id. Returns an invalid unit if no full chunk is available.
+    StatusOr<StealUnit> _try_steal_shuffle_unit();
+
     ChunkPtr _pull_key_partition_chunk(RuntimeState* state);
 
     int64_t _key_partition_max_rows() const;

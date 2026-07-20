@@ -294,30 +294,81 @@ bool LocalExchangeSourceOperator::support_steal() const {
 
 size_t LocalExchangeSourceOperator::stealable_backlog() const {
     std::lock_guard<std::mutex> l(_chunk_lock);
-    return _full_chunk_queue.size();
+    if (!_full_chunk_queue.empty()) {
+        return _full_chunk_queue.size(); // passthrough: whole chunks
+    }
+    // partition (hash shuffle): number of full chunks that can be materialized out of the
+    // buffered per-partition rows.
+    const size_t chunk_size = _factory->runtime_state()->chunk_size();
+    return chunk_size > 0 ? _partition_rows_num / chunk_size : 0;
 }
 
 StatusOr<StealUnit> LocalExchangeSourceOperator::try_steal_unit() {
+    // Passthrough family: hand out one whole, partition-free chunk (partition_id == -1).
     PassthroughChunk popped;
     {
         std::lock_guard<std::mutex> l(_chunk_lock);
         // Re-check under the lock: the owning driver may have drained the queue since the
         // thief observed stealable_backlog(), and _pull_shuffle_chunk-style paths DCHECK
         // non-empty, so a stealer must never trust a stale has_output()/backlog reading.
-        if (_is_finished || _full_chunk_queue.empty()) {
+        if (_is_finished) {
             return StealUnit{};
         }
-        popped = std::move(_full_chunk_queue.front());
-        _full_chunk_queue.pop();
-        if (_steal_notified && _full_chunk_queue.size() < _steal_backlog_threshold()) {
-            _steal_notified = false;
+        if (!_full_chunk_queue.empty()) {
+            popped = std::move(_full_chunk_queue.front());
+            _full_chunk_queue.pop();
+            if (_steal_notified && _full_chunk_queue.size() < _steal_backlog_threshold()) {
+                _steal_notified = false;
+            }
         }
     }
-    // popped.memory_entry destructs here, refunding the shared manager (the chunk left this
-    // buffer); the thief carries only the raw chunk, consumed immediately on its own driver.
+    if (popped.chunk != nullptr) {
+        // popped.memory_entry destructs here, refunding the shared manager (the chunk left this
+        // buffer); the thief carries only the raw chunk, consumed immediately on its own driver.
+        StealUnit unit;
+        unit.chunk = std::move(popped.chunk);
+        unit.partition_id = -1;
+        return unit;
+    }
+    // Partition (hash shuffle) family: materialize one chunk of this partition's rows.
+    return _try_steal_shuffle_unit();
+}
+
+StatusOr<StealUnit> LocalExchangeSourceOperator::_try_steal_shuffle_unit() {
+    std::vector<PartitionChunk> selected;
+    size_t num_rows = 0;
+    const size_t chunk_size = _factory->runtime_state()->chunk_size();
+    {
+        std::lock_guard<std::mutex> l(_chunk_lock);
+        // Only steal a full chunk; leave the tail for the owner to drain.
+        if (_is_finished || _partition_rows_num < chunk_size) {
+            return StealUnit{};
+        }
+        while (!_partition_chunk_queue.empty() &&
+               num_rows + _partition_chunk_queue.front().size <= chunk_size) {
+            num_rows += _partition_chunk_queue.front().size;
+            selected.emplace_back(std::move(_partition_chunk_queue.front()));
+            _partition_chunk_queue.pop();
+        }
+        _partition_rows_num -= num_rows;
+    }
+    if (selected.empty()) {
+        return StealUnit{};
+    }
+    // Merge the sliced shards into a fresh chunk outside the lock (mirrors _pull_shuffle_chunk);
+    // each shard's shared memory entry refunds the manager as it drops at scope end. The thief
+    // carries a brand-new materialized chunk, so there is no shared-buffer entanglement.
+    ChunkPtr chunk = selected[0].chunk->clone_empty_with_slot();
+    chunk->reserve(num_rows);
+    for (const auto& partition_chunk : selected) {
+        chunk->append_selective(*partition_chunk.chunk, partition_chunk.indexes->data(), partition_chunk.from,
+                                partition_chunk.size);
+    }
     StealUnit unit;
-    unit.chunk = std::move(popped.chunk);
-    unit.partition_id = -1; // passthrough family: no partition semantics
+    unit.chunk = std::move(chunk);
+    // A partition source's rows all belong to its own partition == driver_sequence; tag the unit
+    // so a partition-aware probe looks it up against the matching peer build table.
+    unit.partition_id = get_driver_sequence();
     return unit;
 }
 
