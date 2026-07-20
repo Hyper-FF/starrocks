@@ -143,6 +143,16 @@ public:
     // Push chunk to this operator
     virtual Status push_chunk(RuntimeState* state, const ChunkPtr& chunk) = 0;
 
+    // ===== work-stealing: partition-aware stolen input (see PIPELINE_WORK_STEALING_PLAN.md) =====
+    // A thief driver that steals a partition-tagged work unit routes it directly to the operator
+    // that can process a foreign partition (the partition-aware hash-join probe), rather than
+    // through this pipeline's own source. accepts_stolen_input() identifies that operator;
+    // push_stolen_chunk() feeds it a chunk belonging to partition `partition_id`. Default: no.
+    virtual bool accepts_stolen_input() const { return false; }
+    virtual Status push_stolen_chunk(RuntimeState* state, const ChunkPtr& chunk, int32_t partition_id) {
+        return Status::NotSupported("operator does not accept stolen input");
+    }
+
     // reset_state is used by MultilaneOperator in cache mechanism, because lanes in MultilaneOperator are
     // re-used by tablets, before the lane serves for the current tablet, it must invoke reset_state to re-prepare
     // the operators (such as: Project, ChunkAccumulate, DictDecode, Aggregate) that is decorated by MultilaneOperator

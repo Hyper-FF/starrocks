@@ -126,6 +126,14 @@ public:
     // parking. No-op (returns false) while steal_enabled() is false.
     bool try_steal_from_siblings();
 
+private:
+    // The operator in this driver that can process a foreign-partition stolen unit (the
+    // partition-aware hash-join probe), or nullptr for a partition-free pipeline. Cached scan
+    // of _operators; a partition-tagged stolen unit is routed here via push_stolen_chunk.
+    Operator* _stolen_input_operator();
+
+public:
+
     Status prepare_local_state(RuntimeState* runtime_state);
 
     void increment_schedule_times();
@@ -544,6 +552,9 @@ protected:
     RuntimeProfile::Counter* _stolen_rows_counter = nullptr;
     // throttles steal attempts to once per process() invocation
     bool _steal_attempted_this_round = false;
+    // cached partition-aware stolen-input operator (see _stolen_input_operator())
+    Operator* _stolen_input_op = nullptr;
+    bool _stolen_input_op_searched = false;
 
     RuntimeProfile::Counter* _pending_timer = nullptr;
     RuntimeProfile::Counter* _precondition_block_timer = nullptr;

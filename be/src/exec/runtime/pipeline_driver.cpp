@@ -645,7 +645,24 @@ bool PipelineDriver::try_steal_from_siblings() {
         }
         StealUnit unit = std::move(unit_or.value());
         const size_t rows = unit.chunk != nullptr ? unit.chunk->num_rows() : 0;
-        if (Status st = me_src->accept_stolen_unit(std::move(unit)); !st.ok()) {
+        Status st;
+        if (unit.partition_id < 0) {
+            // Partition-free: hand the whole chunk to this driver's own source, which emits it
+            // on the normal has_output()/pull_chunk() path.
+            st = me_src->accept_stolen_unit(std::move(unit));
+        } else {
+            // Partition-aware: the unit belongs to partition `partition_id`; route it directly
+            // to this pipeline's partition-aware probe, which looks it up against the matching
+            // peer build table. The thief shares the victim's operator chain, so the acceptor
+            // exists; if not, the unit has already left the victim and cannot be placed safely.
+            Operator* acceptor = _stolen_input_operator();
+            if (acceptor == nullptr) {
+                COUNTER_UPDATE(_steal_fail_counter, 1);
+                continue;
+            }
+            st = acceptor->push_stolen_chunk(_runtime_state, unit.chunk, unit.partition_id);
+        }
+        if (!st.ok()) {
             COUNTER_UPDATE(_steal_fail_counter, 1);
             continue;
         }
@@ -657,6 +674,19 @@ bool PipelineDriver::try_steal_from_siblings() {
     }
     COUNTER_UPDATE(_steal_fail_counter, 1);
     return false;
+}
+
+Operator* PipelineDriver::_stolen_input_operator() {
+    if (!_stolen_input_op_searched) {
+        _stolen_input_op_searched = true;
+        for (auto& op : _operators) {
+            if (op->accepts_stolen_input()) {
+                _stolen_input_op = op.get();
+                break;
+            }
+        }
+    }
+    return _stolen_input_op;
 }
 
 Status PipelineDriver::check_short_circuit() {
