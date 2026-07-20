@@ -132,6 +132,12 @@ public:
     // operator chain. True for the passthrough family; false for hash/key/ordered/broadcast.
     virtual bool source_partition_free() const { return false; }
 
+    // Work-stealing (partition-aware): true when this is a hash-partition-by-key exchanger
+    // where source i holds exactly partition i's rows, so a stolen unit tagged with partition i
+    // can be probed against peer partition i's read-only build table. True only for hash
+    // PartitionExchanger; false for bucket/ordered/key/broadcast/passthrough.
+    virtual bool is_hash_partitioned() const { return false; }
+
     virtual Status accept(const ChunkPtr& chunk, int32_t sink_driver_sequence) = 0;
 
     virtual void finish(RuntimeState* state) {
@@ -191,6 +197,10 @@ public:
                        std::vector<ExprContext*> _partition_expr_ctxs, std::vector<TBucketProperty> bucket_properties);
 
     ~PartitionExchanger() override = default;
+
+    // Only plain hash partitioning maps source i <-> partition i one-to-one; bucket-shuffle
+    // carries extra bucket semantics and is excluded from partition-aware stealing (v1).
+    bool is_hash_partitioned() const override { return _part_type == TPartitionType::HASH_PARTITIONED; }
 
     Status prepare(RuntimeState* state) override;
     void close(RuntimeState* state) override;

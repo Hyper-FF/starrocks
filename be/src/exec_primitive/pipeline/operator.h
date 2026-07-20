@@ -152,6 +152,11 @@ public:
     virtual Status push_stolen_chunk(RuntimeState* state, const ChunkPtr& chunk, int32_t partition_id) {
         return Status::NotSupported("operator does not accept stolen input");
     }
+    // Whether an accepts_stolen_input() operator is ready to receive a stolen foreign-partition
+    // unit right now. For the hash-join probe this means every partition's build has completed,
+    // so a peer partition's build table is present and read-only. Checked before a thief removes
+    // a unit from a victim, so it never strands a stolen chunk it cannot place.
+    virtual bool steal_input_ready() const { return false; }
 
     // reset_state is used by MultilaneOperator in cache mechanism, because lanes in MultilaneOperator are
     // re-used by tablets, before the lane serves for the current tablet, it must invoke reset_state to re-prepare

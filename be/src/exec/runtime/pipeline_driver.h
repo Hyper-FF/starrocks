@@ -130,7 +130,7 @@ private:
     // The operator in this driver that can process a foreign-partition stolen unit (the
     // partition-aware hash-join probe), or nullptr for a partition-free pipeline. Cached scan
     // of _operators; a partition-tagged stolen unit is routed here via push_stolen_chunk.
-    Operator* _stolen_input_operator();
+    Operator* _stolen_input_operator() const;
 
 public:
 
@@ -553,8 +553,8 @@ protected:
     // throttles steal attempts to once per process() invocation
     bool _steal_attempted_this_round = false;
     // cached partition-aware stolen-input operator (see _stolen_input_operator())
-    Operator* _stolen_input_op = nullptr;
-    bool _stolen_input_op_searched = false;
+    mutable Operator* _stolen_input_op = nullptr;
+    mutable bool _stolen_input_op_searched = false;
 
     RuntimeProfile::Counter* _pending_timer = nullptr;
     RuntimeProfile::Counter* _precondition_block_timer = nullptr;

@@ -289,7 +289,13 @@ size_t LocalExchangeSourceOperator::_steal_backlog_threshold() const {
 }
 
 bool LocalExchangeSourceOperator::support_steal() const {
-    return down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->is_stealable();
+    // A source can hand out a stealable unit when it is either partition-free (passthrough:
+    // try_steal_unit yields a whole chunk tagged partition_id == -1) or hash-partitioned
+    // (shuffle: yields a materialized chunk tagged with this source's partition == driver_seq,
+    // consumed by a partition-aware probe). Note this is decoupled from the factory's
+    // is_stealable() (which drives only the partition-free barrier).
+    auto* exchanger = down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
+    return exchanger != nullptr && (exchanger->source_partition_free() || exchanger->is_hash_partitioned());
 }
 
 size_t LocalExchangeSourceOperator::stealable_backlog() const {

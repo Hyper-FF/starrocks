@@ -600,11 +600,18 @@ bool PipelineDriver::steal_enabled() const {
     if (_state == DriverState::PRECONDITION_BLOCK) {
         return false;
     }
-    // Partition-free steal path: require the whole pipeline to be stealable so a stolen
-    // (partition-agnostic) unit can flow to the sink correctly. Relaxed once partition-aware
-    // consumers exist.
     const auto* pipeline = down_cast<const Pipeline*>(_driver_observer);
-    return pipeline != nullptr && pipeline->fully_stealable();
+    if (pipeline == nullptr) {
+        return false;
+    }
+    // Partition-free mode: the whole pipeline is stealable, so a stolen partition-agnostic unit
+    // (partition_id == -1) can flow all the way to the sink correctly.
+    if (pipeline->fully_stealable()) {
+        return true;
+    }
+    // Partition-aware mode: a partition-aware probe consumes stolen foreign-partition units
+    // directly (routed via push_stolen_chunk), so the barrier need not cover the whole chain.
+    return _stolen_input_operator() != nullptr;
 }
 
 bool PipelineDriver::try_steal_from_siblings() {
@@ -619,6 +626,15 @@ bool PipelineDriver::try_steal_from_siblings() {
     }
     auto* pipeline = down_cast<Pipeline*>(_driver_observer);
     if (pipeline == nullptr) {
+        return false;
+    }
+
+    // Partition-aware mode: this pipeline routes stolen foreign-partition units to `acceptor`
+    // (the partition-aware probe). Do not steal until every peer build is complete -- a peer
+    // partition's build table must exist and be read-only before we probe it. Checked here,
+    // before any unit leaves a victim, so a stolen chunk is never stranded.
+    Operator* acceptor = _stolen_input_operator();
+    if (acceptor != nullptr && !acceptor->steal_input_ready()) {
         return false;
     }
 
@@ -652,10 +668,9 @@ bool PipelineDriver::try_steal_from_siblings() {
             st = me_src->accept_stolen_unit(std::move(unit));
         } else {
             // Partition-aware: the unit belongs to partition `partition_id`; route it directly
-            // to this pipeline's partition-aware probe, which looks it up against the matching
-            // peer build table. The thief shares the victim's operator chain, so the acceptor
-            // exists; if not, the unit has already left the victim and cannot be placed safely.
-            Operator* acceptor = _stolen_input_operator();
+            // to this pipeline's partition-aware probe (checked ready above), which looks it up
+            // against the matching peer build table. The thief shares the victim's operator
+            // chain, so the acceptor exists; if not, the unit cannot be placed safely.
             if (acceptor == nullptr) {
                 COUNTER_UPDATE(_steal_fail_counter, 1);
                 continue;
@@ -676,7 +691,7 @@ bool PipelineDriver::try_steal_from_siblings() {
     return false;
 }
 
-Operator* PipelineDriver::_stolen_input_operator() {
+Operator* PipelineDriver::_stolen_input_operator() const {
     if (!_stolen_input_op_searched) {
         _stolen_input_op_searched = true;
         for (auto& op : _operators) {

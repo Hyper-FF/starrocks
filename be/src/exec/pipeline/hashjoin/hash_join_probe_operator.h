@@ -61,6 +61,11 @@ public:
     // mutate the build side during probe.
     bool accepts_stolen_input() const override;
     Status push_stolen_chunk(RuntimeState* state, const ChunkPtr& chunk, int32_t partition_id) override;
+    // Ready to accept a stolen foreign-partition chunk once every partition's build is complete,
+    // so any peer partition's build table is present and read-only.
+    bool steal_input_ready() const override {
+        return _hash_joiner_factory != nullptr && _hash_joiner_factory->all_builds_ready();
+    }
 
     Status reset_state(starrocks::RuntimeState* state, const std::vector<ChunkPtr>& refill_chunks) override;
     OperatorExecStatsSnapshot exec_stats_snapshot() const override;
