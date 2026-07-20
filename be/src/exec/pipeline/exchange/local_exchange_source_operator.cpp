@@ -130,15 +130,17 @@ Status LocalExchangeSourceOperator::set_finished(RuntimeState* state) {
 
 StatusOr<ChunkPtr> LocalExchangeSourceOperator::pull_chunk(RuntimeState* state) {
     // notify sink
-    auto* exchanger = down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
-    auto notify = exchanger->defer_notify_sink();
     {
         // Work-stealing: a chunk stolen from a sibling is emitted first and only once.
+        // Emit it before arming the sink notify: a stolen chunk did not free space in this
+        // source's own buffer, so it must not wake the sink.
         std::lock_guard<std::mutex> l(_chunk_lock);
         if (_stolen_chunk != nullptr) {
             return std::move(_stolen_chunk);
         }
     }
+    auto* exchanger = down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
+    auto notify = exchanger->defer_notify_sink();
     ChunkPtr chunk = _pull_passthrough_chunk(state);
     if (chunk == nullptr && _key_partition_pending_chunk_empty()) {
         chunk = _pull_shuffle_chunk(state);

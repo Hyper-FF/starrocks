@@ -15,6 +15,7 @@
 #pragma once
 
 #include <ctime>
+#include <mutex>
 #include <utility>
 
 #include "exec_primitive/pipeline/operator_factory.h"
@@ -104,24 +105,39 @@ public:
     Event* pipeline_event() const { return _pipeline_event.get(); }
 
     // ===== work-stealing (see PIPELINE_WORK_STEALING_PLAN.md) =====
-    // Compute the length of the pipeline's "stealable prefix": operator indexes
-    // [0, steal_barrier_idx) may process work units stolen from a sibling driver.
-    // The barrier is the index of the first non-stealable operator; 0 means the
-    // whole pipeline is unstealable. Depends only on the op-factory chain, so it
-    // is computed once at construction.
-    void compute_steal_barrier();
-    size_t steal_barrier_idx() const { return _steal_barrier_idx; }
+    // The pipeline's "stealable prefix": operator indexes [0, steal_barrier_idx) may
+    // process a work unit stolen from a sibling driver. The barrier is the index of the
+    // first non-stealable operator; 0 means the whole pipeline is unstealable.
+    //
+    // Computed lazily on first query (thread-safe via call_once) rather than in the ctor:
+    // an operator's is_stealable() can depend on wiring done AFTER the factory is built
+    // (e.g. LocalExchangeSourceOperatorFactory learns its exchanger via set_exchanger),
+    // so computing at construction time could read half-wired state. First query happens
+    // at runtime (from PipelineDriver::steal_enabled), well after all wiring is complete.
+    size_t steal_barrier_idx() const {
+        _ensure_steal_barrier();
+        return _steal_barrier_idx;
+    }
     // True when every operator in the pipeline is stealable, i.e. a foreign (or here
     // partition-free) work unit can flow all the way to the sink correctly. This is the
     // gate for the partition-free (partition_id == -1) steal path; partition-aware
     // consumers (a later phase) will relax it to a partial barrier.
-    bool fully_stealable() const { return _steal_barrier_idx > 0 && _steal_barrier_idx == _op_factories.size(); }
+    bool fully_stealable() const {
+        _ensure_steal_barrier();
+        return _steal_barrier_idx > 0 && _steal_barrier_idx == _op_factories.size();
+    }
 
 private:
+    void compute_steal_barrier() const;
+    void _ensure_steal_barrier() const {
+        std::call_once(_steal_barrier_once, [this]() { compute_steal_barrier(); });
+    }
+
     uint32_t _id = 0;
     std::shared_ptr<RuntimeProfile> _runtime_profile = nullptr;
     OpFactories _op_factories;
-    size_t _steal_barrier_idx = 0;
+    mutable size_t _steal_barrier_idx = 0;
+    mutable std::once_flag _steal_barrier_once;
     Drivers _drivers;
     std::atomic<size_t> _num_finished_drivers = 0;
 

@@ -24,10 +24,12 @@ namespace starrocks::pipeline {
 Pipeline::Pipeline(uint32_t id, OpFactories op_factories, PipelineGroupRawPtr group)
         : _id(id), _op_factories(std::move(op_factories)), _pipeline_event(Event::create_event()), _group(group) {
     _runtime_profile = std::make_shared<RuntimeProfile>(strings::Substitute("Pipeline (id=$0)", _id));
-    compute_steal_barrier();
 }
 
-void Pipeline::compute_steal_barrier() {
+// Called once, lazily, from _ensure_steal_barrier() (guarded by _steal_barrier_once) on the
+// first steal_barrier_idx()/fully_stealable() query -- i.e. at runtime, after every operator
+// factory (including any post-construction wiring such as set_exchanger) is fully set up.
+void Pipeline::compute_steal_barrier() const {
     // The stealable prefix ends at the first operator that is not stealable.
     // A source that is not itself stealable yields a barrier of 0 (nothing to steal).
     _steal_barrier_idx = 0;
