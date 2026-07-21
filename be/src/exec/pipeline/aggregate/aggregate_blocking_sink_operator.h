@@ -43,6 +43,12 @@ public:
     bool has_output() const override { return false; }
     bool need_input() const override { return !is_finished(); }
     bool is_finished() const override { return _is_finished || _aggregator->is_finished(); }
+    // Work-stealing (partition-aware output safety, see design section 5b): a NON-finalizing
+    // (partial / "update serialize") aggregate emits partial states that a downstream final
+    // aggregate re-merges by group key (after a shuffle/gather). So a stolen partition's rows
+    // aggregated on a thief's lane are re-combined correctly downstream -- safe. A finalizing
+    // aggregate (co-located final) would finalize per lane and mis-split a key -- not safe.
+    bool breaks_partition_identity() const override { return !_aggregator->needs_finalize(); }
     Status set_finishing(RuntimeState* state) override;
 
     Status prepare(RuntimeState* state) override;
