@@ -158,6 +158,12 @@ public:
     // a unit from a victim, so it never strands a stolen chunk it cannot place.
     virtual bool steal_input_ready() const { return false; }
 
+    // Whether a stolen unit tagged with `partition_id` can be safely placed into this operator
+    // right now. Checked per-victim-partition BEFORE a unit is removed from a victim, so an
+    // un-probeable partition (e.g. a sub-partitioned hash-join build that clone_readable cannot
+    // snapshot) is skipped rather than stolen and dropped. Default true (partition-free/no-op).
+    virtual bool steal_partition_safe(int32_t partition_id) const { return true; }
+
     // Partition-aware steal output safety (see PIPELINE_WORKSTEAL_KEEPALIVE_OBSERVER_DESIGN.md
     // section 5b). A thief emits a stolen partition's join output on its OWN lane, so partition-
     // aware steal is only correct if this pipeline's sink re-derives the downstream partitioning

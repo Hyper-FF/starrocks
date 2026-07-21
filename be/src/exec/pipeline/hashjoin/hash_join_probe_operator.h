@@ -60,6 +60,7 @@ public:
     // hash-PARTITIONED distribution and non-post-probe join types (INNER / LEFT_*), which never
     // mutate the build side during probe.
     bool accepts_stolen_input() const override;
+    bool steal_partition_safe(int32_t partition_id) const override;
     Status push_stolen_chunk(RuntimeState* state, const ChunkPtr& chunk, int32_t partition_id) override;
     // Ready to accept a stolen foreign-partition chunk once every partition's build is complete,
     // so any peer partition's build table is present and read-only.

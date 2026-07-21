@@ -467,6 +467,12 @@ public:
 
     void clone_readable(HashJoinBuilder* builder, bool fresh_probe_state = false) override;
 
+    // Work-stealing: only clone-safe when this build did NOT sub-partition at runtime, i.e. it
+    // stayed a single hash table (_partition_num == 1, the small-build / BUFFERING outcome). A
+    // genuinely partitioned build (_partition_num > 1) cannot be probed correctly through a
+    // clone_readable snapshot for a stolen chunk. Valid only after the build completes.
+    bool supports_partition_aware_steal() const override { return _partition_num == 1; }
+
     Status prepare_for_spill_start(RuntimeState* state) override;
     ChunkPtr convert_to_spill_schema(const ChunkPtr& chunk) const override;
 

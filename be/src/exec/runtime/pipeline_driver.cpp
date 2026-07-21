@@ -682,6 +682,13 @@ StatusOr<bool> PipelineDriver::try_steal_from_siblings() {
         if (peer_src == nullptr || !peer_src->support_steal() || peer_src->stealable_backlog() < threshold) {
             continue;
         }
+        // Partition-aware: skip this victim BEFORE popping if its partition cannot be probed
+        // safely through the acceptor (e.g. a sub-partitioned hash-join build that clone_readable
+        // cannot snapshot). The partition id a unit will carry == the victim source's driver
+        // sequence, so this is checkable up-front and never strands/drops a popped chunk.
+        if (acceptor != nullptr && !acceptor->steal_partition_safe(peer_src->get_driver_sequence())) {
+            continue;
+        }
         auto unit_or = peer_src->try_steal_unit();
         if (!unit_or.ok() || !unit_or.value().valid()) {
             continue;
