@@ -165,7 +165,15 @@ StatusOr<HashJoiner*> HashJoinProbeOperator::_peer_prober(RuntimeState* state, i
     auto peer_prober = std::make_shared<HashJoiner>(_hash_joiner_factory->hash_join_param());
     RETURN_IF_ERROR(peer_prober->prepare_prober(state, _unique_metrics.get()));
     TRY_CATCH_ALLOC_SCOPE_START()
-    peer_prober->reference_hash_table(peer_builder.get());
+    // fresh_probe_state=true: the peer partition is being probed concurrently by its own driver,
+    // so snapshot only its immutable built table and give this thief a fresh probe state -- copying
+    // the peer's live probe scratch would be a data race and silently drop rows.
+    peer_prober->reference_hash_table(peer_builder.get(), /*fresh_probe_state=*/true);
+    // The fresh probe state above is unprepared (its scratch buffers are default-constructed, not
+    // copied from the peer's prepared state); prepare it now against the referenced table so the
+    // first probe does not dereference uninitialized probe scratch. Operates only on this thief's
+    // own clone, never the peer.
+    RETURN_IF_ERROR(peer_prober->reset_probe(state));
     TRY_CATCH_ALLOC_SCOPE_END()
     auto* raw = peer_prober.get();
     _peer_probers.emplace(partition_id, std::move(peer_prober));

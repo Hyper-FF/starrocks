@@ -122,8 +122,10 @@ public:
 
     virtual std::unique_ptr<HashJoinProberImpl> create_prober() = 0;
 
-    // clone readable to to builder
-    virtual void clone_readable(HashJoinBuilder* builder) = 0;
+    // clone readable to to builder. `fresh_probe_state` forwards to JoinHashTable::clone_readable_table:
+    // pass true when the source builder is being probed concurrently (work-stealing snapshot) so the
+    // clone gets a fresh probe state rather than a racy copy of the live one.
+    virtual void clone_readable(HashJoinBuilder* builder, bool fresh_probe_state = false) = 0;
 
     virtual Status prepare_for_spill_start(RuntimeState* state) { return Status::OK(); }
     virtual ChunkPtr convert_to_spill_schema(const ChunkPtr& chunk) const = 0;
@@ -171,7 +173,7 @@ public:
 
     std::unique_ptr<HashJoinProberImpl> create_prober() override;
 
-    void clone_readable(HashJoinBuilder* builder) override;
+    void clone_readable(HashJoinBuilder* builder, bool fresh_probe_state = false) override;
 
     ChunkPtr convert_to_spill_schema(const ChunkPtr& chunk) const override;
 

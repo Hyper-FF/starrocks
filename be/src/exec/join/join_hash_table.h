@@ -38,7 +38,13 @@ public:
 
     // Clone a new hash table with the same hash table as this,
     // and the different probe state from this.
-    JoinHashTable clone_readable_table();
+    //
+    // When `fresh_probe_state` is true, the clone gets a brand-new probe state instead of a copy
+    // of this table's probe state. Required when the source table is being probed CONCURRENTLY
+    // (work-stealing: a thief snapshots a peer partition's live table): the probe state holds
+    // mutable scratch buffers, so copying a live one is a data race. Only the immutable built
+    // `_table_items` is ever shared. Existing (non-concurrent) callers keep the copy behavior.
+    JoinHashTable clone_readable_table(bool fresh_probe_state = false);
     void set_probe_profile(RuntimeProfile::Counter* search_ht_timer, RuntimeProfile::Counter* output_probe_column_timer,
                            RuntimeProfile::Counter* output_build_column_timer, RuntimeProfile::Counter* probe_counter);
 

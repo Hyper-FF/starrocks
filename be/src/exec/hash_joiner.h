@@ -251,7 +251,10 @@ public:
 
     Status create_runtime_filters(RuntimeState* state);
 
-    void reference_hash_table(HashJoiner* src_join_builder);
+    // `fresh_probe_state` is forwarded to clone_readable when src != this: pass true when the
+    // source joiner is being probed CONCURRENTLY (work-stealing snapshot of a peer partition) so
+    // the reference gets a fresh probe state instead of a racy copy of the live one.
+    void reference_hash_table(HashJoiner* src_join_builder, bool fresh_probe_state = false);
 
     // These two methods are used only by the hash join builder.
     void set_prober_finished();

@@ -123,14 +123,21 @@ public:
     // Try to steal one work unit from a sibling driver's source and hand it to
     // this driver's own source. Returns true iff a unit was accepted, in which
     // case the caller should re-loop (the source now has output) instead of
-    // parking. No-op (returns false) while steal_enabled() is false.
-    bool try_steal_from_siblings();
+    // parking. No-op (returns false) while steal_enabled() is false. Returns an
+    // error only if a unit was already removed from a victim's queue but could
+    // not be placed -- such a chunk must never be silently dropped (that loses
+    // rows), so the failure is surfaced to fail the query cleanly instead.
+    StatusOr<bool> try_steal_from_siblings();
 
 private:
     // The operator in this driver that can process a foreign-partition stolen unit (the
     // partition-aware hash-join probe), or nullptr for a partition-free pipeline. Cached scan
     // of _operators; a partition-tagged stolen unit is routed here via push_stolen_chunk.
     Operator* _stolen_input_operator() const;
+    // Whether some sibling currently has stealable backlog >= threshold. Used to keep an idle
+    // steal-eligible driver runnable (retrying) instead of parking, so it keeps draining a hot
+    // partition for the whole query rather than abandoning it after its own source drains.
+    bool _has_stealable_backlog();
 
 public:
 

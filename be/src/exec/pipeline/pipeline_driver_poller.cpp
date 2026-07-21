@@ -154,15 +154,23 @@ void PipelineDriverPoller::run_internal() {
                         driver->set_driver_state(DriverState::READY);
                         remove_blocked_driver(_local_blocked_drivers, driver_it);
                         ready_drivers.emplace_back(driver);
-                    } else if (driver->try_steal_from_siblings()) {
+                    } else {
                         // Work-stealing fallback for the poller backend (no event scheduler):
                         // a still-blocked driver that manages to steal a unit becomes runnable.
-                        // No-op while the feature is disabled (try_steal returns false).
-                        driver->set_driver_state(DriverState::READY);
-                        remove_blocked_driver(_local_blocked_drivers, driver_it);
-                        ready_drivers.emplace_back(driver);
-                    } else {
-                        ++driver_it;
+                        // No-op while the feature is disabled (try_steal returns false). An error
+                        // means a unit was popped from a victim but could not be placed; it must
+                        // never be dropped (loses rows), so cancel the fragment instead.
+                        auto status_or_stole = driver->try_steal_from_siblings();
+                        if (!status_or_stole.ok()) {
+                            cancel_fragment_context(fragment_ctx, status_or_stole.status());
+                            on_cancel(driver, ready_drivers, _local_blocked_drivers, driver_it);
+                        } else if (status_or_stole.value()) {
+                            driver->set_driver_state(DriverState::READY);
+                            remove_blocked_driver(_local_blocked_drivers, driver_it);
+                            ready_drivers.emplace_back(driver);
+                        } else {
+                            ++driver_it;
+                        }
                     }
                 }
             }

@@ -931,7 +931,7 @@ std::string JoinHashTable::get_hash_map_type() const {
             });
 }
 
-JoinHashTable JoinHashTable::clone_readable_table() {
+JoinHashTable JoinHashTable::clone_readable_table(bool fresh_probe_state) {
     JoinHashTable ht;
 
     ht._is_empty_map = this->_is_empty_map;
@@ -939,8 +939,14 @@ JoinHashTable JoinHashTable::clone_readable_table() {
     ht._hash_map_method_type = this->_hash_map_method_type;
 
     ht._table_items = this->_table_items;
-    // Clone a new probe state.
-    ht._probe_state = std::make_unique<HashTableProbeState>(*this->_probe_state);
+    // Clone a new probe state. When the source table may be probed concurrently (work-stealing
+    // snapshot of a peer's live partition), do NOT copy the source probe state -- its scratch
+    // buffers are being mutated by the peer's own prober, so a copy would be a data race and
+    // yield wrong/lost probe results. Build a fresh, self-consistent probe state instead; it is
+    // (re)prepared per stolen chunk anyway. Only the immutable, post-build `_table_items` above
+    // is shared. The non-concurrent callers keep copying (source is not being probed).
+    ht._probe_state = fresh_probe_state ? std::make_unique<HashTableProbeState>()
+                                        : std::make_unique<HashTableProbeState>(*this->_probe_state);
 
     // Clone a fresh hash map of the same concrete type, bound to the cloned items/state.
     if (_hash_map != nullptr) {

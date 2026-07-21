@@ -573,12 +573,25 @@ StatusOr<DriverState> PipelineDriver::process(RuntimeState* runtime_state, int w
                 COUNTER_UPDATE(_block_by_output_full_counter, 1);
             } else if (!source_operator()->has_output() && !source_operator()->is_finished()) {
                 // Before parking on an empty source, try to steal work from a sibling.
-                // On success the source now has output, so re-loop instead of blocking.
-                // Do not steal when yielding: the time slice is up and we must free the core.
-                if (!should_yield && try_steal_from_siblings()) {
-                    continue;
+                // On success the source now has output, so re-loop instead of blocking; reset
+                // the per-round throttle so one process() call can keep stealing (bounded by
+                // should_yield). Do not steal when yielding: the time slice is up.
+                if (!should_yield) {
+                    ASSIGN_OR_RETURN(const bool stole, try_steal_from_siblings());
+                    if (stole) {
+                        _steal_attempted_this_round = false;
+                        continue;
+                    }
                 }
-                if (source_operator()->is_mutable()) {
+                // Keep-alive stealing: if we couldn't steal this instant but a sibling still has
+                // stealable backlog (e.g. a hot shuffle partition whose producer is momentarily
+                // behind), stay runnable and retry rather than parking -- a parked driver whose
+                // own source is drained is never re-woken to steal, so it would abandon the hot
+                // partition. Staying READY lets idle drivers keep draining it for the whole query.
+                if (!should_yield && _has_stealable_backlog()) {
+                    _steal_attempted_this_round = false;
+                    set_driver_state(DriverState::READY);
+                } else if (source_operator()->is_mutable()) {
                     set_driver_state(DriverState::LOCAL_WAITING);
                     COUNTER_UPDATE(_yield_by_local_wait_counter, 1);
                 } else {
@@ -614,7 +627,7 @@ bool PipelineDriver::steal_enabled() const {
     return _stolen_input_operator() != nullptr;
 }
 
-bool PipelineDriver::try_steal_from_siblings() {
+StatusOr<bool> PipelineDriver::try_steal_from_siblings() {
     if (!steal_enabled() || _steal_attempted_this_round) {
         return false;
     }
@@ -661,25 +674,32 @@ bool PipelineDriver::try_steal_from_siblings() {
         }
         StealUnit unit = std::move(unit_or.value());
         const size_t rows = unit.chunk != nullptr ? unit.chunk->num_rows() : 0;
+        // The unit has now been REMOVED from the victim's queue (try_steal_unit popped it). From
+        // here it MUST be placed, or the query MUST fail -- silently dropping it loses rows. A
+        // partition-aware unit's target build table is guaranteed present because we only reach
+        // here with steal_input_ready() (all_builds_ready: every partition registered + done), so
+        // push_stolen_chunk can no longer fail on a missing peer builder; any residual failure
+        // (e.g. OOM mid-probe) is surfaced rather than swallowed.
         Status st;
         if (unit.partition_id < 0) {
             // Partition-free: hand the whole chunk to this driver's own source, which emits it
             // on the normal has_output()/pull_chunk() path.
             st = me_src->accept_stolen_unit(std::move(unit));
+        } else if (acceptor == nullptr) {
+            // Unreachable in partition-aware mode (steal_enabled requires an acceptor), but a
+            // popped chunk with nowhere to go cannot be dropped -- fail loudly.
+            return Status::InternalError("work-stealing: popped a partition chunk with no acceptor");
         } else {
             // Partition-aware: the unit belongs to partition `partition_id`; route it directly
             // to this pipeline's partition-aware probe (checked ready above), which looks it up
-            // against the matching peer build table. The thief shares the victim's operator
-            // chain, so the acceptor exists; if not, the unit cannot be placed safely.
-            if (acceptor == nullptr) {
-                COUNTER_UPDATE(_steal_fail_counter, 1);
-                continue;
-            }
+            // against the matching peer build table.
             st = acceptor->push_stolen_chunk(_runtime_state, unit.chunk, unit.partition_id);
         }
         if (!st.ok()) {
+            // Do NOT continue/drop: the chunk is already out of the victim's queue, so dropping
+            // it would silently lose rows. Surface the error to fail the query cleanly instead.
             COUNTER_UPDATE(_steal_fail_counter, 1);
-            continue;
+            return st;
         }
         COUNTER_UPDATE(_steal_success_counter, 1);
         if (rows > 0) {
@@ -688,6 +708,33 @@ bool PipelineDriver::try_steal_from_siblings() {
         return true;
     }
     COUNTER_UPDATE(_steal_fail_counter, 1);
+    return false;
+}
+
+bool PipelineDriver::_has_stealable_backlog() {
+    if (!steal_enabled() || !source_operator()->support_steal()) {
+        return false;
+    }
+    // A partition-aware thief must have a ready acceptor before it is worth staying up to steal.
+    Operator* acceptor = _stolen_input_operator();
+    if (acceptor != nullptr && !acceptor->steal_input_ready()) {
+        return false;
+    }
+    auto* pipeline = down_cast<Pipeline*>(_driver_observer);
+    if (pipeline == nullptr) {
+        return false;
+    }
+    const auto& q = _runtime_state->query_options();
+    const size_t threshold = q.pipeline_steal_backlog_threshold > 0 ? q.pipeline_steal_backlog_threshold : 1;
+    for (const auto& peer : pipeline->drivers()) {
+        if (peer.get() == this) {
+            continue;
+        }
+        auto* peer_src = peer->source_operator();
+        if (peer_src != nullptr && peer_src->support_steal() && peer_src->stealable_backlog() >= threshold) {
+            return true;
+        }
+    }
     return false;
 }
 

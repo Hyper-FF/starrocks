@@ -370,11 +370,11 @@ Status HashJoiner::create_runtime_filters(RuntimeState* state) {
     return _create_runtime_bloom_filters(state, runtime_join_filter_pushdown_limit);
 }
 
-void HashJoiner::reference_hash_table(HashJoiner* src_join_builder_cntl) {
+void HashJoiner::reference_hash_table(HashJoiner* src_join_builder_cntl, bool fresh_probe_state) {
     if (this == src_join_builder_cntl) {
         _hash_join_prober->attach(src_join_builder_cntl->hash_join_builder(), probe_metrics());
     } else {
-        src_join_builder_cntl->hash_join_builder()->clone_readable(this->hash_join_builder());
+        src_join_builder_cntl->hash_join_builder()->clone_readable(this->hash_join_builder(), fresh_probe_state);
         _hash_join_prober->attach(this->hash_join_builder(), probe_metrics());
         _hash_table_param = src_join_builder_cntl->hash_table_param();
 

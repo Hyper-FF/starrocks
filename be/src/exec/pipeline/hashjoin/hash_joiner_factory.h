@@ -47,7 +47,13 @@ public:
     // partition's build has completed (post-build the table is read-only). This is the
     // all-builds-ready barrier a steal-enabled probe pipeline waits on.
     bool all_builds_ready() const {
-        if (_builder_map.empty()) {
+        // Every partition's build must have both REGISTERED and completed. Iterating only the
+        // already-registered entries is not sufficient: builders register incrementally as their
+        // drivers prepare (create_builder), so a partially-populated map can spuriously report
+        // "all ready" while some partition's builder is still missing. A thief that then steals a
+        // chunk for a not-yet-registered partition would hit builder_for_partition()==nullptr and
+        // its chunk would be dropped -> silently lost rows. Require the full set first.
+        if (_builder_dop <= 0 || _builder_map.size() != static_cast<size_t>(_builder_dop)) {
             return false;
         }
         for (const auto& kv : _builder_map) {

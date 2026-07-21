@@ -426,9 +426,9 @@ std::unique_ptr<HashJoinProberImpl> SingleHashJoinBuilder::create_prober() {
     return res;
 }
 
-void SingleHashJoinBuilder::clone_readable(HashJoinBuilder* builder) {
+void SingleHashJoinBuilder::clone_readable(HashJoinBuilder* builder, bool fresh_probe_state) {
     auto* other = down_cast<SingleHashJoinBuilder*>(builder);
-    other->_ht = _ht.clone_readable_table();
+    other->_ht = _ht.clone_readable_table(fresh_probe_state);
 }
 
 ChunkPtr SingleHashJoinBuilder::convert_to_spill_schema(const ChunkPtr& chunk) const {
@@ -465,7 +465,7 @@ public:
 
     std::unique_ptr<HashJoinProberImpl> create_prober() override;
 
-    void clone_readable(HashJoinBuilder* builder) override;
+    void clone_readable(HashJoinBuilder* builder, bool fresh_probe_state = false) override;
 
     Status prepare_for_spill_start(RuntimeState* state) override;
     ChunkPtr convert_to_spill_schema(const ChunkPtr& chunk) const override;
@@ -1004,7 +1004,7 @@ std::unique_ptr<HashJoinProberImpl> AdaptivePartitionHashJoinBuilder::create_pro
     }
 }
 
-void AdaptivePartitionHashJoinBuilder::clone_readable(HashJoinBuilder* other_builder) {
+void AdaptivePartitionHashJoinBuilder::clone_readable(HashJoinBuilder* other_builder, bool fresh_probe_state) {
     for (auto& builder : _builders) {
         DCHECK(builder->ready());
     }
@@ -1021,7 +1021,7 @@ void AdaptivePartitionHashJoinBuilder::clone_readable(HashJoinBuilder* other_bui
     other->_ready = _ready;
     for (size_t i = 0; i < _partition_num; ++i) {
         other->_builders.emplace_back(std::make_unique<SingleHashJoinBuilder>(_hash_joiner));
-        _builders[i]->clone_readable(other->_builders[i].get());
+        _builders[i]->clone_readable(other->_builders[i].get(), fresh_probe_state);
     }
 }
 
