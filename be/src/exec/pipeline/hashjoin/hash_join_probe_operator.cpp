@@ -143,8 +143,14 @@ Status HashJoinProbeOperator::_reference_builder_hash_table_once() {
 bool HashJoinProbeOperator::accepts_stolen_input() const {
     // Only a hash-PARTITIONED join whose type never mutates the build side during probe
     // (INNER / LEFT_*) can look up a foreign-partition chunk against a peer read-only table.
+    // Additionally the build must support a clone_readable snapshot that a thief can probe
+    // independently: the single-table builder does; the adaptive-partitioned builder (large
+    // builds) sub-partitions at runtime and its clone/probe drops matches for a stolen chunk,
+    // so exclude it (enable_partition_hash_join is a per-join option, so checking this driver's
+    // own builder covers every peer partition). See the observer-redesign design doc section 5b.
     return _join_prober->distribution_mode() == TJoinDistributionMode::PARTITIONED &&
-           !has_post_probe(_join_prober->join_type());
+           !has_post_probe(_join_prober->join_type()) &&
+           _join_builder->hash_join_builder()->supports_partition_aware_steal();
 }
 
 StatusOr<HashJoiner*> HashJoinProbeOperator::_peer_prober(RuntimeState* state, int32_t partition_id) {

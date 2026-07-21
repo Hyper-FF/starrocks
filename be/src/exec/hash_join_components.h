@@ -127,6 +127,12 @@ public:
     // clone gets a fresh probe state rather than a racy copy of the live one.
     virtual void clone_readable(HashJoinBuilder* builder, bool fresh_probe_state = false) = 0;
 
+    // Work-stealing: whether a thief may snapshot this build via clone_readable and probe a stolen
+    // foreign-partition chunk against it independently. Only the single-table builder supports this
+    // correctly; the adaptive-partitioned builder sub-partitions the build at runtime and its
+    // clone/probe path drops matches for a stolen chunk, so it is excluded. Default false.
+    virtual bool supports_partition_aware_steal() const { return false; }
+
     virtual Status prepare_for_spill_start(RuntimeState* state) { return Status::OK(); }
     virtual ChunkPtr convert_to_spill_schema(const ChunkPtr& chunk) const = 0;
 
@@ -143,6 +149,9 @@ private:
 class SingleHashJoinBuilder final : public HashJoinBuilder {
 public:
     SingleHashJoinBuilder(HashJoiner& hash_joiner) : HashJoinBuilder(hash_joiner) {}
+
+    // Single-table build: a clone_readable snapshot can be probed independently by a thief.
+    bool supports_partition_aware_steal() const override { return true; }
 
     void create(const HashTableParam& param) override;
 
