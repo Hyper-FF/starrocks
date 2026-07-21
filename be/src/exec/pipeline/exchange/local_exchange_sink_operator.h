@@ -50,6 +50,12 @@ public:
 
     OperatorExecStatsSnapshot exec_stats_snapshot() const override { return OperatorExecStatsSnapshot::ignored(); }
 
+    // Work-stealing (partition-aware output safety, see design section 5b): safe iff the exchanger
+    // re-derives the downstream partitioning (hash-repartition) or is partition-agnostic
+    // (passthrough/random/adaptive gather), i.e. does not preserve lane == partition into a
+    // partition-sensitive consumer. Defined in the .cpp (needs the LocalExchanger full type).
+    bool breaks_partition_identity() const override;
+
     std::string get_name() const override;
 
 private:

@@ -69,6 +69,16 @@ public:
 
     bool is_finished() const override;
 
+    // Work-stealing (partition-aware output safety, see design section 5b): a network shuffle sink
+    // re-derives the destination partitioning from each row (hash / bucket-shuffle), gathers
+    // (unpartitioned), or is partition-agnostic (random), so a stolen partition's output emitted on
+    // a thief's lane is still routed correctly -- making partition-aware steal safe downstream.
+    bool breaks_partition_identity() const override {
+        return _part_type == TPartitionType::HASH_PARTITIONED ||
+               _part_type == TPartitionType::BUCKET_SHUFFLE_HASH_PARTITIONED ||
+               _part_type == TPartitionType::UNPARTITIONED || _part_type == TPartitionType::RANDOM;
+    }
+
     bool pending_finish() const override;
 
     Status set_finishing(RuntimeState* state) override;

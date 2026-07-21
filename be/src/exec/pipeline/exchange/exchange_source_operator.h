@@ -49,6 +49,10 @@ public:
     bool support_steal() const override;
     size_t stealable_backlog() const override;
     StatusOr<StealUnit> try_steal_unit() override;
+    // Keep-alive: register/deregister this driver's observer on the shared receiver's steal-waiter
+    // registry (indexed by driver sequence), so add_chunks can wake it to steal.
+    void register_steal_waiter() override { _stream_recvr->register_steal_waiter(_driver_sequence, observer()); }
+    void deregister_steal_waiter() override { _stream_recvr->deregister_steal_waiter(_driver_sequence); }
 
     std::string get_name() const override;
 

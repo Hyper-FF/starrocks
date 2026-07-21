@@ -134,10 +134,6 @@ private:
     // partition-aware hash-join probe), or nullptr for a partition-free pipeline. Cached scan
     // of _operators; a partition-tagged stolen unit is routed here via push_stolen_chunk.
     Operator* _stolen_input_operator() const;
-    // Whether some sibling currently has stealable backlog >= threshold. Used to keep an idle
-    // steal-eligible driver runnable (retrying) instead of parking, so it keeps draining a hot
-    // partition for the whole query rather than abandoning it after its own source drains.
-    bool _has_stealable_backlog();
 
 public:
 

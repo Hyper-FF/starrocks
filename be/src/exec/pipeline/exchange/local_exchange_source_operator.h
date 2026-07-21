@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "exec/chunk_buffer_memory_manager.h"
+#include "exec_primitive/pipeline/primitives/steal_waiter_set.h"
 #include "exec_primitive/pipeline/source_operator.h"
 
 namespace starrocks::pipeline {
@@ -103,6 +104,11 @@ public:
     size_t stealable_backlog() const override;
     StatusOr<StealUnit> try_steal_unit() override;
     Status accept_stolen_unit(StealUnit unit) override;
+    // Keep-alive: register/deregister this driver's observer on the factory's steal-waiter
+    // registry (shared across lanes), so add_chunk can wake it to steal. Defined in the .cpp
+    // (needs the factory's full type).
+    void register_steal_waiter() override;
+    void deregister_steal_waiter() override;
 
 private:
     ChunkPtr _pull_passthrough_chunk(RuntimeState* state);
@@ -169,6 +175,10 @@ public:
     bool is_stealable() const override;
 
     OperatorPtr create(int32_t degree_of_parallelism, int32_t driver_sequence) override {
+        // Size the steal-waiter registry once, on the first (build-time, single-threaded) create.
+        if (_steal_waiters.lanes() == 0) {
+            _steal_waiters.init(degree_of_parallelism);
+        }
         std::shared_ptr<LocalExchangeSourceOperator> source = std::make_shared<LocalExchangeSourceOperator>(
                 this, _id, _plan_node_id, driver_sequence, _memory_manager);
         _sources.emplace_back(source.get());
@@ -182,10 +192,14 @@ public:
 
     std::vector<LocalExchangeSourceOperator*>& get_sources() { return _sources; }
 
+    // Work-stealing keep-alive: shared steal-waiter registry (indexed by lane == driver sequence).
+    StealWaiterSet& steal_waiters() { return _steal_waiters; }
+
 private:
     LocalExchanger* _exchanger = nullptr;
     std::shared_ptr<ChunkBufferMemoryManager> _memory_manager;
     std::vector<LocalExchangeSourceOperator*> _sources;
+    StealWaiterSet _steal_waiters;
 };
 
 } // namespace starrocks::pipeline

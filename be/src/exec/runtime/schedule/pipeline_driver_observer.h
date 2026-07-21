@@ -55,6 +55,14 @@ public:
         _update();
     }
 
+    // Work-stealing keep-alive: wake a parked steal-eligible driver so it can steal from a peer
+    // lane. Unlike source/sink, this event reschedules WITHOUT the own-lane readiness predicate --
+    // the source only fires it when a stealable lane actually has backlog (see _do_update).
+    void steal_trigger() override {
+        _active_event(STEAL_CHANGE_EVENT);
+        _update();
+    }
+
     void runtime_filter_timeout_trigger() override;
     std::string debug_string() const override;
 
@@ -62,6 +70,7 @@ private:
     static constexpr inline int32_t CANCEL_EVENT = 1 << 2;
     static constexpr inline int32_t SINK_CHANGE_EVENT = 1 << 1;
     static constexpr inline int32_t SOURCE_CHANGE_EVENT = 1;
+    static constexpr inline int32_t STEAL_CHANGE_EVENT = 1 << 3;
 
     void _update();
     void _do_update(int event);
@@ -71,6 +80,7 @@ private:
     bool _is_sink_changed(int event) { return event & SINK_CHANGE_EVENT; }
     bool _is_source_changed(int event) { return event & SOURCE_CHANGE_EVENT; }
     bool _is_cancel_changed(int event) { return event & CANCEL_EVENT; }
+    bool _is_steal_changed(int event) { return event & STEAL_CHANGE_EVENT; }
     bool _is_all_changed(int event) { return _is_source_changed(event) && _is_sink_changed(event); }
 
     void _active_event(int event) { _events.fetch_or(event, std::memory_order_acq_rel); }

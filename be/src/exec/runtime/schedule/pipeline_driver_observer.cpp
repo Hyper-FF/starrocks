@@ -76,7 +76,10 @@ void PipelineDriverObserver::_do_update(int event) {
         // event-specific handlers below.
         bool pipeline_block = driver->driver_state() != DriverState::INPUT_EMPTY &&
                               driver->driver_state() != DriverState::OUTPUT_FULL;
-        if (pipeline_block || _is_cancel_changed(event)) {
+        // A steal wake reschedules a parked (INPUT_EMPTY) steal-eligible driver directly, WITHOUT
+        // the own-lane readiness predicate in on_source_update: the source fires steal_trigger only
+        // when a stealable peer lane has backlog, so the wake itself means "there is work to steal".
+        if (pipeline_block || _is_cancel_changed(event) || _is_steal_changed(event)) {
             _event_scheduler->try_schedule(driver);
         } else if (_is_all_changed(event)) {
             on_update(_event_scheduler, driver);

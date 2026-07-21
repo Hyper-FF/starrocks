@@ -17,9 +17,17 @@
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
 #include "common/runtime_profile.h"
+#include "exec/pipeline/exchange/local_exchange.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks::pipeline {
+
+bool LocalExchangeSinkOperator::breaks_partition_identity() const {
+    // Safe when the exchanger re-derives the downstream partitioning by key (hash-repartition) or
+    // is partition-agnostic (passthrough / random / adaptive gather); unsafe (identity-preserving
+    // into a partition-sensitive consumer) otherwise.
+    return _exchanger->source_partition_free() || _exchanger->is_hash_partitioned();
+}
 
 /// LocalExchangeSinkOperator.
 Status LocalExchangeSinkOperator::prepare(RuntimeState* state) {

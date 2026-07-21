@@ -32,6 +32,10 @@ public:
     virtual void cancel_trigger() = 0;
     virtual void all_trigger() = 0;
     virtual void runtime_filter_timeout_trigger() = 0;
+    // Work-stealing keep-alive: fired by a steal source (receiver / local exchange) when a peer
+    // lane it can be stolen from crosses the stealable-backlog threshold, to wake a parked thief
+    // that registered as a steal waiter. Default no-op so non-driver observers ignore it.
+    virtual void steal_trigger() {}
     virtual std::string debug_string() const = 0;
 };
 

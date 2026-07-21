@@ -45,8 +45,10 @@ void LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk) {
         }
     }
     if (wake_siblings) {
-        // notify_source_observers must run outside _chunk_lock (never notify while locked).
-        _source_factory()->observes().notify_source_observers();
+        // Wake parked steal waiters (must run outside _chunk_lock). Targeted steal_trigger via the
+        // factory's registry, not the broadcast notify_source_observers -- the broadcast is gated
+        // by on_source_update's own-lane predicate, which never reschedules a drained thief.
+        down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->steal_waiters().notify_all();
     }
 }
 
@@ -61,6 +63,15 @@ Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_
                                               uint32_t from, uint32_t size,
                                               std::shared_ptr<ChunkBufferMemoryEntry> memory_entry) {
     auto notify = defer_notify();
+    // Work-stealing keep-alive (partition mode): wake parked steal waiters after enqueue. Declared
+    // before the lock_guard so it fires AFTER the lock is released (never notify while locked);
+    // no-op when this source does not support stealing or no thief is parked.
+    bool wake_siblings = false;
+    DeferOp steal_notify([&]() {
+        if (wake_siblings) {
+            down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->steal_waiters().notify_all();
+        }
+    });
     std::lock_guard<std::mutex> l(_chunk_lock);
     if (_is_finished) {
         return Status::OK();
@@ -68,6 +79,7 @@ Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_
 
     _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size, std::move(memory_entry));
     _partition_rows_num += size;
+    wake_siblings = support_steal() && _factory->runtime_state()->query_options().enable_pipeline_work_stealing;
 
     return Status::OK();
 }
@@ -296,6 +308,15 @@ bool LocalExchangeSourceOperator::support_steal() const {
     // is_stealable() (which drives only the partition-free barrier).
     auto* exchanger = down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->exchanger();
     return exchanger != nullptr && (exchanger->source_partition_free() || exchanger->is_hash_partitioned());
+}
+
+void LocalExchangeSourceOperator::register_steal_waiter() {
+    down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->steal_waiters().register_waiter(_driver_sequence,
+                                                                                             observer());
+}
+
+void LocalExchangeSourceOperator::deregister_steal_waiter() {
+    down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->steal_waiters().deregister_waiter(_driver_sequence);
 }
 
 size_t LocalExchangeSourceOperator::stealable_backlog() const {

@@ -574,24 +574,34 @@ StatusOr<DriverState> PipelineDriver::process(RuntimeState* runtime_state, int w
             } else if (!source_operator()->has_output() && !source_operator()->is_finished()) {
                 // Before parking on an empty source, try to steal work from a sibling.
                 // On success the source now has output, so re-loop instead of blocking; reset
-                // the per-round throttle so one process() call can keep stealing (bounded by
-                // should_yield). Do not steal when yielding: the time slice is up.
+                // the per-round throttle so one process() call can keep stealing while data is
+                // flowing (this is productive work, not a spin, and is bounded by should_yield).
+                // Do not steal when yielding: the time slice is up.
                 if (!should_yield) {
                     ASSIGN_OR_RETURN(const bool stole, try_steal_from_siblings());
                     if (stole) {
+                        source_operator()->deregister_steal_waiter();
                         _steal_attempted_this_round = false;
                         continue;
                     }
                 }
-                // Keep-alive stealing: if we couldn't steal this instant but a sibling still has
-                // stealable backlog (e.g. a hot shuffle partition whose producer is momentarily
-                // behind), stay runnable and retry rather than parking -- a parked driver whose
-                // own source is drained is never re-woken to steal, so it would abandon the hot
-                // partition. Staying READY lets idle drivers keep draining it for the whole query.
-                if (!should_yield && _has_stealable_backlog()) {
+                // Nothing to steal right now. Keep-alive is event-driven, NOT a busy-poll: register
+                // as a steal waiter on the source, then re-check once (this closes the race where a
+                // peer lane received a batch between the attempt above and the registration). If
+                // still nothing, park -- the source's producer fires steal_trigger() when a peer
+                // lane crosses the stealable-backlog threshold, re-waking this parked driver to
+                // steal (no own-lane predicate gate). See PIPELINE_WORKSTEAL_KEEPALIVE_OBSERVER_DESIGN.md.
+                if (!should_yield && steal_enabled() && source_operator()->support_steal()) {
+                    source_operator()->register_steal_waiter();
                     _steal_attempted_this_round = false;
-                    set_driver_state(DriverState::READY);
-                } else if (source_operator()->is_mutable()) {
+                    ASSIGN_OR_RETURN(const bool stole_recheck, try_steal_from_siblings());
+                    if (stole_recheck) {
+                        source_operator()->deregister_steal_waiter();
+                        _steal_attempted_this_round = false;
+                        continue;
+                    }
+                }
+                if (source_operator()->is_mutable()) {
                     set_driver_state(DriverState::LOCAL_WAITING);
                     COUNTER_UPDATE(_yield_by_local_wait_counter, 1);
                 } else {
@@ -624,7 +634,11 @@ bool PipelineDriver::steal_enabled() const {
     }
     // Partition-aware mode: a partition-aware probe consumes stolen foreign-partition units
     // directly (routed via push_stolen_chunk), so the barrier need not cover the whole chain.
-    return _stolen_input_operator() != nullptr;
+    // The stolen partition's output is emitted on this thief's lane, so it is only safe if the
+    // pipeline sink re-derives the downstream partitioning (hash-repartition / gather) rather than
+    // preserving lane == partition into a partition-sensitive consumer (see design section 5b).
+    return _stolen_input_operator() != nullptr && !_operators.empty() &&
+           _operators.back()->breaks_partition_identity();
 }
 
 StatusOr<bool> PipelineDriver::try_steal_from_siblings() {
@@ -708,33 +722,6 @@ StatusOr<bool> PipelineDriver::try_steal_from_siblings() {
         return true;
     }
     COUNTER_UPDATE(_steal_fail_counter, 1);
-    return false;
-}
-
-bool PipelineDriver::_has_stealable_backlog() {
-    if (!steal_enabled() || !source_operator()->support_steal()) {
-        return false;
-    }
-    // A partition-aware thief must have a ready acceptor before it is worth staying up to steal.
-    Operator* acceptor = _stolen_input_operator();
-    if (acceptor != nullptr && !acceptor->steal_input_ready()) {
-        return false;
-    }
-    auto* pipeline = down_cast<Pipeline*>(_driver_observer);
-    if (pipeline == nullptr) {
-        return false;
-    }
-    const auto& q = _runtime_state->query_options();
-    const size_t threshold = q.pipeline_steal_backlog_threshold > 0 ? q.pipeline_steal_backlog_threshold : 1;
-    for (const auto& peer : pipeline->drivers()) {
-        if (peer.get() == this) {
-            continue;
-        }
-        auto* peer_src = peer->source_operator();
-        if (peer_src != nullptr && peer_src->support_steal() && peer_src->stealable_backlog() >= threshold) {
-            return true;
-        }
-    }
     return false;
 }
 
@@ -1037,6 +1024,12 @@ void PipelineDriver::_try_to_release_buffer(RuntimeState* state, size_t operator
 
 void PipelineDriver::finalize(RuntimeState* runtime_state, DriverState state) {
     stop_timers();
+    // Work-stealing keep-alive: if this driver parked as a steal waiter, drop its registration
+    // before it is destroyed -- the source's steal-waiter registry holds this driver's observer
+    // pointer and would otherwise dereference it (use-after-free) on a later steal_trigger.
+    if (!_operators.empty()) {
+        source_operator()->deregister_steal_waiter();
+    }
     int64_t time_spent = 0;
     // The driver may be destructed after finalizing, so use a temporal driver to record
     // the information about the driver queue and workgroup.

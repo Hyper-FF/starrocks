@@ -158,6 +158,15 @@ public:
     // a unit from a victim, so it never strands a stolen chunk it cannot place.
     virtual bool steal_input_ready() const { return false; }
 
+    // Partition-aware steal output safety (see PIPELINE_WORKSTEAL_KEEPALIVE_OBSERVER_DESIGN.md
+    // section 5b). A thief emits a stolen partition's join output on its OWN lane, so partition-
+    // aware steal is only correct if this pipeline's sink re-derives the downstream partitioning
+    // from row data (a hash-repartition exchange) or gathers / is partition-agnostic -- i.e. it
+    // does NOT preserve `lane == partition` into a partition-sensitive consumer. Overridden by the
+    // exchange sinks; the default false rejects stateful per-lane build sinks (aggregate / sort /
+    // analytic), for which a stolen partition's rows would be mis-attributed to the thief's lane.
+    virtual bool breaks_partition_identity() const { return false; }
+
     // reset_state is used by MultilaneOperator in cache mechanism, because lanes in MultilaneOperator are
     // re-used by tablets, before the lane serves for the current tablet, it must invoke reset_state to re-prepare
     // the operators (such as: Project, ChunkAccumulate, DictDecode, Aggregate) that is decorated by MultilaneOperator

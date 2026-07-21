@@ -45,6 +45,7 @@
 #include "compute_env/sorting/merge_path.h"
 #include "exec_primitive/pipeline/pipeline_fwd.h"
 #include "exec_primitive/pipeline/primitives/pipeline_observer.h"
+#include "exec_primitive/pipeline/primitives/steal_waiter_set.h"
 #include "gen_cpp/Types_types.h" // for TUniqueId
 #include "runtime/descriptors.h"
 #include "runtime/query_statistics.h"
@@ -136,6 +137,15 @@ public:
     // for the non-merging pipeline shuffle receiver.
     Status steal_chunk_for_pipeline(ChunkUniquePtr* chunk, const int32_t driver_sequence);
     size_t buffered_chunks_for_pipeline(const int32_t driver_sequence) const;
+
+    // Work-stealing keep-alive: a drained steal-eligible driver parks and registers its observer
+    // here; add_chunks / remove_sender / cancel_stream wake all registered waiters (steal_trigger)
+    // so a parked thief re-runs and steals a freshly-arrived chunk (or observes termination). The
+    // wake is independent of the owner-notify broadcast, so it survives narrowing that notify.
+    void register_steal_waiter(int32_t driver_sequence, pipeline::PipelineObserver* observer) {
+        _steal_waiters.register_waiter(driver_sequence, observer);
+    }
+    void deregister_steal_waiter(int32_t driver_sequence) { _steal_waiters.deregister_waiter(driver_sequence); }
 
     bool is_finished() const;
 
@@ -264,6 +274,9 @@ private:
     // Capture shared_ptr to avoid use-after-free.
     std::weak_ptr<pipeline::QueryContext> _query_ctx;
     pipeline::Observable _observable;
+    // Work-stealing keep-alive: parked steal-eligible drivers register here (indexed by driver
+    // sequence); woken on add_chunks / termination. Sized to the pipeline degree of parallelism.
+    pipeline::StealWaiterSet _steal_waiters;
 
     std::atomic<size_t> _rpc_round_roubin_index = 0;
 
