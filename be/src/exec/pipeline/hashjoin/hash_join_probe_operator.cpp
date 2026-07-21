@@ -185,6 +185,13 @@ Status HashJoinProbeOperator::push_stolen_chunk(RuntimeState* state, const Chunk
     if (peer_prober == nullptr) {
         return Status::InternalError("partition-aware steal: peer build table unavailable");
     }
+    // If the peer partition's build short-circuited to EOS (e.g. an INNER/SEMI join whose build
+    // side for this partition is empty), reset_probe() left the prober in EOS WITHOUT preparing a
+    // probe state -- probing it would dereference uninitialized scratch. Such a partition yields no
+    // join output, exactly as the owner would produce, so drop the stolen chunk's output safely.
+    if (peer_prober->is_done()) {
+        return Status::OK();
+    }
     // One-shot probe of the stolen chunk against the peer partition's read-only table; drain all
     // its join output into the stolen-output buffer. INNER / LEFT_* need no post-probe pass.
     RETURN_IF_ERROR(peer_prober->push_chunk(state, ChunkPtr(chunk)));

@@ -75,6 +75,14 @@ size_t ExchangeSourceOperator::stealable_backlog() const {
     return _stream_recvr->buffered_chunks_for_pipeline(_driver_sequence);
 }
 
+void ExchangeSourceOperator::register_steal_waiter() {
+    _stream_recvr->register_steal_waiter(_driver_sequence, observer());
+}
+
+void ExchangeSourceOperator::deregister_steal_waiter() {
+    _stream_recvr->deregister_steal_waiter(_driver_sequence);
+}
+
 StatusOr<StealUnit> ExchangeSourceOperator::try_steal_unit() {
     // Pop one received chunk from this receiver's own partition queue via the steal path, which
     // is lock-free (MPMC), runs the sender closure, updates the buffered atomics, and deserializes
