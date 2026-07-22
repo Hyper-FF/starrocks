@@ -65,14 +65,18 @@ bool LookUpDispatcher::try_get(int32_t driver_sequence, size_t max_num, pipeline
     size_t max_cnt = 0;
     SlotId target_tuple_id = 0;
     RequestsQueuePtr target_queue;
-    for (const auto& [tuple_id, queue] : _request_queues) {
-        size_t cnt = queue->size_approx();
+    // Iterate under each submap's lock via for_each() instead of a lock-free range-for: a
+    // concurrent add_request() lazy_emplace_l() can insert a new tuple_id and resize/rehash the
+    // submap, which would invalidate a plain range-for iterator (heap-use-after-free). The queue
+    // is a shared_ptr, so copying it out keeps it alive after the lock is released.
+    _request_queues.for_each([&](const auto& entry) {
+        size_t cnt = entry.second->size_approx();
         if (cnt > max_cnt) {
             max_cnt = cnt;
-            target_tuple_id = tuple_id;
-            target_queue = queue;
+            target_tuple_id = entry.first;
+            target_queue = entry.second;
         }
-    }
+    });
     if (max_cnt > 0) {
         if (size_t num = target_queue->try_dequeue_bulk(ctx->request_ctxs.data(), max_num); num > 0) {
             ctx->request_ctxs.resize(num);
@@ -87,12 +91,15 @@ bool LookUpDispatcher::try_get(int32_t driver_sequence, size_t max_num, pipeline
 }
 
 bool LookUpDispatcher::has_data(int32_t driver_sequence) const {
-    for (const auto& [_, q] : _request_queues) {
-        if (q->size_approx() > 0) {
-            return true;
+    // Iterate under each submap's lock via for_each() rather than a lock-free range-for, which
+    // would race a concurrent add_request() resize/rehash and read a freed slot (see try_get).
+    bool has_data = false;
+    _request_queues.for_each([&](const auto& entry) {
+        if (entry.second->size_approx() > 0) {
+            has_data = true;
         }
-    }
-    return false;
+    });
+    return has_data;
 }
 
 std::shared_ptr<LookUpDispatcher> LookUpDispatcherMgr::create_dispatcher(const TUniqueId& query_id,
