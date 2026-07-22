@@ -193,6 +193,11 @@ DataStreamRecvr::DataStreamRecvr(DataStreamMgr* stream_mgr, RuntimeState* runtim
     if (_is_pipeline && !_is_merging) {
         _steal_waiters.init(degree_of_parallelism);
     }
+    // Producer-side edge-trigger threshold: the same stealable-backlog threshold the thief applies,
+    // so a steal wake never fires for a backlog the thief would decline. >=1.
+    if (runtime_state->query_options().__isset.pipeline_steal_backlog_threshold) {
+        _steal_backlog_threshold = std::max<size_t>(1, runtime_state->query_options().pipeline_steal_backlog_threshold);
+    }
 
     _pass_through_context.init();
     if (runtime_state->query_options().__isset.transmission_encode_level) {
@@ -257,10 +262,9 @@ Status DataStreamRecvr::add_chunks(const PTransmitChunkParams& request, ::google
     });
     // TODO: We just need to notify the affected channels.
     auto notify = this->defer_notify();
-    // Work-stealing keep-alive: after the batch is enqueued, wake any parked steal waiter so it can
-    // steal a freshly-arrived chunk. Separate from the owner-notify above (survives narrowing it);
-    // no-op when no thief is parked. The driver applies the real backlog threshold on wake.
-    DeferOp steal_notify([this]() { _steal_waiters.notify_all(); });
+    // NOTE: the work-stealing wake is fired per-lane and edge-triggered from inside the sender
+    // queue's enqueue (PipelineSenderQueue::add_chunks -> _steal_waiters.notify_lane_backlog), NOT
+    // here -- an unconditional wake per add_chunks would be an N*N notify storm on a hot lane.
 
     auto& metrics = get_metrics_round_robin();
     SCOPED_TIMER(metrics.process_total_timer);

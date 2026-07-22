@@ -275,8 +275,12 @@ private:
     std::weak_ptr<pipeline::QueryContext> _query_ctx;
     pipeline::Observable _observable;
     // Work-stealing keep-alive: parked steal-eligible drivers register here (indexed by driver
-    // sequence); woken on add_chunks / termination. Sized to the pipeline degree of parallelism.
+    // sequence); woken edge-triggered per-lane from the enqueue path, and on termination. Sized to
+    // the pipeline degree of parallelism.
     pipeline::StealWaiterSet _steal_waiters;
+    // Producer-side backlog threshold for the edge-triggered steal wake (== the thief's threshold).
+    // Read by the nested PipelineSenderQueue on the enqueue path.
+    size_t _steal_backlog_threshold = 1;
 
     std::atomic<size_t> _rpc_round_roubin_index = 0;
 

@@ -63,13 +63,18 @@ Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_
                                               uint32_t from, uint32_t size,
                                               std::shared_ptr<ChunkBufferMemoryEntry> memory_entry) {
     auto notify = defer_notify();
-    // Work-stealing keep-alive (partition mode): wake parked steal waiters after enqueue. Declared
-    // before the lock_guard so it fires AFTER the lock is released (never notify while locked);
-    // no-op when this source does not support stealing or no thief is parked.
-    bool wake_siblings = false;
+    // Work-stealing keep-alive (partition mode): edge-triggered per-lane wake of parked thieves,
+    // fired AFTER the lock is released (never notify while locked) and only when stealing is on.
+    // notify_lane_backlog fires at most once per rising backlog crossing (not per chunk), so a hot
+    // producer does not cause an N*N notify storm. Backlog is captured under the lock; the buffered
+    // slice count is a cheap monotone proxy for the thief's precise stealable_backlog() (a spurious
+    // wake at most costs one re-park -- the thief re-checks stealable_backlog() and partition safety).
+    bool steal_on = false;
+    size_t backlog = 0;
     DeferOp steal_notify([&]() {
-        if (wake_siblings) {
-            down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->steal_waiters().notify_all();
+        if (steal_on) {
+            down_cast<LocalExchangeSourceOperatorFactory*>(_factory)->steal_waiters().notify_lane_backlog(
+                    _driver_sequence, backlog, _steal_backlog_threshold());
         }
     });
     std::lock_guard<std::mutex> l(_chunk_lock);
@@ -79,7 +84,8 @@ Status LocalExchangeSourceOperator::add_chunk(ChunkPtr chunk, const std::shared_
 
     _partition_chunk_queue.emplace(std::move(chunk), indexes, from, size, std::move(memory_entry));
     _partition_rows_num += size;
-    wake_siblings = support_steal() && _factory->runtime_state()->query_options().enable_pipeline_work_stealing;
+    steal_on = support_steal() && _factory->runtime_state()->query_options().enable_pipeline_work_stealing;
+    backlog = _partition_chunk_queue.size();
 
     return Status::OK();
 }
