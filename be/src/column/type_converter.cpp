@@ -418,10 +418,11 @@ public:
             dst->set_null();
             return Status::OK();
         }
-        char buf[64] = {0};
-        snprintf(buf, 64, "%f", src.get_float());
-        char* tg;
-        dst->set_double(strtod(buf, &tg));
+        // Widen with a direct numeric cast, matching query-time CAST(FLOAT AS DOUBLE)
+        // (cast_expr.cpp ImplicitToNumber). The old snprintf("%f") + strtod round-trip printed
+        // only 6 digits after the decimal point, so a small float such as 1e-7 formatted to
+        // "0.000000" and was silently converted to 0 (data loss on schema change).
+        dst->set_double(static_cast<double>(src.get_float()));
         return Status::OK();
     }
 };

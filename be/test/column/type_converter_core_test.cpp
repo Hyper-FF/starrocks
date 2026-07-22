@@ -159,4 +159,30 @@ TEST(TypeConverterCoreTest, DecimalV3WideningConversion) {
     EXPECT_EQ(12345, dst->get(0).get_int64());
 }
 
+// Regression test for the float->double schema-change data loss: the converter used
+// snprintf("%f")+strtod, printing only 6 digits after the decimal point, so a small float such
+// as 1e-7 formatted to "0.000000" and became 0. It must widen like CAST(FLOAT AS DOUBLE) and
+// preserve the value.
+TEST(TypeConverterCoreTest, FloatToDoublePreservesSmallValue) {
+    TypeConverterTestAllocator allocator_holder;
+    TypeInfoAllocator allocator = allocator_holder.make_allocator();
+
+    auto src = FloatColumn::create();
+    src->append(static_cast<float>(1e-7));
+    src->append(static_cast<float>(0.1));
+
+    auto dst = DoubleColumn::create();
+    auto src_type = get_type_info(TYPE_FLOAT);
+    auto dst_type = get_type_info(TYPE_DOUBLE);
+    const TypeConverter* converter = get_type_converter(TYPE_FLOAT, TYPE_DOUBLE);
+    ASSERT_NE(nullptr, converter);
+    auto status = converter->convert_column(src_type.get(), *src, dst_type.get(), dst.get(), &allocator);
+    ASSERT_TRUE(status.ok()) << status.to_string();
+
+    // Must equal the direct widening (what CAST produces), not 0.
+    EXPECT_EQ(static_cast<double>(static_cast<float>(1e-7)), dst->get(0).get_double());
+    EXPECT_GT(dst->get(0).get_double(), 0.0); // was 0 before the fix
+    EXPECT_EQ(static_cast<double>(static_cast<float>(0.1)), dst->get(1).get_double());
+}
+
 } // namespace starrocks
