@@ -198,13 +198,6 @@ public:
     virtual Status accept_stolen_unit(StealUnit unit) {
         return Status::NotSupported("source operator does not support work-stealing");
     }
-    // Keep-alive wake registration (see PIPELINE_WORKSTEAL_KEEPALIVE_OBSERVER_DESIGN.md). A drained
-    // steal-eligible driver registers this source's observer on the shared buffer it reads from, so
-    // the producer can wake it (steal_trigger) when a peer lane crosses the stealable-backlog
-    // threshold; it deregisters on wake and on finalize. Default no-op: a non-stealing source never
-    // registers.
-    virtual void register_steal_waiter() {}
-    virtual void deregister_steal_waiter() {}
 
     size_t degree_of_parallelism() const { return _source_factory()->degree_of_parallelism(); }
     const std::vector<const Pipeline*>& group_dependent_pipelines() const {

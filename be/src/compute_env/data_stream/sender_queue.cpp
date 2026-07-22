@@ -883,12 +883,6 @@ Status DataStreamRecvr::PipelineSenderQueue::add_chunks(const PTransmitChunkPara
             }
             _recvr->_num_buffered_bytes += chunk_bytes;
             COUNTER_ADD(metrics.peak_buffer_mem_bytes, chunk_bytes);
-            // Work-stealing keep-alive: edge-triggered per-lane wake of parked thieves. Fires at
-            // most once per rising backlog crossing (not per chunk) and only when a thief is parked,
-            // so a hot lane does not produce an N*N notify storm. Safe here: the pipeline-shuffle
-            // enqueue path is lock-free (no _lock held), so steal_trigger never runs under a lock.
-            _recvr->_steal_waiters.notify_lane_backlog(index, _chunk_queues[index].size_approx(),
-                                                       _recvr->_steal_backlog_threshold);
         }
     }
 

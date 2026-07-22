@@ -187,18 +187,6 @@ DataStreamRecvr::DataStreamRecvr(DataStreamMgr* stream_mgr, RuntimeState* runtim
 
     _metrics.resize(degree_of_parallelism);
 
-    // Work-stealing keep-alive: one steal-waiter slot per pipeline lane (== driver sequence). Only
-    // the non-merging pipeline shuffle receiver ever registers waiters, but sizing it always keeps
-    // register/deregister index-safe.
-    if (_is_pipeline && !_is_merging) {
-        _steal_waiters.init(degree_of_parallelism);
-    }
-    // Producer-side edge-trigger threshold: the same stealable-backlog threshold the thief applies,
-    // so a steal wake never fires for a backlog the thief would decline. >=1.
-    if (runtime_state->query_options().__isset.pipeline_steal_backlog_threshold) {
-        _steal_backlog_threshold = std::max<size_t>(1, runtime_state->query_options().pipeline_steal_backlog_threshold);
-    }
-
     _pass_through_context.init();
     if (runtime_state->query_options().__isset.transmission_encode_level) {
         _encode_level = runtime_state->query_options().transmission_encode_level;
@@ -262,9 +250,6 @@ Status DataStreamRecvr::add_chunks(const PTransmitChunkParams& request, ::google
     });
     // TODO: We just need to notify the affected channels.
     auto notify = this->defer_notify();
-    // NOTE: the work-stealing wake is fired per-lane and edge-triggered from inside the sender
-    // queue's enqueue (PipelineSenderQueue::add_chunks -> _steal_waiters.notify_lane_backlog), NOT
-    // here -- an unconditional wake per add_chunks would be an N*N notify storm on a hot lane.
 
     auto& metrics = get_metrics_round_robin();
     SCOPED_TIMER(metrics.process_total_timer);
@@ -282,16 +267,12 @@ Status DataStreamRecvr::add_chunks(const PTransmitChunkParams& request, ::google
 
 void DataStreamRecvr::remove_sender(int sender_id, int be_number) {
     auto notify = this->defer_notify();
-    // Wake parked steal waiters too: a sender finishing may flip is_finished() once the last
-    // chunk is drained, and a thief parked with no further add_chunks must re-run to observe it.
-    DeferOp steal_notify([this]() { _steal_waiters.notify_all(); });
     int use_sender_id = _is_merging ? sender_id : 0;
     _sender_queues[use_sender_id]->decrement_senders(be_number);
 }
 
 void DataStreamRecvr::cancel_stream() {
     auto notify = this->defer_notify();
-    DeferOp steal_notify([this]() { _steal_waiters.notify_all(); });
     for (auto& _sender_queue : _sender_queues) {
         _sender_queue->cancel();
     }

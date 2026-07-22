@@ -580,26 +580,17 @@ StatusOr<DriverState> PipelineDriver::process(RuntimeState* runtime_state, int w
                 if (!should_yield) {
                     ASSIGN_OR_RETURN(const bool stole, try_steal_from_siblings());
                     if (stole) {
-                        source_operator()->deregister_steal_waiter();
                         _steal_attempted_this_round = false;
                         continue;
                     }
                 }
-                // Nothing to steal right now. Keep-alive is event-driven, NOT a busy-poll: register
-                // as a steal waiter on the source, then re-check once (this closes the race where a
-                // peer lane received a batch between the attempt above and the registration). If
-                // still nothing, park -- the source's producer fires steal_trigger() when a peer
-                // lane crosses the stealable-backlog threshold, re-waking this parked driver to
-                // steal (no own-lane predicate gate). See PIPELINE_WORKSTEAL_KEEPALIVE_OBSERVER_DESIGN.md.
+                // Nothing to steal right now: park. Keep-alive re-trigger -- if this driver is
+                // steal-eligible, arm a coarse periodic timer that re-wakes it to retry stealing
+                // (event-scheduler-native; the timer is owned by this driver and unscheduled+joined
+                // on finalize, so no cross-thread lifetime hazard). ~10ms period is proven
+                // sufficient (poller experiment). See PIPELINE_WORKSTEAL_SIMPLIFIED_DESIGN.md.
                 if (!should_yield && steal_enabled() && source_operator()->support_steal()) {
-                    source_operator()->register_steal_waiter();
-                    _steal_attempted_this_round = false;
-                    ASSIGN_OR_RETURN(const bool stole_recheck, try_steal_from_siblings());
-                    if (stole_recheck) {
-                        source_operator()->deregister_steal_waiter();
-                        _steal_attempted_this_round = false;
-                        continue;
-                    }
+                    _schedule_steal_retry_timer();
                 }
                 if (source_operator()->is_mutable()) {
                     set_driver_state(DriverState::LOCAL_WAITING);
