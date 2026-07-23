@@ -133,7 +133,7 @@ public:
     /// Returns a new FunctionContext with the same constant args, fragment-local state, and
     /// debug flag as this FunctionContext. The caller is responsible for calling delete on
     /// it.
-    FunctionContext* clone(MemPool* pool);
+    FunctionContext* clone();
 
     void set_constant_columns(Columns columns) { _constant_columns = std::move(columns); }
 

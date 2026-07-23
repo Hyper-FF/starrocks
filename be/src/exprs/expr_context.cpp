@@ -43,7 +43,6 @@
 #include "column/column_helper.h"
 #include "common/statusor.h"
 #include "exprs/expr.h"
-#include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -75,10 +74,8 @@ Status ExprContext::prepare(RuntimeState* state) {
     if (_prepared) {
         return Status::OK();
     }
-    DCHECK(_pool.get() == nullptr);
     _prepared = true;
     _runtime_state = state;
-    _pool = std::make_unique<MemPool>();
     return _root->prepare(state, this);
 }
 
@@ -110,16 +107,14 @@ void ExprContext::close(RuntimeState* state) {
     FunctionContext::FunctionStateScope scope =
             _is_clone ? FunctionContext::THREAD_LOCAL : FunctionContext::FRAGMENT_LOCAL;
     _root->close(state, this, scope);
-    // _pool can be nullptr if Prepare() was never called
-    if (_pool != nullptr) {
-        _pool->free_all();
-    }
-    _pool.reset();
 }
 
 int ExprContext::register_func(RuntimeState* state, const FunctionContext::TypeDesc& return_type,
                                const std::vector<FunctionContext::TypeDesc>& arg_types) {
-    _fn_contexts.push_back(FunctionContext::create_context(state, _pool.get(), return_type, arg_types));
+    // Scalar-function and UDF FunctionContexts never allocate from their MemPool (only
+    // aggregate functions use FunctionContext::mem_pool(), and those contexts are created by
+    // the aggregator/analytor with its own pool), so no backing pool is needed here.
+    _fn_contexts.push_back(FunctionContext::create_context(state, nullptr, return_type, arg_types));
     return _fn_contexts.size() - 1;
 }
 
@@ -129,9 +124,8 @@ Status ExprContext::clone(RuntimeState* state, ObjectPool* pool, ExprContext** n
     DCHECK(*new_ctx == nullptr);
 
     *new_ctx = pool->add(new ExprContext(_root));
-    (*new_ctx)->_pool = std::make_unique<MemPool>();
     for (auto& _fn_context : _fn_contexts) {
-        (*new_ctx)->_fn_contexts.push_back(_fn_context->clone((*new_ctx)->_pool.get()));
+        (*new_ctx)->_fn_contexts.push_back(_fn_context->clone());
     }
 
     (*new_ctx)->_is_clone = true;
