@@ -41,8 +41,12 @@ public:
     static Status open(const std::map<SlotId, ExprContext*>& ctxs, RuntimeState* state);
     static void close(const std::map<SlotId, ExprContext*>& ctxs, RuntimeState* state);
 
-    static Status clone_if_not_exists(RuntimeState* state, ObjectPool* pool, const std::vector<ExprContext*>& ctxs,
-                                      std::vector<ExprContext*>* new_ctxs);
+    // Populates '*new_ctxs' with the ExprContexts to use for an additional consumer (e.g. a
+    // scanner thread). A single ExprContext is now safe to evaluate concurrently, so the
+    // consumer simply SHARES the original pointers rather than receiving per-thread clones.
+    // The shared contexts are owned and closed by the original owner; the borrowing consumer
+    // must not close them. No-op if '*new_ctxs' is already populated.
+    static Status share_if_not_exists(const std::vector<ExprContext*>& ctxs, std::vector<ExprContext*>* new_ctxs);
 };
 
 } // namespace starrocks

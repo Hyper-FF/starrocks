@@ -30,7 +30,6 @@ Status SortExecExprs::init(const TSortInfo& sort_info, ObjectPool* pool, Runtime
 
 Status SortExecExprs::init(const std::vector<TExpr>& ordering_exprs, const std::vector<TExpr>* sort_tuple_slot_exprs,
                            ObjectPool* pool, RuntimeState* state) {
-    _pool = pool;
     RETURN_IF_ERROR(ExprFactory::create_expr_trees(pool, ordering_exprs, &_lhs_ordering_expr_ctxs, state, true));
     for (auto& expr : _lhs_ordering_expr_ctxs) {
         auto& type_desc = expr->root()->type();
@@ -71,7 +70,9 @@ Status SortExecExprs::open(RuntimeState* state) {
         RETURN_IF_ERROR(ExprExecutor::open(_sort_tuple_slot_expr_ctxs, state));
     }
     RETURN_IF_ERROR(ExprExecutor::open(_lhs_ordering_expr_ctxs, state));
-    RETURN_IF_ERROR(ExprExecutor::clone_if_not_exists(state, _pool, _lhs_ordering_expr_ctxs, &_rhs_ordering_expr_ctxs));
+    // The right-hand ordering contexts share the left-hand ones (a single ExprContext is safe
+    // to evaluate concurrently); they are the same objects, so close() below is idempotent.
+    RETURN_IF_ERROR(ExprExecutor::share_if_not_exists(_lhs_ordering_expr_ctxs, &_rhs_ordering_expr_ctxs));
     return Status::OK();
 }
 

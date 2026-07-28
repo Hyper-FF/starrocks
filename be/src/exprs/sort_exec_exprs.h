@@ -60,8 +60,8 @@ public:
     bool is_constant_lhs_ordering() const;
 
 private:
-    ObjectPool* _pool = nullptr;
-    // Create two ExprContexts for evaluating over the TupleRows.
+    // Ordering ExprContexts evaluated over the TupleRows. The right-hand set shares the
+    // left-hand contexts (a single ExprContext is safe to evaluate concurrently).
     std::vector<ExprContext*> _lhs_ordering_expr_ctxs;
     std::vector<ExprContext*> _rhs_ordering_expr_ctxs;
 

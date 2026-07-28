@@ -76,8 +76,7 @@ void ExprExecutor::close(const std::map<SlotId, ExprContext*>& ctxs, RuntimeStat
     }
 }
 
-Status ExprExecutor::clone_if_not_exists(RuntimeState* state, ObjectPool* pool, const std::vector<ExprContext*>& ctxs,
-                                         std::vector<ExprContext*>* new_ctxs) {
+Status ExprExecutor::share_if_not_exists(const std::vector<ExprContext*>& ctxs, std::vector<ExprContext*>* new_ctxs) {
     if (new_ctxs == nullptr) {
         return Status::InvalidArgument("new_ctxs is null");
     }
@@ -89,10 +88,9 @@ Status ExprExecutor::clone_if_not_exists(RuntimeState* state, ObjectPool* pool, 
         return Status::OK();
     }
 
-    new_ctxs->resize(ctxs.size());
-    for (size_t i = 0; i < ctxs.size(); ++i) {
-        RETURN_IF_ERROR(ctxs[i]->clone(state, pool, &(*new_ctxs)[i]));
-    }
+    // A single ExprContext is safe to evaluate concurrently, so an additional consumer shares
+    // the original pointers instead of cloning. Ownership (and close()) stays with the owner.
+    *new_ctxs = ctxs;
     return Status::OK();
 }
 

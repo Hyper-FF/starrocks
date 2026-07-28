@@ -63,7 +63,11 @@ StatusOr<ColumnExprPredicate*> ColumnExprPredicate::make_column_expr_predicate(T
 }
 
 ColumnExprPredicate::~ColumnExprPredicate() {
-    for (ExprContext* ctx : _expr_ctxs) {
+    // Only close the ExprContexts this predicate owns (created locally, e.g. cast / zone-map
+    // rewrite contexts). The externally supplied conjunct context (index 0) and any propagated
+    // copies are borrowed references to the scan node's shared ExprContexts; their owner closes
+    // them, so closing them here would free state still in use by a sibling scanner.
+    for (ExprContext* ctx : _owned_expr_ctxs) {
         ctx->close(_state);
     }
 }
@@ -77,9 +81,10 @@ void ColumnExprPredicate::_add_expr_ctxs(const std::vector<ExprContext*>& expr_c
 void ColumnExprPredicate::_add_expr_ctx(std::unique_ptr<ExprContext> expr_ctx) {
     if (expr_ctx != nullptr) {
         DCHECK(expr_ctx->opened());
-        // Transfer the ownership to object pool
+        // Transfer the ownership to object pool. This predicate owns and closes it.
         auto* ctx = _pool.add(expr_ctx.release());
         _expr_ctxs.emplace_back(ctx);
+        _owned_expr_ctxs.emplace_back(ctx);
         _monotonic &= ctx->root()->is_monotonic();
     }
 }
@@ -87,10 +92,11 @@ void ColumnExprPredicate::_add_expr_ctx(std::unique_ptr<ExprContext> expr_ctx) {
 void ColumnExprPredicate::_add_expr_ctx(ExprContext* expr_ctx) {
     if (expr_ctx != nullptr) {
         DCHECK(expr_ctx->opened());
-        ExprContext* ctx = nullptr;
-        DCHECK_IF_ERROR(expr_ctx->clone(_state, &_pool, &ctx));
-        _expr_ctxs.emplace_back(ctx);
-        _monotonic &= ctx->root()->is_monotonic();
+        // Share the externally supplied ExprContext rather than cloning: a single ExprContext
+        // is safe to evaluate concurrently. It is a borrowed reference (owned/closed by the
+        // scan node), so it is not added to _owned_expr_ctxs and is not closed by this predicate.
+        _expr_ctxs.emplace_back(expr_ctx);
+        _monotonic &= expr_ctx->root()->is_monotonic();
     }
 }
 

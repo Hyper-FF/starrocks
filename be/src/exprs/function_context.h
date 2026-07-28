@@ -31,7 +31,6 @@ namespace starrocks {
 class MemPool;
 class RuntimeState;
 
-struct NgramBloomFilterState;
 
 // Base class for per-execution-thread function state (e.g. a Hyperscan scratch space) held by
 // a shared FunctionContext via get_or_create_thread_state(). Derive from this and put the
@@ -134,11 +133,6 @@ public:
     static FunctionContext* create_test_context();
     static FunctionContext* create_test_context(std::vector<TypeDesc>&& arg_types, const TypeDesc& return_type);
 
-    /// Returns a new FunctionContext with the same constant args, fragment-local state, and
-    /// debug flag as this FunctionContext. The caller is responsible for calling delete on
-    /// it.
-    FunctionContext* clone();
-
     void set_constant_columns(Columns columns) { _constant_columns = std::move(columns); }
 
     MemPool* mem_pool() { return _mem_pool; }
@@ -166,7 +160,6 @@ public:
 
     bool allow_throw_exception() const;
 
-    std::unique_ptr<NgramBloomFilterState>& get_ngram_state() { return _ngramState; }
 
     // Returns this worker thread's instance of T (which must derive from FunctionThreadState),
     // creating it via factory() on first access for this (FunctionContext, worker) pair.
@@ -205,7 +198,6 @@ private:
     int64_t _num_warnings{0};
 
     /// The function state accessed via FunctionContext::Get/SetFunctionState()
-    void* _thread_local_fn_state{nullptr};
     void* _fragment_local_fn_state{nullptr};
 
     // Type descriptor for the return type of the function.
@@ -233,7 +225,6 @@ private:
     ssize_t group_concat_max_len = 1024;
 
     // used for ngram bloom filter to speed up some function
-    std::unique_ptr<NgramBloomFilterState> _ngramState;
 
     // Per-worker thread-state registry (see get_or_create_thread_state). Owned here, so the
     // states live as long as this FunctionContext (the fragment) and are freed with it.

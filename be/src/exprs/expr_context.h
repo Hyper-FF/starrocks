@@ -57,9 +57,12 @@ class BloomFilter;
 struct NgramBloomFilterReaderOptions;
 
 /// An ExprContext contains the state for the execution of a tree of Exprs, in particular
-/// the FunctionContexts necessary for the expr tree. This allows for multi-threaded
-/// expression evaluation, as a given tree can be evaluated using multiple ExprContexts
-/// concurrently. A single ExprContext is not thread-safe.
+/// the FunctionContexts necessary for the expr tree. A single ExprContext may be evaluated
+/// concurrently by multiple execution threads: the prepared fragment-local state is read-only
+/// after open(), per-thread mutable resources are obtained lazily via
+/// FunctionContext::get_or_create_thread_state(), and error reporting is mutex-guarded. There
+/// is therefore no per-thread clone; consumers share the same ExprContext (see
+/// ExprExecutor::share_if_not_exists) and must not close it (only the owner does).
 
 class ExprContext {
 public:
@@ -75,15 +78,12 @@ public:
     /// reinitializing function state).
     Status open(RuntimeState* state);
 
-    /// Creates a copy of this ExprContext. Open() must be called first. The copy contains
-    /// clones of each FunctionContext, which share the fragment-local state of the
-    /// originals but have their own thread-local state. Clone() should be used
-    /// to create an ExprContext for each execution thread that needs to evaluate
-    /// 'root'. Note that clones are already opened. '*new_context' must be initialized by
-    /// the caller to NULL.
-    Status clone(RuntimeState* state, ObjectPool* pool, ExprContext** new_context);
-
-    /// Closes all FunctionContexts. Must be called on every ExprContext, including clones.
+    /// Closes all FunctionContexts, tearing down the shared fragment-local expression state.
+    /// Idempotent (first call wins). This must be called exactly once by the OWNER of the
+    /// ExprContext, and only after every consumer that borrowed it (see ExprExecutor::
+    /// share_if_not_exists) has finished evaluating: a single ExprContext is now shared by all
+    /// execution threads rather than cloned per-thread, so an early close would free state
+    /// still in use by a sibling consumer.
     void close(RuntimeState* state);
 
     /// Creates a FunctionContext, and returns the index that's passed to fn_context() to
@@ -140,8 +140,6 @@ private:
     /// The expr tree this context is for.
     Expr* _root;
 
-    /// True if this context came from a Clone() call. Used to manage FunctionStateScope.
-    bool _is_clone{false};
     /// Variables keeping track of current state.
     bool _prepared{false};
     bool _opened{false};

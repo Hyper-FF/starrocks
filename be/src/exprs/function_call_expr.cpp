@@ -24,6 +24,7 @@
 #include "column/const_column.h"
 #include "column/vectorized_fwd.h"
 #include "common/bloom_filter.h"
+#include "common/ngram_bloom_filter_state.h"
 #include "exprs/agg/combinator/agg_state_utils.h"
 #include "exprs/agg/combinator/state_function.h"
 #include "exprs/builtin_functions.h"
@@ -224,28 +225,33 @@ StatusOr<ColumnPtr> VectorizedFunctionCallExpr::evaluate_checked(starrocks::Expr
     return result;
 }
 
+namespace {
+// Per-worker ngram-bloom-filter state, held in the FunctionContext thread-state registry so the
+// FunctionContext can be shared across scan threads (no per-thread ExprContext clone needed).
+struct NgramFilterThreadState : FunctionThreadState {
+    NgramBloomFilterState ngram;
+};
+} // namespace
+
 bool VectorizedFunctionCallExpr::ngram_bloom_filter(ExprContext* context, const BloomFilter* bf,
                                                     const NgramBloomFilterReaderOptions& reader_options) const {
     FunctionContext* fn_ctx = context->fn_context(_fn_context_index);
-    std::unique_ptr<NgramBloomFilterState>& ngram_state = fn_ctx->get_ngram_state();
 
-    // initialize ngram_state: determine whether this index useful or not, split needle into ngram_set if useful
-    // this is not thread-safe, but every scan thread will has its own ExprContext, so it's ok
-    if (ngram_state == nullptr) {
-        ngram_state = std::make_unique<NgramBloomFilterState>();
-        std::vector<std::string>& ngram_set = ngram_state->ngram_set;
-        bool index_useful;
+    // Computed once per (FunctionContext, worker) and read-only afterward, so it is safe under a
+    // shared FunctionContext.
+    auto* ts = fn_ctx->get_or_create_thread_state<NgramFilterThreadState>([&]() {
+        auto s = std::make_unique<NgramFilterThreadState>();
+        NgramBloomFilterState& ngram_state = s->ngram;
+        std::vector<std::string>& ngram_set = ngram_state.ngram_set;
 
         // checked in support_ngram_bloom_filter(size_t gram_num), so it 's safe to get const column's value
-
         const auto& needle_column = fn_ctx->get_constant_column(1);
         std::string needle = ColumnHelper::get_const_value<TYPE_VARCHAR>(needle_column).to_string();
 
         if (!simdjson::validate_utf8(needle.data(), needle.size())) {
-            index_useful = false;
-            ngram_state->initialized = true;
-            ngram_state->index_useful = index_useful;
-            return true;
+            ngram_state.initialized = true;
+            ngram_state.index_useful = false;
+            return s;
         }
 
         // for case_insensitive, we need to convert needle to lower case
@@ -259,27 +265,29 @@ bool VectorizedFunctionCallExpr::ngram_bloom_filter(ExprContext* context, const 
             needle = std::move(lower_needle);
         }
 
+        bool index_useful;
         if (_fn_desc->name == "LIKE") {
             index_useful = split_like_string_to_ngram(needle, reader_options, ngram_set);
         } else {
             index_useful = split_normal_string_to_ngram(needle, fn_ctx, reader_options, ngram_set, _fn_desc->name);
         }
-        ngram_state->initialized = true;
-        ngram_state->index_useful = index_useful;
-    }
+        ngram_state.initialized = true;
+        ngram_state.index_useful = index_useful;
+        return s;
+    });
+    NgramBloomFilterState& ngram_state = ts->ngram;
 
-    DCHECK(ngram_state != nullptr);
-    DCHECK(ngram_state->initialized);
+    DCHECK(ngram_state.initialized);
 
     // this index can not be used to this function
-    if (!ngram_state->index_useful) {
+    if (!ngram_state.index_useful) {
         return true;
     }
 
     // if empty, which means needle is too short, so index_valid should be false
-    DCHECK(!ngram_state->ngram_set.empty());
+    DCHECK(!ngram_state.ngram_set.empty());
     if (_fn_desc->name == "LIKE") {
-        for (auto& ngram : ngram_state->ngram_set) {
+        for (auto& ngram : ngram_state.ngram_set) {
             // if any ngram in needle doesn't hit bf, this page has nothing to do with target,so filter it
             if (!bf->test_bytes(ngram.data(), ngram.size())) {
                 return false;
@@ -288,7 +296,7 @@ bool VectorizedFunctionCallExpr::ngram_bloom_filter(ExprContext* context, const 
         // if all ngram in needle hit bf, this page may have something to do with needle, so don't filter it
         return true;
     } else {
-        for (auto& ngram : ngram_state->ngram_set) {
+        for (auto& ngram : ngram_state.ngram_set) {
             // if any ngram in needle hit bf, this page may have something to do with needle, so don't filter it
             if (bf->test_bytes(ngram.data(), ngram.size())) {
                 return true;

@@ -91,7 +91,11 @@ private:
 
     ObjectPool _pool;
     RuntimeState* _state;
+    // All ExprContexts used for evaluation. Entry 0 (and any propagated copies) are borrowed
+    // references to the scan node's shared conjunct contexts; locally created ones (cast /
+    // zone-map rewrite) are owned. _owned_expr_ctxs is the subset this predicate closes.
     std::vector<ExprContext*> _expr_ctxs;
+    std::vector<ExprContext*> _owned_expr_ctxs;
     const SlotDescriptor* _slot_desc;
     bool _monotonic{true};
     mutable std::vector<uint8_t> _tmp_select;

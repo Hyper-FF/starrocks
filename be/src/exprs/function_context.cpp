@@ -74,14 +74,6 @@ FunctionContext* FunctionContext::create_test_context(std::vector<TypeDesc>&& ar
 FunctionContext::FunctionContext() = default;
 FunctionContext::~FunctionContext() = default;
 
-FunctionContext* FunctionContext::clone() {
-    FunctionContext* new_context = create_context(_state, nullptr, _return_type, _arg_types);
-
-    new_context->_constant_columns = _constant_columns;
-    new_context->_fragment_local_fn_state = _fragment_local_fn_state;
-    return new_context;
-}
-
 int FunctionContext::get_num_args() const {
     return _arg_types.size();
 }

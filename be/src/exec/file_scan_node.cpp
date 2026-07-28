@@ -311,13 +311,14 @@ Status FileScanNode::_scanner_scan(const TBrokerScanRange& scan_range, const std
 void FileScanNode::_scanner_worker(int start_idx, int length) {
     SCOPED_THREAD_LOCAL_MEM_TRACKER_SETTER(runtime_state()->instance_mem_tracker());
 
-    // Clone expr context
+    // Share the node's conjunct ExprContexts: a single ExprContext is safe to evaluate
+    // concurrently, so scanner workers share rather than clone. FileScanNode owns and closes
+    // them (via ExecNode::close) after all workers join, so the worker must not close them.
     std::vector<ExprContext*> scanner_expr_ctxs;
-    DeferOp close_exprs([this, &scanner_expr_ctxs] { ExprExecutor::close(scanner_expr_ctxs, runtime_state()); });
-    auto status = ExprExecutor::clone_if_not_exists(runtime_state(), _pool, _conjunct_ctxs, &scanner_expr_ctxs);
+    auto status = ExprExecutor::share_if_not_exists(_conjunct_ctxs, &scanner_expr_ctxs);
 
     if (!status.ok()) {
-        LOG(WARNING) << "Clone conjuncts failed.";
+        LOG(WARNING) << "Share conjuncts failed.";
     } else {
         ScannerCounter counter;
         for (int i = 0; i < length; ++i) {

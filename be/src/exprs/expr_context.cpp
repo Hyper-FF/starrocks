@@ -85,9 +85,8 @@ Status ExprContext::open(RuntimeState* state) {
         return Status::OK();
     }
     _opened = true;
-    // Clones inherit the original's fragment-local state (copied in clone()) and per-thread
-    // state now lives in the FunctionContext thread-state registry, so open is a run-once
-    // fragment-local operation.
+    // Per-thread state now lives in the FunctionContext thread-state registry, so open is a
+    // run-once fragment-local operation shared by every consumer of this ExprContext.
     try {
         return _root->open(state, this, FunctionContext::FRAGMENT_LOCAL);
     } catch (std::runtime_error& e) {
@@ -103,12 +102,11 @@ void ExprContext::close(RuntimeState* state) {
     if (!_closed.compare_exchange_strong(expected, true)) {
         return;
     }
-    // Only the original owns the shared fragment-local state; clones must not free it again.
-    // A clone's per-thread state lives in the FunctionContext thread-state registry and is
-    // released when the (cloned) FunctionContext is destroyed.
-    if (!_is_clone) {
-        _root->close(state, this, FunctionContext::FRAGMENT_LOCAL);
-    }
+    // Tears down the shared fragment-local state exactly once. Consumers that borrowed this
+    // ExprContext (via ExprExecutor::share_if_not_exists) must not call close(); only the owner
+    // does, after all consumers have finished. Per-thread state lives in the FunctionContext
+    // thread-state registry and is released when the FunctionContext is destroyed.
+    _root->close(state, this, FunctionContext::FRAGMENT_LOCAL);
 }
 
 int ExprContext::register_func(RuntimeState* state, const FunctionContext::TypeDesc& return_type,
@@ -118,27 +116,6 @@ int ExprContext::register_func(RuntimeState* state, const FunctionContext::TypeD
     // the aggregator/analytor with its own pool), so no backing pool is needed here.
     _fn_contexts.push_back(FunctionContext::create_context(state, nullptr, return_type, arg_types));
     return _fn_contexts.size() - 1;
-}
-
-Status ExprContext::clone(RuntimeState* state, ObjectPool* pool, ExprContext** new_ctx) {
-    DCHECK(_prepared);
-    DCHECK(_opened);
-    DCHECK(*new_ctx == nullptr);
-
-    *new_ctx = pool->add(new ExprContext(_root));
-    for (auto& _fn_context : _fn_contexts) {
-        (*new_ctx)->_fn_contexts.push_back(_fn_context->clone());
-    }
-
-    (*new_ctx)->_is_clone = true;
-    (*new_ctx)->_prepared = true;
-    (*new_ctx)->_opened = true;
-    (*new_ctx)->_runtime_state = state;
-
-    // The clone shares the original's fragment-local state (copied above via
-    // FunctionContext::clone); per-thread state is obtained lazily during evaluation from the
-    // FunctionContext thread-state registry, so there is no per-clone open work to do.
-    return Status::OK();
 }
 
 Status ExprContext::get_udf_error() {

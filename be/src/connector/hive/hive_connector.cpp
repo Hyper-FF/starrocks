@@ -304,15 +304,17 @@ Status HiveDataSource::_init_conjunct_ctxs(RuntimeState* state) {
 
     RETURN_IF_ERROR(_decompose_conjunct_ctxs(state));
 
-    // Build all_ctxs: clone of (min_max_ctxs ∪ scan conjuncts), used to build
-    // ScanConjunctsManager / PredicateTree inside each scanner's context.
-    std::vector<ExprContext*> cloned;
-    RETURN_IF_ERROR(ExprExecutor::clone_if_not_exists(
-            state, &_pool, _scanner_ctx.format_scan_context.conjuncts.min_max_ctxs, &cloned));
-    for (auto* ctx : cloned) _scanner_ctx.format_scan_context.conjuncts.all_ctxs.emplace_back(ctx);
-    cloned.clear();
-    RETURN_IF_ERROR(ExprExecutor::clone_if_not_exists(state, &_pool, _conjunct_ctxs, &cloned));
-    for (auto* ctx : cloned) _scanner_ctx.format_scan_context.conjuncts.all_ctxs.emplace_back(ctx);
+    // Build all_ctxs: (min_max_ctxs ∪ scan conjuncts), used to build ScanConjunctsManager /
+    // PredicateTree inside each scanner's context. These are shared (not cloned): a single
+    // ExprContext is safe to evaluate concurrently, and all_ctxs are borrowed references whose
+    // owners (min_max_ctxs here, the scan node for _conjunct_ctxs) close them.
+    std::vector<ExprContext*> shared;
+    RETURN_IF_ERROR(ExprExecutor::share_if_not_exists(_scanner_ctx.format_scan_context.conjuncts.min_max_ctxs,
+                                                      &shared));
+    for (auto* ctx : shared) _scanner_ctx.format_scan_context.conjuncts.all_ctxs.emplace_back(ctx);
+    shared.clear();
+    RETURN_IF_ERROR(ExprExecutor::share_if_not_exists(_conjunct_ctxs, &shared));
+    for (auto* ctx : shared) _scanner_ctx.format_scan_context.conjuncts.all_ctxs.emplace_back(ctx);
 
     return Status::OK();
 }
@@ -535,10 +537,13 @@ Status HiveDataSource::_decompose_conjunct_ctxs(RuntimeState* state) {
         slot_by_id[slot->id()] = slot;
     }
 
-    std::vector<ExprContext*> cloned_conjunct_ctxs;
-    RETURN_IF_ERROR(ExprExecutor::clone_if_not_exists(state, &_pool, _conjunct_ctxs, &cloned_conjunct_ctxs));
+    // Share the scan node's conjunct ExprContexts (a single ExprContext is safe to evaluate
+    // concurrently). They are routed below into scanner_ctxs / by_slot as borrowed references;
+    // their owner (the scan node) closes them, so HiveDataSource::close must not.
+    std::vector<ExprContext*> shared_conjunct_ctxs;
+    RETURN_IF_ERROR(ExprExecutor::share_if_not_exists(_conjunct_ctxs, &shared_conjunct_ctxs));
 
-    for (ExprContext* ctx : cloned_conjunct_ctxs) {
+    for (ExprContext* ctx : shared_conjunct_ctxs) {
         const Expr* root_expr = ctx->root();
         std::vector<SlotId> slot_ids;
         root_expr->get_slot_ids(&slot_ids);
@@ -995,19 +1000,17 @@ void HiveDataSource::close(RuntimeState* state) {
         }
         _scanner->close();
     }
-    // ColumnExprPredicate destructors call ExprContext::close() on cloned
-    // ExprContexts whose root() Expr* lives in HiveDataSource::_pool
-    // (ExprContext::clone() shares _root, it does NOT deep-copy the tree).
-    // Release predicates here while _pool is still alive.
+    // Release predicates here while _pool is still alive: ColumnExprPredicate destructors close
+    // the ExprContexts they own.
     _scanner_ctx.predicates = {};
+    // Close only the ExprContexts owned by this HiveDataSource. scanner_ctxs / by_slot hold
+    // borrowed references to the scan node's conjunct ExprContexts (shared, not cloned); the
+    // scan node owns and closes those, so closing them here would free state still in use by a
+    // sibling data source scanning the same fragment.
     ExprExecutor::close(_scanner_ctx.format_scan_context.conjuncts.min_max_ctxs, state);
     ExprExecutor::close(_partition_filter.conjunct_ctxs, state);
     ExprExecutor::close(_scanner_ctx.partition_expr_ctxs, state);
     ExprExecutor::close(_scanner_ctx.extended_col_expr_ctxs, state);
-    ExprExecutor::close(_scanner_ctx.format_scan_context.conjuncts.scanner_ctxs, state);
-    for (auto& it : _scanner_ctx.format_scan_context.conjuncts.by_slot) {
-        ExprExecutor::close(it.second, state);
-    }
 }
 
 Status HiveDataSource::get_next(RuntimeState* state, ChunkPtr* chunk) {

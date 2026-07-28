@@ -224,9 +224,9 @@ protected:
     /// Prepare() on the expr tree.
     virtual Status prepare(RuntimeState* state, ExprContext* context);
 
-    /// Initializes 'context' for execution. If scope if FRAGMENT_LOCAL, both fragment- and
-    /// thread-local state should be initialized. Otherwise, if scope is THREAD_LOCAL, only
-    /// thread-local state should be initialized.
+    /// Initializes 'context' for execution. 'scope' is always FRAGMENT_LOCAL: the compile-once
+    /// fragment-local state is initialized here, while per-thread state is obtained lazily during
+    /// evaluation from the FunctionContext thread-state registry.
     //
     /// Subclasses overriding this function should call Expr::Open() to recursively call
     /// Open() on the expr tree.
@@ -238,9 +238,9 @@ protected:
 
     /// Subclasses overriding this function should call Expr::Close().
     //
-    /// If scope if FRAGMENT_LOCAL, both fragment- and thread-local state should be torn
-    /// down. Otherwise, if scope is THREAD_LOCAL, only thread-local state should be torn
-    /// down.
+    /// 'scope' is always FRAGMENT_LOCAL: the shared fragment-local state is torn down here.
+    /// Per-thread state lives in the FunctionContext thread-state registry and is released when
+    /// the FunctionContext is destroyed.
     void close(RuntimeState* state, ExprContext* context) { close(state, context, FunctionContext::FRAGMENT_LOCAL); }
 
     virtual void close(RuntimeState* state, ExprContext* context, FunctionContext::FunctionStateScope scope);

@@ -19,6 +19,7 @@
 #include "common/object_pool.h"
 #include "exprs/expr.h"
 #include "exprs/expr_context.h"
+#include "exprs/expr_executor.h"
 #include "runtime/runtime_state.h"
 
 namespace starrocks {
@@ -93,26 +94,24 @@ TEST(ExprContextCoreTest, EvaluateWithNullChunkUsesDummyChunk) {
     EXPECT_EQ(1, expr.evaluate_calls());
 }
 
-TEST(ExprContextCoreTest, CloneCopiesFunctionContexts) {
+TEST(ExprContextCoreTest, ShareIfNotExistsSharesPointers) {
     ExprContextTestExpr expr(true);
     RuntimeState state;
     ExprContext context(&expr);
     ASSERT_TRUE(context.prepare(&state).ok());
     ASSERT_TRUE(context.open(&state).ok());
-    ASSERT_GE(expr.fn_ctx_idx(), 0);
 
-    int fragment_local_state = 123;
-    context.fn_context(expr.fn_ctx_idx())->set_function_state(FunctionContext::FRAGMENT_LOCAL, &fragment_local_state);
+    // An additional consumer shares the same ExprContext pointers (no per-thread clone).
+    std::vector<ExprContext*> ctxs = {&context};
+    std::vector<ExprContext*> shared;
+    ASSERT_TRUE(ExprExecutor::share_if_not_exists(ctxs, &shared).ok());
+    ASSERT_EQ(1, shared.size());
+    EXPECT_EQ(&context, shared[0]);
 
-    ObjectPool pool;
-    ExprContext* cloned = nullptr;
-    ASSERT_TRUE(context.clone(&state, &pool, &cloned).ok());
-    ASSERT_NE(nullptr, cloned);
-
-    auto* original_fn_ctx = context.fn_context(expr.fn_ctx_idx());
-    auto* cloned_fn_ctx = cloned->fn_context(expr.fn_ctx_idx());
-    EXPECT_NE(original_fn_ctx, cloned_fn_ctx);
-    EXPECT_EQ(&fragment_local_state, cloned_fn_ctx->get_function_state(FunctionContext::FRAGMENT_LOCAL));
+    // Calling again when already populated is a no-op and keeps the same pointers.
+    ASSERT_TRUE(ExprExecutor::share_if_not_exists(ctxs, &shared).ok());
+    ASSERT_EQ(1, shared.size());
+    EXPECT_EQ(&context, shared[0]);
 }
 
 TEST(ExprContextCoreTest, CloseIsIdempotent) {

@@ -49,27 +49,6 @@ TEST(FunctionContextCoreTest, FunctionStateScopeSetGet) {
     EXPECT_EQ(&fragment_local_state, ctx.get_function_state(FunctionContext::FRAGMENT_LOCAL));
 }
 
-TEST(FunctionContextCoreTest, CloneKeepsConstantsAndFragmentState) {
-    MemPool mem_pool;
-    std::vector<FunctionContext::TypeDesc> arg_types = {TypeDescriptor(TYPE_INT)};
-    auto ctx = std::unique_ptr<FunctionContext>(
-            FunctionContext::create_context(nullptr, &mem_pool, TypeDescriptor(TYPE_INT), arg_types));
-
-    int fragment_local_state = 123;
-    ctx->set_function_state(FunctionContext::FRAGMENT_LOCAL, &fragment_local_state);
-
-    Columns constant_columns;
-    constant_columns.emplace_back(ColumnHelper::create_const_column<TYPE_INT>(42, 1));
-    ctx->set_constant_columns(std::move(constant_columns));
-
-    auto clone_ctx = std::unique_ptr<FunctionContext>(ctx->clone());
-
-    EXPECT_EQ(&fragment_local_state, clone_ctx->get_function_state(FunctionContext::FRAGMENT_LOCAL));
-    EXPECT_TRUE(clone_ctx->is_constant_column(0));
-    EXPECT_EQ(1, clone_ctx->get_num_constant_columns());
-    EXPECT_EQ(42, ColumnHelper::get_const_value<TYPE_INT>(clone_ctx->get_constant_column(0)));
-}
-
 TEST(FunctionContextCoreTest, ErrorMessageSticky) {
     FunctionContext ctx;
     EXPECT_FALSE(ctx.has_error());
@@ -84,21 +63,30 @@ TEST(FunctionContextCoreTest, ErrorMessageSticky) {
     EXPECT_STREQ("first error", ctx.error_msg());
 }
 
-TEST(FunctionContextCoreTest, NgramStateHolderSetGet) {
+namespace {
+struct CoreTestThreadState : FunctionThreadState {
+    int value = 0;
+};
+} // namespace
+
+TEST(FunctionContextCoreTest, ThreadStateRegistryCreatesOncePerContext) {
     FunctionContext ctx;
-    EXPECT_EQ(nullptr, ctx.get_ngram_state().get());
+    int created = 0;
+    auto* s1 = ctx.get_or_create_thread_state<CoreTestThreadState>([&]() {
+        ++created;
+        auto s = std::make_unique<CoreTestThreadState>();
+        s->value = 42;
+        return s;
+    });
+    ASSERT_NE(nullptr, s1);
+    EXPECT_EQ(42, s1->value);
 
-    auto state = std::make_unique<NgramBloomFilterState>();
-    state->initialized = true;
-    state->index_useful = true;
-    state->ngram_set.emplace_back("abc");
-    ctx.get_ngram_state() = std::move(state);
-
-    ASSERT_NE(nullptr, ctx.get_ngram_state().get());
-    EXPECT_TRUE(ctx.get_ngram_state()->initialized);
-    EXPECT_TRUE(ctx.get_ngram_state()->index_useful);
-    ASSERT_EQ(1, ctx.get_ngram_state()->ngram_set.size());
-    EXPECT_EQ("abc", ctx.get_ngram_state()->ngram_set[0]);
+    // A second call for the same (FunctionContext, worker) returns the same instance and does
+    // not run the factory again.
+    auto* s2 = ctx.get_or_create_thread_state<CoreTestThreadState>(
+            [&]() { ++created; return std::make_unique<CoreTestThreadState>(); });
+    EXPECT_EQ(s1, s2);
+    EXPECT_EQ(1, created);
 }
 
 } // namespace starrocks

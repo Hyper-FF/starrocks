@@ -51,7 +51,10 @@ Status TabletScanner::init(RuntimeState* runtime_state, const TabletScannerParam
     _need_agg_finalize = params.need_agg_finalize;
     _update_num_scan_range = params.update_num_scan_range;
 
-    RETURN_IF_ERROR(ExprExecutor::clone_if_not_exists(runtime_state, &_pool, *params.conjunct_ctxs, &_conjunct_ctxs));
+    // Share the parent's conjunct ExprContexts rather than cloning per scanner: a single
+    // ExprContext is safe to evaluate concurrently. The parent (OlapScanNode) owns and closes
+    // them, so this scanner must not close them (see close()).
+    RETURN_IF_ERROR(ExprExecutor::share_if_not_exists(*params.conjunct_ctxs, &_conjunct_ctxs));
     RETURN_IF_ERROR(_get_tablet(params.scan_range));
 
     // if column_desc come from fe, reset tablet schema
@@ -132,7 +135,9 @@ void TabletScanner::close(RuntimeState* state) {
     update_counter();
     _reader.reset();
     _predicate_free_pool.clear();
-    ExprExecutor::close(_conjunct_ctxs, state);
+    // _conjunct_ctxs are shared from (and owned by) the parent OlapScanNode; it closes them
+    // after all scanners finish, so this scanner must not close them here (an early close would
+    // free fragment-local state still in use by a sibling scanner).
     _is_closed = true;
 }
 

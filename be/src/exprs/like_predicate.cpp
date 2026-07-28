@@ -48,8 +48,8 @@ LikePredicate::LikePredicateState* LikePredicate::shared_state(FunctionContext* 
     return reinterpret_cast<LikePredicateState*>(context->get_function_state(FunctionContext::FRAGMENT_LOCAL));
 }
 
-bool LikePredicate::hs_compile_database(const std::string& pattern, LikePredicateState* state, FunctionContext* context,
-                                        const Slice& slice) {
+bool LikePredicate::hs_compile_database(const std::string& pattern, LikePredicateState* state,
+                                        FunctionContext* context, const Slice& slice) {
     hs_database_t* database = nullptr;
     if (hs_compile(pattern.c_str(), HS_FLAG_ALLOWEMPTY | HS_FLAG_DOTALL | HS_FLAG_UTF8 | HS_FLAG_SINGLEMATCH,
                    HS_MODE_BLOCK, nullptr, &database, &state->compile_err) != HS_SUCCESS) {
@@ -64,8 +64,8 @@ bool LikePredicate::hs_compile_database(const std::string& pattern, LikePredicat
     }
 
     // Validate that a scratch space can be allocated for this database; if not, fall back to
-    // RE2 (matching the previous behavior). The real per-thread scratch is allocated later, in
-    // the THREAD_LOCAL prepare. The probe scratch is freed immediately.
+    // RE2 (matching the previous behavior). The real per-thread scratch is allocated lazily
+    // during evaluation via get_or_create_thread_state. The probe scratch is freed immediately.
     hs_scratch_t* probe_scratch = nullptr;
     if (hs_alloc_scratch(database, &probe_scratch) != HS_SUCCESS) {
         std::stringstream error;
@@ -591,8 +591,8 @@ StatusOr<ColumnPtr> LikePredicate::regex_match_full(FunctionContext* context, co
         }
         case FastPathType::REGEX: {
             auto* like_state = shared_state(context);
-            auto re_pattern =
-                    LikePredicate::template convert_like_pattern<false>(context, pattern, like_state->escape_char);
+            auto re_pattern = LikePredicate::template convert_like_pattern<false>(context, pattern,
+                                                                                  like_state->escape_char);
 
             re2::RE2 re(re_pattern, opts);
             if (!re.ok()) {

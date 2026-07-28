@@ -278,7 +278,6 @@ TEST_F(VectorizedFunctionCallExprTest, prepareFaileCase) {
     expr.add_child(&col1);
 
     ExprContext exprContext(&expr);
-    exprContext._is_clone = true;
 
     ASSERT_FALSE(expr.prepare(nullptr, &exprContext).ok());
     exprContext.close(nullptr);
