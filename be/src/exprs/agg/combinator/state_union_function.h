@@ -27,6 +27,7 @@
 #include "runtime/agg_state_desc.h"
 #include "runtime/mem_pool.h"
 #include "util/bit_util.h"
+#include "util/defer_op.h"
 
 namespace starrocks {
 
@@ -42,18 +43,7 @@ public:
         DCHECK(_function != nullptr);
     }
 
-    ~StateUnionFunction() {
-        if (_nested_ctx != nullptr) {
-            delete _nested_ctx;
-        }
-    }
-
-    virtual Status prepare(FunctionContext* context, FunctionContext::FunctionStateScope scope) {
-        _nested_ctx =
-                FunctionContext::create_context(context->state(), context->mem_pool(),
-                                                _agg_state_desc.get_return_type(), _agg_state_desc.get_arg_types());
-        return Status::OK();
-    }
+    virtual Status prepare(FunctionContext* context, FunctionContext::FunctionStateScope scope) { return Status::OK(); }
 
     StatusOr<ColumnPtr> execute(FunctionContext* context, const Columns& columns) override {
         RETURN_IF_UNLIKELY(
@@ -62,6 +52,19 @@ public:
                                       " not match with arg_nullables size " + std::to_string(_arg_nullables.size())));
 
         SCOPED_THREAD_LOCAL_AGG_STATE_ALLOCATOR_SETTER(&kDefaultAggStateMergeFunctionAllocator);
+
+        // The combinator object is shared by every pipeline driver that shares the owning Expr and is
+        // evaluated concurrently, so the nested FunctionContext used to drive the wrapped aggregate --
+        // and, crucially, the MemPool it allocates transient agg state from -- must be private to this
+        // execution. The caller's `context` (and its mem_pool()) is shared across drivers and its
+        // MemPool is not thread-safe, so we allocate a fresh MemPool on the stack and back the nested
+        // context with it. The nested state is created/serialized/destroyed within this call, so the
+        // pool and context can be released when it returns.
+        MemPool nested_mem_pool;
+        FunctionContext* nested_ctx =
+                FunctionContext::create_context(context->state(), &nested_mem_pool,
+                                                _agg_state_desc.get_return_type(), _agg_state_desc.get_arg_types());
+        DeferOp defer_nested_ctx([&]() { delete nested_ctx; });
 
         Columns new_columns;
         new_columns.reserve(columns.size());
@@ -90,41 +93,37 @@ public:
                 data_columns.emplace_back(ColumnHelper::get_data_column(new_columns[i]->as_mutable_raw_ptr()));
             }
             for (size_t i = 0; i < chunk_size; i++) {
-                _function->create(_nested_ctx, agg_state);
+                _function->create(nested_ctx, agg_state);
                 // merge input agg states into result
                 for (size_t j = 0; j < new_columns.size(); j++) {
                     if (UNLIKELY(new_columns[j]->is_null(i))) {
                         continue;
                     }
-                    _function->merge(_nested_ctx, data_columns[j], agg_state, i);
+                    _function->merge(nested_ctx, data_columns[j], agg_state, i);
                 }
                 // serialize the agg_state into result
-                _function->serialize_to_column(_nested_ctx, agg_state, result.get());
+                _function->serialize_to_column(nested_ctx, agg_state, result.get());
                 // destroy the agg_state
-                _function->destroy(_nested_ctx, agg_state);
+                _function->destroy(nested_ctx, agg_state);
             }
         } else {
             for (size_t i = 0; i < chunk_size; i++) {
-                _function->create(_nested_ctx, agg_state);
+                _function->create(nested_ctx, agg_state);
 
                 // merge input agg states into result
                 for (size_t j = 0; j < new_columns.size(); j++) {
-                    _function->merge(_nested_ctx, new_columns[j].get(), agg_state, i);
+                    _function->merge(nested_ctx, new_columns[j].get(), agg_state, i);
                 }
                 // serialize the agg_state into result
-                _function->serialize_to_column(_nested_ctx, agg_state, result.get());
+                _function->serialize_to_column(nested_ctx, agg_state, result.get());
 
                 // destroy the agg_state
-                _function->destroy(_nested_ctx, agg_state);
+                _function->destroy(nested_ctx, agg_state);
             }
         }
 
         return result;
     }
-
-private:
-    // for nested function, the nested function's context is injected to the parent function's context.
-    FunctionContext* _nested_ctx;
 };
 
 } // namespace starrocks
