@@ -14,8 +14,10 @@
 
 #include <benchmark/benchmark.h>
 
+#include <mutex>
 #include <random>
 
+#include "common/system/cpu_info.h"
 #include "formats/parquet/encoding_dict.h"
 #include "formats/parquet/encoding_plain.h"
 
@@ -30,6 +32,12 @@ static std::string kAlphaNumber =
         "abcdefghijklmnopqrstuvwxyz";
 
 static void BM_DictDecoder(benchmark::State& state) {
+    // CacheAwareDictDecoder's constructor reads the L2 cache size, which is only populated
+    // by CpuInfo::init(). Without it the benchmark segfaults before running a single
+    // iteration; the production BE initialises CpuInfo during startup.
+    static std::once_flag cpu_once;
+    std::call_once(cpu_once, [] { CpuInfo::init(); });
+
     DictDecoder<Slice> dict_decoder;
     static constexpr bool debug = false;
     {
