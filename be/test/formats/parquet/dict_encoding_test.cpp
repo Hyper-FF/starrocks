@@ -7,6 +7,8 @@
 #include "base/string/slice.h"
 #include "base/testutil/assert.h"
 #include "column/column_helper.h"
+#include "column/fixed_length_column.h"
+#include "column/nullable_column.h"
 #include "column/runtime_type_traits.h"
 #include "formats/parquet/encoding.h"
 #include "formats/parquet/encoding_dict.h"
@@ -290,4 +292,68 @@ TEST(DictEncodingReadTest, BinaryDestinationTypeGuard) {
         ASSERT_FALSE(st.ok());
     }
 }
+
+// A dict-encoded page carries indices into the dictionary. Those indices come from the file,
+// so a corrupt page can name entries the dictionary does not have. The VALUE paths already
+// screen them with indices_out_of_bounds(); this pins the DICT_CODE path, which emits raw
+// codes that are resolved later by get_dict_values() -> _dict[code].
+static void setup_slice_dict_decoder_with_code(DictDecoder<Slice>* decoder,
+                                               FakeDictDecoder<TYPE_VARCHAR>* inner_decoder, faststring* backing,
+                                               int32_t code, size_t num_values, size_t dict_size) {
+    faststring fs;
+    RleEncoder<int32_t> encoder(&fs, 32);
+    for (size_t i = 0; i < num_values; ++i) {
+        encoder.Put(code, 1);
+    }
+    // Without Flush() the runs stay in the encoder's buffer and the decoder reports
+    // "didn't get enough data", which would make the rejection assertion below pass for
+    // the wrong reason.
+    encoder.Flush();
+    backing->resize(fs.length() + 1);
+    backing->data()[0] = 32;
+    memcpy(backing->data() + 1, fs.data(), fs.length());
+    ASSERT_OK(decoder->set_data(Slice(backing->data(), backing->length())));
+    ASSERT_OK(decoder->set_dict(static_cast<int>(num_values), dict_size, inner_decoder));
+}
+
+// Reads `count` all-non-null values as DICT_CODE and then resolves them the way
+// ScalarColumnReader::_dict_decode does. Returns the status of whichever step rejects the
+// codes; OK means both steps accepted them.
+static Status read_dict_codes_and_resolve(DictDecoder<Slice>* decoder, size_t count) {
+    NullInfos infos;
+    infos.reset_with_capacity(count);
+    memset(infos.nulls_data(), 0, count);
+    infos.num_nulls = 0;
+    // num_ranges > 2 routes to the fast path rather than the row-by-row fallback.
+    infos.num_ranges = count;
+
+    auto codes = ColumnHelper::create_column(TypeDescriptor(TYPE_INT), true);
+    RETURN_IF_ERROR(decoder->next_batch_with_nulls(count, infos, ColumnContentType::DICT_CODE, codes.get(), nullptr));
+
+    auto* codes_nullable = ColumnHelper::as_raw_column<NullableColumn>(codes->as_mutable_raw_ptr());
+    auto* codes_column = ColumnHelper::as_raw_column<FixedLengthColumn<int32_t>>(codes_nullable->data_column_raw_ptr());
+    auto values = ColumnHelper::create_column(TypeDescriptor(TYPE_VARCHAR), false);
+    return decoder->get_dict_values(codes_column->get_data(), *codes_nullable, values.get());
+}
+
+TEST(DictEncodingReadTest, DictCodeWithinBoundsIsAccepted) {
+    constexpr size_t count = 64;
+    DictDecoder<Slice> decoder;
+    FakeDictDecoder<TYPE_VARCHAR> inner_decoder;
+    faststring backing;
+    setup_slice_dict_decoder_with_code(&decoder, &inner_decoder, &backing, /*code=*/3, count, /*dict_size=*/10);
+    ASSERT_OK(read_dict_codes_and_resolve(&decoder, count));
+}
+
+TEST(DictEncodingReadTest, DictCodeBeyondDictionaryIsRejected) {
+    constexpr size_t count = 64;
+    DictDecoder<Slice> decoder;
+    FakeDictDecoder<TYPE_VARCHAR> inner_decoder;
+    faststring backing;
+    // dictionary holds 10 entries; the page names entry 9999.
+    setup_slice_dict_decoder_with_code(&decoder, &inner_decoder, &backing, /*code=*/9999, count, /*dict_size=*/10);
+    auto st = read_dict_codes_and_resolve(&decoder, count);
+    ASSERT_FALSE(st.ok()) << "an out-of-range dict code was accepted and resolved through _dict[code]";
+}
+
 } // namespace starrocks::parquet

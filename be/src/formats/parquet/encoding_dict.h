@@ -165,6 +165,13 @@ public:
             return Status::InternalError("didn't get enough data from dict-decoder");
         }
 
+        // The codes come from the page, so they can name entries the dictionary does not have.
+        // They are resolved later by get_dict_values() -> _dict[code], which is unchecked, so
+        // they have to be screened here exactly as the VALUE paths screen theirs.
+        if (UNLIKELY(indices_out_of_bounds(_indexes.data(), read_count, _dict_count()))) {
+            return Status::InternalError("Index not in dictionary bounds");
+        }
+
         assign_data_with_nulls(count, read_count, null_infos.nulls_data(), reinterpret_cast<int32_t*>(_indexes.data()),
                                data);
 
@@ -173,6 +180,9 @@ public:
 
 protected:
     virtual size_t _get_dict_size() const = 0;
+    // Number of dictionary ENTRIES. _get_dict_size() reports a byte count, so it cannot be
+    // used to range-check codes.
+    virtual size_t _dict_count() const = 0;
     virtual Status _next_batch_value(size_t count, Column* dst, const FilterData* filter) = 0;
     virtual Status _do_next_batch_with_nulls(size_t count, const NullInfos& null_infos, ColumnContentType content_type,
                                              Column* dst, const FilterData* filter) = 0;
@@ -298,6 +308,8 @@ public:
 
 private:
     size_t _get_dict_size() const override { return _dict.size() * SIZE_OF_TYPE; }
+
+    size_t _dict_count() const override { return _dict.size(); }
 
     Status _next_batch_value(size_t count, Column* dst, const FilterData* filter) override {
         FixedLengthColumn<T>* data_column /* = nullptr */;
@@ -475,6 +487,8 @@ public:
 
 private:
     size_t _get_dict_size() const override { return _dict_data.size(); }
+
+    size_t _dict_count() const override { return _dict.size(); }
 
     Status _do_next_batch_with_nulls(size_t count, const NullInfos& null_infos, ColumnContentType content_type,
                                      Column* dst, const FilterData* filter) override {

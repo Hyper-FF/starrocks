@@ -53,6 +53,11 @@ Status CacheAwareDictDecoder::next_batch(size_t count, ColumnContentType content
         if (decoded_num < count) {
             return Status::InternalError("didn't get enough data from dict-decoder");
         }
+        // Same reasoning as the with-nulls path: these codes are resolved later by an
+        // unchecked _dict[code], so a page naming a missing entry has to be rejected here.
+        if (UNLIKELY(indices_out_of_bounds(reinterpret_cast<uint32_t*>(data), count, _dict_count()))) {
+            return Status::InternalError("Index not in dictionary bounds");
+        }
         break;
     }
     case VALUE: {
