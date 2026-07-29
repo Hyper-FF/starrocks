@@ -19,6 +19,7 @@
 #include <limits>
 #include <random>
 
+#include "base/coding.h"
 #include "base/simd/byte_stream_split.h"
 #include "column/binary_column.h"
 #include "column/column_helper.h"
@@ -26,6 +27,7 @@
 #include "column/nullable_column.h"
 #include "common/config_exec_fwd.h"
 #include "formats/parquet/types.h"
+#include "formats/parquet/utils.h"
 
 namespace starrocks::parquet {
 class ParquetEncodingTest : public testing::Test {
@@ -1128,6 +1130,83 @@ TEST_F(ParquetEncodingTest, ByteStreamSplitFLBA) {
     f(31, 31);
     f(31, 127);
     f(31, 255);
+}
+
+// A PLAIN BYTE_ARRAY page is a sequence of (4-byte little-endian length, payload) records.
+// These build pages that lie about how much they contain, which is what a corrupt or
+// truncated file looks like to the decoder: the number of values to read comes from the
+// definition levels, not from the page, so the decoder must not trust it.
+class PlainByteArrayTruncationTest : public testing::Test {
+protected:
+    static std::string make_page(const std::vector<std::string>& values) {
+        std::string page;
+        for (const auto& v : values) {
+            uint8_t len[sizeof(uint32_t)];
+            encode_fixed32_le(len, static_cast<uint32_t>(v.size()));
+            page.append(reinterpret_cast<char*>(len), sizeof(len));
+            page.append(v);
+        }
+        return page;
+    }
+
+    // Decodes `count` non-null values out of `page` via the with-nulls entry point.
+    static Status decode_all_non_null(const std::string& page, size_t count) {
+        const EncodingInfo* enc = nullptr;
+        CHECK(EncodingInfo::get(tparquet::Type::BYTE_ARRAY, tparquet::Encoding::PLAIN, &enc).ok());
+        std::unique_ptr<Decoder> decoder;
+        CHECK(enc->create_decoder(&decoder).ok());
+        CHECK(decoder->set_data(Slice(page.data(), page.size())).ok());
+
+        NullInfos nulls;
+        nulls.reset_with_capacity(count);
+        memset(nulls.nulls_data(), 0, count);
+        nulls.num_nulls = 0;
+        nulls.num_ranges = 1;
+
+        auto column = NullableColumn::create(BinaryColumn::create(), NullColumn::create());
+        return decoder->next_batch_with_nulls(count, nulls, ColumnContentType::VALUE, column.get(), nullptr);
+    }
+};
+
+TEST_F(PlainByteArrayTruncationTest, DecodesAnIntactPage) {
+    const std::string page = make_page({"a", "bb", "ccc"});
+    ASSERT_TRUE(decode_all_non_null(page, 3).ok());
+}
+
+TEST_F(PlainByteArrayTruncationTest, RejectsMoreValuesThanThePageHolds) {
+    // The page stores 3 values but the levels claim 8.
+    const std::string page = make_page({"a", "bb", "ccc"});
+    ASSERT_FALSE(decode_all_non_null(page, 8).ok());
+}
+
+TEST_F(PlainByteArrayTruncationTest, RejectsPageTruncatedInsideALengthPrefix) {
+    // Two whole values followed by a partial 4-byte length prefix.
+    std::string page = make_page({"a", "bb"});
+    page.append(2, '\0');
+    ASSERT_FALSE(decode_all_non_null(page, 3).ok());
+}
+
+TEST_F(PlainByteArrayTruncationTest, RejectsPageTruncatedInsideAPayload) {
+    // A length prefix promising 100 bytes with only 4 present.
+    std::string page = make_page({"a"});
+    uint8_t len[sizeof(uint32_t)];
+    encode_fixed32_le(len, 100);
+    page.append(reinterpret_cast<char*>(len), sizeof(len));
+    page.append("abcd");
+    ASSERT_FALSE(decode_all_non_null(page, 2).ok());
+}
+
+TEST_F(PlainByteArrayTruncationTest, RejectsLengthThatWouldOverflowTheCursor) {
+    // A length near UINT32_MAX: `cursor + length` wraps if it is not checked by subtraction.
+    std::string page = make_page({"a"});
+    uint8_t len[sizeof(uint32_t)];
+    encode_fixed32_le(len, std::numeric_limits<uint32_t>::max());
+    page.append(reinterpret_cast<char*>(len), sizeof(len));
+    ASSERT_FALSE(decode_all_non_null(page, 2).ok());
+}
+
+TEST_F(PlainByteArrayTruncationTest, RejectsEmptyPageWithValuesClaimed) {
+    ASSERT_FALSE(decode_all_non_null(std::string(), 1).ok());
 }
 
 } // namespace starrocks::parquet

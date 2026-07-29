@@ -218,10 +218,24 @@ public:
         size_t i = 0;
         size_t cursor = _offset;
         size_t total_length = 0;
-        //
-        for (i = 0; (i < read_count) & (_offset < _data.size); ++i) {
+        // The loop walks `cursor`, so it is `cursor` that has to be bounds-checked: testing
+        // `_offset` here would be testing a value the loop never changes (it is assigned once,
+        // below), which lets a page claiming more values than it stores run off the buffer.
+        // `read_count` comes from the definition levels, i.e. from the file, so it cannot be
+        // trusted to match what the page actually holds.
+        for (i = 0; i < read_count; ++i) {
+            // `cursor > _data.size` is checked separately: the subtractions below are on
+            // unsigned values and would wrap into a huge remainder if it ever held.
+            if (UNLIKELY(cursor > _data.size || sizeof(uint32_t) > _data.size - cursor)) {
+                break;
+            }
             uint32_t length = decode_fixed32_le(reinterpret_cast<const uint8_t*>(_data.data) + cursor);
-            cursor += sizeof(int32_t);
+            cursor += sizeof(uint32_t);
+            // Written as a subtraction because `cursor + length` can wrap: `length` is an
+            // untrusted 32-bit value read straight out of the page.
+            if (UNLIKELY(length > _data.size - cursor)) {
+                break;
+            }
             datas[i] = _data.data + cursor;
             cursor += length;
             lengths[i] = length;
@@ -231,7 +245,9 @@ public:
 
         _offset = cursor;
         if (i < read_count) {
-            return Status::InternalError(fmt::format("error: null_cnt {} i:{} read_cnt:{}", null_cnt, i, read_count));
+            return Status::InternalError(fmt::format(
+                    "going to read out-of-bounds data, offset={} count={} size={} null_cnt={} decoded={}", _offset,
+                    count, _data.size, null_cnt, i));
         }
         // fill offset data
         auto* binary_column = ColumnHelper::get_binary_column(dst);
