@@ -433,6 +433,15 @@ public:
             return Status::OK();
         }
 
+        // Codes are screened where they are emitted (next_batch/next_dict_code_batch_with_nulls),
+        // so production callers cannot get here with an out-of-range one and the indexing below
+        // stays unchecked on this hot path. Anyone calling this directly with unscreened codes --
+        // a new caller, a test, a benchmark -- would read _dict out of bounds, so catch that in
+        // debug builds rather than relying on the invariant staying true.
+        DCHECK(!indices_out_of_bounds(reinterpret_cast<const uint32_t*>(dict_codes.data()), dict_codes.size(),
+                                      _dict.size()))
+                << "dict code out of range; codes must be screened before get_dict_values()";
+
         // dict codes size and column size HAVE TO BE EXACTLY SAME.
         FixedSliceArray slices;
         slices.resize(dict_codes.size());
