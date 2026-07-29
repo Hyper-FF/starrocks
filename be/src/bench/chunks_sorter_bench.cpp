@@ -419,7 +419,8 @@ static void do_merge_columnwise(benchmark::State& state, int num_runs, bool null
         null_first.push_back(true);
         map[i] = i;
     }
-    ChunkPtr chunk1 = std::make_shared<Chunk>(columns, map);
+    // Chunk takes Columns&&; chunk1 gets an explicit copy so chunk2 can take the original.
+    ChunkPtr chunk1 = std::make_shared<Chunk>(Columns(columns), map);
     ChunkPtr chunk2 = std::make_shared<Chunk>(std::move(columns), map);
 
     int64_t num_rows = 0;

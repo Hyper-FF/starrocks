@@ -246,7 +246,7 @@ private:
 static void do_bench_cache(benchmark::State& state, const CacheOptions& options,
                            const BlockCacheBenchSuite::BenchParams& params) {
     static std::shared_ptr<BlockCacheBenchSuite> suite;
-    if (state.thread_index == 0) {
+    if (state.thread_index() == 0) {
         suite = std::make_shared<BlockCacheBenchSuite>(options, params);
         suite->Setup(state);
         suite->do_prepare(suite->params()->pre_populate, suite->params()->random_obj_size);
@@ -256,7 +256,7 @@ static void do_bench_cache(benchmark::State& state, const CacheOptions& options,
         suite->do_bench(state);
     }
 
-    if (state.thread_index == 0) {
+    if (state.thread_index() == 0) {
         suite->Teardown(state);
     }
     state.counters["write_bytes"] = suite->ctx()->write_bytes->get_value();
