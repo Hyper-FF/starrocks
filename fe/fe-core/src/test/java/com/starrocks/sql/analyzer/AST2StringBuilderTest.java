@@ -167,7 +167,10 @@ public class AST2StringBuilderTest {
         Analyzer.analyze(baseStmt, AnalyzeTestUtil.getConnectContext());
         Assertions.assertTrue(baseStmt instanceof CreateViewStmt);
         CreateViewStmt viewStmt = (CreateViewStmt) baseStmt;
-        Assertions.assertEquals("(WITH `case` (`c`) AS (SELECT 1 AS `c`) SELECT `test`.`t0`.`v1`\n" +
+        // No column list: the source text carried none. The analyzer derives one from the inner query, but
+        // the derived names keep the alias case while a written list is lower-cased by the parser, so
+        // printing the derived list made the view definition serialize differently on the next round trip.
+        Assertions.assertEquals("(WITH `case` AS (SELECT 1 AS `c`) SELECT `test`.`t0`.`v1`\n" +
                         "FROM `test`.`t0`\n" +
                         "WHERE (NOT FALSE) IS NOT NULL)", viewStmt.getInlineViewDef(), viewStmt.getInlineViewDef());
         statementBase = SqlParser.parse(sql, new SessionVariable());
