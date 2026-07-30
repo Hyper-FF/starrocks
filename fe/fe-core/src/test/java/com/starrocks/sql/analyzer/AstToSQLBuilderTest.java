@@ -411,4 +411,25 @@ public class AstToSQLBuilderTest {
         assertReanalyzable(cast);
         Assertions.assertEquals(deparseAnalyzed(cast), deparseAnalyzed(deparseAnalyzed(cast)));
     }
+
+    @Test
+    public void testNestedJoinInRightOperandKeepsItsParentheses() {
+        // Without the parentheses the two joins print as one flat list and their ON clauses end up
+        // adjacent -- a JOIN b JOIN c ON p2 ON p1 -- which the grammar cannot parse, so a view over
+        // such a query used to persist text that never loaded again.
+        String nested = deparseAnalyzed("select t0.v1 from t0 join (t1 join t2 on t1.v4 = t2.v7) on t0.v1 = t1.v4");
+        Assertions.assertTrue(nested.contains("INNER JOIN (`test`.`t1` INNER JOIN `test`.`t2`"), nested);
+        assertReanalyzable("select t0.v1 from t0 join (t1 join t2 on t1.v4 = t2.v7) on t0.v1 = t1.v4");
+        assertReanalyzable("select t0.v1 from t0 left join (t1 join t2 on t1.v4 = t2.v7) on t0.v1 = t1.v4");
+
+        // The left operand must NOT gain parentheses: joins are left-associative, so the flattened form
+        // parses back to the same tree, and every existing plan test expects it.
+        String left = deparseAnalyzed("select t0.v1 from (t0 join t1 on t0.v1 = t1.v4) join t2 on t0.v1 = t2.v7");
+        Assertions.assertFalse(left.contains("FROM ("), left);
+        Assertions.assertEquals(left, deparseAnalyzed(left));
+
+        // A plain chain is unchanged.
+        String chain = deparseAnalyzed("select t0.v1 from t0 join t1 on t0.v1 = t1.v4 join t2 on t1.v4 = t2.v7");
+        Assertions.assertFalse(chain.contains("JOIN ("), chain);
+    }
 }
