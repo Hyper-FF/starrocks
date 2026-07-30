@@ -120,4 +120,25 @@ public class AnalyzeStructTest {
                 res.contains("`struct_a` struct<`struct_a` struct<`struct_a` int(11)>, `other` int(11)> " +
                         "NULL COMMENT \"\""));
     }
+
+    @Test
+    public void testSubfieldOnNonStructLevel() throws Exception {
+        // visitSubfieldExpr checked only the first level, then cast each subsequent one to StructType
+        // inside the loop. A SubfieldExpr carries the whole chain, so `arr[1].price.metadata` walked it
+        // twice and the second step started from a scalar, throwing ClassCastException at the user.
+        getStarRocksAssert().withTable("CREATE TABLE subfield_chain (\n"
+                + "  id int,\n"
+                + "  portfolio array<struct<price double, metadata map<varchar(32), varchar(32)>>>\n"
+                + ") DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1\n"
+                + "PROPERTIES('replication_num'='1')");
+
+        analyzeSuccess("select portfolio[1].price from subfield_chain");
+        analyzeSuccess("select portfolio[1].metadata from subfield_chain");
+
+        // a scalar and a map both used to reach the unguarded cast
+        analyzeFail("select portfolio[1].price.metadata from subfield_chain",
+                "Cannot access subfield 'metadata'");
+        analyzeFail("select portfolio[1].metadata.k from subfield_chain",
+                "Cannot access subfield 'k'");
+    }
 }
