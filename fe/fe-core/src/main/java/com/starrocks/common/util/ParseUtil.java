@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.starrocks.common.AnalysisException;
 import com.starrocks.common.ErrorCode;
 import com.starrocks.common.ErrorReport;
-import org.apache.commons.lang3.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
@@ -156,9 +155,12 @@ public class ParseUtil {
     }
 
     public static String backquote(String str) {
-        if (StringUtils.isEmpty(str)) {
-            return str;
+        if (str == null) {
+            return null;
         }
+        // An empty name still needs its delimiters: the callers splice the result into SQL, and dropping
+        // them turns a qualified reference into a bare '.'. Some synthetic names, such as the table of a
+        // lambda variable, really are empty.
         return "`" + str.replace("`", "``") + "`";
     }
 }

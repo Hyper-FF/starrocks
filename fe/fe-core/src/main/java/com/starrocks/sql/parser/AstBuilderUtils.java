@@ -23,13 +23,23 @@ public class AstBuilderUtils {
     public static Identifier getIdentifier(
             com.starrocks.sql.parser.StarRocksParser.IdentifierContext identifierContext) {
         if (identifierContext instanceof com.starrocks.sql.parser.StarRocksParser.BackQuotedIdentifierContext) {
-            Identifier backQuotedIdentifier = new Identifier(identifierContext.getText().replace("`", ""),
+            Identifier backQuotedIdentifier = new Identifier(unquoteBackQuoted(identifierContext.getText()),
                     createPos(identifierContext));
             backQuotedIdentifier.setBackQuoted(true);
             return backQuotedIdentifier;
         } else {
             return new Identifier(identifierContext.getText(), createPos(identifierContext));
         }
+    }
+
+    /**
+     * Read back the text of a BACKQUOTED_IDENTIFIER token, whose lexer rule is {@code '`' ( ~'`' | '``' )* '`'}:
+     * drop the delimiters, then collapse each doubled backtick into the single one it stands for. This is the
+     * inverse of {@code ParseUtil#backquote}, so a name that contains a backtick survives a deparse/reparse
+     * round trip instead of silently losing it.
+     */
+    public static String unquoteBackQuoted(String text) {
+        return text.substring(1, text.length() - 1).replace("``", "`");
     }
 
     protected static NodePosition createPos(ParserRuleContext context) {
