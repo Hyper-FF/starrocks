@@ -89,9 +89,13 @@ import java.util.stream.Stream;
  * <p>Disabled unless {@code -Dsrfuzz.corpus=<root>} is set, so it never runs in CI.
  * <pre>
  *   mvn -pl fe-core -am test -Dtest=AstMutationFuzzerTest \
- *       -Dsrfuzz.corpus=../test/sql -Dsrfuzz.maxFiles=50 -Dsrfuzz.mutations=20 \
+ *       -Dsrfuzz.corpus=$PWD/../test/sql -Dsrfuzz.maxFiles=50 -Dsrfuzz.mutations=20 \
  *       -Dsrfuzz.report=/tmp/fuzz.md
  * </pre>
+ *
+ * <p>Give the corpus as an absolute path. Surefire runs with the module directory as its working
+ * directory, not the one mvn was invoked from, so a path relative to {@code fe/} silently resolves to
+ * nothing and the run reports zero seeds and zero findings -- which reads exactly like a clean run.
  */
 public class AstMutationFuzzerTest {
 
@@ -236,6 +240,7 @@ public class AstMutationFuzzerTest {
         int seedCount = 0;
         int mutantCount = 0;
         int unreachableCount = 0;
+        Map<String, Drop> drops = new LinkedHashMap<>();
 
         for (int i = 0; i < files.size(); i++) {
             String db = "srfuzz_mut_" + i;
@@ -271,13 +276,27 @@ public class AstMutationFuzzerTest {
                     }
                     seeds.add(sql);
                     harvest((QueryStatement) probe, pool);
+
+                    // Evaluate the seed itself, unmutated. The grammar-reachability gate below drops
+                    // any mutant whose deparse will not parse back, on the grounds that the mutator
+                    // can build trees the grammar cannot express -- but a deparser defect produces
+                    // exactly the same symptom, so the gate swallows the whole REPARSE_FAIL class.
+                    // Measured: with the nested-join parenthesis defect present, 100% of that seed's
+                    // mutants were dropped as unreachable and nothing was reported.
+                    // The seed came from the corpus, so it is SQL a user wrote and the parser
+                    // accepted. Anything the oracle says about it is unambiguously a defect, and it
+                    // costs one evaluation per seed rather than one per mutant.
+                    StatementBase baseline = tryParse(sql);
+                    if (baseline != null) {
+                        seedCount++;
+                        evaluate(sql, "<unmutated seed>", baseline, tally, findings);
+                    }
                 }
 
                 if (!pool.usable()) {
                     continue;
                 }
                 for (String seed : seeds) {
-                    seedCount++;
                     for (int m = 0; m < mutationsPerSeed; m++) {
                         StatementBase ast = tryParse(seed);
                         if (ast == null) {
@@ -287,13 +306,26 @@ public class AstMutationFuzzerTest {
                         if (mutation == null) {
                             continue;
                         }
-                        StatementBase reachable = reparseThroughGrammar(ast);
+                        StatementBase reachable = reparseThroughGrammar(ast, drops);
                         if (reachable == null) {
                             unreachableCount++;
                             continue;
                         }
                         mutantCount++;
-                        evaluate(seed, mutation, reachable, tally, findings);
+                        // M9: on a minority of mutants, evaluate under a perturbed session flag. The
+                        // flag has to be restored even when evaluate throws -- it is shared with every
+                        // later seed, so a leak silently reinterprets the rest of the run.
+                        SessionFlagPerturbation.Perturbation flag = rnd.nextInt(100) < 15
+                                ? SessionFlagPerturbation.apply(ctx.getSessionVariable(), rnd)
+                                : null;
+                        try {
+                            evaluate(seed, flag == null ? mutation : mutation + " | " + flag.description(),
+                                    reachable, tally, findings);
+                        } finally {
+                            if (flag != null) {
+                                flag.close();
+                            }
+                        }
                     }
                 }
             } catch (Throwable t) {
@@ -312,7 +344,7 @@ public class AstMutationFuzzerTest {
             }
         }
 
-        writeReport(report, tally, findings, seedCount, mutantCount, unreachableCount);
+        writeReport(report, tally, findings, seedCount, mutantCount, unreachableCount, drops);
         printSummary(tally, findings, seedCount, mutantCount, unreachableCount);
     }
 
@@ -332,21 +364,60 @@ public class AstMutationFuzzerTest {
      * <p>The serialization happens on an unanalyzed tree, where the deparser is least reliable, so this
      * costs coverage. That is the intended trade: the survivors are trees a user could actually write.
      */
-    private static StatementBase reparseThroughGrammar(StatementBase mutated) {
+    private static StatementBase reparseThroughGrammar(StatementBase mutated, Map<String, Drop> drops) {
         String text;
         try {
             text = AstToSQLBuilder.toSQL(mutated);
         } catch (Throwable t) {
+            noteDrop(drops, "deparse-threw:" + signatureOf(t), "<unrenderable>");
             return null;
         }
         if (text == null || text.trim().isEmpty()) {
+            noteDrop(drops, "deparse-empty", "<empty>");
             return null;
         }
         try {
             List<StatementBase> parsed = SqlParser.parse(text, ctx.getSessionVariable());
-            return parsed.isEmpty() ? null : parsed.get(0);
+            if (parsed.isEmpty()) {
+                noteDrop(drops, "parse-empty", oneLineSql(text));
+                return null;
+            }
+            return parsed.get(0);
         } catch (Throwable t) {
+            noteDrop(drops, "reparse-failed:" + oneLine(t), oneLineSql(text));
             return null;
+        }
+    }
+
+    /**
+     * A dropped mutant is ambiguous: either the mutator built a tree the grammar cannot express, or
+     * the deparser cannot render a tree the parser itself produced. Only the second is a defect, and
+     * nothing here can tell them apart -- which is why the drop is not counted as a finding. But
+     * discarding it silently is how the nested-join defect stayed invisible while 100% of that seed's
+     * mutants were being thrown away, so the shapes are kept and printed for triage.
+     */
+    private static void noteDrop(Map<String, Drop> drops, String reason, String sampleSql) {
+        Drop d = drops.get(reason);
+        if (d == null) {
+            drops.put(reason, new Drop(reason, sampleSql));
+        } else {
+            d.count++;
+        }
+    }
+
+    private static String oneLineSql(String sql) {
+        String flat = sql.replace('\n', ' ').trim();
+        return flat.length() > 400 ? flat.substring(0, 400) + " ..." : flat;
+    }
+
+    static final class Drop {
+        final String reason;
+        final String sampleSql;
+        int count = 1;
+
+        Drop(String reason, String sampleSql) {
+            this.reason = reason;
+            this.sampleSql = sampleSql;
         }
     }
 
@@ -558,6 +629,19 @@ public class AstMutationFuzzerTest {
         }
 
         /**
+         * The operators that edit more than a single expression. Weights are attempt counts, not
+         * probabilities: the list is drawn from without replacement until one operator applies, so a
+         * draw that lands on an operator with nothing to do falls through to another instead of
+         * wasting the iteration. M1-M4 stay as the implicit fallback because they apply to almost
+         * every tree, which is exactly what makes them a poor first choice -- picking them first would
+         * starve the structural operators.
+         */
+        private static final List<Mutation> OPERATORS = java.util.Arrays.asList(
+                new TypeStressMutation(),   // most likely to reach a real complex-type defect
+                new ClauseMutation(),
+                new NestingMutation());
+
+        /**
          * Applies one mutation and returns a description of it, or null when nothing was applied.
          *
          * <p>The description matters: when the mutant cannot be deparsed the report has no SQL to show,
@@ -565,6 +649,34 @@ public class AstMutationFuzzerTest {
          * makes such a finding reconstructible from the seed alone.
          */
         static String mutate(QueryStatement stmt, Pool pool, Random rnd) {
+            List<Mutation> order = new ArrayList<>(OPERATORS);
+            java.util.Collections.shuffle(order, rnd);
+            // Expression-level mutation stays the majority of iterations; the structural operators
+            // change the shape of the statement, which is much more likely to leave the mutant
+            // unanalyzable, so a run made mostly of them buys less depth per unit of time.
+            int structuralShare = rnd.nextInt(100) < 45 ? order.size() : 0;
+            for (int i = 0; i < structuralShare; i++) {
+                String applied = tryOperator(order.get(i), stmt, pool, rnd);
+                if (applied != null) {
+                    return applied;
+                }
+            }
+            return mutateExpression(stmt, pool, rnd);
+        }
+
+        /** An operator that throws is a harness defect, not a finding: report it as such, do not hide it. */
+        private static String tryOperator(Mutation op, QueryStatement stmt, Pool pool, Random rnd) {
+            try {
+                String applied = op.apply(stmt, pool, rnd);
+                return applied == null ? null : op.name() + " " + applied;
+            } catch (Throwable t) {
+                System.err.println("mutation operator " + op.name() + " threw: " + t);
+                return null;
+            }
+        }
+
+        /** M1 subtree swap / M2 function swap / M3 literal boundary / M4 identifier rebind. */
+        private static String mutateExpression(QueryStatement stmt, Pool pool, Random rnd) {
             List<Site> sites = new ArrayList<>();
             for (Expr root : collectRootExprs(stmt.getQueryRelation())) {
                 collectSites(root, sites);
@@ -785,8 +897,31 @@ public class AstMutationFuzzerTest {
 
     // -------------------------------------------------------------- reporting
 
+    /**
+     * The dropped mutants, by why they were dropped. Not findings -- see {@link #noteDrop} -- but a
+     * reason that recurs across many mutants is worth a look, because a deparser defect and a mutator
+     * artifact are indistinguishable here and only the first repeats with the same shape.
+     */
+    private static void writeDropSection(PrintWriter w, Map<String, Drop> drops) {
+        w.printf("## Dropped mutants (%d distinct reasons)%n%n", drops.size());
+        if (drops.isEmpty()) {
+            w.println("None.");
+            w.println();
+            return;
+        }
+        w.println("| count | reason | sample |");
+        w.println("|---:|---|---|");
+        drops.values().stream()
+                .sorted(Comparator.comparingInt((Drop d) -> d.count).reversed())
+                .limit(25)
+                .forEach(d -> w.printf("| %d | %s | `%s` |%n", d.count,
+                        d.reason.replace('|', '/'), d.sampleSql.replace('|', '/')));
+        w.println();
+    }
+
     private static void writeReport(Path out, Map<Outcome, Integer> tally, Map<String, Finding> findings,
-                                    int seeds, int mutants, int unreachable) throws Exception {
+                                    int seeds, int mutants, int unreachable,
+                                    Map<String, Drop> drops) throws Exception {
         if (out.getParent() != null) {
             Files.createDirectories(out.getParent());
         }
@@ -797,6 +932,7 @@ public class AstMutationFuzzerTest {
                     seeds, mutants, unreachable,
                     mutants + unreachable == 0 ? 0.0 : 100.0 * unreachable / (mutants + unreachable));
             w.println();
+            writeDropSection(w, drops);
             w.println("| Outcome | Count |");
             w.println("|---|---:|");
             for (Outcome o : Outcome.values()) {
