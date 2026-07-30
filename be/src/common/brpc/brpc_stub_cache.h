@@ -126,6 +126,7 @@ public:
 
 private:
     friend class EndpointCleanupTask<BrpcStubCache>;
+    friend class BrpcStubCacheTest;
 
     template <typename CacheT, typename ExtractFn>
     friend void wait_clean_tasks_terminate(CacheT* cache, ExtractFn extract);
