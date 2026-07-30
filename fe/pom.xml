@@ -100,6 +100,13 @@ under the License.
     </properties>
 
     <profiles>
+        <!-- AST-mutation SQL fuzzer harness; see SQL_AST_FUZZER_PLAN.md. Off by default. -->
+        <profile>
+            <id>fuzz</id>
+            <modules>
+                <module>fe-fuzz</module>
+            </modules>
+        </profile>
         <profile>
             <id>spark2</id>
             <properties>
