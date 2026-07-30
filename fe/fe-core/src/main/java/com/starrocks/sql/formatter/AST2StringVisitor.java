@@ -705,7 +705,7 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
         if (relation.isLateral()) {
             sqlBuilder.append("LATERAL ");
         }
-        sqlBuilder.append(visit(relation.getRight())).append(" ");
+        sqlBuilder.append(printRightOperand(relation.getRight())).append(" ");
 
         // Prioritize USING clause over ON predicate
         // Even if onPredicate is set (by analyzeJoinUsing), output USING clause if it exists
@@ -719,6 +719,20 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
             sqlBuilder.append("ON ").append(visit(relation.getOnPredicate()));
         }
         return sqlBuilder.toString();
+    }
+
+    /**
+     * A join nested in the right operand has to keep its parentheses. Without them the two joins print
+     * as one flat list and their ON clauses end up adjacent -- {@code a JOIN b JOIN c ON p2 ON p1} --
+     * which the grammar cannot parse at all, so a view over such a query persists text that never loads
+     * again. The left operand needs no parentheses: joins are left-associative, so the flattened form
+     * parses back to the same tree, and it is what every existing plan test expects.
+     */
+    private String printRightOperand(Relation right) {
+        if (right instanceof JoinRelation) {
+            return "(" + visit(right) + ")";
+        }
+        return visit(right);
     }
 
     @Override
