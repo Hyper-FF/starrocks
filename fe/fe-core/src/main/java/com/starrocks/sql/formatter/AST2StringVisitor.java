@@ -321,7 +321,7 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
                 if (systemVariable.getType() != null) {
                     setVarSql += systemVariable.getType().toString() + " ";
                 }
-                setVarSql += "`" + systemVariable.getVariable() + "`";
+                setVarSql += ParseUtil.backquote(systemVariable.getVariable());
                 setVarSql += " = ";
                 setVarSql += visit(systemVariable.getResolvedExpression());
 
@@ -330,7 +330,7 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
                 UserVariable userVariable = (UserVariable) setVar;
                 String setVarSql = "";
                 setVarSql += "@";
-                setVarSql += "`" + userVariable.getVariable() + "`";
+                setVarSql += ParseUtil.backquote(userVariable.getVariable());
                 setVarSql += " = ";
 
                 setVarSql += "cast (" + visit(userVariable.getEvaluatedExpression())
@@ -636,7 +636,7 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
                     selectItemLabel += " EXCLUDE ( ";
                     selectItemLabel +=
                             item.getExcludedColumns().stream()
-                                    .map(col -> "`" + col + "`")
+                                    .map(ParseUtil::backquote)
                                     .collect(Collectors.joining(","));
                     selectItemLabel += " ) ";
                 }
@@ -711,7 +711,7 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
         if (relation.getUsingColNames() != null && !relation.getUsingColNames().isEmpty()) {
             sqlBuilder.append("USING (");
             sqlBuilder.append(relation.getUsingColNames().stream()
-                    .map(col -> "`" + col + "`")
+                    .map(ParseUtil::backquote)
                     .collect(Collectors.joining(", ")));
             sqlBuilder.append(")");
         } else if (relation.getOnPredicate() != null) {
@@ -1261,7 +1261,7 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
         FunctionParams fnParams = node.getParams();
         StringBuilder sb = new StringBuilder();
         if (options.isAddFunctionDbName() && node.getDbName() != null) {
-            sb.append("`" + node.getDbName() + "`.");
+            sb.append(ParseUtil.backquote(node.getDbName())).append(".");
         }
         String functionName = node.getFunctionName();
         sb.append(functionName);
@@ -1818,7 +1818,7 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
     public String visitExecuteStatement(ExecuteStmt stmt, Void context) {
         String stmtName = stmt.getStmtName();
         List<Expr> paramsExpr = stmt.getParamsExpr();
-        return "EXECUTE `" + stmtName + "`" +
+        return "EXECUTE " + ParseUtil.backquote(stmtName) +
                 paramsExpr.stream().map(ExprToSql::toSql).collect(Collectors.joining(", ", " USING ", ""));
     }
 }

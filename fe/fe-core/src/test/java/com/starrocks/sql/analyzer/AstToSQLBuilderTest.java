@@ -417,4 +417,20 @@ public class AstToSQLBuilderTest {
         Analyzer.analyze(analyzed, AnalyzeTestUtil.getConnectContext());
         Assertions.assertTrue(toPrettySQL(analyzed).contains("ORDER BY 1 ASC"), toPrettySQL(analyzed));
     }
+
+    @Test
+    public void testBacktickInsideIdentifierSurvivesRoundTrip() {
+        // A backtick inside a back-quoted identifier is written doubled, and reading it back has to
+        // collapse the pair. The parser used to strip every backtick instead, so the name silently
+        // changed: `a``b` came back as ab, and two distinct names could collide on one.
+        Assertions.assertEquals("SELECT 1 AS `a``b`", deparseAnalyzed("select 1 as `a``b`").trim());
+        assertReanalyzable("select 1 as `a``b`");
+        assertReanalyzable("select `x``y` from (select 1 as `x``y`) s");
+
+        // The generated column label of a CAST to a struct contains the quoted field names, so the label
+        // itself carries doubled backticks. That is the shape that used to lose them on the second pass.
+        String cast = "select cast(parse_json('{\"a\":1}') as struct<a int>)";
+        assertReanalyzable(cast);
+        Assertions.assertEquals(deparseAnalyzed(cast), deparseAnalyzed(deparseAnalyzed(cast)));
+    }
 }

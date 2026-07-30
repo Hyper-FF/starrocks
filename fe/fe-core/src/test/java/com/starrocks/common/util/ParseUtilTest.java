@@ -47,5 +47,9 @@ public class ParseUtilTest {
         Assertions.assertEquals("`a``b`", ParseUtil.backquote("a`b"));
         Assertions.assertEquals("```ab```", ParseUtil.backquote("`ab`"));
         Assertions.assertEquals("`ab`", ParseUtil.backquote("ab"));
+        // Delimiters are not optional: the result is spliced into SQL, so an empty name must still
+        // render as an empty identifier rather than vanish and leave a bare separator behind.
+        Assertions.assertEquals("``", ParseUtil.backquote(""));
+        Assertions.assertNull(ParseUtil.backquote(null));
     }
 }

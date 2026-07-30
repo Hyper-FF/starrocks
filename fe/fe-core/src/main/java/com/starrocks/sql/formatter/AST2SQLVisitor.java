@@ -82,14 +82,14 @@ public class AST2SQLVisitor extends AST2StringVisitor {
             if (!options.isColumnSimplifyTableName()) {
                 res = tableName.toSql();
             } else {
-                res = "`" + tableName.getTbl() + "`";
+                res = ParseUtil.backquote(tableName.getTbl());
             }
             res += ".";
         }
 
-        res += '`' + fieldName + '`';
+        res += ParseUtil.backquote(fieldName);
         if (columnName != null && !fieldName.equalsIgnoreCase(columnName)) {
-            res += " AS `" + columnName + "`";
+            res += " AS " + ParseUtil.backquote(columnName);
         }
         return res;
     }
@@ -100,7 +100,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
             if (!options.isColumnSimplifyTableName()) {
                 res = tableName.toSql();
             } else {
-                res = "`" + tableName.getTbl() + "`";
+                res = ParseUtil.backquote(tableName.getTbl());
             }
             res += ".";
         }
@@ -122,9 +122,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
         String[] fields = name.split("\\.");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < fields.length; i++) {
-            sb.append("`");
-            sb.append(fields[i]);
-            sb.append("`");
+            sb.append(ParseUtil.backquote(fields[i]));
             if (i < fields.length - 1) {
                 sb.append(".");
             }
@@ -274,7 +272,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
     @Override
     public String visitCTE(CTERelation relation, Void context) {
         StringBuilder sqlBuilder = new StringBuilder();
-        sqlBuilder.append("`" + relation.getName() + "`");
+        sqlBuilder.append(ParseUtil.backquote(relation.getName()));
 
         if (relation.isResolvedInFromClause()) {
             if (relation.getAlias() != null) {
@@ -290,7 +288,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
         if (relation.hasExplicitColumnNames() && relation.getColumnOutputNames() != null) {
             sqlBuilder.append(" (")
                     .append(Joiner.on(", ").join(
-                            relation.getColumnOutputNames().stream().map(c -> "`" + c + "`").collect(toList())))
+                            relation.getColumnOutputNames().stream().map(ParseUtil::backquote).collect(toList())))
                     .append(")");
         }
         
@@ -385,7 +383,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
 
         if (node.getAlias() != null) {
             sqlBuilder.append(" AS ");
-            sqlBuilder.append("`").append(node.getAlias().getTbl()).append("`");
+            sqlBuilder.append(ParseUtil.backquote(node.getAlias().getTbl()));
         }
         return sqlBuilder.toString();
     }
@@ -409,7 +407,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
                     sqlBuilder.append(" TEMPORARY");
                 }
                 sqlBuilder.append(" PARTITION (");
-                sqlBuilder.append(partitionNames.stream().map(c -> "`" + c + "`")
+                sqlBuilder.append(partitionNames.stream().map(ParseUtil::backquote)
                         .collect(Collectors.joining(", ")));
                 sqlBuilder.append(")");
             }
@@ -428,7 +426,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
 
         if (node.getAlias() != null) {
             sqlBuilder.append(" AS ");
-            sqlBuilder.append("`").append(node.getAlias().getTbl()).append("`");
+            sqlBuilder.append(ParseUtil.backquote(node.getAlias().getTbl()));
         }
         return sqlBuilder.toString();
     }
@@ -450,7 +448,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
 
             if (node.getColumnOutputNames() != null) {
                 sqlBuilder.append("(");
-                String names = node.getColumnOutputNames().stream().map(c -> "`" + c + "`")
+                String names = node.getColumnOutputNames().stream().map(ParseUtil::backquote)
                         .collect(Collectors.joining(","));
                 sqlBuilder.append(names);
                 sqlBuilder.append(")");
@@ -479,7 +477,7 @@ public class AST2SQLVisitor extends AST2StringVisitor {
             sqlBuilder.append(" ").append(tableFunction.getAlias().getTbl());
             if (tableFunction.getColumnOutputNames() != null) {
                 sqlBuilder.append("(");
-                String names = tableFunction.getColumnOutputNames().stream().map(c -> "`" + c + "`")
+                String names = tableFunction.getColumnOutputNames().stream().map(ParseUtil::backquote)
                         .collect(Collectors.joining(","));
                 sqlBuilder.append(names);
                 sqlBuilder.append(")");
