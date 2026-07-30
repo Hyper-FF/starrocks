@@ -121,6 +121,7 @@ import com.starrocks.sql.ast.expression.LimitElement;
 import com.starrocks.sql.ast.expression.LiteralExpr;
 import com.starrocks.sql.ast.expression.MapExpr;
 import com.starrocks.sql.ast.expression.MatchExpr;
+import com.starrocks.sql.ast.expression.MultiInPredicate;
 import com.starrocks.sql.ast.expression.Parameter;
 import com.starrocks.sql.ast.expression.SlotRef;
 import com.starrocks.sql.ast.expression.StringLiteral;
@@ -1358,6 +1359,33 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
 
     public String visitInformationFunction(InformationFunction node, Void context) {
         return visitExpression(node, context);
+    }
+
+    /**
+     * Without this override a multi-column IN falls through {@link #visitExpression} to
+     * {@code ExprToSql.toSql}, which renders the whole subtree with ExprExplainVisitor instead: that
+     * visitor does not qualify column references and does not drop the redundant parentheses around a
+     * subquery, so one statement came out with both spellings and the parenthesis count grew on every
+     * round trip. Mirror visitInPredicate and keep the rendering in this visitor.
+     */
+    @Override
+    public String visitMultiInPredicate(MultiInPredicate node, Void context) {
+        StringBuilder strBuilder = new StringBuilder();
+        int columns = node.getNumberOfColumns();
+        strBuilder.append("(");
+        for (int i = 0; i < columns; ++i) {
+            strBuilder.append(i > 0 ? ", " : "").append(visit(node.getChild(i)));
+        }
+        strBuilder.append(")");
+        if (node.isNotIn()) {
+            strBuilder.append(" NOT");
+        }
+        strBuilder.append(" IN (");
+        for (int i = columns; i < node.getChildren().size(); ++i) {
+            strBuilder.append(i > columns ? ", " : "").append(printWithParentheses(node.getChild(i)));
+        }
+        strBuilder.append(")");
+        return strBuilder.toString();
     }
 
     @Override

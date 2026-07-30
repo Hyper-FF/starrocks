@@ -433,4 +433,17 @@ public class AstToSQLBuilderTest {
         assertReanalyzable(cast);
         Assertions.assertEquals(deparseAnalyzed(cast), deparseAnalyzed(deparseAnalyzed(cast)));
     }
+
+    @Test
+    public void testMultiColumnInIsRenderedByTheMainVisitor() {
+        // Multi-column IN had no override here, so the whole node fell through to the visitor used for
+        // EXPLAIN, which neither qualifies columns nor drops redundant parentheses. The subquery grew a
+        // pair of parentheses on every round trip and the columns came out bare.
+        String sql = "select * from t0 where (v1, v2) in (select v4, v5 from t1)";
+        String out = deparseAnalyzed(sql);
+        Assertions.assertTrue(out.contains("(`test`.`t0`.`v1`, `test`.`t0`.`v2`) IN ("), out);
+        Assertions.assertEquals(out, deparseAnalyzed(out));
+        assertReanalyzable(sql);
+        assertReanalyzable("select * from t0 where (v1, v2) not in (select v4, v5 from t1)");
+    }
 }
