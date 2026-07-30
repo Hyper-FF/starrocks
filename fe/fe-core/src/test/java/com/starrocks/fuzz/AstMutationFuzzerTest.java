@@ -22,12 +22,16 @@ import com.starrocks.sql.analyzer.Analyzer;
 import com.starrocks.sql.analyzer.AstToSQLBuilder;
 import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.analyzer.StorageAccessException;
+import com.starrocks.sql.ast.CTERelation;
+import com.starrocks.sql.ast.JoinRelation;
+import com.starrocks.sql.ast.QueryRelation;
 import com.starrocks.sql.ast.QueryStatement;
 import com.starrocks.sql.ast.Relation;
 import com.starrocks.sql.ast.SelectRelation;
 import com.starrocks.sql.ast.SetOperationRelation;
 import com.starrocks.sql.ast.StatementBase;
 import com.starrocks.sql.ast.SubqueryRelation;
+import com.starrocks.sql.ast.TableFunctionRelation;
 import com.starrocks.sql.ast.expression.Expr;
 import com.starrocks.sql.ast.expression.FunctionCallExpr;
 import com.starrocks.sql.ast.expression.LiteralExpr;
@@ -471,6 +475,12 @@ public class AstMutationFuzzerTest {
     /** Expression roots reachable without analysis, so the same walk works pre- and post-analyze. */
     static List<Expr> collectRootExprs(Relation relation) {
         List<Expr> out = new ArrayList<>();
+        if (relation instanceof QueryRelation && ((QueryRelation) relation).getCteRelations() != null) {
+            // A WITH clause hangs off the query, not the FROM clause, so it needs its own descent.
+            for (CTERelation cte : ((QueryRelation) relation).getCteRelations()) {
+                out.addAll(collectRootExprs(cte));
+            }
+        }
         if (relation instanceof SelectRelation) {
             SelectRelation sel = (SelectRelation) relation;
             if (sel.getSelectList() != null && sel.getSelectList().getItems() != null) {
@@ -495,6 +505,24 @@ public class AstMutationFuzzerTest {
         } else if (relation instanceof SetOperationRelation) {
             for (Relation child : ((SetOperationRelation) relation).getRelations()) {
                 out.addAll(collectRootExprs(child));
+            }
+        } else if (relation instanceof JoinRelation) {
+            // Without this branch a join swallowed its whole subtree: the ON predicate was never a
+            // mutation site and never reached the pool, and so was everything below the join -- a
+            // subquery on either side went dark purely because of its parent. Around a third of the
+            // SQL-Tester corpus joins, so that was a third of the seeds with no reachable FROM clause.
+            JoinRelation join = (JoinRelation) relation;
+            if (join.getOnPredicate() != null) {
+                out.add(join.getOnPredicate());
+            }
+            out.addAll(collectRootExprs(join.getLeft()));
+            out.addAll(collectRootExprs(join.getRight()));
+        } else if (relation instanceof CTERelation) {
+            out.addAll(collectRootExprs(((CTERelation) relation).getCteQueryStatement().getQueryRelation()));
+        } else if (relation instanceof TableFunctionRelation) {
+            List<Expr> args = ((TableFunctionRelation) relation).getChildExpressions();
+            if (args != null) {
+                out.addAll(args);
             }
         }
         return out;
