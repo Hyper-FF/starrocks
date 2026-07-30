@@ -570,7 +570,11 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
             return sqlBuilder.toString();
         }
 
-        if (relation.getColumnOutputNames() != null) {
+        // Only when the source text carried one. The analyzer derives a list from the inner query when
+        // it was absent, and the derived names keep the alias case while a written list is lower-cased
+        // by the parser, so printing the derived list produces text that serializes differently on the
+        // next round trip. The derived names add nothing: re-analysing the inner query reproduces them.
+        if (relation.hasExplicitColumnNames() && relation.getColumnOutputNames() != null) {
             sqlBuilder.append("(")
                     .append(Joiner.on(", ").join(relation.getColumnOutputNames())).append(")");
         }
@@ -1246,6 +1250,14 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
 
     @Override
     public String visitFunctionCall(FunctionCallExpr node, Void context) {
+        // FunctionAnalyzer rewrites typeof(expr) in place: it discards the argument and stores the
+        // computed type name in its place, resolving the call to typeof_internal so a later rule folds
+        // it away. The original argument is gone, so printing `typeof(<stored name>)` would serialize an
+        // expression that reports the type of the *name* -- always 'varchar' -- instead of the type the
+        // user asked about. The node now means exactly the stored constant, so print that.
+        if (isRewrittenTypeof(node)) {
+            return visit(node.getChild(0));
+        }
         FunctionParams fnParams = node.getParams();
         StringBuilder sb = new StringBuilder();
         if (options.isAddFunctionDbName() && node.getDbName() != null) {
@@ -1391,7 +1403,12 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
     public String visitLiteral(LiteralExpr node, Void context) {
         if (node instanceof DecimalLiteral) {
             if ((((DecimalLiteral) node).getValue().scale() == 0)) {
-                return ((DecimalLiteral) node).getValue().toString() + "E0";
+                // A bare integral value would reparse as an integer literal and lose the DECIMAL type,
+                // so the spelling has to mark it. "E0" did that but is scientific notation: the parser
+                // reads it back as a DOUBLE, and any value past LARGEINT collapses to 17 significant
+                // digits -- 999...9 (39 nines) came back as 1.0E39. A trailing dot marks it just as well
+                // and reparses as DECIMAL at every magnitude, keeping the value exact.
+                return ((DecimalLiteral) node).getValue().toString() + ".";
             } else {
                 return visitExpression(node, context);
             }
@@ -1422,7 +1439,32 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
 
     @Override
     public String visitSubqueryExpr(Subquery node, Void context) {
-        return "(" + visit(node.getQueryStatement()) + ")";
+        return "(" + visit(unwrapRedundantParentheses(node.getQueryStatement())) + ")";
+    }
+
+    /**
+     * Drops parenthesis-only wrappers around a subquery.
+     *
+     * <p>{@code IN ((SELECT ...))} parses the surplus pair into a SubqueryRelation that wraps the real
+     * query and carries nothing else. Printing it re-emits that pair, the next parse wraps the result
+     * again, and the text gains a pair on every round trip without ever settling. Such a wrapper is pure
+     * syntax, so skip it; a wrapper that carries an alias, explicit column names, ORDER BY, LIMIT or a
+     * WITH clause is meaningful and stays.
+     */
+    private static QueryStatement unwrapRedundantParentheses(QueryStatement stmt) {
+        QueryStatement current = stmt;
+        while (current.getQueryRelation() instanceof SubqueryRelation) {
+            SubqueryRelation wrapper = (SubqueryRelation) current.getQueryRelation();
+            if (wrapper.getAlias() != null
+                    || wrapper.getExplicitColumnNames() != null
+                    || wrapper.hasOrderByClause()
+                    || wrapper.getLimit() != null
+                    || wrapper.hasWithClause()) {
+                break;
+            }
+            current = wrapper.getQueryStatement();
+        }
+        return current;
     }
 
     public String visitVariableExpr(VariableExpr node, Void context) {
@@ -1654,8 +1696,17 @@ public class AST2StringVisitor implements AstVisitorExtendInterface<String, Void
         return visit(sortExpr);
     }
 
+    private static boolean isRewrittenTypeof(FunctionCallExpr node) {
+        return node.getFn() != null
+                && FunctionSet.TYPEOF_INTERNAL.equals(node.getFn().functionName())
+                && node.getChildren().size() == 1;
+    }
+
     protected String printWithParentheses(ParseNode node) {
-        if (node instanceof SlotRef || node instanceof LiteralExpr) {
+        // A Subquery already renders as "(SELECT ...)". Wrapping it again emits a redundant pair that
+        // the parser materialises as a node of its own, so the next serialization wraps that too and the
+        // text grows by two characters every round trip without ever settling.
+        if (node instanceof SlotRef || node instanceof LiteralExpr || node instanceof Subquery) {
             return visit(node);
         }
 

@@ -1025,7 +1025,7 @@ public class FunctionAnalyzer {
             // subsequent rule rewriting, and then the typeof can be replaced.
             Type originType = argumentTypes[0];
             argumentTypes[0] = StringType.STRING;
-            fn = new Function(new FunctionName("typeof_internal"), argumentTypes, StringType.STRING, false);
+            fn = new Function(new FunctionName(FunctionSet.TYPEOF_INTERNAL), argumentTypes, StringType.STRING, false);
             Expr newChildExpr = new StringLiteral(originType.toTypeString());
             node.getParams().exprs().set(0, newChildExpr);
             node.setChild(0, newChildExpr);
