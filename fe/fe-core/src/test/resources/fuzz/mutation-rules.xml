@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2021-present StarRocks, Inc. All rights reserved.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!--
+  Where the AST mutator may not act.
+
+  The mutator replaces a child of an Expr through TreeNode.setChild, which can build trees the parser
+  could never produce. Findings from those trees are artifacts of the mutator, not defects, so the
+  positions the grammar fixes are excluded here.
+
+  Semantics: a <rule> fires when ANY of its <match> elements fires; a <match> fires when ALL of the
+  attributes it names hold. action="allow" beats action="skip", so a broad skip can carve exceptions.
+
+  <match> attributes, all optional but at least one required:
+    parent-type / child-type          simple class name of the node
+    parent-function / child-function  function name, when that node is a call
+    index                             position of the child under its parent
+
+  Override with -Dsrfuzz.rules=<path>, or ignore the whole file with -Dsrfuzz.gate=off.
+-->
+<fuzz-rules>
+
+    <!-- EXISTS takes a subquery and nothing else; substituting any expression yields
+         `WHERE EXISTS 'HIGH'`, which does not parse. -->
+    <rule name="exists-takes-only-a-subquery" action="skip">
+        <match parent-type="ExistsPredicate"/>
+    </rule>
+
+    <!-- A subquery is only grammatical where the parser put one, and nothing else can stand in for it. -->
+    <rule name="subquery-position-is-fixed" action="skip">
+        <match parent-type="Subquery"/>
+        <match child-type="Subquery"/>
+    </rule>
+
+    <!-- Lambda arguments and bodies bind specially; replacing either produced nested `->` arrows that
+         the grammar rejects. -->
+    <rule name="lambda-shape-is-fixed" action="skip">
+        <match parent-type="LambdaFunctionExpr"/>
+        <match child-type="LambdaFunctionExpr"/>
+        <match child-type="LambdaArgument"/>
+    </rule>
+
+    <!-- INTERVAL carries a unit keyword, not an expression. -->
+    <rule name="interval-literal-is-not-an-expression" action="skip">
+        <match child-type="IntervalLiteral"/>
+    </rule>
+
+    <!-- DEFAULT is only meaningful in the VALUES/SET position the parser found it in. -->
+    <rule name="default-keyword-is-positional" action="skip">
+        <match child-type="DefaultValueExpr"/>
+    </rule>
+
+    <!-- An AnalyticExpr's children are a FLATTENED mirror of data held elsewhere: the window
+         function's arguments, then the PARTITION BY expressions, then the ORDER BY ones. The function
+         itself lives in a separate fnCall field. Replacing a child updates the mirror but not fnCall,
+         leaving a tree the parser cannot produce. Hand-writing the equivalent SQL
+         (`min_by(named_struct('k',v1,'v',v1), v1) OVER (PARTITION BY v1)`)
+         analyzes and deparses fine, so every finding from such a mutation was an artifact. -->
+    <rule name="analytic-expr-children-mirror-other-state" action="skip">
+        <match parent-type="AnalyticExpr"/>
+    </rule>
+
+    <!-- time_slice(<datetime>, INTERVAL n unit, floor|ceil) parses into four children, of which only
+         the first is an expression:
+             child[0] the datetime          <- mutable
+             child[1] the interval count    <- the grammar requires an int literal it can narrow
+             child[2] the interval unit     <- spelled as a bare keyword, stored as a StringLiteral
+             child[3] the boundary          <- likewise
+         Mutating 1..3 yields text the parser rejects, or a literal the deparser casts and fails on. -->
+    <rule name="time-slice-takes-keywords-not-expressions" action="skip">
+        <match parent-function="time_slice" index="1"/>
+        <match parent-function="time_slice" index="2"/>
+        <match parent-function="time_slice" index="3"/>
+    </rule>
+
+</fuzz-rules>
