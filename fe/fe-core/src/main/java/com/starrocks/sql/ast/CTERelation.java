@@ -34,6 +34,11 @@ public class CTERelation extends Relation {
     private int refs = 0; // consume refs
     private boolean isRecursive;
     private final CTEMaterializationHint materializationHint;
+    /**
+     * Whether the source text carried a column list. The analyzer fills {@code explicitColumnNames} in
+     * from the inner query when it was absent, so afterwards the field alone no longer says which it was.
+     */
+    private final boolean hasExplicitColumnNames;
 
     public CTERelation(int cteMouldId, String name, List<String> columnOutputNames,
                        QueryStatement cteQueryStatement, boolean isRecursive, boolean isAnchor) {
@@ -48,11 +53,16 @@ public class CTERelation extends Relation {
         this.cteMouldId = cteMouldId;
         this.name = name;
         this.explicitColumnNames = columnOutputNames;
+        this.hasExplicitColumnNames = columnOutputNames != null;
         this.cteQueryStatement = cteQueryStatement;
         this.refs = 0;
         this.isRecursive = isRecursive;
         this.isAnchor = isAnchor;
         this.materializationHint = materializationHint;
+    }
+
+    public boolean hasExplicitColumnNames() {
+        return hasExplicitColumnNames;
     }
 
     public int getCteMouldId() {

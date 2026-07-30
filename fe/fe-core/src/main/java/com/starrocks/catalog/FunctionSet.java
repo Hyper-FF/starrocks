@@ -289,6 +289,9 @@ public class FunctionSet {
     // Variant functions:
     public static final String VARIANT_QUERY = "variant_query";
     public static final String VARIANT_TYPEOF = "variant_typeof";
+    // typeof(expr) is rewritten to this during analysis: the argument is replaced by the computed
+    // type name and the call folds away to it. See FunctionAnalyzer#getAdjustedAnalyzedFunction.
+    public static final String TYPEOF_INTERNAL = "typeof_internal";
     public static final String GET_VARIANT_BOOL = "get_variant_bool";
     public static final String GET_VARIANT_INT = "get_variant_int";
     public static final String GET_VARIANT_DOUBLE = "get_variant_double";
