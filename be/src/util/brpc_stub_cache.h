@@ -111,6 +111,7 @@ public:
 
 private:
     friend class EndpointCleanupTask<BrpcStubCache>;
+    friend class BrpcStubCacheTest;
 
     bool is_cleanup_task_owner_locked(const butil::EndPoint& endpoint,
                                       const EndpointCleanupTask<BrpcStubCache>* task) const {
