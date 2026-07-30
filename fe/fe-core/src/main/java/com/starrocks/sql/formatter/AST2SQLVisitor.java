@@ -283,7 +283,11 @@ public class AST2SQLVisitor extends AST2StringVisitor {
             return sqlBuilder.toString();
         }
 
-        if (relation.getColumnOutputNames() != null) {
+        // Only when the source text carried one. The analyzer derives a list from the inner query when
+        // it was absent, and the derived names keep the alias case while a written list is lower-cased
+        // by the parser, so printing the derived list produces text that serializes differently on the
+        // next round trip. The derived names add nothing: re-analysing the inner query reproduces them.
+        if (relation.hasExplicitColumnNames() && relation.getColumnOutputNames() != null) {
             sqlBuilder.append(" (")
                     .append(Joiner.on(", ").join(
                             relation.getColumnOutputNames().stream().map(c -> "`" + c + "`").collect(toList())))

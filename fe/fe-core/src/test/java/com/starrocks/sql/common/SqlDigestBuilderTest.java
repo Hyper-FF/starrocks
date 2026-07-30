@@ -53,8 +53,11 @@ public class SqlDigestBuilderTest extends PlanTestBase {
         list.add(Arguments.of("select v4 from t1 limit 1", "SELECT `v4` FROM `test`.`t1` LIMIT  ?"));
         list.add(Arguments.of("select * from t1 where v4 in (1, 2, 3)",
                 "SELECT * FROM `test`.`t1` WHERE `v4` IN (?, ?, ?)"));
+        // One pair from IN and one from the subquery itself. It used to be three: printWithParentheses
+        // wrapped the already-parenthesized subquery again, and the parser turned that surplus pair into
+        // a node of its own, so every round trip added another pair.
         list.add(Arguments.of("select * from t1 where v4 in (select v5 from t1)",
-                "SELECT * FROM `test`.`t1` WHERE `v4` IN (((SELECT `v5` FROM `test`.`t1`)))"));
+                "SELECT * FROM `test`.`t1` WHERE `v4` IN ((SELECT `v5` FROM `test`.`t1`))"));
         list.add(Arguments.of("select /*+set_var(query_timeout=123)*/ * from t2",
                 "SELECT /*+set_var(query_timeout=123)*/ * FROM `test`.`t2`"));
         list.add(Arguments.of("insert into t1 values (1, 2, 3)", "INSERT INTO `test`.`t1` VALUES(?, ?, ?)"));
