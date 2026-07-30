@@ -474,6 +474,17 @@ public class ExpressionAnalyzer {
             List<String> rightNames = Lists.newArrayList();
             Type tmpType = child.getType();
             for (String fieldName : fieldNames) {
+                // The check above only covers the first level. A SubfieldExpr carries the whole chain,
+                // so `portfolio[1].price.metadata` walks this loop twice and the second step starts from
+                // whatever `price` turned out to be. When that is a scalar or a map the cast below threw
+                // ClassCastException instead of reporting the mistake. Note that a plain identifier chain
+                // such as `s.inner_v.deep` never reaches here -- it is resolved as a column name and
+                // already fails cleanly -- so only paths that went through an index or a function did.
+                if (!tmpType.isStructType()) {
+                    throw new SemanticException(
+                            String.format("Cannot access subfield '%s': the expression it is applied to is %s, "
+                                    + "not a struct", fieldName, tmpType), node.getPos());
+                }
                 StructType structType = (StructType) tmpType;
                 StructField structField = structType.getField(fieldName);
                 if (structField == null) {
