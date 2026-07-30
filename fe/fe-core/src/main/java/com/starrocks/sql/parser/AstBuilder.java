@@ -9178,7 +9178,8 @@ public class AstBuilder extends com.starrocks.sql.parser.StarRocksBaseVisitor<Pa
 
     @Override
     public ParseNode visitBackQuotedIdentifier(com.starrocks.sql.parser.StarRocksParser.BackQuotedIdentifierContext context) {
-        Identifier backQuotedIdentifier = new Identifier(context.getText().replace("`", ""), createPos(context));
+        Identifier backQuotedIdentifier =
+                new Identifier(AstBuilderUtils.unquoteBackQuoted(context.getText()), createPos(context));
         backQuotedIdentifier.setBackQuoted(true);
         return backQuotedIdentifier;
     }
