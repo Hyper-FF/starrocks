@@ -42,6 +42,7 @@ import com.starrocks.cluster.ClusterNamespace;
 import com.starrocks.common.ErrorCode;
 import com.starrocks.common.ErrorReport;
 import com.starrocks.common.io.Writable;
+import com.starrocks.common.util.ParseUtil;
 import com.starrocks.persist.gson.GsonPostProcessable;
 import com.starrocks.persist.gson.GsonPreProcessable;
 import com.starrocks.qe.ConnectContext;
@@ -212,12 +213,12 @@ public class TableName implements Writable, GsonPreProcessable, GsonPostProcessa
     public String toSql() {
         StringBuilder stringBuilder = new StringBuilder();
         if (catalog != null && !CatalogMgr.isInternalCatalog(catalog)) {
-            stringBuilder.append("`").append(catalog).append("`.");
+            stringBuilder.append(ParseUtil.backquote(catalog)).append(".");
         }
         if (db != null) {
-            stringBuilder.append("`").append(db).append("`.");
+            stringBuilder.append(ParseUtil.backquote(db)).append(".");
         }
-        stringBuilder.append("`").append(tbl).append("`");
+        stringBuilder.append(ParseUtil.backquote(tbl));
         return stringBuilder.toString();
     }
 
