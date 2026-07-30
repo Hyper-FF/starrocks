@@ -38,6 +38,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
 #include "base/container/raw_container.h"
@@ -4838,14 +4839,24 @@ Status StringFunctions::replace_close(FunctionContext* context, FunctionContext:
     return Status::OK();
 }
 
-static void replace_all(std::string& str, const std::string& ptn, const std::string& rpl) {
-    if (ptn.empty()) {
-        return;
+// Appends `str` to `dst`, replacing every occurrence of `ptn` with `rpl`. `first` is the
+// offset of the first occurrence, which the caller has already located.
+//
+// The scan runs left to right over the source and never looks back into what it has
+// emitted, which matches the semantics of an in-place replace loop that skips over each
+// text it just inserted. Building the result instead of editing it in place keeps the
+// cost linear in the input length: an in-place std::string::replace has to shift the
+// whole unmatched tail on every match whenever `rpl` and `ptn` differ in length, so a
+// string with many matches used to cost O(length * matches).
+static void append_replaced(std::string* dst, std::string_view str, size_t first, std::string_view ptn,
+                            std::string_view rpl) {
+    size_t pos = 0;
+    for (size_t found = first; found != std::string_view::npos; found = str.find(ptn, pos)) {
+        dst->append(str, pos, found - pos);
+        dst->append(rpl);
+        pos = found + ptn.size();
     }
-
-    for (auto found = str.find(ptn); found != std::string::npos; found = str.find(ptn, found + rpl.length())) {
-        str.replace(found, ptn.length(), rpl);
-    }
+    dst->append(str, pos, str.size() - pos);
 }
 
 StatusOr<ColumnPtr> StringFunctions::replace(FunctionContext* context, const Columns& columns) {
@@ -4871,6 +4882,8 @@ StatusOr<ColumnPtr> StringFunctions::replace(FunctionContext* context, const Col
     const auto rpl_viewer = ColumnViewer<TYPE_VARCHAR>(columns[2]);
 
     ColumnBuilder<TYPE_VARCHAR> result(num_rows);
+    // Reused across rows so that rows containing a match do not each allocate a buffer.
+    std::string buffer;
     for (int row = 0; row < num_rows; ++row) {
         if (str_viewer.is_null(row) || (!state->const_pattern && ptn_viewer.is_null(row)) ||
             (!state->const_repl && rpl_viewer.is_null(row))) {
@@ -4879,15 +4892,21 @@ StatusOr<ColumnPtr> StringFunctions::replace(FunctionContext* context, const Col
         }
 
         const auto str_slice = str_viewer.value(row);
-        if (str_slice.empty()) {
+        const auto ptn_slice = state->const_pattern ? Slice(state->pattern) : ptn_viewer.value(row);
+        const std::string_view str(str_slice.data, str_slice.size);
+        const std::string_view ptn(ptn_slice.data, ptn_slice.size);
+
+        // An empty pattern matches nothing, mirroring the constant-pattern short circuit above.
+        const size_t first = ptn.empty() ? std::string_view::npos : str.find(ptn);
+        if (first == std::string_view::npos) {
             result.append(str_slice);
             continue;
         }
 
-        std::string str = str_slice.to_string();
-        replace_all(str, state->const_pattern ? state->pattern : ptn_viewer.value(row).to_string(),
-                    state->const_repl ? state->repl : rpl_viewer.value(row).to_string());
-        result.append(Slice(str.data(), str.size()));
+        const auto rpl_slice = state->const_repl ? Slice(state->repl) : rpl_viewer.value(row);
+        buffer.clear();
+        append_replaced(&buffer, str, first, ptn, std::string_view(rpl_slice.data, rpl_slice.size));
+        result.append(Slice(buffer.data(), buffer.size()));
     }
 
     return result.build(ColumnHelper::is_all_const(columns));
