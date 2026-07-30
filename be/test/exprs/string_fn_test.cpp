@@ -4679,4 +4679,120 @@ PARALLEL_TEST(VecStringFunctionsTest, initcapTest) {
     ASSERT_NE(std::string(error_result.status().message()).find("Invalid UTF-8 sequence"), std::string::npos);
 }
 
+namespace {
+
+// Evaluates replace(str, ptn, rpl) with a constant pattern and replacement, the shape a
+// literal `replace(col, 'a', 'b')` produces.
+std::vector<std::string> eval_replace_const(const std::vector<std::string>& strs, const std::string& ptn,
+                                            const std::string& rpl) {
+    std::unique_ptr<FunctionContext> ctx(FunctionContext::create_test_context());
+
+    auto str = BinaryColumn::create();
+    for (const auto& s : strs) {
+        str->append(s);
+    }
+    auto ptn_data = BinaryColumn::create();
+    ptn_data->append(ptn);
+    auto rpl_data = BinaryColumn::create();
+    rpl_data->append(rpl);
+
+    Columns columns{std::move(str), ConstColumn::create(std::move(ptn_data), strs.size()),
+                    ConstColumn::create(std::move(rpl_data), strs.size())};
+    ctx->set_constant_columns(columns);
+    CHECK(StringFunctions::replace_prepare(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
+
+    ColumnPtr result = StringFunctions::replace(ctx.get(), columns).value();
+    const auto* data = ColumnHelper::get_data_column(result.get());
+    const auto* values = down_cast<const BinaryColumn*>(ColumnHelper::get_data_column(
+            result->is_constant() ? ColumnHelper::as_raw_column<ConstColumn>(result)->data_column().get() : data));
+
+    std::vector<std::string> out;
+    for (size_t i = 0; i < strs.size(); i++) {
+        out.emplace_back(values->get_slice(result->is_constant() ? 0 : i).to_string());
+    }
+    CHECK(StringFunctions::replace_close(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
+    return out;
+}
+
+} // namespace
+
+PARALLEL_TEST(VecStringFunctionsTest, replaceRewriteShapes) {
+    using Strings = std::vector<std::string>;
+    // no match, equal-length, longer and shorter replacements, deletion, a replacement that
+    // contains the pattern (which must not be rescanned), and overlapping matches
+    EXPECT_EQ(Strings({"hello"}), eval_replace_const({"hello"}, "xyz", "!"));
+    EXPECT_EQ(Strings({"heXXo"}), eval_replace_const({"hello"}, "l", "X"));
+    EXPECT_EQ(Strings({"heLLLLo"}), eval_replace_const({"hello"}, "l", "LL"));
+    EXPECT_EQ(Strings({"heo"}), eval_replace_const({"hello"}, "l", ""));
+    EXPECT_EQ(Strings({"aaaaaa"}), eval_replace_const({"aaa"}, "a", "aa"));
+    EXPECT_EQ(Strings({"ba"}), eval_replace_const({"aaa"}, "aa", "b"));
+    EXPECT_EQ(Strings({"abb"}), eval_replace_const({"ab"}, "b", "bb"));
+    EXPECT_EQ(Strings({""}), eval_replace_const({""}, "a", "b"));
+    EXPECT_EQ(Strings({"xb", "bx", "bb"}), eval_replace_const({"ab", "ba", "bb"}, "a", "x"));
+}
+
+PARALLEL_TEST(VecStringFunctionsTest, replacePerRowEmptyPattern) {
+    // an empty pattern matches nothing, whether it arrives as a constant or per row
+    EXPECT_EQ(std::vector<std::string>({"hello"}), eval_replace_const({"hello"}, "", "-"));
+
+    std::unique_ptr<FunctionContext> ctx(FunctionContext::create_test_context());
+    auto str = BinaryColumn::create();
+    str->append("hello");
+    str->append("world");
+    auto ptn = BinaryColumn::create();
+    ptn->append("");
+    ptn->append("o");
+    auto rpl = BinaryColumn::create();
+    rpl->append("-");
+    rpl->append("0");
+
+    Columns columns{std::move(str), std::move(ptn), std::move(rpl)};
+    ctx->set_constant_columns(columns);
+    ASSERT_TRUE(StringFunctions::replace_prepare(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
+
+    ColumnPtr result = StringFunctions::replace(ctx.get(), columns).value();
+    const auto* v = down_cast<const BinaryColumn*>(ColumnHelper::get_data_column(result.get()));
+    EXPECT_EQ("hello", v->get_slice(0).to_string());
+    EXPECT_EQ("w0rld", v->get_slice(1).to_string());
+    ASSERT_TRUE(StringFunctions::replace_close(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
+}
+
+PARALLEL_TEST(VecStringFunctionsTest, replaceNullableInput) {
+    std::unique_ptr<FunctionContext> ctx(FunctionContext::create_test_context());
+
+    auto str = BinaryColumn::create();
+    for (const auto* s : {"aXa", "bXb", "cXc"}) {
+        str->append(s);
+    }
+    auto null = NullColumn::create();
+    null->append(0);
+    null->append(1);
+    null->append(0);
+
+    auto ptn = BinaryColumn::create();
+    ptn->append("X");
+    auto rpl = BinaryColumn::create();
+    rpl->append("--");
+
+    Columns columns{NullableColumn::create(std::move(str), std::move(null)), ConstColumn::create(std::move(ptn), 3),
+                    ConstColumn::create(std::move(rpl), 3)};
+    ctx->set_constant_columns(columns);
+    ASSERT_TRUE(StringFunctions::replace_prepare(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
+
+    ColumnPtr result = StringFunctions::replace(ctx.get(), columns).value();
+    ASSERT_TRUE(result->is_nullable());
+    EXPECT_TRUE(result->is_null(1));
+    const auto* v = down_cast<const BinaryColumn*>(ColumnHelper::get_data_column(result.get()));
+    EXPECT_EQ("a--a", v->get_slice(0).to_string());
+    EXPECT_EQ("c--c", v->get_slice(2).to_string());
+    ASSERT_TRUE(StringFunctions::replace_close(ctx.get(), FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
+}
+
+PARALLEL_TEST(VecStringFunctionsTest, replaceManyMatches) {
+    // Every character matches and the replacement is longer: the in-place variant of this
+    // loop shifted the whole remaining tail once per match.
+    EXPECT_EQ(std::vector<std::string>({std::string(8192, 'b')}),
+              eval_replace_const({std::string(4096, 'a')}, "a", "bb"));
+}
+
 } // namespace starrocks
