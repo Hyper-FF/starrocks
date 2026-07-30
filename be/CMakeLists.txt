@@ -935,6 +935,10 @@ set (BENCH_LINK_LIBS
     ${STARROCKS_LINK_LIBS}
     ${WL_START_GROUP}
     ${DIRECT_CONNECTOR_LINK_LIBS}
+    # Several benchmarks validate their setup with ASSERT_OK from base/testutil/assert.h,
+    # which expands to gtest macros, so they need libgtest even though they are not tests.
+    # This is only the assertion library; TestUtil above stays out of benchmark builds.
+    gtest
     ${WL_END_GROUP}
 )
 
