@@ -86,7 +86,7 @@ public class NestingMutation implements Mutation {
         UNION_ALL,
         /** {@code (SELECT * FROM R UNION SELECT * FROM R) alias} */
         UNION_DISTINCT,
-        /** {@code (SELECT * FROM R) alias JOIN (SELECT * FROM R) alias2 ON 1 = 1} */
+        /** {@code (SELECT * FROM R) a JOIN (SELECT * FROM R) b ON a.c = b.c}, or a cross join. */
         SELF_JOIN
     }
 
@@ -106,7 +106,7 @@ public class NestingMutation implements Mutation {
         Collections.shuffle(slots, rnd);
         Shape shape = SHAPES[rnd.nextInt(SHAPES.length)];
         for (int i = 0; i < Math.min(MAX_ATTEMPTS, slots.size()); i++) {
-            String applied = applyAt(stmt, slots.get(i), shape);
+            String applied = applyAt(stmt, slots.get(i), shape, joinCondition(pool, rnd));
             if (applied != null) {
                 return applied;
             }
@@ -222,8 +222,33 @@ public class NestingMutation implements Mutation {
 
     // ---------------------------------------------------------------- rewrite
 
+    /**
+     * Picks how the two sides of a self join are related.
+     *
+     * <p>An unconditional cross join was the original and only shape, which is the wrong default twice
+     * over: it never reaches equi-join execution -- hash build and probe, runtime filters, colocate and
+     * bucket-shuffle decisions -- and it squares the row count, so replaying one against a real cluster
+     * costs a great deal and finds nothing. A cross join is still worth producing sometimes, because the
+     * nested-loop path is real, just not as the only thing the operator can build.
+     *
+     * <p>The column comes from the pool, which is harvested from the same corpus file, so it usually
+     * belongs to this relation; when it does not the mutant is rejected by the analyzer, which is
+     * ordinary cheap noise rather than a false finding.
+     */
+    private static String joinCondition(AstMutationFuzzerTest.Pool pool, Random rnd) {
+        if (pool == null || pool.columnNames.isEmpty() || rnd.nextInt(100) < 10) {
+            return null;
+        }
+        String col = pool.columnNames.get(rnd.nextInt(pool.columnNames.size()));
+        return rnd.nextInt(100) < 80 ? "=" + col : ">" + col;
+    }
+
     /** Applies one shape at one slot. Package-private so tests can pin both instead of rolling dice. */
     String applyAt(QueryStatement stmt, Slot slot, Shape shape) {
+        return applyAt(stmt, slot, shape, null);
+    }
+
+    String applyAt(QueryStatement stmt, Slot slot, Shape shape, String joinCond) {
         if (shape == Shape.SELF_JOIN && !slot.isWholeFromClause()) {
             // A join nested in a join operand is legal SQL -- `a JOIN (b JOIN c ON ...) ON ...` is a
             // parenthesizedRelation -- but the deparser emits no parentheses for it, so the mutant would
@@ -274,7 +299,14 @@ public class NestingMutation implements Mutation {
                 break;
             case SELF_JOIN: {
                 String aliasB = names.next();
-                wrapper = "(" + inner + ") `" + aliasA + "` INNER JOIN (" + inner + ") `" + aliasB + "` ON 1 = 1";
+                String on = "1 = 1";
+                if (joinCond != null) {
+                    String op = joinCond.substring(0, 1);
+                    String col = joinCond.substring(1);
+                    on = "`" + aliasA + "`.`" + col + "` " + op + " `" + aliasB + "`.`" + col + "`";
+                }
+                wrapper = "(" + inner + ") `" + aliasA + "` INNER JOIN (" + inner + ") `" + aliasB
+                        + "` ON " + on;
                 break;
             }
             default:
