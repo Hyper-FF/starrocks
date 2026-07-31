@@ -118,6 +118,58 @@ whether this is reachable by a user.
 **Next:** minimize. Take `mut_067`, bisect the setup and the query file to the smallest pair that
 still aborts, then check whether it reproduces without the amplification step.
 
+## C1b — `JsonColumn::append` DCHECK on the same tablet-read path as C1
+
+**Status: candidate. A fix exists on an unpushed local branch; not deployed here.** Round ~120s of
+the first run, 14:29. Missed in the first pass of this document -- I classified the crashes from a
+snapshot and did not re-read the log before restarting the fuzzer.
+
+```
+json_column.cpp:347] Check failed: 0 == this->size() (0 vs. 4)
+  starrocks::JsonColumn::append(Column const&, size_t, size_t)
+  <- starrocks::NullableColumn::append
+  <- starrocks::Chunk::append(Chunk const&, size_t, size_t)
+  <- starrocks::HeapMergeIterator::do_get_next(Chunk*)
+  <- starrocks::AggregateIterator::do_get_next(Chunk*)
+  <- starrocks::TabletReader::do_get_next(Chunk*)
+```
+
+The assertion and the assumption behind it are both in the source:
+
+```cpp
+void JsonColumn::append(const Column& src, size_t offset, size_t count) {
+    const auto* other_json = down_cast<const JsonColumn*>(&src);
+    if (other_json->is_flat_json() && !is_flat_json()) {
+        // only hit in AggregateIterator (Aggregate mode in storage)
+        DCHECK_EQ(0, this->size());
+```
+
+The comment asserts this is only reached from `AggregateIterator` with an empty destination. The
+stack *is* from `AggregateIterator`, and the destination had 4 rows, so the second half of the
+assumption is wrong.
+
+**Same path as C1.** C1 is `AggStateUnion::merge` via `ChunkAggregator`; this is `JsonColumn::append`
+via `HeapMergeIterator`. Both are `AggregateIterator` <- `TabletReader` — reading an aggregate table
+and merging a complex-typed value column during the scan. Two column implementations, two invariants,
+one path. Worth treating as possibly one root cause until shown otherwise.
+
+**A fix already exists, unpushed.** `007e57a5028` "[BugFix] Reconcile mismatched flat-JSON schemas in
+JsonColumn append", on branch `feature/auto-dev-iteration`, does exactly this:
+
+```diff
+-    if (other_json->is_flat_json() && !is_flat_json()) {
+-        DCHECK_EQ(0, this->size());
++    if (other_json->is_flat_json() && !is_flat_json() && this->size() == 0) {
+```
+
+and adds real schema reconciliation (`is_equallity_schema` + `json_merger`) for the mismatched case,
+covering both `append` and `append_selective`, with 128 lines of unit test. It is not in this
+cluster's build, and not merged anywhere.
+
+**Next:** deploy `007e57a5028` to the cluster and confirm the DCHECK stops firing; then check whether
+it also accounts for C1, since they share the path. The commit is unpushed and carries tests, so it
+should go to a PR on its own merit regardless.
+
 ## C2 — planner emits a `TExprNode` with a null `node_type`
 
 **Status: clean candidate, unminimized.** Round 57, group `mut_071`.
@@ -228,5 +280,7 @@ kind of work than crash hunting.
    masking everything after it. Same move already made for approx_top_k.
 3. **Fix H2 in the harness** so the findings file stops filling with the consequences of crashes
    rather than crashes.
-4. **Minimize C1**, the only other thing here that looks new and repeats.
-5. **Then C2**, the cleanest of the planner candidates.
+4. **Deploy `007e57a5028` for C1b** and check whether it also accounts for C1 — they share a path,
+   and one deployment answers both.
+5. **Minimize C1** if it survives that.
+6. **Then C2**, the cleanest of the planner candidates.
