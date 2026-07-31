@@ -56,10 +56,24 @@ public class MutationReachabilityTest {
                 + " DISTRIBUTED BY HASH(k) BUCKETS 1 PROPERTIES('replication_num'='1')");
     }
 
-    /** The texts the mutator would see as roots for this statement. */
+    /** The roots of the analyzed tree -- what {@code harvest} pools from. */
     private static List<String> roots(String sql) {
         StatementBase stmt = SqlParser.parse(sql, ctx.getSessionVariable()).get(0);
         Analyzer.analyze(stmt, ctx);
+        return render(stmt);
+    }
+
+    /**
+     * The roots of the parsed-but-unanalyzed tree -- what the mutator actually edits.
+     *
+     * <p>Usually the same set, but not always: analysis drops a subquery's ORDER BY when no LIMIT makes
+     * it observable, so a sort key that is a live mutation site disappears before {@link #roots} sees it.
+     */
+    private static List<String> parsedRoots(String sql) {
+        return render(SqlParser.parse(sql, ctx.getSessionVariable()).get(0));
+    }
+
+    private static List<String> render(StatementBase stmt) {
         List<Expr> found =
                 AstMutationFuzzerTest.collectRootExprs(((QueryStatement) stmt).getQueryRelation());
         return found.stream().map(e -> {
@@ -76,6 +90,13 @@ public class MutationReachabilityTest {
         List<String> got = roots(sql);
         Assertions.assertTrue(got.stream().anyMatch(r -> r.contains(fragment)),
                 () -> "no root contains " + fragment + " for " + sql + "\n  roots: " + got);
+    }
+
+    /** Not reachable even before analysis, i.e. the parser removed it rather than the walk missing it. */
+    private static void assertAbsentEvenUnanalyzed(String sql, String fragment) {
+        List<String> got = parsedRoots(sql);
+        Assertions.assertTrue(got.stream().noneMatch(r -> r.contains(fragment)),
+                () -> "expected the parser to have dropped " + fragment + " for " + sql + "\n  roots: " + got);
     }
 
     @Test
@@ -106,5 +127,23 @@ public class MutationReachabilityTest {
     public void testFlatQueryStillReachesEverything() {
         List<String> got = roots("select v from a where v > 1 group by v having count(*) > 2 order by v");
         Assertions.assertTrue(got.size() >= 4, () -> "expected select/where/having/group roots: " + got);
+    }
+
+    /**
+     * Sort keys were the second silent gap after joins: M5 could add or remove a whole ORDER BY, but the
+     * walk never entered one, so no mutation ever edited a sort expression and none was ever pooled.
+     */
+    @Test
+    public void testOrderByExpressionsAreReachable() {
+        assertReaches("select k, v from a order by abs(v + 1)", "abs(`fuzz_reach`.`a`.`v` + 1)");
+        assertReaches("select k, v from a order by v desc, k + 2 asc", "`a`.`k` + 2");
+        // ORDER BY hangs off QueryRelation, so the one on a set operation is reached by the same branch.
+        assertReaches("select k from a union all select k from b order by k + 3", "+ 3");
+        // A sort key inside a subquery is reached through the FROM descent -- but only when a LIMIT
+        // keeps it alive. `SubqueryRelation`'s constructor calls clearOrder() on an unlimited subquery,
+        // so that ORDER BY is gone before the mutator ever sees the tree. Pinned in both directions
+        // because the absent case looks exactly like a hole in the walk.
+        assertReaches("select s.k from (select k from b order by k * 5 limit 3) s", "`b`.`k` * 5");
+        assertAbsentEvenUnanalyzed("select s.k from (select k from b order by k * 5) s", "* 5");
     }
 }

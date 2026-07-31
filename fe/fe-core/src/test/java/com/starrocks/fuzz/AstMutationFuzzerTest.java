@@ -25,6 +25,7 @@ import com.starrocks.sql.analyzer.StorageAccessException;
 import com.starrocks.sql.ast.CTERelation;
 import com.starrocks.sql.ast.InsertStmt;
 import com.starrocks.sql.ast.JoinRelation;
+import com.starrocks.sql.ast.OrderByElement;
 import com.starrocks.sql.ast.QueryRelation;
 import com.starrocks.sql.ast.QueryStatement;
 import com.starrocks.sql.ast.Relation;
@@ -595,6 +596,21 @@ public class AstMutationFuzzerTest {
             // A WITH clause hangs off the query, not the FROM clause, so it needs its own descent.
             for (CTERelation cte : ((QueryRelation) relation).getCteRelations()) {
                 out.addAll(collectRootExprs(cte));
+            }
+        }
+        if (relation instanceof QueryRelation && ((QueryRelation) relation).hasOrderByClause()) {
+            // ORDER BY lives on QueryRelation, not on SelectRelation, so a set operation's ORDER BY is
+            // picked up by the same branch. Without it the sort keys were the one clause the walk never
+            // reached: M5 could add or drop a whole ORDER BY, but nothing ever edited inside one, so
+            // `ORDER BY abs(c2 + c3)` was as opaque to the mutator as a table name.
+            //
+            // The ordinal form (`ORDER BY 1`) contributes a childless root and therefore no site, which
+            // is correct -- rewriting an ordinal is M5's job, and a mutated ordinal is almost always an
+            // out-of-range analyzer rejection.
+            for (OrderByElement e : ((QueryRelation) relation).getOrderBy()) {
+                if (e != null && e.getExpr() != null) {
+                    out.add(e.getExpr());
+                }
             }
         }
         if (relation instanceof SelectRelation) {
