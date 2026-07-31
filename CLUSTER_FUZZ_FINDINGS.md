@@ -22,6 +22,62 @@ Raw evidence: `clusterfuzz/findings.md` (stacks), `clusterfuzz/error-signatures.
 
 ---
 
+## C0 — use-after-free introduced by the pass-through cancel fix (#76603), shipped
+
+**Status: confirmed by construction. The write site is the line the fix added. Affects main and 4.1.**
+
+Round 44, group `mut_055`. ASan, so this is a real memory error rather than an assertion.
+
+```
+==372390==ERROR: AddressSanitizer: heap-use-after-free on address 0x50b00068cb98
+WRITE of size 1 at 0x50b00068cb98 thread T507
+    #2 starrocks::PassThroughChannel::set_cancelled()   local_pass_through_buffer.cpp:115
+    #3 starrocks::PassThroughContext::set_cancelled()   local_pass_through_buffer.cpp:180
+    #4 starrocks::DataStreamRecvr::close()              data_stream_recvr.cpp:289
+    #5 starrocks::pipeline::ExchangeSourceOperatorFactory::~ExchangeSourceOperatorFactory()
+   ... starrocks::pipeline::Pipeline::~Pipeline()       pipeline.h:33
+
+freed by thread T507 here:
+    #1 starrocks::PassThroughChunkBuffer::~PassThroughChunkBuffer()
+    #2 starrocks::PassThroughChunkBufferManager::close_fragment_instance()
+    #3 starrocks::DataStreamMgr::destroy_pass_through_chunk_buffer()
+    #4 starrocks::pipeline::PassThroughChunkBufferGuard::~PassThroughChunkBufferGuard()
+                                                        fragment_context.cpp:77
+    #8 starrocks::pipeline::FragmentContext::destroy_pass_through_chunk_buffer()
+                                                        fragment_context.cpp:376
+    #9 starrocks::orchestration::FragmentExecutor::_fail_cleanup(bool)
+                                                        fragment_executor.cpp:1060
+```
+
+Same thread, in order: the fragment fails, `_fail_cleanup` destroys the `PassThroughChunkBuffer` that
+owns the channels, and then the pipeline is torn down — and `~ExchangeSourceOperatorFactory` calls
+`DataStreamRecvr::close()`, which writes `_cancelled` on a channel inside the buffer that was just
+freed.
+
+**Why this is a regression rather than an old bug.** `set_cancelled()`, the `_cancelled` flag, and the
+call to it from `DataStreamRecvr::close()` were all *added* by `bd22b6363d0`, "[BugFix] Stop
+pass-through exchange from appending after the receiver is cancelled (#76603)":
+
+```
+--- b/be/src/compute_env/data_stream/data_stream_recvr.cpp
+@@ -283,6 +285,8 @@ void DataStreamRecvr::close() {
++    // Stop the peer sink from appending into the shared pass-through buffer.
++    _pass_through_context.set_cancelled();
+```
+
+Before that commit, `close()` did not touch the shared buffer, so the teardown order did not matter.
+The fix gave the receiver a write into an object whose lifetime belongs to a different teardown path,
+with nothing ordering the two. `bd22b6363d0` is an ancestor of this cluster's build, which is why the
+crash reproduces here at all.
+
+**Shipped.** `bd22b6363d0` is merged to main as #76603 and backported to 4.1 as `72103970f15` /
+#76889. Both carry the same call.
+
+**Next:** minimize, then decide the shape of the correction — either `close()` must not reach a buffer
+the fragment-failure path may already have destroyed, or the channel's lifetime has to outlive both
+sides rather than being owned by `FragmentContext`. Also worth checking whether the sibling call added
+to `remove_sender()` in the same commit has the same exposure.
+
 ## C1 — `AggStateUnion::merge` type confusion in the storage scan path
 
 **Status: strongest candidate. Repeats. Matches no record I could find.**
@@ -145,9 +201,11 @@ through `compute_batch_agg_states`. One root cause, two reachable paths.
 
 ## Harness artifacts, not findings
 
-**H1 — `RuntimeEnv::init_execution_thread_pools`.** Round 44. Recorded as a crash because the BE was
-not alive when the round ended, but the frame is BE *startup*, i.e. the restart logic racing itself.
-The liveness check must not run while a restart is in flight.
+**H1 — retracted.** Round 44 was first written up here as a harness artifact, on the strength of a
+`RuntimeEnv::init_execution_thread_pools` frame that looked like BE startup. That frame is from the
+*thread-creation* section of an ASan report, not from the fault. The fault is C0, a genuine
+use-after-free. Reading one stack out of a multi-stack ASan report and classifying from it is the
+mistake; the report's own `WRITE of size 1 ... #0` header is the part that says what happened.
 
 **H2 — crash-induced error cascade.** `Backend node not found`, `Query cancelled by crash of
 backends`, `Tablet lost replicas` are all consequences of C1/K1 killing the BE mid-round. The
@@ -163,10 +221,12 @@ kind of work than crash hunting.
 
 ## What to do next, in order
 
-1. **Deploy the histogram FE guard (K1) to the cluster.** One known fix, removes one crash that is
-   masking everything after it. Same move that was already made for approx_top_k.
-2. **Fix H1 and H2 in the harness.** Cheap, and without them the findings file keeps filling with
-   consequences of crashes rather than crashes.
-3. **Minimize C1.** It is the only thing here that looks new, it repeats, and until it is minimized
-   it cannot be filed.
-4. **Then C2**, which is the cleanest of the planner candidates.
+1. **C0.** It is the only entry that is confirmed rather than candidate, it is a use-after-free
+   rather than an assert, and it is already merged to main and backported to 4.1. Minimize it and
+   correct the fix that introduced it.
+2. **Deploy the histogram FE guard (K1) to the cluster.** One known fix, removes one crash that is
+   masking everything after it. Same move already made for approx_top_k.
+3. **Fix H2 in the harness** so the findings file stops filling with the consequences of crashes
+   rather than crashes.
+4. **Minimize C1**, the only other thing here that looks new and repeats.
+5. **Then C2**, the cleanest of the planner candidates.
