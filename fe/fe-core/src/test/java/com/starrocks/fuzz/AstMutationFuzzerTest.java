@@ -150,6 +150,19 @@ public class AstMutationFuzzerTest {
         final List<String> scalarTexts = new ArrayList<>();
         final List<String> columnNames = new ArrayList<>();
 
+        /**
+         * The same columns as {@link #columnNames}, rendered the way the analyzed tree referred to them.
+         *
+         * <p>M4 used to rebind an identifier by writing the bare name, which turned {@code tt5.k1} into
+         * {@code k1}. In anything with more than one relation in scope that is ambiguous, and it was the
+         * single largest source of ambiguity rejections in a full run -- 5801 of them. The qualified form
+         * is what the tree already said, so it resolves wherever the column it came from resolves.
+         *
+         * <p>Kept separate from {@code columnNames} because the other operators want a bare name: M6
+         * builds {@code `a`.`col` = `b`.`col`} from one, and M7 uses one as a struct field name.
+         */
+        final List<String> qualifiedColumns = new ArrayList<>();
+
         void addExpr(String text, boolean isBoolean) {
             List<String> bucket = isBoolean ? booleanTexts : scalarTexts;
             if (bucket.size() < 512 && !bucket.contains(text)) {
@@ -160,6 +173,12 @@ public class AstMutationFuzzerTest {
         void addColumn(String name) {
             if (name != null && columnNames.size() < 256 && !columnNames.contains(name)) {
                 columnNames.add(name);
+            }
+        }
+
+        void addQualifiedColumn(String text) {
+            if (text != null && qualifiedColumns.size() < 256 && !qualifiedColumns.contains(text)) {
+                qualifiedColumns.add(text);
             }
         }
 
@@ -697,6 +716,11 @@ public class AstMutationFuzzerTest {
                         boolean isBoolean = e.getType() != null && e.getType().isBoolean();
                         pool.addExpr(s, isBoolean);
                         block.addExpr(s, isBoolean);
+                        if (e instanceof SlotRef) {
+                            // The analyzed rendering carries whatever qualification the reference needs.
+                            pool.addQualifiedColumn(s);
+                            block.addQualifiedColumn(s);
+                        }
                     }
                 } catch (Throwable ignored) {
                     // an un-renderable fragment is simply not pooled
@@ -997,9 +1021,17 @@ public class AstMutationFuzzerTest {
             String text = null;
             if (current instanceof LiteralExpr && roll < 45) {
                 text = BOUNDARY_LITERALS[rnd.nextInt(BOUNDARY_LITERALS.length)];                 // M3
-            } else if (current instanceof SlotRef && roll < 45 && !material.columnNames.isEmpty()) {
-                List<String> names = material.columnNames;
-                text = "`" + names.get(rnd.nextInt(names.size())) + "`";                          // M4
+            } else if (current instanceof SlotRef && roll < 45) {                                 // M4
+                // Prefer the qualified rendering. Writing the bare name turned `tt5`.`k1` into `k1`,
+                // which is ambiguous as soon as two relations are in scope -- 5801 rejections in a full
+                // run, the largest single ambiguity bucket. A bare name is still worth writing
+                // sometimes: it is what a user writes, and unqualified resolution is its own code path.
+                List<String> names = rnd.nextInt(100) < 15 || material.qualifiedColumns.isEmpty()
+                        ? material.columnNames : material.qualifiedColumns;
+                if (!names.isEmpty()) {
+                    String picked = names.get(rnd.nextInt(names.size()));
+                    text = names == material.columnNames ? "`" + picked + "`" : picked;
+                }
             } else if (current instanceof FunctionCallExpr && roll < 70) {
                 text = swapFunction((FunctionCallExpr) current, rnd);                             // M2
             }
