@@ -421,8 +421,13 @@ public class NestingMutation implements Mutation {
         return describe(Shape.CTE, slot, targetText, sql);
     }
 
+    /**
+     * No operator name here: the driver prepends {@link #name()} to whatever {@code apply} returns, and
+     * repeating it produced "M6-nesting M6-nesting SELF_JOIN at ..." in every report. M5 and M7 leave the
+     * naming to the driver, which is the convention.
+     */
     private static String describe(Shape shape, Slot slot, String targetText, String wrapper) {
-        return "M6-nesting " + shape + " at " + slot.describe()
+        return shape + " at " + slot.describe()
                 + ": " + abbrev(targetText) + " -> " + abbrev(wrapper);
     }
 
