@@ -23,6 +23,7 @@ import com.starrocks.sql.analyzer.AstToSQLBuilder;
 import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.analyzer.StorageAccessException;
 import com.starrocks.sql.ast.CTERelation;
+import com.starrocks.sql.ast.InsertStmt;
 import com.starrocks.sql.ast.JoinRelation;
 import com.starrocks.sql.ast.QueryRelation;
 import com.starrocks.sql.ast.QueryStatement;
@@ -103,6 +104,15 @@ public class AstMutationFuzzerTest {
 
     private static ConnectContext ctx;
     private static StarRocksAssert srAssert;
+
+    /**
+     * When {@code -Dsrfuzz.emit=<dir>} is set, every mutant that analyzed and round-tripped cleanly is
+     * written out next to the DDL it needs, so the same statements can be replayed against a real
+     * cluster. This harness is FE-only and in-process, so it can never see a BE crash; the emitted
+     * corpus is how these mutants reach an ASAN build.
+     */
+    private List<String> emitSetup;
+    private List<String> emitQueries;
 
     enum Outcome {
         /** Mutant analyzed and round-tripped cleanly. */
@@ -214,6 +224,11 @@ public class AstMutationFuzzerTest {
         int mutationsPerSeed = Integer.getInteger("srfuzz.mutations", 10);
         long seedValue = Long.getLong("srfuzz.seed", 20260730L);
         Path report = Paths.get(System.getProperty("srfuzz.report", "ast_mutation_fuzz_report.md"));
+        String emitProp = System.getProperty("srfuzz.emit");
+        Path emitDir = emitProp == null ? null : Paths.get(emitProp);
+        if (emitDir != null) {
+            Files.createDirectories(emitDir);
+        }
 
         Random rnd = new Random(seedValue);
 
@@ -252,6 +267,8 @@ public class AstMutationFuzzerTest {
             try {
                 String text = new String(Files.readAllBytes(files.get(i)), StandardCharsets.UTF_8);
                 List<String> statements = CorpusReader.extractStatements(text);
+                emitSetup = emitDir == null ? null : new ArrayList<>();
+                emitQueries = emitDir == null ? null : new ArrayList<>();
 
                 List<String> seeds = new ArrayList<>();
                 Pool pool = new Pool();
@@ -262,9 +279,19 @@ public class AstMutationFuzzerTest {
                     }
                     if (CorpusReader.isSchemaSetup(ast)) {
                         applySchemaSetup(sql, ast);
+                        if (emitSetup != null) {
+                            emitSetup.add(terminated(sql));
+                        }
                         continue;
                     }
                     if (!(ast instanceof QueryStatement)) {
+                        // The in-process harness has no BE, so it cannot load anything and skips these.
+                        // The emitted corpus still needs them: without the INSERTs every replayed query
+                        // runs against an empty table, scans nothing, and never reaches the BE code that
+                        // an ASAN build exists to check.
+                        if (emitSetup != null && ast instanceof InsertStmt) {
+                            emitSetup.add(terminated(sql));
+                        }
                         continue;
                     }
                     // Validate and harvest on a throwaway analyzed copy.
@@ -331,6 +358,16 @@ public class AstMutationFuzzerTest {
             } catch (Throwable t) {
                 System.err.println("file failed: " + files.get(i) + " -> " + t);
             } finally {
+                if (emitQueries != null && !emitQueries.isEmpty()) {
+                    // Split, so a replay can create the schema, load data into it, and only then run
+                    // the queries. Interleaved, every query before the last INSERT scans an empty table.
+                    Files.write(emitDir.resolve(String.format("mut_%03d.setup.sql", i)),
+                            String.join("\n", emitSetup).getBytes(StandardCharsets.UTF_8));
+                    Files.write(emitDir.resolve(String.format("mut_%03d.query.sql", i)),
+                            String.join("\n", emitQueries).getBytes(StandardCharsets.UTF_8));
+                }
+                emitSetup = null;
+                emitQueries = null;
                 try {
                     srAssert.dropDatabase(db);
                 } catch (Throwable ignored) {
@@ -364,6 +401,11 @@ public class AstMutationFuzzerTest {
      * <p>The serialization happens on an unanalyzed tree, where the deparser is least reliable, so this
      * costs coverage. That is the intended trade: the survivors are trees a user could actually write.
      */
+    private static String terminated(String sql) {
+        String t = sql.trim();
+        return t.endsWith(";") ? t : t + ";";
+    }
+
     private static StatementBase reparseThroughGrammar(StatementBase mutated, Map<String, Drop> drops) {
         String text;
         try {
@@ -480,6 +522,9 @@ public class AstMutationFuzzerTest {
             return;
         }
         tally.merge(Outcome.OK, 1, Integer::sum);
+        if (emitQueries != null) {
+            emitQueries.add(mutantSql.replace('\n', ' ').trim() + ";");
+        }
     }
 
     private static Outcome classifyAnalyzeFailure(Throwable t) {
