@@ -217,12 +217,32 @@ ERROR 1064 (HY000) at line N:  Not support cast VARBINARY(-N) to DOUBLE
 ERROR 1064 (HY000) at line N:  Not support cast VARBINARY(-N) to DECIMAL128(N, N)
 ```
 
-Two separate things here, and they should not be conflated:
+**FIXED, but my framing above was wrong and the correction matters.**
 
-1. **The negative length.** `VARBINARY(-1)` is not a type anyone can write. The FE built it and
-   passed it down. That looks like the actual defect.
-2. The unsupported cast itself is arguably fine to reject — but rejecting it *at the BE* means the FE
-   planned a cast it cannot execute, which is the same FE/BE contract gap as C4.
+I wrote that `VARBINARY(-1)` "is not a type anyone can write" and called it the defect. In fact -1 is
+a deliberate sentinel for "unspecified length", set by `TypeParser.getBaseType` for bare `VARBINARY`
+exactly as it is for bare `CHAR`/`VARCHAR`, and legal inside the FE (`isWildcardVarchar` tests it,
+`toSql()` renders the bare name for it). **The BE uses the same sentinel** — `TypeDescriptor::len`
+defaults to -1 — and `CAST(x AS VARCHAR)` ships `VARCHAR(-1)` today and works. The `(-1)` in the
+error text is `debug_string()` printing the length unconditionally. So this is a consistency and
+hygiene defect, not a crash or a corruption, and I overstated it.
+
+What IS wrong, and is fixed by `cb3570617c7`: nothing resolves the sentinel on the expression path,
+so it reaches persisted metadata. Verified: `CREATE VIEW v AS SELECT CAST(v1 AS VARBINARY)` stores a
+column with `len == -1`; with the fix it stores `varbinary(1048576)`, matching what an explicit
+column definition gets. Minimal repro is just `SELECT CAST(v1 AS VARBINARY) FROM t0`. The fix
+resolves unsized VARBINARY in `ExpressionAnalyzer.visitCastExpr` on the explicit-cast branch only,
+recursing through ARRAY/MAP/STRUCT, without mutating the shared `VarbinaryType.VARBINARY` singleton.
+
+**The real contract gap is the second item, and it is NOT fixed.** `PrimitiveType.java:192` makes the
+FE accept VARBINARY to and from every basic type, while `be/src/exprs/cast_expr.cpp:2154` only
+implements string to/from varbinary. The FE plans casts the BE cannot build. **Same family as C4** —
+the FE's registration surface is wider than the BE's implementation. Narrowing the FE matrix is a
+user-visible behaviour change and belongs in its own PR.
+
+Also found, not fixed: `VarBinaryLiteral` assigns the shared mutable `VarbinaryType.VARBINARY`
+singleton to its own `type` field, which is a hazard independent of the length; and binary literals
+and builtins returning VARBINARY still serialize `len:-1`.
 
 ## C4 — `Invalid agg function plan: max_by_v2` over VARBINARY
 
