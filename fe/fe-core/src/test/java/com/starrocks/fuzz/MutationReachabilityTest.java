@@ -73,6 +73,56 @@ public class MutationReachabilityTest {
         return render(SqlParser.parse(sql, ctx.getSessionVariable()).get(0));
     }
 
+    private static int blocks(StatementBase stmt) {
+        return AstMutationFuzzerTest.RootWalk
+                .of(((QueryStatement) stmt).getQueryRelation()).blocks;
+    }
+
+    /**
+     * The scoped pool keys material by a block ordinal from a structural walk, and it harvests from the
+     * analyzed tree while mutating a fresh parse. That is only sound while the two walks agree, so the
+     * agreement is pinned here rather than assumed.
+     *
+     * <p>A mismatch is not a disaster at run time -- {@code Pool.materialFor} compares the counts and
+     * falls back to the file-wide pool -- but it silently turns the whole change off for that seed, and
+     * a silently disabled optimisation looks exactly like one that does not work.
+     */
+    private static void assertBlockCountSurvivesAnalysis(String sql) {
+        StatementBase parsed = SqlParser.parse(sql, ctx.getSessionVariable()).get(0);
+        StatementBase analyzed = SqlParser.parse(sql, ctx.getSessionVariable()).get(0);
+        Analyzer.analyze(analyzed, ctx);
+        Assertions.assertEquals(blocks(parsed), blocks(analyzed),
+                () -> "block count changed across analysis for " + sql);
+    }
+
+    @Test
+    public void testBlockCountIsStableAcrossAnalysis() {
+        assertBlockCountSurvivesAnalysis("select k, v from a where v > 1");
+        assertBlockCountSurvivesAnalysis("select a.v from a join b on a.k = b.k");
+        assertBlockCountSurvivesAnalysis("select s.k from (select k from b where w > 1) s");
+        assertBlockCountSurvivesAnalysis("with t as (select v + 7 as x from a) select x from t");
+        assertBlockCountSurvivesAnalysis("select k from a union all select k from b");
+        assertBlockCountSurvivesAnalysis("select k from a where v in (select w from b)");
+        assertBlockCountSurvivesAnalysis("select k from a where exists (select 1 from b where b.k = a.k)");
+        assertBlockCountSurvivesAnalysis("select u.e from a, unnest([1, 2]) as u(e)");
+        assertBlockCountSurvivesAnalysis(
+                "select x.k from (select k from a union select k from b) x order by 1 limit 3");
+        assertBlockCountSurvivesAnalysis(
+                "with t1 as (select k from a), t2 as (select k from b) select t1.k from t1 join t2 on t1.k = t2.k");
+    }
+
+    /** Distinct query blocks must get distinct ids, or scoping them apart does nothing. */
+    @Test
+    public void testNestedBlocksAreNumberedSeparately() {
+        StatementBase stmt = SqlParser.parse(
+                "select s.k from (select k from b where w > 1) s where s.k > 2",
+                ctx.getSessionVariable()).get(0);
+        Assertions.assertEquals(2, blocks(stmt));
+
+        StatementBase flat = SqlParser.parse("select k from a where v > 1", ctx.getSessionVariable()).get(0);
+        Assertions.assertEquals(1, blocks(flat));
+    }
+
     private static List<String> render(StatementBase stmt) {
         List<Expr> found =
                 AstMutationFuzzerTest.collectRootExprs(((QueryStatement) stmt).getQueryRelation());
