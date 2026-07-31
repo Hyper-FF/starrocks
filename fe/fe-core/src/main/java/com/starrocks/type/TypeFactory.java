@@ -21,6 +21,9 @@ import com.starrocks.common.Config;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SessionVariableConstants;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Factory class for creating Type instances.
  * This class centralizes all type creation logic that was previously scattered
@@ -92,6 +95,65 @@ public class TypeFactory {
     public static ScalarType createVarbinary(int len) {
         ScalarType type = new ScalarType(PrimitiveType.VARBINARY);
         type.setLength(len);
+        return type;
+    }
+
+    /**
+     * Materialize the omitted length of a VARBINARY type.
+     * <p>
+     * {@code VARBINARY}/{@code BINARY} written without a {@code typeParameter} is parsed with length -1,
+     * the same "unspecified" sentinel the parser uses for bare {@code CHAR}/{@code VARCHAR}. That sentinel
+     * is only meaningful inside the FE: {@link com.starrocks.type.TypeSerializer} copies the length verbatim
+     * into {@code TScalarType.len}, so an unresolved -1 crosses the FE/BE boundary and the BE ends up
+     * reporting types like {@code VARBINARY(-1)}. Resolve it to the documented 1MB default instead, which is
+     * what {@code ColumnDefAnalyzer} already materializes for explicit OLAP column definitions.
+     * <p>
+     * Returns a new type; the input is never mutated because callers may hold shared/interned instances.
+     *
+     * @param type any type, possibly nested
+     * @return the type with every unsized VARBINARY replaced by a VARBINARY of the default length
+     */
+    public static Type resolveUnsizedVarbinary(Type type) {
+        if (type == null) {
+            return null;
+        }
+        if (type.isScalarType()) {
+            ScalarType scalarType = (ScalarType) type;
+            if (scalarType.getPrimitiveType() == PrimitiveType.VARBINARY && scalarType.getLength() < 0) {
+                return createVarbinary(getOlapMaxVarcharLength());
+            }
+            return type;
+        }
+        if (type instanceof ArrayType) {
+            Type itemType = ((ArrayType) type).getItemType();
+            Type resolved = resolveUnsizedVarbinary(itemType);
+            return resolved == itemType ? type : new ArrayType(resolved);
+        }
+        if (type instanceof MapType) {
+            MapType mapType = (MapType) type;
+            Type keyType = resolveUnsizedVarbinary(mapType.getKeyType());
+            Type valueType = resolveUnsizedVarbinary(mapType.getValueType());
+            if (keyType == mapType.getKeyType() && valueType == mapType.getValueType()) {
+                return type;
+            }
+            return new MapType(keyType, valueType);
+        }
+        if (type instanceof StructType) {
+            StructType structType = (StructType) type;
+            List<StructField> newFields = new ArrayList<>(structType.getFields().size());
+            boolean changed = false;
+            for (StructField field : structType.getFields()) {
+                Type resolved = resolveUnsizedVarbinary(field.getType());
+                if (resolved == field.getType()) {
+                    newFields.add(field);
+                } else {
+                    changed = true;
+                    newFields.add(new StructField(field.getName(), field.getFieldId(),
+                            field.getFieldPhysicalName(), resolved, field.getComment()));
+                }
+            }
+            return changed ? new StructType(newFields, structType.isNamed()) : type;
+        }
         return type;
     }
 
