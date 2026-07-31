@@ -32,6 +32,14 @@ public final class PlanValidator {
 
     private static final Logger LOGGER = LogManager.getLogger(PlanValidator.class);
 
+    /**
+     * How much of the plan dump a validation error carries to the client. A dump routinely runs to
+     * thousands of lines and nothing else records it on this path - validation fails during optimization,
+     * so no ExecPlan exists yet and log_plan_on_query_failure cannot write one - hence
+     * {@link #logFailure} puts the full dump in fe.log and the client only gets the head of it.
+     */
+    public static final int MAX_PLAN_DUMP_LINES = 100;
+
     private List<Checker> checkerList;
     private boolean enableInputDependenciesChecker = false;
 
@@ -71,25 +79,38 @@ public final class PlanValidator {
                 }
             }
         } catch (IllegalArgumentException e) {
-            String message = e.getMessage();
+            // Keep the reason on the FIRST line: the plan dump can be thousands of lines and is routinely
+            // truncated by clients and logs, which used to leave the user with a bare "Invalid plan:".
+            // e.getMessage() may be null (e.g. Preconditions.checkArgument without a message).
+            String message = e.getMessage() == null ? e.toString() : e.getMessage();
             if (!message.contains("Invalid plan")) {
-                message = "Invalid plan:\n" + optExpression.debugString() + "\n" + message;
+                message = "Invalid plan: " + message + System.lineSeparator()
+                        + optExpression.debugString(MAX_PLAN_DUMP_LINES);
             }
-            LOGGER.debug("Failed to validate plan.", e);
+            logFailure(optExpression, e);
             if (enablePlanValidation) {
                 throw new StarRocksPlannerException(message, ErrorType.INTERNAL_ERROR);
             }
         } catch (StarRocksPlannerException e) {
-            LOGGER.debug("Failed to validate plan.", e);
+            logFailure(optExpression, e);
             if (enablePlanValidation) {
                 throw e;
             }
         } catch (Exception e) {
-            LOGGER.debug("Failed to validate plan.", e);
+            logFailure(optExpression, e);
             if (enablePlanValidation) {
-                throw new StarRocksPlannerException("encounter exception when validate plan.", ErrorType.INTERNAL_ERROR);
+                throw new StarRocksPlannerException("encounter exception when validate plan: " + e,
+                        ErrorType.INTERNAL_ERROR);
             }
         }
+    }
+
+    /**
+     * A plan that fails validation is a planner bug, so record the whole thing - the client only gets
+     * {@link #MAX_PLAN_DUMP_LINES} of it, and this is the only place the full dump is written.
+     */
+    private static void logFailure(OptExpression optExpression, Exception e) {
+        LOGGER.warn("Failed to validate plan.{}{}", System.lineSeparator(), optExpression.debugString(), e);
     }
 
     /**
