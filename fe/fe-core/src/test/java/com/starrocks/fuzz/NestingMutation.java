@@ -248,6 +248,25 @@ public class NestingMutation implements Mutation {
             "LEFT SEMI JOIN", "LEFT ANTI JOIN"};
 
     /**
+     * How often a self join puts a second copy of every column into the outer scope, as 1 in N.
+     *
+     * <p>A self join of {@code R} used to be {@code (SELECT * FROM R) a JOIN (SELECT * FROM R) b}, which
+     * makes every unqualified reference in the surrounding query ambiguous -- 5514 rejections in a full
+     * run, and the mutant dies in the analyzer having exercised nothing. Projecting and renaming the
+     * join key on the right side removes the collision without changing the join.
+     *
+     * <p>Not zero, because that shape is worth producing. A relation with two identically named output
+     * columns is what a star expands over, and deparsing that expansion is where the ambiguous-reference
+     * defect in AstToSQLBuilder lived. Only semi and anti joins avoid the collision by themselves, so
+     * dropping it entirely would also mean never building an outer self join that duplicates names.
+     */
+    private static final int DUPLICATE_COLUMN_SELF_JOIN_ONE_IN = 5;
+
+    private static boolean duplicateColumns(int pick) {
+        return pick % DUPLICATE_COLUMN_SELF_JOIN_ONE_IN == 0;
+    }
+
+    /**
      * Picks how the two sides of a self join are related.
      *
      * <p>An unconditional cross join was the original and only shape, which is the wrong default twice
@@ -365,15 +384,25 @@ public class NestingMutation implements Mutation {
             }
             case SELF_JOIN: {
                 String aliasB = names.next();
+                int pick = Math.abs(aliasB.hashCode());
                 String on = "1 = 1";
-                String joinType = JOIN_TYPES[Math.abs(aliasB.hashCode()) % JOIN_TYPES.length];
+                String joinType = JOIN_TYPES[pick % JOIN_TYPES.length];
+                String rightSide = "(" + inner + ") `" + aliasB + "`";
                 if (joinCond != null) {
                     String op = joinCond.substring(0, 1);
                     String col = joinCond.substring(1, joinCond.indexOf(';'));
-                    on = "`" + aliasA + "`.`" + col + "` " + op + " `" + aliasB + "`.`" + col + "`";
+                    if (duplicateColumns(pick)) {
+                        on = "`" + aliasA + "`.`" + col + "` " + op + " `" + aliasB + "`.`" + col + "`";
+                    } else {
+                        // Project and rename, so the right side puts one name into the outer scope
+                        // instead of a second copy of every column.
+                        String key = aliasB + "_k";
+                        rightSide = "(SELECT `" + col + "` AS `" + key + "` FROM " + targetText
+                                + ") `" + aliasB + "`";
+                        on = "`" + aliasA + "`.`" + col + "` " + op + " `" + aliasB + "`.`" + key + "`";
+                    }
                 }
-                wrapper = "(" + inner + ") `" + aliasA + "` " + joinType + " (" + inner + ") `"
-                        + aliasB + "` ON " + on;
+                wrapper = "(" + inner + ") `" + aliasA + "` " + joinType + " " + rightSide + " ON " + on;
                 break;
             }
             default:
