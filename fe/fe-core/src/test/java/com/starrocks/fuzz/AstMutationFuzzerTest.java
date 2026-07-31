@@ -475,7 +475,9 @@ public class AstMutationFuzzerTest {
             Analyzer.analyze(mutant, ctx);
         } catch (Throwable t) {
             Outcome o = classifyAnalyzeFailure(t);
-            record(tally, findings, o, signatureOf(t), seed, mutation, bestEffortSql(mutant), oneLine(t));
+            String signature = o == Outcome.ANALYZE_REJECTED
+                    ? rejectionSignature(t, mutation) : signatureOf(t);
+            record(tally, findings, o, signature, seed, mutation, bestEffortSql(mutant), oneLine(t));
             return;
         }
 
@@ -553,16 +555,23 @@ public class AstMutationFuzzerTest {
     private void record(Map<Outcome, Integer> tally, Map<String, Finding> findings, Outcome o,
                         String signature, String seed, String mutation, String mutantSql, String detail) {
         tally.merge(o, 1, Integer::sum);
-        if (o == Outcome.ANALYZE_REJECTED) {
-            return; // expected noise, do not keep samples
-        }
         String key = o + "|" + signature;
         Finding existing = findings.get(key);
         if (existing != null) {
             existing.count++;
         } else {
-            findings.put(key, new Finding(o, signature, seed, mutation, mutantSql, detail));
+            findings.put(key, new Finding(o, signature, sample(seed), sample(mutation), sample(mutantSql), detail));
         }
+    }
+
+    /**
+     * Caps a retained sample. Keeping the rejections turned this map from a few hundred entries into
+     * potentially thousands, each holding a full seed and a full mutant, and a mutant can run to tens of
+     * kilobytes. The cap is well above the 300 characters {@link #abbrev} prints, so no report output
+     * changes -- it only stops the run from carrying whole SQL texts it will never show.
+     */
+    private static String sample(String s) {
+        return s == null || s.length() <= 1000 ? s : s.substring(0, 1000);
     }
 
     // ---------------------------------------------------------------- harvest
@@ -924,6 +933,10 @@ public class AstMutationFuzzerTest {
     }
 
     private static String normalizeShape(String s) {
+        return normalizeShape(s, 70);
+    }
+
+    private static String normalizeShape(String s, int cap) {
         String t = s
                 // The per-file database the harness creates would otherwise key every signature.
                 .replaceAll("srfuzz_[a-z_]*\\d+", "DB")
@@ -932,7 +945,73 @@ public class AstMutationFuzzerTest {
                 .replaceAll("\\b\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b", "N")
                 .replaceAll("\\s+", " ")
                 .trim();
-        return t.length() > 70 ? t.substring(0, 70) : t;
+        return t.length() > cap ? t.substring(0, cap) : t;
+    }
+
+    /** Field separator inside a rejection signature: operator, then throw site, then message shape. */
+    private static final String SIG_SEP = " :: ";
+
+    /**
+     * Signature for an analyzer rejection: which operator built the mutant, where the analyzer threw,
+     * and the shape of what it said.
+     *
+     * <p>{@link #signatureOf} alone is too coarse. Half of every run ends in ANALYZE_REJECTED, and those
+     * rejections funnel through a handful of throw sites -- keying on the site alone collapses "column
+     * does not exist" and "function signature not found" into one bucket, which is exactly the
+     * distinction that makes the histogram readable. The message shape is what separates them.
+     *
+     * <p>The operator is part of the key rather than a derived column because one message means
+     * different things depending on who produced it. "Column cannot be resolved" from M4 is an identifier
+     * rebind that ignored scope; the same message from M6 is a nesting shape that moved a column out of
+     * scope. Counting them together would hide both. Deriving the split afterwards from one retained
+     * sample per signature would also be wrong -- a sample is not a distribution.
+     *
+     * <p>The point of keeping these at all: a rejection is only noise if the mutant really is invalid.
+     * A rejection the analyzer should not have issued looks identical in the tally and was previously
+     * discarded on the spot, so that whole class -- roughly half the run's work -- was unobservable.
+     */
+    private static String rejectionSignature(Throwable t, String mutation) {
+        return operatorOf(mutation) + SIG_SEP + shortSite(t) + SIG_SEP + messageShape(t);
+    }
+
+    /**
+     * Which mutation operator built this mutant, from the description the operator itself wrote.
+     *
+     * <p>M9 is deliberately not an answer: it perturbs a session flag on top of whatever edit was made,
+     * so it rides along in the description without being the edit. Attributing a rejection to it would
+     * take the rejection away from the operator that actually caused it.
+     */
+    static String operatorOf(String mutation) {
+        if (mutation == null || mutation.startsWith("<")) {
+            return "seed-baseline";
+        }
+        int rider = mutation.indexOf(" | M9-session");
+        String head = rider < 0 ? mutation : mutation.substring(0, rider);
+        int space = head.indexOf(' ');
+        String first = space < 0 ? head : head.substring(0, space);
+        // M5/M6/M7 name themselves; M1-M4 are the implicit expression-level fallback and start with the
+        // class of the node they edited, so anything not spelled M<digit> is one of those.
+        return first.length() > 1 && first.charAt(0) == 'M' && Character.isDigit(first.charAt(1))
+                ? first : "M1-M4-expr";
+    }
+
+    /** The throw site without the package prefix every analyzer frame shares. */
+    private static String shortSite(Throwable t) {
+        String site = signatureOf(t);
+        return site.replace("com.starrocks.sql.analyzer.", "").replace("com.starrocks.sql.", "");
+    }
+
+    private static String messageShape(Throwable t) {
+        String m = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+        // "Getting analyzing error at line 1, column 42. Detail message: <the actual reason>" -- the
+        // prefix carries a position that differs for every mutant, so it would defeat the grouping.
+        int at = m.indexOf("Detail message: ");
+        if (at >= 0) {
+            m = m.substring(at + "Detail message: ".length());
+        }
+        // Wider than the diff windows normalizeShape was written for: at 70 characters the analyzer's
+        // longer messages were cut mid-clause, so distinct causes shared a bucket and read as one.
+        return normalizeShape(m.replace('\n', ' '), 160);
     }
 
     /** Groups findings that share a root cause so one bug does not flood the report. */
@@ -980,6 +1059,124 @@ public class AstMutationFuzzerTest {
         w.println();
     }
 
+    /** Highest-volume rejection signatures printed. Enough to see where the mass sits. */
+    private static final int REJECTION_VOLUME_ROWS = 40;
+
+    /** A signature at or below this count is rare enough to be worth reading individually. */
+    private static final int RARE_REJECTION_MAX = 2;
+
+    /** Rare signatures printed. The tail is long, so it is sampled rather than dumped. */
+    private static final int RARE_REJECTION_ROWS = 60;
+
+    /**
+     * Why the rejections got rejected. They are not findings and most of them are not defects, but they
+     * are around half of every run, and until this section existed that half produced one number and
+     * nothing else -- a false rejection (a mutant the analyzer should have accepted) was indistinguishable
+     * from the expected noise, because both are a count in the same cell.
+     *
+     * <p>Three tables, because two different questions are being asked of the same data:
+     * <ul>
+     *   <li><b>By operator</b> answers "where is the fuzzer wasting its budget". An operator whose mutants
+     *       are mostly rejected is reaching the analyzer and stopping there, never exercising anything
+     *       deeper, and its share here is the size of the prize for fixing it.</li>
+     *   <li><b>Highest volume</b> answers the same question at signature granularity.</li>
+     *   <li><b>Rare signatures</b> is where a false rejection would actually be. A rejection the analyzer
+     *       should not have issued is by nature uncommon -- if it were common the corpus would have
+     *       tripped over it already. Ranking by count and truncating, which is what the first version of
+     *       this section did, cut off precisely the rows worth reading.</li>
+     * </ul>
+     */
+    private static void writeRejectionSection(PrintWriter w, Map<String, Finding> findings) {
+        List<Finding> rejections = findings.values().stream()
+                .filter(f -> f.outcome == Outcome.ANALYZE_REJECTED)
+                .collect(Collectors.toList());
+        int total = rejections.stream().mapToInt(f -> f.count).sum();
+        w.println();
+        w.printf("## Analyzer rejections (%d signatures, %d instances)%n", rejections.size(), total);
+        w.println();
+        if (rejections.isEmpty()) {
+            w.println("None.");
+            w.println();
+            return;
+        }
+
+        w.println("### By operator");
+        w.println();
+        w.println("| operator | instances | share | signatures | most common reason |");
+        w.println("|---|---:|---:|---:|---|");
+        Map<String, List<Finding>> byOperator = rejections.stream()
+                .collect(Collectors.groupingBy(f -> field(f.signature, 0), LinkedHashMap::new,
+                        Collectors.toList()));
+        byOperator.entrySet().stream()
+                .sorted(Comparator.comparingInt((Map.Entry<String, List<Finding>> e) ->
+                        -e.getValue().stream().mapToInt(f -> f.count).sum()))
+                .forEach(e -> {
+                    int instances = e.getValue().stream().mapToInt(f -> f.count).sum();
+                    Finding top = e.getValue().stream()
+                            .max(Comparator.comparingInt(f -> f.count)).orElse(null);
+                    w.printf("| %s | %d | %.1f%% | %d | %s |%n", e.getKey(), instances,
+                            100.0 * instances / total, e.getValue().size(),
+                            top == null ? "" : escape(field(top.signature, 2)));
+                });
+        w.println();
+
+        List<Finding> byVolume = rejections.stream()
+                .sorted(Comparator.comparingInt((Finding f) -> -f.count))
+                .collect(Collectors.toList());
+        w.printf("### Highest volume (%d of %d signatures)%n",
+                Math.min(REJECTION_VOLUME_ROWS, byVolume.size()), byVolume.size());
+        w.println();
+        writeRejectionRows(w, byVolume.subList(0, Math.min(REJECTION_VOLUME_ROWS, byVolume.size())));
+        if (byVolume.size() > REJECTION_VOLUME_ROWS) {
+            List<Finding> tail = byVolume.subList(REJECTION_VOLUME_ROWS, byVolume.size());
+            w.println();
+            w.printf("%d further signatures (%d instances) below this cut.%n",
+                    tail.size(), tail.stream().mapToInt(f -> f.count).sum());
+        }
+        w.println();
+
+        List<Finding> rare = rejections.stream()
+                .filter(f -> f.count <= RARE_REJECTION_MAX)
+                .sorted(Comparator.comparingInt(f -> f.count))
+                .collect(Collectors.toList());
+        w.printf("### Rare signatures, count <= %d (%d of them, %d instances)%n",
+                RARE_REJECTION_MAX, rare.size(), rare.stream().mapToInt(f -> f.count).sum());
+        w.println();
+        w.println("A false rejection would be here rather than above: one the analyzer should not have");
+        w.println("issued is by nature uncommon. Read the message against the mutation next to it and ask");
+        w.println("whether the mutant really was invalid.");
+        w.println();
+        writeRejectionRows(w, rare.subList(0, Math.min(RARE_REJECTION_ROWS, rare.size())));
+        if (rare.size() > RARE_REJECTION_ROWS) {
+            // Say what was cut, every time. A truncated table that does not admit it reads as the whole
+            // picture -- and here the omitted rows are the same kind as the shown ones, not lesser ones.
+            w.println();
+            w.printf("%d further rare signatures not shown.%n", rare.size() - RARE_REJECTION_ROWS);
+        }
+        w.println();
+    }
+
+    private static void writeRejectionRows(PrintWriter w, List<Finding> rows) {
+        w.println("| count | operator | throw site | message shape | sample mutation |");
+        w.println("|---:|---|---|---|---|");
+        for (Finding f : rows) {
+            w.printf("| %d | %s | %s | %s | %s |%n", f.count,
+                    field(f.signature, 0), escape(field(f.signature, 1)), escape(field(f.signature, 2)),
+                    escape(abbrev(f.mutation)));
+        }
+    }
+
+    /** One field of a {@link #SIG_SEP}-joined signature, or "" when the signature has fewer. */
+    private static String field(String signature, int index) {
+        String[] parts = signature.split(SIG_SEP, 3);
+        return index < parts.length ? parts[index] : "";
+    }
+
+    /** A bare '|' would end the markdown cell it sits in, and deparsed SQL is full of them. */
+    private static String escape(String s) {
+        return s.replace("|", "\\|");
+    }
+
     private static void writeReport(Path out, Map<Outcome, Integer> tally, Map<String, Finding> findings,
                                     int seeds, int mutants, int unreachable,
                                     Map<String, Drop> drops) throws Exception {
@@ -1016,8 +1213,10 @@ public class AstMutationFuzzerTest {
                 w.println("- mutant:   " + abbrev(f.mutantSql));
             }
 
+            writeRejectionSection(w, findings);
+
             List<Finding> nonDefect = findings.values().stream()
-                    .filter(f -> !isBug(f.outcome))
+                    .filter(f -> !isBug(f.outcome) && f.outcome != Outcome.ANALYZE_REJECTED)
                     .sorted(Comparator.comparingInt((Finding f) -> -f.count))
                     .collect(Collectors.toList());
 
@@ -1058,9 +1257,12 @@ public class AstMutationFuzzerTest {
         long bugSigs = findings.values().stream().filter(f -> isBug(f.outcome)).count();
         long fixpointSigs = findings.values().stream()
                 .filter(f -> f.outcome == Outcome.FIXPOINT_MISMATCH).count();
+        long rejectionSigs = findings.values().stream()
+                .filter(f -> f.outcome == Outcome.ANALYZE_REJECTED).count();
         System.out.println();
         System.out.println("distinct bug signatures: " + bugSigs);
         System.out.println("distinct fixpoint signatures: " + fixpointSigs);
+        System.out.println("distinct rejection signatures: " + rejectionSigs);
         findings.values().stream()
                 .filter(f -> isBug(f.outcome))
                 .sorted(Comparator.comparingInt((Finding f) -> -f.count))
