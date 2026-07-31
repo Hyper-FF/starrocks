@@ -34,6 +34,7 @@ import com.starrocks.sql.parser.SqlParser;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -86,8 +87,23 @@ public class NestingMutation implements Mutation {
         UNION_ALL,
         /** {@code (SELECT * FROM R UNION SELECT * FROM R) alias} */
         UNION_DISTINCT,
+        /** {@code (SELECT * FROM R EXCEPT SELECT * FROM R) alias} */
+        EXCEPT,
+        /** {@code (SELECT * FROM R INTERSECT SELECT * FROM R) alias} */
+        INTERSECT,
         /** {@code (SELECT * FROM R) a JOIN (SELECT * FROM R) b ON a.c = b.c}, or a cross join. */
-        SELF_JOIN
+        SELF_JOIN,
+        /**
+         * {@code (SELECT * FROM R) a ASOF LEFT JOIN (SELECT * FROM R) b ON a.c = b.c AND a.t > b.t}.
+         *
+         * <p>The analyzer requires an ON clause with at least one equality and exactly one temporal
+         * inequality, so this shape can only be built by guessing which pooled column is temporal --
+         * the tree is unanalyzed, so there are no types to consult. The guess is by name. When it is
+         * wrong the analyzer rejects the mutant, which is the same cheap noise as a wrong join key.
+         */
+        ASOF_JOIN,
+        /** {@code (SELECT * FROM R) a, unnest(...) t(x)} -- adds a table function to the FROM clause. */
+        TABLE_FUNCTION
     }
 
     private static final Shape[] SHAPES = Shape.values();
@@ -223,6 +239,15 @@ public class NestingMutation implements Mutation {
     // ---------------------------------------------------------------- rewrite
 
     /**
+     * Only INNER used to be produced, which leaves outer-join null padding and the semi/anti rewrites
+     * -- a large share of the join code -- unreachable. CROSS is absent here on purpose: the cross
+     * shape is already reachable through a null join condition.
+     */
+    private static final String[] JOIN_TYPES = {
+            "INNER JOIN", "LEFT OUTER JOIN", "RIGHT OUTER JOIN", "FULL OUTER JOIN",
+            "LEFT SEMI JOIN", "LEFT ANTI JOIN"};
+
+    /**
      * Picks how the two sides of a self join are related.
      *
      * <p>An unconditional cross join was the original and only shape, which is the wrong default twice
@@ -235,12 +260,31 @@ public class NestingMutation implements Mutation {
      * belongs to this relation; when it does not the mutant is rejected by the analyzer, which is
      * ordinary cheap noise rather than a false finding.
      */
-    private static String joinCondition(AstMutationFuzzerTest.Pool pool, Random rnd) {
+    static String joinCondition(AstMutationFuzzerTest.Pool pool, Random rnd) {
         if (pool == null || pool.columnNames.isEmpty() || rnd.nextInt(100) < 10) {
             return null;
         }
         String col = pool.columnNames.get(rnd.nextInt(pool.columnNames.size()));
-        return rnd.nextInt(100) < 80 ? "=" + col : ">" + col;
+        // Second column for the ASOF temporal inequality, biased toward names that read like a
+        // timestamp. The tree is unanalyzed so there are no types to consult; a wrong guess costs an
+        // analyzer rejection, which is the same cheap noise as a wrong join key.
+        String temporal = col;
+        for (String c : pool.columnNames) {
+            String lower = c.toLowerCase(Locale.ROOT);
+            if (!c.equals(col) && (lower.contains("time") || lower.contains("date") || lower.contains("ts"))) {
+                temporal = c;
+                break;
+            }
+        }
+        if (temporal.equals(col)) {
+            for (String c : pool.columnNames) {
+                if (!c.equals(col)) {
+                    temporal = c;
+                    break;
+                }
+            }
+        }
+        return (rnd.nextInt(100) < 80 ? "=" : ">") + col + ";" + temporal;
     }
 
     /** Applies one shape at one slot. Package-private so tests can pin both instead of rolling dice. */
@@ -249,13 +293,6 @@ public class NestingMutation implements Mutation {
     }
 
     String applyAt(QueryStatement stmt, Slot slot, Shape shape, String joinCond) {
-        if (shape == Shape.SELF_JOIN && !slot.isWholeFromClause()) {
-            // A join nested in a join operand is legal SQL -- `a JOIN (b JOIN c ON ...) ON ...` is a
-            // parenthesizedRelation -- but the deparser emits no parentheses for it, so the mutant would
-            // render as two ON clauses in a row and never survive the driver's reparse. Skip rather than
-            // burn an attempt on something guaranteed to be dropped.
-            return null;
-        }
         String statementText = deparse(stmt);
         if (statementText == null) {
             // Without the statement text there is no way to tell which names are already taken, and a
@@ -297,16 +334,46 @@ public class NestingMutation implements Mutation {
             case UNION_DISTINCT:
                 wrapper = "(" + inner + " UNION " + inner + ") `" + aliasA + "`";
                 break;
+            case EXCEPT:
+                wrapper = "(" + inner + " EXCEPT " + inner + ") `" + aliasA + "`";
+                break;
+            case INTERSECT:
+                wrapper = "(" + inner + " INTERSECT " + inner + ") `" + aliasA + "`";
+                break;
+            case TABLE_FUNCTION: {
+                String tf = names.next();
+                // generate_series rather than unnest of an array literal: an array literal has no type
+                // on an unanalyzed tree and the deparser dereferences that type, so wrapping with one
+                // makes the mutant unrenderable before it ever reaches the grammar gate.
+                wrapper = "(" + inner + ") `" + aliasA + "`, generate_series(1, 3) `" + tf + "`(`e`)";
+                break;
+            }
+            case ASOF_JOIN: {
+                if (joinCond == null) {
+                    return null;
+                }
+                String aliasC = names.next();
+                String eq = joinCond.substring(1, joinCond.indexOf(';'));
+                String temporal = joinCond.substring(joinCond.indexOf(';') + 1);
+                if (eq.equals(temporal)) {
+                    return null;
+                }
+                wrapper = "(" + inner + ") `" + aliasA + "` ASOF LEFT JOIN (" + inner + ") `" + aliasC
+                        + "` ON `" + aliasA + "`.`" + eq + "` = `" + aliasC + "`.`" + eq
+                        + "` AND `" + aliasA + "`.`" + temporal + "` > `" + aliasC + "`.`" + temporal + "`";
+                break;
+            }
             case SELF_JOIN: {
                 String aliasB = names.next();
                 String on = "1 = 1";
+                String joinType = JOIN_TYPES[Math.abs(aliasB.hashCode()) % JOIN_TYPES.length];
                 if (joinCond != null) {
                     String op = joinCond.substring(0, 1);
-                    String col = joinCond.substring(1);
+                    String col = joinCond.substring(1, joinCond.indexOf(';'));
                     on = "`" + aliasA + "`.`" + col + "` " + op + " `" + aliasB + "`.`" + col + "`";
                 }
-                wrapper = "(" + inner + ") `" + aliasA + "` INNER JOIN (" + inner + ") `" + aliasB
-                        + "` ON " + on;
+                wrapper = "(" + inner + ") `" + aliasA + "` " + joinType + " (" + inner + ") `"
+                        + aliasB + "` ON " + on;
                 break;
             }
             default:
