@@ -138,14 +138,14 @@ public class AstMutationFuzzerTest {
     }
 
     /**
-     * Per-file harvest used to build mutants that have a chance of analyzing.
+     * Expression texts and column names available for injection at one place.
      *
      * <p>Fragments are bucketed by the analyzed type of the expression they came from. Injecting a
      * boolean-valued fragment where a boolean is expected (and a scalar where a scalar is expected)
      * is the cheapest way to raise the share of mutants that survive analysis — an untyped pool
      * makes most mutants fail in the analyzer and never reach the deeper code we want to exercise.
      */
-    static final class Pool {
+    static class Material {
         final List<String> booleanTexts = new ArrayList<>();
         final List<String> scalarTexts = new ArrayList<>();
         final List<String> columnNames = new ArrayList<>();
@@ -154,6 +154,12 @@ public class AstMutationFuzzerTest {
             List<String> bucket = isBoolean ? booleanTexts : scalarTexts;
             if (bucket.size() < 512 && !bucket.contains(text)) {
                 bucket.add(text);
+            }
+        }
+
+        void addColumn(String name) {
+            if (name != null && columnNames.size() < 256 && !columnNames.contains(name)) {
+                columnNames.add(name);
             }
         }
 
@@ -167,6 +173,54 @@ public class AstMutationFuzzerTest {
 
         boolean usable() {
             return !booleanTexts.isEmpty() || !scalarTexts.isEmpty();
+        }
+    }
+
+    /** One seed's material, split by the query block it was harvested from. */
+    static final class ScopedPool {
+        final Map<Integer, Material> blocks = new LinkedHashMap<>();
+        int blockCount;
+    }
+
+    /**
+     * The file-wide harvest, plus a per-seed, per-block breakdown of the same material.
+     *
+     * <p>The file-wide lists were the only thing here for a long time, and injecting from them is what
+     * made name resolution roughly 43% of all analyzer rejections: a fragment harvested from one seed
+     * names tables the target seed never mentions, and a fragment harvested from an inner query block
+     * names columns that are out of scope at the point it lands. Both come back as "Unknown table" or
+     * "Column cannot be resolved", and the mutant dies in the analyzer without exercising anything.
+     *
+     * <p>The narrow material is a preference, not a rule -- see {@link #materialFor}. Cross-pollination
+     * between blocks and seeds is a large part of what makes a mutant strange, and a fuzzer that only
+     * ever injects locally valid fragments trades away reach for a better-looking rejection count.
+     */
+    static final class Pool extends Material {
+        final Map<String, ScopedPool> scoped = new LinkedHashMap<>();
+
+        /**
+         * How often to inject file-wide material at a site that has narrower material available.
+         *
+         * <p>Not zero on purpose. The out-of-scope fragments this change exists to reduce are also the
+         * ones that reach analyzer paths a well-formed query never does, so the aim is to stop spending
+         * most of the budget there, not to stop going there at all.
+         */
+        static final int CROSS_SCOPE_PERCENT = 15;
+
+        Material materialFor(String seed, int block, int blocksNow, Random rnd) {
+            if (rnd.nextInt(100) < CROSS_SCOPE_PERCENT) {
+                return this;
+            }
+            ScopedPool sp = scoped.get(seed);
+            // The block index is an ordinal in a structural walk, so it only means the same thing on
+            // both sides if both walks saw the same tree. Harvest runs on the analyzed copy and mutation
+            // on a fresh parse; if those ever disagree the indices silently point at the wrong block, so
+            // compare the counts and fall back to the file-wide pool rather than inject nonsense.
+            if (sp == null || sp.blockCount != blocksNow) {
+                return this;
+            }
+            Material m = sp.blocks.get(block);
+            return m == null || !m.usable() ? this : m;
         }
     }
 
@@ -303,7 +357,7 @@ public class AstMutationFuzzerTest {
                         continue;
                     }
                     seeds.add(sql);
-                    harvest((QueryStatement) probe, pool);
+                    harvest((QueryStatement) probe, sql, pool);
 
                     // Evaluate the seed itself, unmutated. The grammar-reachability gate below drops
                     // any mutant whose deparse will not parse back, on the grounds that the mutator
@@ -330,7 +384,7 @@ public class AstMutationFuzzerTest {
                         if (ast == null) {
                             continue;
                         }
-                        String mutation = Mutator.mutate((QueryStatement) ast, pool, rnd);
+                        String mutation = Mutator.mutate((QueryStatement) ast, pool, seed, rnd);
                         if (mutation == null) {
                             continue;
                         }
@@ -576,20 +630,25 @@ public class AstMutationFuzzerTest {
 
     // ---------------------------------------------------------------- harvest
 
-    private static void harvest(QueryStatement stmt, Pool pool) {
-        for (Expr root : collectRootExprs(stmt.getQueryRelation())) {
-            collectExprs(root, e -> {
+    private static void harvest(QueryStatement stmt, String seed, Pool pool) {
+        RootWalk walk = RootWalk.of(stmt.getQueryRelation());
+        ScopedPool scoped = pool.scoped.computeIfAbsent(seed, k -> new ScopedPool());
+        scoped.blockCount = walk.blocks;
+        for (Root root : walk.roots) {
+            Material block = scoped.blocks.computeIfAbsent(root.block, k -> new Material());
+            collectExprs(root.expr, e -> {
                 if (e instanceof SlotRef) {
                     String name = ((SlotRef) e).getColumnName();
-                    if (name != null && pool.columnNames.size() < 256 && !pool.columnNames.contains(name)) {
-                        pool.columnNames.add(name);
-                    }
+                    pool.addColumn(name);
+                    block.addColumn(name);
                 }
                 try {
                     String s = AstToSQLBuilder.toSQL(e);
                     if (s != null && !s.trim().isEmpty() && s.length() < 400) {
                         // Harvested from an analyzed tree, so the type is populated.
-                        pool.addExpr(s, e.getType() != null && e.getType().isBoolean());
+                        boolean isBoolean = e.getType() != null && e.getType().isBoolean();
+                        pool.addExpr(s, isBoolean);
+                        block.addExpr(s, isBoolean);
                     }
                 } catch (Throwable ignored) {
                     // an un-renderable fragment is simply not pooled
@@ -598,13 +657,76 @@ public class AstMutationFuzzerTest {
         }
     }
 
+    /** An expression root together with the query block whose names are in scope where it sits. */
+    static final class Root {
+        final int block;
+        final Expr expr;
+
+        Root(int block, Expr expr) {
+            this.block = block;
+            this.expr = expr;
+        }
+    }
+
+    /**
+     * The roots of a tree, each tagged with the query block that owns it.
+     *
+     * <p>A block is an ordinal: blocks are numbered in the order this walk first enters them. That is
+     * only a valid key across two separate walks if both see the same tree shape, which is why
+     * {@link Pool#materialFor} compares block counts before trusting an index. It is enough here
+     * because the harvested tree and the mutated tree are two parses of the same seed text.
+     *
+     * <p>Blocks are allocated per SelectRelation and per set operation, i.e. per thing that has its own
+     * output columns. Everything reached from a block without passing through another one -- join
+     * operands, ON predicates, table function arguments -- belongs to it, which is what "in scope here"
+     * means for the purpose of choosing a fragment to inject.
+     */
+    static final class RootWalk {
+        final List<Root> roots = new ArrayList<>();
+        int blocks;
+
+        /**
+         * Relations already walked, by identity.
+         *
+         * <p>Analysis resolves a {@code FROM t} that names a CTE into a reference to the very same
+         * CTERelation object that hangs off the WITH clause, so the analyzed tree reaches it twice: once
+         * through the WITH descent and once through the FROM. Counting it twice made the analyzed tree
+         * report three blocks where the parsed tree reported two, which would have disabled the scoped
+         * pool for every seed with a CTE -- silently, since the fallback is the old behaviour.
+         *
+         * <p>Skipping a repeat visit is right regardless of the counting: it is the same object, so its
+         * expressions are the same objects, and a mutation applied "twice" would be one mutation.
+         */
+        private final java.util.Set<Relation> seen =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+        static RootWalk of(Relation relation) {
+            RootWalk walk = new RootWalk();
+            walk.descend(relation, 0);
+            return walk;
+        }
+
+        private void descend(Relation relation, int block) {
+            if (relation == null || !seen.add(relation)) {
+                return;
+            }
+            if (relation instanceof SelectRelation || relation instanceof SetOperationRelation) {
+                block = blocks++;
+            }
+            collectInto(relation, block, this);
+        }
+    }
+
     /** Expression roots reachable without analysis, so the same walk works pre- and post-analyze. */
     static List<Expr> collectRootExprs(Relation relation) {
-        List<Expr> out = new ArrayList<>();
+        return RootWalk.of(relation).roots.stream().map(r -> r.expr).collect(Collectors.toList());
+    }
+
+    private static void collectInto(Relation relation, int block, RootWalk walk) {
         if (relation instanceof QueryRelation && ((QueryRelation) relation).getCteRelations() != null) {
             // A WITH clause hangs off the query, not the FROM clause, so it needs its own descent.
             for (CTERelation cte : ((QueryRelation) relation).getCteRelations()) {
-                out.addAll(collectRootExprs(cte));
+                walk.descend(cte, block);
             }
         }
         if (relation instanceof QueryRelation && ((QueryRelation) relation).hasOrderByClause()) {
@@ -618,7 +740,7 @@ public class AstMutationFuzzerTest {
             // out-of-range analyzer rejection.
             for (OrderByElement e : ((QueryRelation) relation).getOrderBy()) {
                 if (e != null && e.getExpr() != null) {
-                    out.add(e.getExpr());
+                    walk.roots.add(new Root(block, e.getExpr()));
                 }
             }
         }
@@ -627,25 +749,27 @@ public class AstMutationFuzzerTest {
             if (sel.getSelectList() != null && sel.getSelectList().getItems() != null) {
                 sel.getSelectList().getItems().stream()
                         .filter(it -> !it.isStar() && it.getExpr() != null)
-                        .forEach(it -> out.add(it.getExpr()));
+                        .forEach(it -> walk.roots.add(new Root(block, it.getExpr())));
             }
             if (sel.getPredicate() != null) {
-                out.add(sel.getPredicate());
+                walk.roots.add(new Root(block, sel.getPredicate()));
             }
             if (sel.getHavingClause() != null) {
-                out.add(sel.getHavingClause());
+                walk.roots.add(new Root(block, sel.getHavingClause()));
             }
             if (sel.getGroupByClause() != null && sel.getGroupByClause().getGroupingExprs() != null) {
-                out.addAll(sel.getGroupByClause().getGroupingExprs());
+                for (Expr e : sel.getGroupByClause().getGroupingExprs()) {
+                    walk.roots.add(new Root(block, e));
+                }
             }
             if (sel.getRelation() != null) {
-                out.addAll(collectRootExprs(sel.getRelation()));
+                walk.descend(sel.getRelation(), block);
             }
         } else if (relation instanceof SubqueryRelation) {
-            out.addAll(collectRootExprs(((SubqueryRelation) relation).getQueryStatement().getQueryRelation()));
+            walk.descend(((SubqueryRelation) relation).getQueryStatement().getQueryRelation(), block);
         } else if (relation instanceof SetOperationRelation) {
             for (Relation child : ((SetOperationRelation) relation).getRelations()) {
-                out.addAll(collectRootExprs(child));
+                walk.descend(child, block);
             }
         } else if (relation instanceof JoinRelation) {
             // Without this branch a join swallowed its whole subtree: the ON predicate was never a
@@ -654,19 +778,20 @@ public class AstMutationFuzzerTest {
             // SQL-Tester corpus joins, so that was a third of the seeds with no reachable FROM clause.
             JoinRelation join = (JoinRelation) relation;
             if (join.getOnPredicate() != null) {
-                out.add(join.getOnPredicate());
+                walk.roots.add(new Root(block, join.getOnPredicate()));
             }
-            out.addAll(collectRootExprs(join.getLeft()));
-            out.addAll(collectRootExprs(join.getRight()));
+            walk.descend(join.getLeft(), block);
+            walk.descend(join.getRight(), block);
         } else if (relation instanceof CTERelation) {
-            out.addAll(collectRootExprs(((CTERelation) relation).getCteQueryStatement().getQueryRelation()));
+            walk.descend(((CTERelation) relation).getCteQueryStatement().getQueryRelation(), block);
         } else if (relation instanceof TableFunctionRelation) {
             List<Expr> args = ((TableFunctionRelation) relation).getChildExpressions();
             if (args != null) {
-                out.addAll(args);
+                for (Expr e : args) {
+                    walk.roots.add(new Root(block, e));
+                }
             }
         }
-        return out;
     }
 
     private static void collectExprs(Expr e, java.util.function.Consumer<Expr> sink) {
@@ -718,7 +843,7 @@ public class AstMutationFuzzerTest {
          * and a finding nobody can reproduce is worth nothing. Recording the site and the injected text
          * makes such a finding reconstructible from the seed alone.
          */
-        static String mutate(QueryStatement stmt, Pool pool, Random rnd) {
+        static String mutate(QueryStatement stmt, Pool pool, String seed, Random rnd) {
             List<Mutation> order = new ArrayList<>(OPERATORS);
             java.util.Collections.shuffle(order, rnd);
             // Expression-level mutation stays the majority of iterations; the structural operators
@@ -731,7 +856,7 @@ public class AstMutationFuzzerTest {
                     return applied;
                 }
             }
-            return mutateExpression(stmt, pool, rnd);
+            return mutateExpression(stmt, pool, seed, rnd);
         }
 
         /** An operator that throws is a harness defect, not a finding: report it as such, do not hide it. */
@@ -746,17 +871,27 @@ public class AstMutationFuzzerTest {
         }
 
         /** M1 subtree swap / M2 function swap / M3 literal boundary / M4 identifier rebind. */
-        private static String mutateExpression(QueryStatement stmt, Pool pool, Random rnd) {
+        private static String mutateExpression(QueryStatement stmt, Pool pool, String seed, Random rnd) {
+            RootWalk walk = RootWalk.of(stmt.getQueryRelation());
             List<Site> sites = new ArrayList<>();
-            for (Expr root : collectRootExprs(stmt.getQueryRelation())) {
-                collectSites(root, sites);
+            // Which block each site sits in, kept alongside rather than on Site, because a Site is a
+            // position in an expression and knows nothing about the relation that contains it.
+            List<Integer> blocks = new ArrayList<>();
+            for (Root root : walk.roots) {
+                int before = sites.size();
+                collectSites(root.expr, sites);
+                for (int i = before; i < sites.size(); i++) {
+                    blocks.add(root.block);
+                }
             }
             if (sites.isEmpty()) {
                 return null;
             }
-            Site site = sites.get(rnd.nextInt(sites.size()));
+            int chosen = rnd.nextInt(sites.size());
+            Site site = sites.get(chosen);
             Expr current = site.child();
-            Expr replacement = buildReplacement(current, pool, rnd);
+            Material material = pool.materialFor(seed, blocks.get(chosen), walk.blocks, rnd);
+            Expr replacement = buildReplacement(current, material, rnd);
             if (replacement == null) {
                 return null;
             }
@@ -803,21 +938,27 @@ public class AstMutationFuzzerTest {
             return MutationRules.get().isBlocked(parent, index);
         }
 
-        /** M1 subtree swap / M2 function swap / M3 literal boundary / M4 identifier rebind. */
-        private static Expr buildReplacement(Expr current, Pool pool, Random rnd) {
+        /**
+         * M1 subtree swap / M2 function swap / M3 literal boundary / M4 identifier rebind.
+         *
+         * <p>{@code material} is what is in scope where the replacement will land, which is usually a
+         * single query block of a single seed rather than the whole file -- see {@link Pool#materialFor}.
+         */
+        private static Expr buildReplacement(Expr current, Material material, Random rnd) {
             int roll = rnd.nextInt(100);
             String text = null;
             if (current instanceof LiteralExpr && roll < 45) {
                 text = BOUNDARY_LITERALS[rnd.nextInt(BOUNDARY_LITERALS.length)];                 // M3
-            } else if (current instanceof SlotRef && roll < 45 && !pool.columnNames.isEmpty()) {
-                text = "`" + pool.columnNames.get(rnd.nextInt(pool.columnNames.size())) + "`";    // M4
+            } else if (current instanceof SlotRef && roll < 45 && !material.columnNames.isEmpty()) {
+                List<String> names = material.columnNames;
+                text = "`" + names.get(rnd.nextInt(names.size())) + "`";                          // M4
             } else if (current instanceof FunctionCallExpr && roll < 70) {
                 text = swapFunction((FunctionCallExpr) current, rnd);                             // M2
             }
             if (text == null) {                                                                   // M1
                 // The replaced node is unanalyzed, so its type is unknown; approximate the expected
                 // shape from the node class instead.
-                List<String> bucket = pool.bucketFor(current instanceof Predicate);
+                List<String> bucket = material.bucketFor(current instanceof Predicate);
                 if (bucket.isEmpty()) {
                     return null;
                 }
