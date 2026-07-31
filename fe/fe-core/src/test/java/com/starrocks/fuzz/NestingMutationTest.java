@@ -257,7 +257,10 @@ public class NestingMutationTest {
                 continue;
             }
             fired++;
-            Assertions.assertTrue(description.startsWith("M6-nesting "), description);
+            // Names the shape, not the operator: the driver prefixes name() itself, and describing it
+            // here too is what produced "M6-nesting M6-nesting SELF_JOIN at ..." in the report.
+            Assertions.assertFalse(description.startsWith(op.name()), description);
+            Assertions.assertTrue(description.contains(" at "), description);
             reparseThroughGrammar(stmt);
         }
         Assertions.assertEquals(40, fired, "the operator should apply to every one of these seeds");
