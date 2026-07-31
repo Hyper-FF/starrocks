@@ -84,7 +84,22 @@ public class TypeStressMutation implements Mutation {
         /** {@code array_length(e)}, {@code map_keys(e)}, {@code unnest(e)}. */
         COLLECTION_FN,
         /** {@code CAST(e AS JSON) -> '$.a'} and friends, the flat-JSON / subfield-pruning path. */
-        JSON_PATH
+        JSON_PATH,
+        /**
+         * {@code CASE WHEN p THEN e ELSE alt END}, {@code if(p, e, alt)}, {@code nullif}, and friends.
+         *
+         * <p>The mutator could not build a conditional at all before this. It could edit inside one the
+         * seed happened to contain -- the branches are ordinary expression sites -- but a corpus without
+         * a CASE meant no CASE, and {@code if} was reachable only by renaming a three-argument call into
+         * it. Measured on the emitted corpus: every one of its 12522 CASE WHEN and 4553 {@code if(} came
+         * from a seed.
+         *
+         * <p>Conditionals are where branch type unification meets null propagation, which is the point
+         * of putting them in this operator rather than a new one. The alternative branch is drawn from
+         * a different bucket than the expression it wraps, so the branches usually disagree on type and
+         * the unification has to do something with that.
+         */
+        CONDITIONAL
     }
 
     private static final Shape[] SHAPES = Shape.values();
@@ -121,6 +136,51 @@ public class TypeStressMutation implements Mutation {
     static final String[] MAP_KEYS = {
             "'k'", "''", "'a.b'", "'0'", "CAST(NULL AS VARCHAR)", "1",
     };
+
+    /**
+     * Conditional wraps. {@code %1$s} is the expression being wrapped, {@code %2$s} a predicate,
+     * {@code %3$s} the alternative branch.
+     *
+     * <p>Chosen for the distinctions the analyzer actually has to make, not for variety:
+     * the searched CASE and the simple CASE are different code paths; a CASE with no ELSE is nullable
+     * by construction where one with an ELSE need not be; {@code nullif} produces a NULL the other
+     * forms cannot; and the nested entry is here because 4167 of the corpus's CASEs are nested, so it
+     * is a real shape rather than a fuzzer invention.
+     */
+    static final String[] CONDITIONAL_FORMS = {
+            "CASE WHEN %2$s THEN %1$s ELSE %3$s END",
+            "CASE WHEN %2$s THEN %1$s END",
+            "CASE WHEN %2$s THEN %1$s WHEN NOT (%2$s) THEN %3$s ELSE NULL END",
+            "CASE %1$s WHEN %3$s THEN 1 ELSE 0 END",
+            "if(%2$s, %1$s, %3$s)",
+            "ifnull(%1$s, %3$s)",
+            "nullif(%1$s, %3$s)",
+            "coalesce(%1$s, %3$s, NULL)",
+            "CASE WHEN %2$s THEN CASE WHEN %2$s THEN %1$s ELSE NULL END ELSE %3$s END",
+    };
+
+    /** Used when the pool has no boolean fragment to serve as the condition. */
+    private static final String[] FALLBACK_PREDICATES = {
+            "TRUE", "FALSE", "NULL", "1 = 1", "NULL IS NULL",
+    };
+
+    /**
+     * Used when the pool has no scalar fragment for the other branch.
+     *
+     * <p>Deliberately spread across types: a conditional whose branches agree is the case that already
+     * works, and the unification is what this shape exists to reach.
+     *
+     * <p>{@code []} is deliberately absent. An untyped empty array carries no type until analysis, and
+     * the deparser dereferences that type -- so the mutant dies at the gate's deparse with an NPE rather
+     * than reaching the oracle. M3 still injects {@code []} through BOUNDARY_LITERALS, so the shape is
+     * not lost; it just has no business being in a branch that has to render first.
+     */
+    private static final String[] FALLBACK_BRANCHES = {
+            "NULL", "0", "''", "CAST(NULL AS JSON)", "CAST(NULL AS ARRAY<INT>)", "'1970-01-01'",
+    };
+
+    /** A pooled fragment long enough to dominate the mutant is not worth putting in a branch. */
+    private static final int MAX_BRANCH_TEXT = 120;
 
     /** Field names that mostly do not exist, which is the point: subfield access on a non-struct. */
     static final String[] SUBFIELD_NAMES = {
@@ -244,9 +304,37 @@ public class TypeStressMutation implements Mutation {
                         String.format(COLLECTION_FNS[rnd.nextInt(COLLECTION_FNS.length)], p));
             case JSON_PATH:
                 return new Wrap(shape, String.format(JSON_PATHS[rnd.nextInt(JSON_PATHS.length)], p));
+            case CONDITIONAL:
+                return new Wrap(shape, String.format(
+                        CONDITIONAL_FORMS[rnd.nextInt(CONDITIONAL_FORMS.length)],
+                        p, pickBranch(pool, true, rnd), pickBranch(pool, false, rnd)));
             default:
                 return null;
         }
+    }
+
+    /**
+     * A fragment for a conditional's condition or its other branch.
+     *
+     * <p>Prefers the pool because a fragment naming real columns keeps the mutant analyzable far more
+     * often than a literal does, and an unanalyzable mutant reaches nothing. The literals are the floor,
+     * not the intent.
+     */
+    private static String pickBranch(AstMutationFuzzerTest.Pool pool, boolean wantPredicate, Random rnd) {
+        String[] fallback = wantPredicate ? FALLBACK_PREDICATES : FALLBACK_BRANCHES;
+        if (pool != null && rnd.nextInt(100) < 70) {
+            List<String> bucket = pool.bucketFor(wantPredicate);
+            List<String> usable = new ArrayList<>();
+            for (String s : bucket) {
+                if (s.length() <= MAX_BRANCH_TEXT) {
+                    usable.add(s);
+                }
+            }
+            if (!usable.isEmpty()) {
+                return usable.get(rnd.nextInt(usable.size()));
+            }
+        }
+        return fallback[rnd.nextInt(fallback.length)];
     }
 
     /**

@@ -272,12 +272,27 @@ public class AstMutationFuzzerTest {
             "CAST(NULL AS JSON)", "[]", "map{}",
     };
 
-    /** Same arity swaps, chosen to cross type boundaries where the analyzer should object cleanly. */
-    private static final String[][] FUNCTION_SWAPS = {
-            {"abs", "sqrt", "ln", "exp", "floor", "ceil", "sign", "bitmap_count", "hll_cardinality",
-                    "length", "char_length", "lower", "upper", "to_json", "hex", "unhex", "md5", "year", "month"},
-            {"if", "concat_ws", "substr", "date_add", "date_sub", "round", "truncate", "split", "json_query"},
-    };
+    /**
+     * Same-arity swaps, chosen to cross type boundaries where the analyzer should object cleanly.
+     *
+     * <p>Indexed by argument count. The buckets used to be "one argument" and "two or more", which is
+     * not an arity: {@code if} takes exactly three, {@code nullif} and {@code date_add} exactly two,
+     * {@code concat_ws} any number. Renaming a two-argument call to {@code if} produced {@code if(a, b)},
+     * which the analyzer rejects for its arity before it can object to anything interesting -- the swap
+     * was spent without testing what it meant to test.
+     */
+    private static final String[] SWAPS_ARITY_1 = {
+            "abs", "sqrt", "ln", "exp", "floor", "ceil", "sign", "bitmap_count", "hll_cardinality",
+            "length", "char_length", "lower", "upper", "to_json", "hex", "unhex", "md5", "year", "month"};
+    private static final String[] SWAPS_ARITY_2 = {
+            "nullif", "date_add", "date_sub", "datediff", "ifnull", "round", "truncate", "split",
+            "concat_ws", "least", "greatest"};
+    private static final String[] SWAPS_ARITY_3 = {
+            "if", "substr", "json_query", "concat_ws", "coalesce", "lpad", "rpad"};
+
+    /** Variadic, so they are legal at any arity the source call happened to have. */
+    private static final String[] SWAPS_ANY_ARITY = {
+            "concat_ws", "coalesce", "least", "greatest"};
 
     @BeforeAll
     public static void beforeAll() throws Exception {
@@ -1054,13 +1069,21 @@ public class AstMutationFuzzerTest {
         /** Rebuilds the call with a different name of the same arity, keeping the argument text. */
         private static String swapFunction(FunctionCallExpr call, Random rnd) {
             int arity = call.getChildren().size();
-            String[] candidates = null;
-            for (String[] group : FUNCTION_SWAPS) {
-                if (arity == 1 && group == FUNCTION_SWAPS[0]) {
-                    candidates = group;
-                } else if (arity >= 2 && group == FUNCTION_SWAPS[1]) {
-                    candidates = group;
-                }
+            String[] candidates;
+            switch (arity) {
+                case 1:
+                    candidates = SWAPS_ARITY_1;
+                    break;
+                case 2:
+                    candidates = SWAPS_ARITY_2;
+                    break;
+                case 3:
+                    candidates = SWAPS_ARITY_3;
+                    break;
+                default:
+                    // Four or more: only the variadic names are legal at an arity we did not enumerate.
+                    candidates = arity >= 4 ? SWAPS_ANY_ARITY : null;
+                    break;
             }
             if (candidates == null) {
                 return null;
