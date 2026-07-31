@@ -359,4 +359,44 @@ public class NestingMutationTest {
             walkExpr(child, out);
         }
     }
+
+    @Test
+    public void testSelfJoinPrefersAnEquiJoinOverACrossJoin() {
+        // A cross join reaches none of the equi-join execution -- hash build and probe, runtime
+        // filters, colocate and bucket-shuffle decisions -- and squares the row count, so replaying one
+        // against a real cluster is expensive and finds nothing. It used to be the only shape this
+        // operator could build. It is still produced sometimes, because the nested-loop path is real.
+        NestingMutation op = new NestingMutation();
+        AstMutationFuzzerTest.Pool pool = new AstMutationFuzzerTest.Pool();
+        pool.columnNames.add("v1");
+        pool.columnNames.add("v2");
+
+        int equi = 0;
+        int cross = 0;
+        for (int i = 0; i < 200; i++) {
+            QueryStatement stmt = parse("select v1 from t0");
+            String applied = op.applyAt(stmt, NestingMutation.slotsOf(stmt).get(0),
+                    NestingMutation.Shape.SELF_JOIN, joinCond(new Random(i), pool));
+            if (applied == null) {
+                continue;
+            }
+            String sql = AstToSQLBuilder.toSQL(stmt).replace('\n', ' ');
+            if (sql.contains("ON 1 = 1")) {
+                cross++;
+            } else if (sql.contains("` = `") || sql.contains("` > `")) {
+                equi++;
+            }
+        }
+        Assertions.assertTrue(equi > cross * 3, "equi=" + equi + " cross=" + cross);
+        Assertions.assertTrue(cross > 0, "the cross join shape disappeared entirely");
+    }
+
+    /** Mirrors the private weighting in the operator, so the test exercises the same distribution. */
+    private static String joinCond(Random rnd, AstMutationFuzzerTest.Pool pool) {
+        if (rnd.nextInt(100) < 10) {
+            return null;
+        }
+        String col = pool.columnNames.get(rnd.nextInt(pool.columnNames.size()));
+        return rnd.nextInt(100) < 80 ? "=" + col : ">" + col;
+    }
 }
