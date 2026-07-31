@@ -387,6 +387,23 @@ public class FunctionAnalyzer {
             if (!sortKeyType.canApplyToNumeric()) {
                 throw new SemanticException(Type.NOT_SUPPORT_ORDER_ERROR_MSG);
             }
+            // canApplyToNumeric() lets TIME through, and the BE registers no TIME aggregate at all.
+            // getAnalyzedBuiltInFunction does reject TIME for aggregates, but that branch sits behind the
+            // decimalv3 routing in the same if-else chain, so max_by(decimal, time) skips it and only fails
+            // in the BE. It cannot be fixed by reordering that chain: corr(decimal, time) and
+            // covar_pop(decimal, time) legitimately cast TIME to double and would start failing.
+            if (sortKeyType.isTime()) {
+                throw new SemanticException(
+                        fnName + " does not support the type of the second argument: " + sortKeyType.toSql(),
+                        functionCallExpr.getChild(1).getPos());
+            }
+
+            Type valueType = functionCallExpr.getChild(0).getType();
+            if (!isMaxMinByValueTypeSupported(valueType)) {
+                throw new SemanticException(
+                        fnName + " does not support the type of the first argument: " + valueType.toSql(),
+                        functionCallExpr.getChild(0).getPos());
+            }
 
             return;
         }
@@ -720,6 +737,21 @@ public class FunctionAnalyzer {
                 }
             }
         }
+    }
+
+    /**
+     * max_by/min_by are registered in the FE for every type in {@link FunctionSet#SUPPORTED_TYPES}, but the BE
+     * only instantiates them for value types that are aggregate-capable (numeric/decimal/date/datetime/string),
+     * JSON, or a collection. Planning the other combinations produces a fragment the BE refuses to build with
+     * "Invalid agg function plan: max_by_v2 ...", so reject them during analysis instead.
+     * Keep this in sync with be/src/exprs/agg/factory/aggregate_resolver_maxminby.hpp.
+     */
+    private static boolean isMaxMinByValueTypeSupported(Type type) {
+        if (type.isArrayType() || type.isMapType() || type.isStructType() || type.isJsonType()) {
+            return true;
+        }
+        // NULL is resolved by type promotion, so let it through.
+        return type.isNull() || type.isBoolean() || type.isNumericType() || type.isDateType() || type.isStringType();
     }
 
     private static Optional<Long> extractIntegerValue(Expr expr) {

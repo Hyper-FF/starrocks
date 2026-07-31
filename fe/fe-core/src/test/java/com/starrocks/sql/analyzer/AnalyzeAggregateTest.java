@@ -82,6 +82,45 @@ public class AnalyzeAggregateTest {
     }
 
     @Test
+    public void testMaxMinByUnsupportedValueType() {
+        // The BE only instantiates max_by/min_by for aggregate-capable, json and collection value types.
+        // Anything else has to be rejected here instead of failing in the BE with
+        // "Invalid agg function plan: max_by_v2 with (arg type VARBINARY, ...)".
+        analyzeFail("select max_by(v_varbinary, v_int) from tbinary",
+                "max_by does not support the type of the first argument: varbinary");
+        analyzeFail("select min_by(v_varbinary, v_int) from tbinary",
+                "min_by does not support the type of the first argument: varbinary");
+        analyzeFail("select max_by(v_varbinary4, v_int) from tbinary",
+                "max_by does not support the type of the first argument: varbinary(4)");
+        analyzeFail("select max_by(b1, v1) from test_object",
+                "max_by does not support the type of the first argument: bitmap");
+        analyzeFail("select max_by(h1, v1) from test_object",
+                "max_by does not support the type of the first argument: hll");
+
+        // Supported value types keep working.
+        analyzeSuccess("select max_by(v_int, v_int) from tbinary");
+        analyzeSuccess("select max_by(v3, v1) from tarray");
+        analyzeSuccess("select max_by(v_json, v_int) from tjson");
+    }
+
+    @Test
+    public void testMaxMinByTimeSortKey() {
+        // The BE has no TIME aggregate. A TIME sort key is normally caught by the generic rejection in
+        // getAnalyzedBuiltInFunction, but that branch sits behind the decimalv3 routing, so a decimal
+        // elsewhere in the call used to skip it and the query only failed in the BE.
+        analyzeFail("select max_by(tj, sec_to_time(tc)) from tall",
+                "max_by does not support the type of the second argument: TIME");
+        analyzeFail("select min_by(tj, sec_to_time(tc)) from tall",
+                "min_by does not support the type of the second argument: TIME");
+        // Without a decimal the generic check still fires first; either way it must not reach the BE.
+        analyzeFail("select max_by(tc, sec_to_time(td)) from tall", "Time Type can not used in max_by function");
+
+        // Aggregates that really do accept a TIME argument, by casting it to double, keep working.
+        analyzeSuccess("select corr(tj, sec_to_time(tc)) from tall");
+        analyzeSuccess("select covar_pop(tj, sec_to_time(tc)) from tall");
+    }
+
+    @Test
     public void testCollectionSubscriptIsSubjectToGroupBy() {
         // The subscript of a collection element is an ordinary expression: a bare column there is no more
         // legal than anywhere else. It used to slip past this check and blow up later in the optimizer
