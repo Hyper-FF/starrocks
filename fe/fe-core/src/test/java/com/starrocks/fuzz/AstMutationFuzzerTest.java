@@ -279,6 +279,9 @@ public class AstMutationFuzzerTest {
         int mutationsPerSeed = Integer.getInteger("srfuzz.mutations", 10);
         long seedValue = Long.getLong("srfuzz.seed", 20260730L);
         Path report = Paths.get(System.getProperty("srfuzz.report", "ast_mutation_fuzz_report.md"));
+        // On by default. The switch exists so the schema-drift it fixes can be measured against the same
+        // build rather than against a different commit, which is the only honest way to size it.
+        boolean replay = !"false".equalsIgnoreCase(System.getProperty("srfuzz.replay", "true"));
         String emitProp = System.getProperty("srfuzz.emit");
         Path emitDir = emitProp == null ? null : Paths.get(emitProp);
         if (emitDir != null) {
@@ -310,6 +313,7 @@ public class AstMutationFuzzerTest {
         int seedCount = 0;
         int mutantCount = 0;
         int unreachableCount = 0;
+        int staleSeeds = 0;
         Map<String, Drop> drops = new LinkedHashMap<>();
 
         for (int i = 0; i < files.size(); i++) {
@@ -378,7 +382,51 @@ public class AstMutationFuzzerTest {
                 if (!pool.usable()) {
                     continue;
                 }
-                for (String seed : seeds) {
+
+                // Second pass, from an empty database. The first pass ran every statement in the file,
+                // so by the time it ended the catalog held the file's FINAL schema -- and 36% of the
+                // corpus (479 of 1320 files) drops, renames or re-creates a table after its first query.
+                // Mutating there meant a seed written before a `DROP TABLE t` was analyzed against a
+                // catalog with no t: every one of its mutants died with "Unknown table" or "Column cannot
+                // be resolved", the seed contributed nothing, and the failure was indistinguishable in
+                // the report from a mutant that really was invalid.
+                //
+                // Replaying gives each seed the catalog state that existed where it was written. The pool
+                // still comes from the first pass, so the material is the whole file's rather than only
+                // the part of it that precedes the seed.
+                if (replay && !replayFrom(db)) {
+                    continue;
+                }
+                java.util.Set<String> seedSet = new java.util.HashSet<>(seeds);
+                for (String sql : statements) {
+                    StatementBase replayed = tryParse(sql);
+                    if (replayed == null) {
+                        continue;
+                    }
+                    if (CorpusReader.isSchemaSetup(replayed)) {
+                        if (replay) {
+                            applySchemaSetup(sql, replayed);
+                        }
+                        continue;
+                    }
+                    if (!seedSet.contains(sql)) {
+                        continue;
+                    }
+                    String seed = sql;
+                    // A seed that no longer analyzes cannot produce a usable mutant, so mutating it
+                    // mutationsPerSeed times only manufactures rejections that look like ordinary noise.
+                    // Counting them is what makes schema drift visible: with the replay above this should
+                    // be nearly zero, and if it ever is not, something other than drift is wrong.
+                    StatementBase check = tryParse(seed);
+                    if (check == null) {
+                        continue;
+                    }
+                    try {
+                        Analyzer.analyze(check, ctx);
+                    } catch (Throwable t) {
+                        staleSeeds++;
+                        continue;
+                    }
                     for (int m = 0; m < mutationsPerSeed; m++) {
                         StatementBase ast = tryParse(seed);
                         if (ast == null) {
@@ -436,8 +484,8 @@ public class AstMutationFuzzerTest {
             }
         }
 
-        writeReport(report, tally, findings, seedCount, mutantCount, unreachableCount, drops);
-        printSummary(tally, findings, seedCount, mutantCount, unreachableCount);
+        writeReport(report, tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds, drops);
+        printSummary(tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds);
     }
 
     /**
@@ -1013,6 +1061,23 @@ public class AstMutationFuzzerTest {
         }
     }
 
+    /**
+     * Drops and recreates the file's database so its statements can be replayed onto an empty catalog.
+     *
+     * <p>Returns false when that fails, which costs the file its mutants rather than running them
+     * against whatever the catalog happens to hold -- the state this whole replay exists to avoid.
+     */
+    private boolean replayFrom(String db) {
+        try {
+            srAssert.dropDatabase(db);
+            srAssert.withDatabase(db).useDatabase(db);
+            return true;
+        } catch (Throwable t) {
+            System.err.println("replay setup failed for " + db + " -> " + t);
+            return false;
+        }
+    }
+
     private boolean applySchemaSetup(String sql, StatementBase ast) {
         try {
             CorpusReader.applySchemaSetup(srAssert, sql, ast);
@@ -1319,7 +1384,7 @@ public class AstMutationFuzzerTest {
     }
 
     private static void writeReport(Path out, Map<Outcome, Integer> tally, Map<String, Finding> findings,
-                                    int seeds, int mutants, int unreachable,
+                                    int seeds, int mutants, int unreachable, int staleSeeds,
                                     Map<String, Drop> drops) throws Exception {
         if (out.getParent() != null) {
             Files.createDirectories(out.getParent());
@@ -1330,6 +1395,9 @@ public class AstMutationFuzzerTest {
             w.printf("seeds: %d, mutants: %d, dropped as grammar-unreachable: %d (%.1f%%)%n",
                     seeds, mutants, unreachable,
                     mutants + unreachable == 0 ? 0.0 : 100.0 * unreachable / (mutants + unreachable));
+            w.println();
+            w.printf("seeds skipped as stale (no longer analyze where they are mutated): %d%n",
+                    staleSeeds);
             w.println();
             writeDropSection(w, drops);
             w.println("| Outcome | Count |");
@@ -1387,11 +1455,12 @@ public class AstMutationFuzzerTest {
     }
 
     private static void printSummary(Map<Outcome, Integer> tally, Map<String, Finding> findings,
-                                     int seeds, int mutants, int unreachable) {
+                                     int seeds, int mutants, int unreachable, int staleSeeds) {
         System.out.println();
-        System.out.printf("=== seeds=%d mutants=%d unreachable=%d (%.1f%% dropped) ===%n",
+        System.out.printf("=== seeds=%d mutants=%d unreachable=%d (%.1f%% dropped) stale=%d ===%n",
                 seeds, mutants, unreachable,
-                mutants + unreachable == 0 ? 0.0 : 100.0 * unreachable / (mutants + unreachable));
+                mutants + unreachable == 0 ? 0.0 : 100.0 * unreachable / (mutants + unreachable),
+                staleSeeds);
         for (Outcome o : Outcome.values()) {
             System.out.printf("%-24s %d%n", o, tally.getOrDefault(o, 0));
         }
