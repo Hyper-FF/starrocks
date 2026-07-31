@@ -54,6 +54,17 @@ public class InputDependenciesChecker implements PlanValidator.Checker {
         return INSTANCE;
     }
 
+    /**
+     * Build the error message with the reason on the FIRST line and the plan dump after it.
+     * The plan dump can be thousands of lines, so a reason appended after it is routinely lost to
+     * client- or log-side truncation, leaving the user with a bare "Invalid plan:". PlanValidator
+     * writes the full dump to the log; only its head belongs in a message sent to the client.
+     */
+    private static String invalidPlanMessage(OptExpression optExpression, String reason) {
+        return "Invalid plan: " + PREFIX + " " + reason + System.lineSeparator()
+                + optExpression.debugString(PlanValidator.MAX_PLAN_DUMP_LINES);
+    }
+
     @Override
     public void validate(OptExpression physicalPlan, TaskContext taskContext) {
         Visitor visitor = new Visitor();
@@ -105,10 +116,9 @@ public class InputDependenciesChecker implements PlanValidator.Checker {
             ColumnRefSet missedCols = projectUsedColumns.clone();
             missedCols.except(originalOutputColRefSets);
             if (!missedCols.isEmpty()) {
-                String message = String.format("Invalid plan:%s%s\n%s \nThe projection required cols %s cannot" +
-                                " obtain from original input cols %s.",
-                        System.lineSeparator(), optExpression.debugString(), PREFIX, missedCols,
-                        originalOutputColRefSets);
+                String message = invalidPlanMessage(optExpression,
+                        String.format("The projection required cols %s cannot obtain from original input cols %s.",
+                                missedCols, originalOutputColRefSets));
                 throw new StarRocksPlannerException(message, ErrorType.INTERNAL_ERROR);
             }
             return context;
@@ -238,25 +248,25 @@ public class InputDependenciesChecker implements PlanValidator.Checker {
             ColumnRefSet missedCols = usedCols.clone();
             missedCols.except(inputCols);
             if (!missedCols.isEmpty()) {
-                String message = String.format("Invalid plan:%s%s\n%s \nThe required cols %s cannot obtain from input cols %s.",
-                        System.lineSeparator(), optExpr.debugString(), PREFIX, missedCols, inputCols);
+                String message = invalidPlanMessage(optExpr,
+                        String.format("The required cols %s cannot obtain from input cols %s.", missedCols, inputCols));
                 throw new StarRocksPlannerException(message, ErrorType.INTERNAL_ERROR);
             }
         }
 
         private void checkInputType(ColumnRefOperator inputCol, ColumnRefOperator outputCol, OptExpression optExpression) {
             if (!outputCol.getType().isFullyCompatible(inputCol.getType())) {
-                String message = String.format("Invalid plan:%s%s\n%s \nType of output col %s is not fully compatible with " +
-                                "type of input col %s.",
-                        System.lineSeparator(), optExpression.debugString(), PREFIX, outputCol, inputCol);
+                String message = invalidPlanMessage(optExpression,
+                        String.format("Type of output col %s is not fully compatible with type of input col %s.",
+                                outputCol, inputCol));
                 throw new StarRocksPlannerException(message, ErrorType.INTERNAL_ERROR);
             }
         }
 
         private void checkChildNumberOfSet(int inputSize, int requiredSize, OptExpression optExpression) {
             if (inputSize != requiredSize) {
-                String message = String.format("Invalid plan:%s%s\n%s. \nThe required number of children is %d but found %d.",
-                        System.lineSeparator(), optExpression.debugString(), PREFIX, requiredSize, inputSize);
+                String message = invalidPlanMessage(optExpression,
+                        String.format("The required number of children is %d but found %d.", requiredSize, inputSize));
                 throw new StarRocksPlannerException(message, ErrorType.INTERNAL_ERROR);
             }
         }

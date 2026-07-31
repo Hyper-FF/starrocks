@@ -566,6 +566,10 @@ public class GroupingSetsTest extends PlanTestBase {
                         "[TF_PUSHDOWN_AGG_GROUPING_SET].");
                 assertContains(errMsg, "The required cols {4} cannot obtain from input cols {13,14,15}");
                 assertContains(errMsg, "Input dependency cols check failed");
+                // The reason must precede the plan dump: the dump is routinely truncated by clients and
+                // logs, and a message that starts and ends with a bare "Invalid plan:" is not actionable.
+                assertContains(errMsg, "Invalid plan: Input dependency cols check failed. " +
+                        "The required cols {4} cannot obtain from input cols {13,14,15}.");
             }
         } finally {
             connectContext.getSessionVariable().setCboPushDownGroupingSet(false);
