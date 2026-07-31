@@ -617,6 +617,20 @@ public class FunctionAnalyzer {
             }
         }
 
+        // histogram()/histogram_hll_ndv() are internal statistics functions: BE only implements the
+        // single-state path (update_batch_single_state), while update(), merge(),
+        // serialize_to_column() and update_batch_single_state_with_frame() are all CHECK(false) --
+        // see be/src/exprs/agg/histogram.h. They therefore abort the BE for any shape other than a
+        // one-stage, single-state aggregation, which is what the statistics collect jobs produce by
+        // wrapping the scan in an "ORDER BY ... LIMIT" subquery. A user-written call aborts the BE
+        // both with GROUP BY (per-row update) and without it (two-stage merge), so reject it here.
+        if ((fnName.equals(FunctionSet.HISTOGRAM) || fnName.equals(FunctionSet.HISTOGRAM_HLL_NDV))
+                && ConnectContext.get() != null && !ConnectContext.get().isStatisticsConnection()) {
+            throw new SemanticException(fnName + " is an internal statistics function and cannot be called "
+                    + "directly, use ANALYZE TABLE ... UPDATE HISTOGRAM ON ... instead: "
+                    + ExprToSql.toSql(functionCallExpr), functionCallExpr.getPos());
+        }
+
         // histogram(expr, bucket_num, sample_ratio[, ...]): bucket_num is a constant INT used as a
         // divisor / bucket-size base in the BE finalize step. A non-positive value divided by zero
         // (SIGFPE crash) or mis-bucketed every row; reject it here at analysis instead.

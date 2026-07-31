@@ -2837,6 +2837,19 @@ public class AggregateTest extends PlanTestBase {
     }
 
     @Test
+    public void testHistogramIsInternalOnly() {
+        // BE only implements the single-state path for histogram; a user-written call aborts the BE
+        // both with GROUP BY (per-row update) and without it (two-stage merge).
+        for (String sql : new String[] {
+                "select histogram(L_LINENUMBER, 3, 0.5) from lineitem",
+                "select L_RETURNFLAG, histogram(L_LINENUMBER, 3, 0.5) from lineitem group by L_RETURNFLAG",
+                "select histogram_hll_ndv(L_LINENUMBER, '[]') from lineitem"}) {
+            Exception e = Assertions.assertThrows(SemanticException.class, () -> getFragmentPlan(sql));
+            Assertions.assertTrue(e.getMessage().contains("is an internal statistics function"), e.getMessage());
+        }
+    }
+
+    @Test
     public void testApproxTopK() throws Exception {
         {
             String sql = "select approx_top_k(L_LINENUMBER) from lineitem";
