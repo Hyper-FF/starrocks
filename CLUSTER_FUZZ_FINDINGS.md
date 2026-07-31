@@ -3,9 +3,11 @@
 Mutated queries from the AST fuzzer replayed against a live ASan cluster as **mixed load**
 (3 readers + 2 writers concurrent, 45 s per corpus group). This is the first run of that harness.
 
-**Nothing here is minimized and nothing is confirmed as a product defect yet.** These are fuzzer
-signals, classified by how much they look like one. Treat the "status" column as the claim being
-made, not more.
+**Round 1 status (2026-08-01).** Six of these were minimized and fixed by parallel agents; the
+fixes are cherry-picked onto the cluster and rebuilding. Each entry below carries its own status
+line. What has NOT happened yet: no fix is verified on the cluster, nothing is pushed, no PR is
+open. The original caveat still applies to anything still marked candidate — those are fuzzer
+signals, and the status line is the claim being made, not more.
 
 ## Environment
 
@@ -23,6 +25,14 @@ Raw evidence: `clusterfuzz/findings.md` (stacks), `clusterfuzz/error-signatures.
 ---
 
 ## C0 — use-after-free introduced by the pass-through cancel fix (#76603), shipped
+
+**FIXED, cluster verification pending.** `83bd3e15559` — share ownership of `PassThroughChannel`
+with its sink and receiver, so the two early guard-release sites (`_fail_cleanup` AND the success
+path `count_down_execution_group`) can no longer strand a raw pointer. Reproduced under ASan in a
+standalone unit test — same write/free pair as the cluster report — and the test was seen failing
+first. Not yet linked into the full `compute_env_test` and not yet run on the cluster. The 4.1
+backport #76889 carries the same defect and needs the same patch.
+
 
 **Status: confirmed by construction. The write site is the line the fix added. Affects main and 4.1.**
 
@@ -120,6 +130,10 @@ still aborts, then check whether it reproduces without the amplification step.
 
 ## C1b — `JsonColumn::append` DCHECK on the same tablet-read path as C1
 
+**FIX APPLIED, verification pending.** `007e57a5028` cherry-picked to the cluster. This also tests
+whether it accounts for C1, since they share the path.
+
+
 **Status: candidate. A fix exists on an unpushed local branch; not deployed here.** Round ~120s of
 the first run, 14:29. Missed in the first pass of this document -- I classified the crashes from a
 snapshot and did not re-read the log before restarting the fuzzer.
@@ -172,6 +186,14 @@ should go to a PR on its own merit regardless.
 
 ## C2 — planner emits a `TExprNode` with a null `node_type`
 
+**FIXED.** `c2f5d58d4fd`. Minimal repro:
+`SELECT dense_rank() OVER (ORDER BY abs((SELECT max(v1) FROM t0)));`
+Root cause was not a class forgetting to set the field — it was a `Subquery` reaching thrift at all.
+`QueryTransformer.window()` translated the window spec with the builder-less `translate()`, producing
+a bare `SubqueryOperator` typed INVALID that no rule converts. The fix plans those subqueries into an
+Apply, and `ExprToThrift.visitSubqueryExpr` now throws instead of emitting an incomplete node.
+
+
 **Status: clean candidate, unminimized.** Round 57, group `mut_071`.
 
 ```
@@ -204,6 +226,13 @@ Two separate things here, and they should not be conflated:
 
 ## C4 — `Invalid agg function plan: max_by_v2` over VARBINARY
 
+**FIXED.** `62dbfd9fc64`. `FunctionSet` registers max_by/min_by over the full type cross product
+while the BE resolver only instantiates `lt_is_aggregate || lt_is_json || lt_is_collection`, so
+VARBINARY, HLL, BITMAP, PERCENTILE, VARIANT and TIME resolve in the FE and die in the BE. The FE now
+rejects them. NOTE: the guard keys on the user-facing names, so the agg-state combinator forms
+(`max_by_state`, `max_by_union`) still reach the same BE gap.
+
+
 **Status: candidate, unminimized.** Round 63, group `mut_081`.
 
 ```
@@ -216,7 +245,35 @@ correct, the fact that it is the BE doing it is the finding.
 
 ## C5 — `slot type shouldn't be invalid` / `Invalid plan:`
 
-**Status: weak candidates, need triage.** Groups `mut_081`, `mut_054`.
+**BOTH FIXED, and "weak candidates" was wrong — they were three defects, not two.**
+
+`slot type shouldn't be invalid` has TWO independent causes, found by two different agents. That is
+worth stating because the signature must not be deduplicated as one bug:
+
+- `a66ac16df34` — `count(a)` where `a ARRAY<DECIMAL64(10,2)>`. `argumentTypeContainDecimalV3` matches
+  on the ARRAY's item type, routing `count` into decimal rewriting, but `commonType` is only computed
+  when the argument itself is decimal, so INVALID is stamped as the return type and nothing rejects
+  it until `SlotDescriptor.setType`.
+- The C2 subquery-in-window defect reaches the same message when the subquery is the ORDER BY
+  expression directly.
+
+`Invalid plan:` was also two defects:
+
+- `18ea932b748` — `AggregationAnalyzer.visitCollectionElementExpr` visited only `getChild(0)`, so a
+  bare column in the subscript escaped the GROUP BY check entirely and the planner then rejected its
+  own output. Minimal: `SELECT map_agg(v1, v2)[v3] FROM t0`.
+- `8f0fad3ab23` — the empty body. The message is `"Invalid plan:" + newline + <whole plan dump> +
+  reason`, so the reason sits past the point every client and log truncates. Reordered. Same commit
+  guards an unprotected `e.getMessage()` that would NPE inside its own catch.
+
+Sibling gaps flagged but not fixed: `visitLikePredicate` and `visitMatchExpr` have the same
+`getChild(0)`-only shape, so a bare column on the right of LIKE/MATCH likely escapes the same check.
+
+Original triage note, kept because it was wrong in an instructive way: I called these "weak
+candidates ... worth a look mainly because they are cheap to check". They were the densest source of
+real defects in the run.
+
+
 
 ```
 Getting analyzing error. Detail message: slot type shouldn't be invalid.
