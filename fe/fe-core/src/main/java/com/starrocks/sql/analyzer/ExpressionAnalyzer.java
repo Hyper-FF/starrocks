@@ -1010,7 +1010,13 @@ public class ExpressionAnalyzer {
             if (cast.isImplicit()) {
                 castType = cast.getType();
             } else {
-                castType = cast.getTargetTypeDef().getType();
+                // A cast target written as bare VARBINARY/BINARY is parsed with the "unspecified length"
+                // sentinel (-1). Nothing else on the expression path resolves it, and TypeSerializer copies
+                // the length straight into TScalarType.len, so the sentinel would otherwise reach the BE as
+                // VARBINARY(-1). Materialize the documented default length here, where the target type of an
+                // explicit cast is finalized.
+                castType = TypeFactory.resolveUnsizedVarbinary(cast.getTargetTypeDef().getType());
+                cast.getTargetTypeDef().setType(castType);
             }
             Type fromType = cast.getChild(0).getType();
             if (!TypeManager.canCastTo(fromType, castType)) {
