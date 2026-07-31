@@ -101,15 +101,15 @@ public class NestingMutationTest {
                     NestingMutation.Slot slot = NestingMutation.slotsOf(stmt).get(i);
                     String before = AstToSQLBuilder.toSQL(stmt);
 
-                    String description = op.applyAt(stmt, slot, shape);
-                    if (shape == NestingMutation.Shape.SELF_JOIN && !slot.isWholeFromClause()) {
-                        // Documented restriction: the deparser cannot parenthesize a join nested in a
-                        // join operand, so the operator declines instead of emitting a mutant that is
-                        // guaranteed to be dropped.
-                        Assertions.assertNull(description,
-                                "self join should not be offered at " + slot.describe());
-                        continue;
-                    }
+                    // ASOF needs real column names: the analyzer demands an ON clause with an
+                    // equality and exactly one temporal inequality, which cannot be invented without a
+                    // pool. Every other shape is built from the relation text alone.
+                    String cond = shape == NestingMutation.Shape.ASOF_JOIN ? "=v1;v2" : null;
+                    String description = op.applyAt(stmt, slot, shape, cond);
+                    // A join nested in a join operand used to be declined here, because the
+                    // deparser emitted it without parentheses and the mutant could never survive the
+                    // reparse. That was a real deparser defect, now fixed, so the slot is offered like
+                    // any other and the mutant is expected to round-trip.
                     Assertions.assertNotNull(description,
                             "operator did not fire: " + shape + " slot " + i + " of " + seed);
                     Assertions.assertTrue(description.contains(shape.name()),
@@ -212,7 +212,8 @@ public class NestingMutationTest {
 
         Assertions.assertNotNull(op.applyAt(stmt, slot, NestingMutation.Shape.SELF_JOIN));
         String text = reparseThroughGrammar(stmt);
-        Assertions.assertTrue(flat(text).contains(" INNER JOIN "), () -> "no self join in: " + text);
+        // The join type is varied on purpose, so pin the shape rather than one keyword.
+        Assertions.assertTrue(flat(text).contains(" JOIN "), () -> "no self join in: " + text);
 
         JoinRelation join = (JoinRelation) slot.get();
         SubqueryRelation left = (SubqueryRelation) join.getLeft();
@@ -244,9 +245,14 @@ public class NestingMutationTest {
     @Test
     public void testRandomEntryPointFiresAndRoundTrips() {
         int fired = 0;
+        // A populated pool, because the driver never mutates without one: ASOF needs column names to
+        // build the equality and temporal inequality its analyzer demands, and declines without them.
+        AstMutationFuzzerTest.Pool pool = new AstMutationFuzzerTest.Pool();
+        pool.columnNames.add("v1");
+        pool.columnNames.add("event_time");
         for (int i = 0; i < 40; i++) {
             QueryStatement stmt = parse(SEEDS[i % SEEDS.length]);
-            String description = op.apply(stmt, new AstMutationFuzzerTest.Pool(), new Random(i));
+            String description = op.apply(stmt, pool, new Random(i));
             if (description == null) {
                 continue;
             }
@@ -376,7 +382,8 @@ public class NestingMutationTest {
         for (int i = 0; i < 200; i++) {
             QueryStatement stmt = parse("select v1 from t0");
             String applied = op.applyAt(stmt, NestingMutation.slotsOf(stmt).get(0),
-                    NestingMutation.Shape.SELF_JOIN, joinCond(new Random(i), pool));
+                    NestingMutation.Shape.SELF_JOIN,
+                    NestingMutation.joinCondition(pool, new Random(i)));
             if (applied == null) {
                 continue;
             }
@@ -391,12 +398,4 @@ public class NestingMutationTest {
         Assertions.assertTrue(cross > 0, "the cross join shape disappeared entirely");
     }
 
-    /** Mirrors the private weighting in the operator, so the test exercises the same distribution. */
-    private static String joinCond(Random rnd, AstMutationFuzzerTest.Pool pool) {
-        if (rnd.nextInt(100) < 10) {
-            return null;
-        }
-        String col = pool.columnNames.get(rnd.nextInt(pool.columnNames.size()));
-        return rnd.nextInt(100) < 80 ? "=" + col : ">" + col;
-    }
 }
