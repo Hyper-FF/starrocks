@@ -49,6 +49,10 @@ import com.starrocks.statistic.StatsConstants;
 import com.starrocks.type.IntegerType;
 import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -56,6 +60,7 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -331,6 +336,47 @@ public class UtilsTest {
         Assertions.assertTrue(consume.getStatistics().getColumnStatistic(consumeColumn).isUnknown());
         Assertions.assertNotNull(topN.getStatistics());
         Assertions.assertTrue(topN.getStatistics().getColumnStatistic(consumeColumn).isUnknown());
+    }
+
+    /**
+     * The same guarantee as the test above, but reached through the real planner: SELECT DISTINCT over a window
+     * function drops the window's argument column while a projection above still references that column, so
+     * estimating the projection throws. The query itself plans fine either way - what used to break is the rest of
+     * the tree, which lost its statistics to one NullPointerException per ancestor.
+     */
+    @Test
+    public void testCalculateStatisticsDoesNotCascadeThroughThePlan() throws Exception {
+        List<Throwable> reported = Lists.newArrayList();
+        org.apache.logging.log4j.core.Logger logger =
+                (org.apache.logging.log4j.core.Logger) LogManager.getLogger(Utils.class);
+        AbstractAppender appender =
+                new AbstractAppender("captureStatisticsFailures", null, null, false, Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        if (event.getThrown() != null) {
+                            reported.add(event.getThrown());
+                        }
+                    }
+                };
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            UtFrameUtils.getFragmentPlan(connectContext,
+                    "select distinct sum(v3) over () as s, v1 from test.t0 order by 1 limit 30, 1");
+        } finally {
+            logger.removeAppender(appender);
+            appender.stop();
+        }
+
+        // Whether the estimation fails at all is a separate defect, so this deliberately does not assert that it
+        // does: if that one is fixed, this test simply stops having anything to catch. What must never come back is
+        // an estimation failure turning into a NullPointerException in the operators above it.
+        List<Throwable> cascaded = reported.stream()
+                .filter(t -> t instanceof NullPointerException)
+                .collect(Collectors.toList());
+        Assertions.assertTrue(cascaded.isEmpty(),
+                () -> "statistics estimation failure cascaded into " + cascaded.size()
+                        + " NullPointerException(s): " + cascaded);
     }
 
     @Test
