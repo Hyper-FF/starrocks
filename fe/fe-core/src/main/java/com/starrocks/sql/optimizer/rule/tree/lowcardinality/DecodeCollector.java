@@ -487,16 +487,42 @@ public class DecodeCollector extends OptExpressionVisitor<DecodeInfo, DecodeInfo
     }
 
     private boolean checkDependOnExpr(int cid, Collection<Integer> checkList) {
+        return checkDependOnExpr(cid, checkList, Sets.newHashSet());
+    }
+
+    /*
+     * Answers "does cid's define chain bottom out in columns that are already known string columns?".
+     *
+     * stringRefToDefineExprMap is a graph, not a tree: a define expression may reference a column that is itself
+     * defined, and nothing guarantees the edges are acyclic. The merge stage of a split aggregation, for instance,
+     * records `k -> array_agg(k)`, and CTE/union/table-function mappings can chain refs back onto each other. A
+     * column can never be its own dictionary source, so a cycle has no answer other than false; `resolving` tracks
+     * the columns on the current path so any cycle - through any branch, of any length - terminates instead of
+     * recursing until the stack dies.
+     */
+    private boolean checkDependOnExpr(int cid, Collection<Integer> checkList, Set<Integer> resolving) {
         if (checkList.contains(cid)) {
             return true;
         }
         if (!stringRefToDefineExprMap.containsKey(cid)) {
             return false;
         }
-        ScalarOperator define = stringRefToDefineExprMap.get(cid);
+        if (!resolving.add(cid)) {
+            // cid is already being resolved further up the recursion: the define chain loops back on itself
+            return false;
+        }
+        try {
+            return checkDependOnDefine(cid, stringRefToDefineExprMap.get(cid), checkList, resolving);
+        } finally {
+            resolving.remove(cid);
+        }
+    }
+
+    private boolean checkDependOnDefine(int cid, ScalarOperator define, Collection<Integer> checkList,
+                                        Set<Integer> resolving) {
         if (define instanceof CallOperator && FunctionSet.ARRAY_AGG.equals(((CallOperator) define).getFnName())) {
             return define.getChild(0).isColumnRef() &&
-                    checkDependOnExpr(((ColumnRefOperator) define.getChild(0)).getId(), checkList);
+                    checkDependOnExpr(((ColumnRefOperator) define.getChild(0)).getId(), checkList, resolving);
         }
         if (define.getType().isStructType()) {
             Map<String, ColumnRefOperator> fieldsMap = structManager.getFieldStringRefMap(define);
@@ -504,7 +530,7 @@ public class DecodeCollector extends OptExpressionVisitor<DecodeInfo, DecodeInfo
                 return false;
             }
             // Any structs with encoded fields should pass. We filter the fields list later.
-            return fieldsMap.values().stream().anyMatch(c -> checkDependOnExpr(c.getId(), checkList));
+            return fieldsMap.values().stream().anyMatch(c -> checkDependOnExpr(c.getId(), checkList, resolving));
         }
         if (define instanceof SubfieldOperator) {
             SubfieldOperator subfieldOperator = define.cast();
@@ -513,13 +539,13 @@ public class DecodeCollector extends OptExpressionVisitor<DecodeInfo, DecodeInfo
                 return false;
             }
             ColumnRefOperator fieldRef = fieldsMap.get(subfieldOperator.getFieldNames().get(0));
-            return fieldRef != null && checkDependOnExpr(fieldRef.getId(), checkList);
+            return fieldRef != null && checkDependOnExpr(fieldRef.getId(), checkList, resolving);
         }
         for (ColumnRefOperator ref : getColumnRefs(define)) {
             if (ref.getId() == cid) {
                 return false;
             }
-            if (!checkDependOnExpr(ref.getId(), checkList)) {
+            if (!checkDependOnExpr(ref.getId(), checkList, resolving)) {
                 return false;
             }
         }
