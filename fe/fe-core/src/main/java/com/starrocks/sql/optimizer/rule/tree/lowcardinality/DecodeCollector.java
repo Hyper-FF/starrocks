@@ -1053,14 +1053,22 @@ public class DecodeCollector extends OptExpressionVisitor<DecodeInfo, DecodeInfo
                 Preconditions.checkNotNull(fieldsData);
                 structManager.setFieldMapping(value, fieldsData);
             }
-            if (supportLowCardinality(aggFn.getReturnType())) {
+            // The result type of these aggregations follows the type of the aggregated value, i.e. of
+            // the first argument. When another aggregation of this node forced that column to be
+            // decoded below the node, the aggregation reads plain strings and its result keeps the
+            // string type, so its output column must not be registered as a dict column: otherwise
+            // the output column ref and the aggregation expression end up with different types,
+            // e.g. ARRAY<INT> vs ARRAY<VARCHAR(255)>, and the plan fails type validation.
+            boolean keepsStringResult = !value.getArguments().isEmpty()
+                    && value.getArguments().get(0).getUsedColumns().isIntersect(info.decodeStringColumns);
+            if (!keepsStringResult && supportLowCardinality(aggFn.getReturnType())) {
                 setDefineExpr(key, value, 1);
             }
             final boolean isFinalStage = aggregate.getType().isGlobal() ||
                     (aggregate.getType().isLocal() && !aggregate.isSplit());
             if (isFinalStage) {
                 info.finalizingStringAggregations.union(key.getId());
-                if (supportLowCardinality(value.getType())) {
+                if (!keepsStringResult && supportLowCardinality(value.getType())) {
                     info.outputStringColumns.union(key.getId());
                 }
             } else {

@@ -1263,4 +1263,17 @@ public class LowCardinalityArrayTest extends PlanTestBase {
                 "  |  <slot 9> : DictDecode(10: S_ADDRESS, [<place-holder>], " +
                 "array_intersect(10: S_ADDRESS, array_distinct(10: S_ADDRESS)))"), plan);
     }
+
+    @Test
+    public void testArrayAggWithSiblingAggForcingDecode() throws Exception {
+        // array_agg(distinct) + count(distinct) are rewritten into array_agg_distinct +
+        // multi_distinct_count. array_agg_distinct cannot run on dictionary codes, so S_COMMENT is
+        // decoded below the aggregate node; the sibling array_agg must then keep its string result
+        // type instead of being registered as a dictionary column.
+        String sql = "select array_agg(distinct S_COMMENT), count(distinct S_SUPPKEY), " +
+                "array_agg(S_COMMENT) from supplier_nullable where S_COMMENT < 2";
+        String plan = getVerboseExplain(sql);
+        Assertions.assertTrue(plan.contains("result: ARRAY<VARCHAR(101)>"), plan);
+        Assertions.assertFalse(plan.contains("array_agg[([7: S_COMMENT, INT"), plan);
+    }
 }
