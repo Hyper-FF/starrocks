@@ -50,4 +50,20 @@ public class ArrayDistinctAfterAggTest extends PlanTestBase {
         sqlPlan = getFragmentPlan(sql);
         assertNotContains(sqlPlan, "array_agg_distinct");
     }
+
+    @Test
+    public void testArrayAggDistinctKeepsElementType() throws Exception {
+        // array_agg_distinct is registered as TIME -> ARRAY<DATETIME>, so rewriting array_agg(TIME)
+        // into it gave the aggregation a type its output column ref does not have, and the plan was
+        // rejected by the type checker. Both the multi-distinct rewrite and the
+        // array_distinct(array_agg) rewrite must decline the rewrite in that case.
+        String sql = "select array_agg(distinct cast(v3 as time)), count(distinct v1) from t0";
+        String sqlPlan = getFragmentPlan(sql);
+        assertCContains(sqlPlan, "array_agg_distinct(CAST(3: v3 AS TIME))");
+
+        // ArrayDistinctAfterAggRule must not swap in array_agg_distinct here either.
+        sql = "select array_distinct(array_agg(cast(v3 as time))) from t0 group by v1";
+        sqlPlan = getFragmentPlan(sql);
+        assertNotContains(sqlPlan, "array_agg_distinct");
+    }
 }

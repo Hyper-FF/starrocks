@@ -169,6 +169,13 @@ public class ArrayDistinctAfterAggRule extends TransformationRule {
                 if (oldFn.getArgs()[0].isDecimalOfAnyVersion()) {
                     newFn = DecimalV3FunctionAnalyzer.rectifyAggregationFunction(
                             (AggregateFunction) newFn, oldFn.getArgs()[0], oldFn.getReturnType());
+                } else if (!newFn.getReturnType().matchesType(entry.getKey().getType())) {
+                    // The overload found by non-strict matching does not preserve the element type of
+                    // array_agg, e.g. array_agg_distinct(TIME) returns ARRAY<DATETIME>. Rewriting would
+                    // leave the output column ref and the call with different types, which makes the
+                    // plan fail type validation.
+                    replaceMap.put(entry.getKey(), entry.getValue());
+                    continue;
                 }
                 CallOperator newCall = new CallOperator(newFn.getFunctionName().getFunction(), newFn.getReturnType(),
                         entry.getValue().getArguments(), newFn);

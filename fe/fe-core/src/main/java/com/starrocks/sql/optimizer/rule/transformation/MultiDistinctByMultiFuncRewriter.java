@@ -68,9 +68,13 @@ public class MultiDistinctByMultiFuncRewriter {
                     newAggOperator = buildMultiSumDistinct(oldFunctionCall);
                     changed = true;
                 } else if (oldFunctionCall.getFnName().equals(FunctionSet.ARRAY_AGG)) {
+                    CallOperator arrayAggDistinct = null;
                     if (oldFunctionCall.getColumnRefs().size() == 1 &&
                             !oldFunctionCall.getColumnRefs().get(0).getType().isDecimalOfAnyVersion()) {
-                        newAggOperator = buildArrayAggDistinct(oldFunctionCall);
+                        arrayAggDistinct = buildArrayAggDistinct(oldFunctionCall);
+                    }
+                    if (arrayAggDistinct != null) {
+                        newAggOperator = arrayAggDistinct;
                         changed = true;
                     } else {
                         newAggOperator = oldFunctionCall;
@@ -189,15 +193,32 @@ public class MultiDistinctByMultiFuncRewriter {
                 DEFAULT_TYPE_CAST_RULE);
     }
 
+    /**
+     * Returns null when array_agg cannot be rewritten into array_agg_distinct, in which case the
+     * caller must keep the original array_agg(DISTINCT ...).
+     */
     private CallOperator buildArrayAggDistinct(CallOperator oldFunctionCall) {
         Function searchDesc = new Function(new FunctionName(FunctionSet.ARRAY_AGG_DISTINCT),
                 oldFunctionCall.getFunction().getArgs(), InvalidType.INVALID, false);
         Function fn = GlobalStateMgr.getCurrentState().getFunction(searchDesc, IS_NONSTRICT_SUPERTYPE_OF);
+        if (fn == null) {
+            // array_agg_distinct is only registered for a fixed set of argument types, there is no
+            // overload accepting this one, e.g. HLL.
+            return null;
+        }
 
-        return (CallOperator) scalarRewriter.rewrite(
+        CallOperator newCall = (CallOperator) scalarRewriter.rewrite(
                 new CallOperator(FunctionSet.ARRAY_AGG_DISTINCT, fn.getReturnType(), oldFunctionCall.getChildren(),
                         fn),
                 DEFAULT_TYPE_CAST_RULE);
+        if (!newCall.getType().matchesType(oldFunctionCall.getType())) {
+            // The overload found by non-strict matching does not preserve the element type of
+            // array_agg, e.g. array_agg_distinct(TIME) returns ARRAY<DATETIME>. Rewriting would leave
+            // the aggregation's output column ref and its expression with different types and the
+            // plan would fail type validation.
+            return null;
+        }
+        return newCall;
     }
 
     private CallOperator buildMultiSumDistinct(CallOperator oldFunctionCall) {
