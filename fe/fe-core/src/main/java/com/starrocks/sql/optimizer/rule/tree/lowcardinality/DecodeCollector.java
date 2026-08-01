@@ -1071,7 +1071,14 @@ public class DecodeCollector extends OptExpressionVisitor<DecodeInfo, DecodeInfo
                 if (!keepsStringResult && supportLowCardinality(value.getType())) {
                     info.outputStringColumns.union(key.getId());
                 }
-            } else {
+            } else if (!keepsStringResult) {
+                // Only advertise the key to the merge stage when this stage really defined it as a
+                // dict aggregation. keepsStringResult is stage-dependent: here the first argument is
+                // the decoded input column, but in the merge stage it is the key itself, which is not
+                // in that node's decodeStringColumns. Advertising a key we refused to define would let
+                // the merge stage define it as `key -> array_agg(key)`, and since setDefineExpr only
+                // puts if absent, nothing would block that self-reference: walking the define
+                // expressions then recurses forever.
                 info.inProgressStringAggregations.union(key.getId());
             }
         }
