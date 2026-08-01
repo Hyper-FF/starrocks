@@ -1276,4 +1276,19 @@ public class LowCardinalityArrayTest extends PlanTestBase {
         Assertions.assertTrue(plan.contains("result: ARRAY<VARCHAR(101)>"), plan);
         Assertions.assertFalse(plan.contains("array_agg[([7: S_COMMENT, INT"), plan);
     }
+
+    @Test
+    public void testArrayAggWithSiblingAggForcingDecodeSplitAgg() throws Exception {
+        // Same shape as above, but split into a local and a merge stage. The local stage declines to
+        // define the array_agg key as a dict column, so it must not advertise it to the merge stage
+        // either: the merge stage would define it as array_agg(key) and walking the define
+        // expressions would recurse on that self-cycle.
+        for (String stage : new String[] {"2", "3", "4"}) {
+            String sql = "select /*+SET_VAR(new_planner_agg_stage=" + stage + ")*/ " +
+                    "array_agg(distinct S_COMMENT), count(distinct S_SUPPKEY), array_agg(S_COMMENT) " +
+                    "from supplier_nullable where S_COMMENT < 2";
+            String plan = getVerboseExplain(sql);
+            Assertions.assertTrue(plan.contains("result: ARRAY<VARCHAR(101)>"), plan);
+        }
+    }
 }
