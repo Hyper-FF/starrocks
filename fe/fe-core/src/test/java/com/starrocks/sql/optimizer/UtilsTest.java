@@ -29,11 +29,15 @@ import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.ast.CreateDbStmt;
 import com.starrocks.sql.ast.JoinOperator;
 import com.starrocks.sql.ast.expression.BinaryType;
+import com.starrocks.sql.optimizer.base.ColumnRefFactory;
+import com.starrocks.sql.optimizer.base.Ordering;
 import com.starrocks.sql.optimizer.operator.Projection;
+import com.starrocks.sql.optimizer.operator.logical.LogicalCTEConsumeOperator;
 import com.starrocks.sql.optimizer.operator.logical.LogicalJoinOperator;
 import com.starrocks.sql.optimizer.operator.logical.LogicalOlapScanOperator;
 import com.starrocks.sql.optimizer.operator.logical.LogicalPaimonScanOperator;
 import com.starrocks.sql.optimizer.operator.logical.LogicalProjectOperator;
+import com.starrocks.sql.optimizer.operator.logical.LogicalTopNOperator;
 import com.starrocks.sql.optimizer.operator.logical.LogicalValuesOperator;
 import com.starrocks.sql.optimizer.operator.scalar.BinaryPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
@@ -304,6 +308,29 @@ public class UtilsTest {
                 new OptExpression(
                         new LogicalOlapScanOperator(t1, Maps.newHashMap(), Maps.newHashMap(), null, -1, null));
         Assertions.assertFalse(Utils.hasUnknownColumnsStats(opt));
+    }
+
+    @Test
+    public void testCalculateStatisticsDegradesToUnknownWhenEstimationFails() {
+        ColumnRefFactory columnRefFactory = new ColumnRefFactory();
+        ColumnRefOperator consumeColumn = columnRefFactory.create("v1", IntegerType.BIGINT, true);
+        ColumnRefOperator produceColumn = columnRefFactory.create("v2", IntegerType.BIGINT, true);
+
+        // A childless CTE consume whose producer statistics were never registered: estimating it always throws.
+        OptExpression consume = OptExpression.create(
+                new LogicalCTEConsumeOperator(1, Map.of(consumeColumn, produceColumn)));
+        OptExpression topN = OptExpression.create(
+                new LogicalTopNOperator(Lists.newArrayList(new Ordering(consumeColumn, true, true))), consume);
+
+        Utils.calculateStatistics(topN, OptimizerFactory.mockContext(columnRefFactory));
+
+        // The failed operator must still carry statistics: every ancestor dereferences its children's statistics
+        // without a null check, so leaving it unset used to raise a NullPointerException in computeTopNNode and
+        // left the whole subtree unestimated.
+        Assertions.assertNotNull(consume.getStatistics());
+        Assertions.assertTrue(consume.getStatistics().getColumnStatistic(consumeColumn).isUnknown());
+        Assertions.assertNotNull(topN.getStatistics());
+        Assertions.assertTrue(topN.getStatistics().getColumnStatistic(consumeColumn).isUnknown());
     }
 
     @Test

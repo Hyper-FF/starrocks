@@ -63,6 +63,7 @@ import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.sql.optimizer.rewrite.ReplaceColumnRefRewriter;
 import com.starrocks.sql.optimizer.rewrite.ScalarOperatorRewriter;
 import com.starrocks.sql.optimizer.statistics.ColumnStatistic;
+import com.starrocks.sql.optimizer.statistics.Statistics;
 import com.starrocks.sql.optimizer.statistics.StatisticsCalculator;
 import com.starrocks.type.FloatType;
 import com.starrocks.type.ScalarType;
@@ -933,15 +934,46 @@ public class Utils {
         ExpressionContext expressionContext = new ExpressionContext(expr);
         StatisticsCalculator statisticsCalculator = new StatisticsCalculator(
                 expressionContext, context.getColumnRefFactory(), context);
+        Statistics statistics = null;
         try {
             statisticsCalculator.estimatorStats();
+            statistics = expressionContext.getStatistics();
         } catch (Exception e) {
             LOG.warn("[query={}] Failed to calculate statistics for expression: {}",
                     DebugUtil.getSessionQueryId(), expr, e);
-            return;
         }
 
-        expr.setStatistics(expressionContext.getStatistics());
+        if (statistics == null) {
+            statistics = unknownStatistics(expr);
+        }
+        expr.setStatistics(statistics);
+    }
+
+    /**
+     * Fallback statistics for an operator whose estimation failed.
+     * <p>
+     * StatisticsCalculator dereferences {@code ExpressionContext#getChildStatistics} without a null check in almost
+     * every visitor, so leaving an operator without statistics turns a single estimation failure into a
+     * NullPointerException in every ancestor, and the whole subtree ends up unestimated. Degrading to unknown column
+     * statistics keeps the failure local: unknown statistics are a state every consumer already handles.
+     */
+    private static Statistics unknownStatistics(OptExpression expr) {
+        Statistics.Builder builder = Statistics.builder();
+        // Statistics of a failed operator are unknown, not zero. Keep the largest known input row count so that
+        // ancestors do not mistake the subtree for an almost empty one.
+        double outputRowCount = 1;
+        for (OptExpression child : expr.getInputs()) {
+            Statistics childStatistics = child.getStatistics();
+            if (childStatistics != null) {
+                outputRowCount = Math.max(outputRowCount, childStatistics.getOutputRowCount());
+            }
+        }
+        builder.setOutputRowCount(outputRowCount);
+        builder.setTableRowCountMayInaccurate(true);
+        for (ColumnRefOperator columnRef : expr.getRowOutputInfo().getOutputColRefs()) {
+            builder.addColumnStatistic(columnRef, ColumnStatistic.unknown());
+        }
+        return builder.build();
     }
 
     /**
