@@ -474,8 +474,10 @@ public:
                 is_const[i] = value->is_constant();
                 all_const &= is_const[i];
             }
-            if (i == 0) {
-                RETURN_IF_COLUMNS_ONLY_NULL({value});
+            if (i == 0 && value->only_null()) {
+                // Do not hand out `_const_input[0]` itself: it is cached, shared with every
+                // cloned expression, and the caller may resize it in place.
+                return ColumnHelper::create_const_null_column(num_rows(ptr, value->size()));
             }
             columns_ref[i] = value;
             if (value->is_constant()) {
@@ -490,8 +492,25 @@ public:
                 input_data[i] = value;
             }
         }
-        auto size = columns_ref[0]->size();
-        DCHECK(ptr == nullptr || ptr->num_rows() == size); // ptr is null in tests.
+        // The number of output rows is dictated by the chunk, never by the first child.
+        // A constant child is evaluated once in open() with a null chunk, so its cached
+        // column only holds a single row; using its size here would emit a one-row result
+        // for a chunk of `num_rows` rows and break the "all columns of a chunk have the
+        // same number of rows" invariant.
+        size_t fallback_size = 1;
+        for (const auto& column : columns_ref) {
+            fallback_size = std::max(fallback_size, column->size());
+        }
+        auto size = num_rows(ptr, fallback_size);
+        // A child that is not constant is indexed row by row below, so it must provide as
+        // many rows as the output. Refuse instead of reading out of bounds.
+        for (int i = 0; i < child_size; ++i) {
+            if (!is_const[i] && columns_ref[i]->size() < size) {
+                return Status::InternalError(strings::Substitute(
+                        "in-predicate operand $0 has $1 rows, but $2 rows are required", i,
+                        columns_ref[i]->size(), size));
+            }
+        }
         auto dest_size = size;
         if (all_const) {
             dest_size = 1;
@@ -542,6 +561,12 @@ public:
     }
 
 private:
+    // `chunk` is null when the predicate is folded outside of a query (constant folding
+    // and unit tests); fall back to the widest operand in that case.
+    static size_t num_rows(const Chunk* chunk, size_t fallback) {
+        return chunk != nullptr ? chunk->num_rows() : fallback;
+    }
+
     const bool _is_not_in{false};
     Columns _const_input;
 };
