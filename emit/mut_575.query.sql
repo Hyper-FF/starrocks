@@ -1,0 +1,13 @@
+SELECT 'variant iceberg write round trip' AS `test_name`;
+SELECT 'variant iceberg write round trip' AS `test_name` ORDER BY 'variant iceberg write round trip' DESC;
+SELECT 'variant iceberg write round trip' AS `test_name` LIMIT 1, 1;
+SELECT 'variant iceberg write round trip' AS `test_name` ORDER BY 'variant iceberg write round trip' ASC;
+SELECT CAST('variant iceberg write round trip' AS JSON)->'$.a' AS `test_name`;
+SELECT 'variant iceberg write round trip' AS `test_name` ORDER BY 'variant iceberg write round trip' DESC NULLS FIRST;
+SELECT 'variant iceberg write round trip' AS `test_name` ORDER BY 'variant iceberg write round trip' ASC;
+SELECT 'variant iceberg write round trip' AS `test_name` LIMIT 0;
+SELECT 'variant iceberg write round trip' AS `test_name` ORDER BY 'variant iceberg write round trip' ASC;
+SELECT 'variant iceberg write round trip' AS `test_name` GROUP BY 'variant iceberg write round trip';
+SELECT 'variant iceberg write round trip' AS `test_name` LIMIT 100;
+SELECT CAST('variant iceberg write round trip' AS JSON)->'k' AS `test_name`;
+SELECT CAST('variant iceberg write round trip' AS JSON)->'$.a' AS `test_name`;

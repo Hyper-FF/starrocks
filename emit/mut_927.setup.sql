@@ -1,0 +1,18 @@
+CREATE table tab1 (
+      k1 INTEGER,
+      k2 VARCHAR(50),
+      v1 INTEGER,
+      v2 INTEGER,
+      v3 INTEGER
+)
+ENGINE=OLAP
+PRIMARY KEY(`k1`,`k2`)
+DISTRIBUTED BY HASH(`k1`) BUCKETS 10
+PROPERTIES (
+    "replication_num" = "1"
+);
+insert into tab1 values (100, "100", 100, "100", "100");
+insert into tab1 values (200, "100", 100, "100", "100");
+insert into tab1 values (300, "100", 100, "100", "100");
+insert into tab1 values (400, "100", 100, "100", "100");
+insert into tab1 values (500, "100", 100, "100", "100");

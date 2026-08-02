@@ -1,0 +1,2 @@
+create table test_select_from_be_tablets_with_any_priv_db.test11 (id int) duplicate key (id) distributed by hash(id) buckets 1 properties("replication_num"="1");
+create table test_select_from_be_tablets_with_any_priv_db.test22 (id int) duplicate key (id) distributed by hash(id) buckets 1 properties("replication_num"="1");

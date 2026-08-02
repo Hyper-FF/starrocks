@@ -361,3 +361,231 @@ kind of work than crash hunting.
    and one deployment answers both.
 5. **Minimize C1** if it survives that.
 6. **Then C2**, the cleanest of the planner candidates.
+
+---
+
+## Round 9-11 (2026-08-01/02): statistics fix verified, three harness defects removed
+
+### F3/F4 RESOLVED — `PushDownDistinctAggregateRewriter` left dropped columns in a projection
+
+Both reported "missing statistic of col" shapes were **one producer**, not two.
+`cbo_push_down_distinct_below_window` rewrites `select distinct a, sum(b) over (...)` into an
+aggregation on the scan that pre-aggregates `b`, so `b` is no longer emitted. The rewriter remapped
+the projections between scan and window but merged the rewritten map in with `putAll` instead of
+replacing it, so the stale `b -> b` entry survived. `pushDownAggregation` then runs
+`logicalJoinReorder -> Utils.calculateStatistics` on that tree immediately, before the column pruning
+it schedules afterwards, and statistics derivation trips on the stale entry.
+
+The exception is **swallowed**, so the query still plans — but the whole subtree is left without
+derived statistics, and join reordering and aggregate push-down then choose a plan from statistics
+that were never computed. That is the real damage; the log line is only the symptom.
+
+- Minimal: `select distinct v1, sum(v3) over () from t0`
+- Fix: `/home/public/sr-projdrop` `95740e7993b`, test `bfab685d678`
+- Keep an original entry only when its column is also a grouping key of the pushed-down aggregation.
+- **Verified end-to-end on the cluster: 21 occurrences before, 0 after.** Not pushed, no PR.
+- Why the earlier agents' unit tests missed it: `PlanTestBase` sets `cbo_push_down_aggregate_mode=-1`,
+  which skips the very call that surfaces it. Tests must set it back to `0`.
+
+### New — dangling MV foreign-key constraint breaks metadata replay (low severity)
+
+```
+IllegalArgumentException: BaseInfo's db 220930 should not be null in the foreign key constraint
+  ForeignKeyConstraint.getTableBaseInfo:250 <- parse:212 <- TableProperty.buildConstraint:979
+  <- buildMvProperties:549 <- gsonPostProcess:1519
+```
+Hit on **FE startup replay** and in `global-state-checkpoint-worker`. Dropping a database referenced
+by an MV's foreign-key constraint leaves a persisted constraint that no longer parses. Caught and
+ignored ("Failed to parse foreign key constraints"), so it is metadata hygiene, not a crash — but
+the constraint is silently lost and the message tells the operator to drop constraints by hand.
+
+### Open — the VARBINARY unsized sentinel is not fully resolved by my own fix
+
+`bugfix/varbinary-negative-length` (`cb3570617c7`) is **already deployed on this cluster**, and the
+fuzzer still produces `Not support cast VARBINARY(-N) to BOOLEAN`. That fix resolves the sentinel for
+`CAST(x AS VARBINARY)`, i.e. VARBINARY as the cast *target*. Here `VARBINARY(-1)` is the cast
+*source*, so something still produces or retains the unsized type on another path. The fix has a hole.
+Not yet minimized — the direct SQL attempts ran against a dead BE and must be redone.
+
+### Harness defects fixed this round (all three are "a failure that was not recorded as one")
+
+1. **Setup failures were invisible.** The harness counted only query errors, so a group whose tables
+   failed to create looked identical to a clean round. `rounds.tsv` now carries `tables` and
+   `setup_fail`, and distinct setup failures go to `setup-failures.tsv`. This had been true for
+   seven rounds.
+2. **Blanket DROP-stripping corrupted schemas.** Stripping *every* DROP (the workaround for trailing
+   teardown deleting tables the queries need) collapsed mid-file `DROP t; CREATE t` pairs into two
+   bare CREATEs, so the second died with `Table already exists` and the group replayed against the
+   **old schema**. Now object-aware: keep a DROP only when the same object is created again later.
+   Result: `Table already exists` and `Cannot cast ARRAY<struct<...>>` signature classes gone,
+   mut_000 setup failures 2 -> 0, mut_009 20 -> 11, and recovered coverage shows up directly in
+   query counts (mut_001 7394 -> 7488, mut_003 4882 -> 4966, mut_010 837 -> 851).
+3. **`be_alive` asked the OS, not the FE.** It used `pgrep -x starrocks_be`, but a backend accepts a
+   pid instantly and takes ~30s to register. One round ran 2198 queries against a not-yet-serving
+   backend and logged **79128 bogus errors and 4 bogus FE signatures**
+   (`reportDataNodeNotFoundException` at `NormalBackendSelector.computeScanRangeAssignment`). Now it
+   asks the FE for `Alive: true`, and a still-registering process is waited for rather than restarted.
+   This is the identical mistake already fixed once for `fe_alive` and left in place here.
+
+### Environment
+
+- `default_replication_num` was 3 on a 1-BE cluster; 171 of 2203 corpus `CREATE TABLE`s omit
+  `replication_num`, giving 1418 create-table failures. Set to 1 **in `fe.conf`** — `admin set
+  frontend config` does not survive the FE restarts the harness performs.
+- The BE was SIGTERMed externally at 17:43:38 (clean shutdown, no ASan report, no OOM). Shared box.
+
+### Still no new crash
+
+Rounds 9-11 produced no ASan report and no new crash signature. The only new error signatures are the
+VARBINARY cast matrix (`LARGEINT/BOOLEAN/TINYINT -> VARBINARY`), which is the fifth instance of the
+recurring theme: **the FE registration surface is wider than the BE implementation.**
+
+---
+
+## The harness was losing crashes (audited 2026-08-02)
+
+**Yes, crashes were lost.** Mining every `be.out` still on disk turned up **10 distinct crash
+signatures**, against 22 `## BE CRASH` entries that were mostly unusable. One archived log alone holds
+**68 crash markers against 10 recorded entries**.
+
+Three defects combined, all of them the same disease as everything else in this file — a failure that
+was not recorded as a failure:
+
+1. **One record per round, no signature dedup.** `record_crash` fired once per round based on a
+   before/after marker count. A round that crashed five different ways recorded one entry, and
+   nothing said which crash it was.
+2. **The recorded evidence was the wrong text.** It captured `tail -60 "$BELOG"` — but the BE
+   restarts after it dies, so by the time that ran, the end of `be.out` was the *new process's
+   startup banner*. This is why I read the one recorded crash, saw a startup banner plus an empty
+   `be.FATAL` plus zero ASan reports, and **wrongly called it a false positive**. `be.FATAL` is empty
+   because a release build reports through glog's `FailureSignalHandler` into `be.out`, and there are
+   no ASan reports because this cluster runs a **RELEASE** build. All three checks were the wrong
+   checks.
+3. **Recording was gated on the marker count rising.** `be.out` rotates and the BE restarts (both by
+   this harness and by a neighbour on the box), either of which resets the count and hides a crash
+   that did happen.
+
+Fixed: signatures are now extracted per crash banner and deduped in `crash-signatures.txt`; recording
+runs every round independent of the counter; the stack is located by seeking to the banner **matching
+that signature**; and the crash banner's `query_id` is resolved against `fe.audit.log` to print the
+exact statement. There is nothing left to bisect — the harness used to halve query files while the
+answer sat one grep away.
+
+### C6 — unbounded cursor read in the Teradata and Joda datetime parsers (FIXED)
+
+```sql
+select to_tera_timestamp('', ';yyyy')   -- SIGSEGV @0x0
+select str_to_jodatime('', ';yyyy')     -- SIGSEGV @0x0
+```
+
+`TeradataFormat::parse` and `JodaFormat::parse` pass every token parser a `val_end` and the
+literal-character parsers never look at it — they dereference the cursor directly. On empty input the
+cursor is the empty string's null data pointer. Reaching it only needs the format to **begin with a
+literal character**: the numeric parsers go through `str_to_int64` and fail safely, which is why a
+format starting with `yyyy` returns NULL and one starting with `;` kills the backend. No table and no
+privileges required.
+
+Fix: `/home/public/sr-teraparse` `9f659844f86` — bound each cursor read by `val_end`, covering the
+Teradata punctuation/am/pm parsers and the Joda literal parser. Not pushed, no PR.
+
+### The remaining signatures, retriaged
+
+| signature | verdict |
+| --- | --- |
+| `ArrayAggAggregateState<` (6) | known agg-state dictionary-encoding family; fix exists, undeployed here |
+| `RunTimeTypeTraits<` (4) | **not new** — expands to `ApproxTopK::get_k_and_counter_num` → `get_const_value<5>` → `cast_to_raw<5>`; the known constant-argument shift from `SplitAggregateRule.appendConstantColumns` |
+| `TeradataRuntimeState` (2) | C6 above, fixed |
+| `JsonColumn::append` (2) | known, fixed |
+| `BinaryColumnBase<unsigned` (2) | known low-cardinality VARCHAR family |
+| `VectorizedInConstPredicateGeneric::evaluate_checked` (1) | **genuinely new** — a fatal CHECK in a projection-context `IN (...)`; delegated |
+| `MemPool::allocate_with_reserve` (1) | known, #76910 |
+| `joda::JodaRuntimeState` (1) | C6 above, fixed |
+| `HistogramAggregationFunction<` (1) | known, FE guard exists |
+| `ArrayUnionAggAggregateFunction<` (1) | SIGSEGV **@0x1** on the storage-read `AggStateUnion` path — the same dictionary-code-as-pointer family as `ArrayAgg` (@0x9); delegated to check whether the existing FE `DecodeCollector` fix covers this variant |
+
+**This also revises an earlier claim in this file.** "346 rounds, no new crash" was wrong on two
+counts: the harness was hiding crashes, and separately the amplification step suspected of triggering
+the agg-state family had been silently broken for hundreds of rounds, so its trigger was absent.
+
+### C7 — `VectorizedInConstPredicateGeneric` sizes its result from a cached one-row column
+
+`in_const_predicate.hpp` caches every constant child in `open()` by evaluating it against a **null
+chunk**, so each cached column holds exactly one row. `evaluate_checked` then took its output size
+from `columns_ref[0]->size()`, which is 1 whenever the left operand is constant. For any chunk with
+more than one row that breaks the invariant asserted at `in_const_predicate.hpp:494`:
+
+```
+Check failed: ptr == nullptr || ptr->num_rows() == size
+```
+
+The non-generic `VectorizedInConstPredicate<Type>` re-evaluates the left operand against the real
+chunk, which is why only the Generic class (JSON, ARRAY/MAP/STRUCT) is affected.
+
+**Severity is lower than the stack suggests, and the build matters.** That assertion is a `DCHECK`.
+Checking the build banners settles where each archived crash came from:
+
+| archive | build |
+| --- | --- |
+| `round1` (this crash, and the approx_top_k one) | **ASAN** |
+| `round5` (`ArrayUnionAgg`) | RELEASE |
+| current (`to_tera` / `str_to_jodatime`) | RELEASE |
+
+So this fired in a checked build, where the DCHECK is live. On the RELEASE cluster I could not make
+it manifest at all: `SELECT [1,2] IN ([1,2],[3,4]) FROM t`, the JSON/MAP/STRUCT equivalents, and the
+variable-IN-list variants all returned correct results over a 4-row table, because
+`ExprContext::evaluate` resizes a constant result downstream. Recording that plainly — **no
+release-visible wrong answer was demonstrated**.
+
+The fix is still worth having: it stops depending on that downstream fixup, and it closes a genuine
+unchecked heap over-read for a non-constant operand that cannot supply `size` rows.
+
+Fix `/home/public/sr-inconst` `4ea392b9897`, tests `155c15a6f74` — seen failing first in both NDEBUG
+(wrong size) and DCHECK-live (abort) builds; 11/11 pass after. Not pushed.
+
+### Correction to how these were prioritised
+
+Earlier entries in this file described the fuzz cluster as a single "Release" environment. It is not:
+the campaign switched from an ASAN build to RELEASE partway through, and crash severity cannot be
+read without checking the banner in the same `be.out`. Release-visible so far: **C6** (`to_tera` /
+`str_to_jodatime`, no table or privileges needed) and the `ArrayUnionAgg` agg-state dictionary family.
+
+> **Owned elsewhere — do not touch from this campaign.** The gap where the agg-state fix covers only
+> the V2 low-cardinality rule (`DecodeCollector`) and not V1 (`AddDecodeNodeForDictStringRule`, which
+> has no agg-state guard at all and would dictionary-encode a scalar-VARCHAR agg-state column such as
+> `v max(varchar(20))`) is being fixed in a separate session. Do not edit
+> `AddDecodeNodeForDictStringRule.java`, `DecodeCollector.java`, or the
+> `bugfix/array-agg-state-union-crash` branch from here.
+
+### `RunTimeTypeTraits` resolved — the known `approx_top_k` constant shift, and it is worse on Release
+
+Verdict: not a distinct defect. The template parameters decode the case on their own —
+**LogicalType 1 = `TYPE_TINYINT`** (the aggregated *value* argument) and **LogicalType 5 = `TYPE_INT`**
+(`k`'s declared type, since `approx_top_k(type, INT, INT)`). A column of argument 0's type sitting in
+slot 1 *is* the "shifted by one" signature; an unrelated defect would show some other type.
+
+`SplitAggregateRule.appendConstantColumns` appends **every** constant child including child 0, which
+the merge phase has already replaced with the intermediate column. `Aggregator::_evaluate_const_columns`
+fills `_constant_columns` positionally from the actual children (4 entries) while `get_num_args()`
+comes from the signature (3), so the extra column is never noticed. Confirmed on unmodified
+`starrocks-2/main`: the merge phase really is `approx_top_k(18: approx_top_k, 1, 3, 10)`, including in
+the no-`GROUP BY` shape whose merge runs through `Aggregator::compute_single_agg_state` — the exact
+frame in the stack.
+
+**The important part for this campaign:** `cast_to_raw`'s check is a `DCHECK` and `down_cast` uses a
+plain `assert`, so this stack cannot come from a true `NDEBUG` Release build — consistent with the
+`round1` banner reading ASAN. On a real Release build the same plan **silently reinterprets the int8
+as an int32**, producing a garbage `k`/`counter_num` and a garbage counter reservation. So it is a
+correctness bug there, not a crash. *Absence of this abort on the Release nodes does not mean absence
+of the bug* — which is precisely the trap that made me miscount "no new crashes" earlier.
+
+The FE fix additionally repairs `group_concat` (was reading arg 0 as the separator), `histogram`,
+`percentile_approx`, `minmax_n`, and `percentile_cont` — all shifted the same way whenever the
+aggregated value was constant. The `window_funnel` carve-out was proven **load-bearing**, not
+defensive: removing it drops `1800` from the merge plan, so the BE would read the INT mode as a
+BIGINT `window_size`.
+
+Right branch: `bugfix/approx-topk-merge-const-shift` (FE root-cause fix). The alternative BE-side fix
+in `wip/topkfix-3commits` counts constants from the end — a workaround layered on positional reading,
+not needed. Verification worktree `/home/public/sr-topkverify` `440874e8dab` + tests `4ce78921f45`;
+3445 plan tests, 0 failures. The SQL regression case under `test/sql/test_agg_function/` is **unrun**
+(needs a live cluster).

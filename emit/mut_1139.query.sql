@@ -1,0 +1,12 @@
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1139`.`t0`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1139`.`t0` HAVING (count(*)) > 0;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_1139`.`t0`.`c0`, `srfuzz_mut_1139`.`t0`.`c1` FROM `srfuzz_mut_1139`.`t0`) `t0` RIGHT OUTER JOIN (SELECT `srfuzz_mut_1139`.`t0`.`c0`, `srfuzz_mut_1139`.`t0`.`c1` FROM `srfuzz_mut_1139`.`t0`) `srfuzz_n1` ON 1 = 1;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1139`.`t0` HAVING (count(*)) > 1;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1139`.`t0` LIMIT 0;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1139`.`t0` LIMIT 1, 100;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1139`.`t0` ORDER BY count(*) DESC;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_1139`.`t0`.`c0`, `srfuzz_mut_1139`.`t0`.`c1` FROM `srfuzz_mut_1139`.`t0`) `t0`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1139`.`t0` ORDER BY count(*) DESC;
+SELECT CAST((count(*)) AS LARGEINT) AS `CAST((count(*)) AS LARGEINT)` FROM `srfuzz_mut_1139`.`t0`;
+WITH `srfuzz_n1` AS (SELECT `srfuzz_mut_1139`.`t0`.`c0`, `srfuzz_mut_1139`.`t0`.`c1` FROM `srfuzz_mut_1139`.`t0`) SELECT count(*) AS `count(*)` FROM `srfuzz_n1` AS t0;
+SELECT CAST((count(*)) AS JSON)->'k' AS `CAST((count(*)) AS JSON)->'k'` FROM `srfuzz_mut_1139`.`t0`;

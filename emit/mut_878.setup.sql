@@ -1,0 +1,39 @@
+CREATE TABLE `t1` (
+    `k1`  date not null, 
+    `k2`  datetime not null, 
+    `k3`  char(20), 
+    `k4`  varchar(20), 
+    `k5`  boolean, 
+    `k6`  tinyint, 
+    `k7`  smallint, 
+    `k8`  int, 
+    `k9`  bigint, 
+    `k10` largeint, 
+    `k11` float, 
+    `k12` double, 
+    `k13` decimal(27,9) ) 
+DUPLICATE KEY(`k1`, `k2`, `k3`, `k4`, `k5`) 
+PARTITION BY RANGE(`k1`) 
+(
+PARTITION p20201022 VALUES [("2020-10-22"), ("2020-10-23")), 
+PARTITION p20201023 VALUES [("2020-10-23"), ("2020-10-24")), 
+PARTITION p20201024 VALUES [("2020-10-24"), ("2020-10-25"))
+)
+DISTRIBUTED BY HASH(`k1`, `k2`, `k3`) BUCKETS 3 
+PROPERTIES (
+"replication_num" = "1"
+);
+INSERT INTO t1 VALUES ('2020-10-22','2020-10-23 12:12:12','k3','k4',0,1,2,3,4,5,1.1,1.12,2.889);
+CREATE MATERIALIZED VIEW IF NOT EXISTS test_mv1
+PARTITION BY `k1`
+DISTRIBUTED BY HASH(`k1`)
+REFRESH DEFERRED ASYNC
+as 
+select k1, k2, sum(k6), sum(k7), sum(k8), count(1) as cnt from t1 group by k1, k2;
+CREATE MATERIALIZED VIEW IF NOT EXISTS test_mv2
+PARTITION BY `k1`
+DISTRIBUTED BY HASH(`k1`)
+REFRESH DEFERRED ASYNC
+as 
+select k1, k2, sum(cnt) as sum_cnt from test_mv1 group by k1, k2;
+drop table t1;

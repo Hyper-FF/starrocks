@@ -1,0 +1,7 @@
+CREATE TABLE t1 (
+    id    BIGINT          NOT NULL,
+    tags  VARCHAR(65533)  NULL
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");

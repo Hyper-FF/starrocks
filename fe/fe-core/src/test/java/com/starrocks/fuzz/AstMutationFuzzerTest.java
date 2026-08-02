@@ -470,7 +470,7 @@ public class AstMutationFuzzerTest {
                         if (mutation == null) {
                             continue;
                         }
-                        StatementBase reachable = reparseThroughGrammar(ast, drops);
+                        StatementBase reachable = reparseThroughGrammar(ast, drops, seed, mutation);
                         if (reachable == null) {
                             unreachableCount++;
                             continue;
@@ -543,12 +543,13 @@ public class AstMutationFuzzerTest {
         return t.endsWith(";") ? t : t + ";";
     }
 
-    private static StatementBase reparseThroughGrammar(StatementBase mutated, Map<String, Drop> drops) {
+    private static StatementBase reparseThroughGrammar(StatementBase mutated, Map<String, Drop> drops,
+                                                       String seed, String mutation) {
         String text;
         try {
             text = AstToSQLBuilder.toSQL(mutated);
         } catch (Throwable t) {
-            noteDrop(drops, "deparse-threw:" + signatureOf(t), "<unrenderable>");
+            noteDrop(drops, "deparse-threw:" + signatureOf(t), unrenderableSample(seed, mutation));
             return null;
         }
         if (text == null || text.trim().isEmpty()) {
@@ -620,7 +621,8 @@ public class AstMutationFuzzerTest {
         try {
             mutantSql = AstToSQLBuilder.toSQL(mutant);
         } catch (Throwable t) {
-            record(tally, findings, Outcome.DEPARSE_THROW, signatureOf(t), seed, mutation, "<unrenderable>", oneLine(t));
+            record(tally, findings, Outcome.DEPARSE_THROW, signatureOf(t), seed, mutation,
+                    unrenderableSample(seed, mutation), oneLine(t));
             return;
         }
         if (mutantSql == null || mutantSql.trim().isEmpty()) {
@@ -1140,6 +1142,18 @@ public class AstMutationFuzzerTest {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    /**
+     * A sample for a mutant whose deparse threw. Re-running the deparser is pointless -- it is the thing
+     * that just failed -- and "<unrenderable>" throws away the only two facts that are always available
+     * and always sufficient to reproduce: the seed, which parses by construction, and the mutation that
+     * was applied to it. A single NullPointerException in the deparser discarded 24046 mutants in one
+     * round while the report showed nothing but "<unrenderable>" for every one of them.
+     */
+    private static String unrenderableSample(String seed, String mutation) {
+        return "<deparse threw> mutation: " + (mutation == null ? "?" : mutation)
+                + " | seed: " + oneLineSql(seed);
     }
 
     private static String bestEffortSql(StatementBase stmt) {
