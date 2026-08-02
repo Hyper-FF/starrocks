@@ -40,6 +40,37 @@ public class AstToSQLBuilderTest {
                 .visit(stmt);
     }
 
+    /**
+     * Deparsing an unanalyzed statement must not depend on types, which only exist after analysis.
+     * The parser leaves ArrayExpr's type null for a bare [1, 2] and fills it in only for ARRAY<T>[...],
+     * so printing such a statement used to throw NullPointerException out of
+     * AnalyzerUtils.replaceNullType2Boolean, losing the whole statement rather than a type prefix.
+     */
+    @Test
+    public void testDeparseUntypedArrayLiteralWithoutAnalysis() {
+        // digest mode rewrites literals to '?', which would hide what is actually printed
+        FormatOptions opts = FormatOptions.allEnable().setEnableDigest(false);
+        String[] sqls = {
+                "select [1, 2] from t0",
+                "select [] from t0",
+                "select [[1], [2]] from t0",
+                "select map{1: [1, 2]} from t0",
+                "select [1, 2][1] from t0",
+        };
+        for (String sql : sqls) {
+            StatementBase stmt = SqlParser.parseSingleStatement(sql, SqlModeHelper.MODE_DEFAULT);
+            String printed = AST2SQLVisitor.withOptions(opts).visit(stmt);
+            Assertions.assertNotNull(printed, sql);
+            Assertions.assertFalse(printed.contains("PseudoType"), printed);
+            // whatever we printed has to parse back
+            Assertions.assertNotNull(SqlParser.parseSingleStatement(printed, SqlModeHelper.MODE_DEFAULT), printed);
+        }
+        // an explicit element type is still preserved, which is the whole reason the prefix is printed
+        StatementBase typed = SqlParser.parseSingleStatement("select ARRAY<DATE>['2020-01-01'] from t0",
+                SqlModeHelper.MODE_DEFAULT);
+        Assertions.assertTrue(AST2SQLVisitor.withOptions(opts).visit(typed).toUpperCase().contains("ARRAY<DATE>"));
+    }
+
     @Test
     public void testCreatePipe() {
         {

@@ -46,6 +46,7 @@ import com.starrocks.sql.ast.expression.LiteralExpr;
 import com.starrocks.sql.ast.expression.MapExpr;
 import com.starrocks.sql.ast.expression.Parameter;
 import com.starrocks.sql.ast.expression.SlotRef;
+import com.starrocks.type.AnyMapType;
 import com.starrocks.type.Type;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -503,7 +504,11 @@ public class AST2SQLVisitor extends AST2StringVisitor {
         // ARRAY<DATE>['2020-01-01']. When the element type is still NULL the literal never carried a type
         // of its own -- it was inferred from context -- and printing the BOOLEAN stand-in freezes a type
         // the original did not have, which changes function overload resolution on the way back in.
-        if (type.equals(node.getType())) {
+        //
+        // A null type is the same situation taken one step further: the parser leaves the type null for a
+        // bare [1, 2] and only fills it in for ARRAY<T>[...], so an unanalyzed literal has no type at all
+        // to preserve. Print the literal on its own, exactly as it was written.
+        if (type != null && type.equals(node.getType())) {
             sb.append(type.toString());
         }
         sb.append('[');
@@ -516,7 +521,12 @@ public class AST2SQLVisitor extends AST2StringVisitor {
     public String visitMapExpr(MapExpr node, Void context) {
         StringBuilder sb = new StringBuilder();
         Type type = AnalyzerUtils.replaceNullType2Boolean(node.getType());
-        sb.append(type.toString());
+        // An untyped map{...} carries the ANY_MAP placeholder from the parser until analysis replaces it,
+        // and AnyMapType.toString() is "PseudoType.AnyMapType" -- a Java class name, not a SQL type. Printing
+        // it yielded SELECT PseudoType.AnyMapType{1:2}, which no parser reads back. A null type arrives here
+        // the same way an untyped array does, from a node that was never analyzed. Neither case has an
+        // element type worth preserving, so print the bare constructor the literal was written with.
+        sb.append(type == null || type instanceof AnyMapType ? "map" : type.toString());
         sb.append("{");
         for (int i = 0; i < node.getChildren().size(); i = i + 2) {
             if (i > 0) {

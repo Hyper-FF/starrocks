@@ -1986,6 +1986,14 @@ public class AnalyzerUtils {
     }
 
     public static Type replaceNullType2Boolean(Type type) {
+        // Expr.type is "result of analysis" and is simply absent before it: the parser leaves it null for a
+        // bare [1, 2], and the recursive calls below reach a null item, key, value or field type the same
+        // way. There is no boolean stand-in to substitute for a type that was never inferred, so hand the
+        // absence back and let the caller decide -- callers that print a type already have to handle the
+        // untyped literal case.
+        if (type == null) {
+            return null;
+        }
         if (type.isNull()) {
             return BooleanType.BOOLEAN;
         } else if (type.isArrayType()) {
