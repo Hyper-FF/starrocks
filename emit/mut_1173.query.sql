@@ -1,0 +1,13 @@
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1173`.`t0`;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0`) `t0` , LATERAL generate_series(1,3,1) srfuzz_n1(`e`);
+WITH `srfuzz_n1` AS (SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0`) SELECT count(*) AS `count(*)` FROM `srfuzz_n1` AS t0;
+SELECT CAST((count(*)) AS LARGEINT) AS `CAST((count(*)) AS LARGEINT)` FROM `srfuzz_mut_1173`.`t0`;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0`) `t0`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1173`.`t0` HAVING (count(*)) > 1;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0`) `t0` RIGHT OUTER JOIN (SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0`) `srfuzz_n1` ON 1 = 1;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1173`.`t0` ORDER BY count(*) DESC NULLS FIRST;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0`) `t0` , LATERAL generate_series(1,3,1) srfuzz_n1(`e`);
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1173`.`t0` HAVING (count(*)) >= 2;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0` INTERSECT SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0`) `t0`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1173`.`t0` HAVING (count(*)) < 10;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_1173`.`t0`.`id`, `srfuzz_mut_1173`.`t0`.`name`, `srfuzz_mut_1173`.`t0`.`score` FROM `srfuzz_mut_1173`.`t0`) `t0` , LATERAL generate_series(1,3,1) srfuzz_n1(`e`);

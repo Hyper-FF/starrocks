@@ -1,0 +1,1 @@
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_1`.`target_table` WHERE (`srfuzz_mut_1`.`target_table`.`k1` = -1) AND (`srfuzz_mut_1`.`target_table`.`event_day` = '2021-01-01');

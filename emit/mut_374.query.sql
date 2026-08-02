@@ -1,0 +1,1 @@
+SELECT `srfuzz_mut_374`.`t_incorrect_slot_id`.`val`, `srfuzz_mut_374`.`t_incorrect_slot_id`.`auto_inc_id` FROM `srfuzz_mut_374`.`t_incorrect_slot_id`;

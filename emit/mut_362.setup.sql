@@ -1,0 +1,8 @@
+CREATE TABLE cc1 (k INT, v VARCHAR(32) NOT NULL) DUPLICATE KEY(k)
+  DISTRIBUTED BY HASH(k) BUCKETS 1 PROPERTIES("fast_schema_evolution"="true","replication_num"="1");
+INSERT INTO cc1 VALUES (1,'100'),(2,'99999999999'),(3,'abc');
+ALTER TABLE cc1 MODIFY COLUMN v INT;
+CREATE TABLE cc2 (k INT, v VARCHAR(32)) DUPLICATE KEY(k)
+  DISTRIBUTED BY HASH(k) BUCKETS 1 PROPERTIES("fast_schema_evolution"="true","replication_num"="1");
+INSERT INTO cc2 VALUES (1,'7'),(2,'1.5'),(3,'xyz'),(4,NULL);
+ALTER TABLE cc2 MODIFY COLUMN v DOUBLE;
