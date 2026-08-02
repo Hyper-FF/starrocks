@@ -1,0 +1,8 @@
+CREATE TABLE t (
+    k1 BIGINT,
+    k2 BIGINT,
+    K3 BIGINT,
+    k4 VARCHAR(20))
+DUPLICATE KEY(k1)
+DISTRIBUTED BY RANDOM PROPERTIES('replication_num'='1');
+insert into t select generate_series % 10, generate_series, 10000000 - generate_series, hex(generate_series) from TABLE(generate_series(1, 10000000));

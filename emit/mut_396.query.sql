@@ -1,0 +1,12 @@
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_396`.`t_sink_big`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_396`.`t_sink_big` HAVING (count(*)) < 10;
+SELECT CAST((count(*)) AS JSON)->'k' AS `CAST((count(*)) AS JSON)->'k'` FROM `srfuzz_mut_396`.`t_sink_big`;
+WITH `srfuzz_n1` AS (SELECT `srfuzz_mut_396`.`t_sink_big`.`x` FROM `srfuzz_mut_396`.`t_sink_big`) SELECT count(*) AS `count(*)` FROM `srfuzz_n1` AS t_sink_big;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_396`.`t_sink_big` HAVING (count(*)) >= 2;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_396`.`t_sink_big` LIMIT 5;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_396`.`t_sink_big`.`x` FROM `srfuzz_mut_396`.`t_sink_big`) `t_sink_big`;
+SELECT CAST((count(*)) AS INT) AS `CAST((count(*)) AS INT)` FROM `srfuzz_mut_396`.`t_sink_big`;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_396`.`t_sink_big`.`x` FROM `srfuzz_mut_396`.`t_sink_big` UNION ALL SELECT `srfuzz_mut_396`.`t_sink_big`.`x` FROM `srfuzz_mut_396`.`t_sink_big`) `t_sink_big`;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_396`.`t_sink_big`.`x` FROM `srfuzz_mut_396`.`t_sink_big` UNION ALL SELECT `srfuzz_mut_396`.`t_sink_big`.`x` FROM `srfuzz_mut_396`.`t_sink_big`) `t_sink_big`;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_396`.`t_sink_big`.`x` FROM `srfuzz_mut_396`.`t_sink_big`) `t_sink_big`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_396`.`t_sink_big` ORDER BY count(*) ASC;

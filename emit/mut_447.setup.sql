@@ -1,0 +1,9 @@
+create table t0(c0 INT) DUPLICATE KEY(c0) DISTRIBUTED BY HASH(c0) BUCKETS 1 PROPERTIES('replication_num'='1');
+INSERT INTO t0 VALUES(1),(NULL);
+create table t1(c0 INT, c1 INT, c2 INT) DUPLICATE KEY(c0) DISTRIBUTED BY HASH(c0) BUCKETS 1 PROPERTIES('replication_num'='1');
+INSERT INTO t1 VALUES(1, 2, NULL);
+INSERT INTO t1 VALUES(1, 2, 0);
+CREATE TABLE t2(c0 INT) duplicate key(c0) DISTRIBUTED BY HASH(c0) BUCKETS 1 PROPERTIES('replication_num'='1');
+INSERT INTO t2 SELECT * FROM TABLE(generate_series(100, 120, 3));
+CREATE TABLE t_numbers (start int, end int) DUPLICATE KEY(`start`) DISTRIBUTED BY HASH(start) BUCKETS 1;
+INSERT INTO t_numbers VALUES(1, 3),(5,2),(NULL,10),(4, 7),(9, 6);

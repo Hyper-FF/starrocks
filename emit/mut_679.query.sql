@@ -1,0 +1,1 @@
+SELECT `srfuzz_mut_679`.`t_invalid_json`.`v10`, `srfuzz_mut_679`.`t_invalid_json`.`v11` FROM `srfuzz_mut_679`.`t_invalid_json`;

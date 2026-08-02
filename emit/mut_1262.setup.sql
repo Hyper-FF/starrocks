@@ -1,0 +1,1 @@
+create view v_unnest_subquery as select x + y from (select * from TABLE(unnest(ARRAY<INT>[1])) t0(x), TABLE(unnest(ARRAY<INT>[2, 3])) t1(x)) t2(x, y);

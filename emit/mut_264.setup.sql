@@ -1,0 +1,21 @@
+CREATE TABLE t1 (
+    k1 bigint NULL,
+    c_tinyint tinyint null,
+    c_int int null,
+    c_bigint bigint null,
+    c_largeint largeint null
+) ENGINE=OLAP
+DUPLICATE KEY(`k1`)
+DISTRIBUTED BY HASH(`k1`) BUCKETS 96
+PROPERTIES (
+    "replication_num" = "1"
+);
+insert into t1 values
+    (1, 127, 2147483647, 9223372036854775807, 170141183460469231731687303715884105727),
+    (2, -128, -2147483648, -9223372036854775808, -170141183460469231731687303715884105728),
+    (3, null, null, null, null),
+    (4, 0, 0, 0, 0),
+    (5, 1, 1, 1, 1),
+    (6, -1, -1, -1, -1),
+    (7, 12, 214748364, 922337203685477580, 17014118346046923173168730371588410572),
+    (8, -12, -214748364, -922337203685477580, -17014118346046923173168730371588410572);

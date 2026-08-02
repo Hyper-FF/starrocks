@@ -1,0 +1,2 @@
+SELECT `srfuzz_mut_933`.`tab1`.`k1`, `srfuzz_mut_933`.`tab1`.`k2`, `srfuzz_mut_933`.`tab1`.`V1`, `srfuzz_mut_933`.`tab1`.`v2`, `srfuzz_mut_933`.`tab1`.`v3`, `srfuzz_mut_933`.`tab1`.`v4`, `srfuzz_mut_933`.`tab1`.`v5` FROM `srfuzz_mut_933`.`tab1`;
+SELECT `srfuzz_mut_933`.`tab1`.`k1`, `srfuzz_mut_933`.`tab1`.`k2`, `srfuzz_mut_933`.`tab1`.`V1`, `srfuzz_mut_933`.`tab1`.`v2`, `srfuzz_mut_933`.`tab1`.`v3`, `srfuzz_mut_933`.`tab1`.`v4`, `srfuzz_mut_933`.`tab1`.`v5` FROM `srfuzz_mut_933`.`tab1`;
