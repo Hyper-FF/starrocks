@@ -311,6 +311,9 @@ public class AstMutationFuzzerTest {
         }
         int maxFiles = Integer.getInteger("srfuzz.maxFiles", Integer.MAX_VALUE);
         int mutationsPerSeed = Integer.getInteger("srfuzz.mutations", 10);
+        // Maximum edits stacked on one mutant. 1 restores the previous behaviour of a single edit on a
+        // pristine seed, which is the right setting when reducing a finding rather than hunting for one.
+        int chainMax = Math.max(1, Integer.getInteger("srfuzz.chain", 4));
         long seedValue = Long.getLong("srfuzz.seed", 20260730L);
         Path report = Paths.get(System.getProperty("srfuzz.report", "ast_mutation_fuzz_report.md"));
         // On by default. The switch exists so the schema-drift it fixes can be measured against the same
@@ -462,19 +465,48 @@ public class AstMutationFuzzerTest {
                         continue;
                     }
                     for (int m = 0; m < mutationsPerSeed; m++) {
-                        StatementBase ast = tryParse(seed);
-                        if (ast == null) {
-                            continue;
+                        // Compound edits: each link re-parses the text the previous link round-tripped
+                        // through, so a mutation is always applied to a well-formed tree and the earlier
+                        // result is never mutated in place underneath us.
+                        String currentSql = seed;
+                        StringBuilder applied = new StringBuilder();
+                        Reparsed reachable = null;
+                        String reachedBy = null;
+                        int depth = chainDepth(rnd, chainMax);
+                        for (int step = 0; step < depth; step++) {
+                            StatementBase ast = tryParse(currentSql);
+                            if (!(ast instanceof QueryStatement)) {
+                                break;
+                            }
+                            // The first edit keeps the default mix so a depth-1 mutant stays what it
+                            // always was; every edit after it goes structural, which is the only way the
+                            // statement gets deeper rather than merely different.
+                            String mutation = Mutator.mutate((QueryStatement) ast, pool, seed, rnd,
+                                    step == 0 ? 45 : 90);
+                            if (mutation == null) {
+                                break;
+                            }
+                            if (applied.length() > 0) {
+                                applied.append(" + ");
+                            }
+                            applied.append(mutation);
+                            Reparsed next = reparseThroughGrammar(ast, drops, seed, applied.toString());
+                            if (next == null) {
+                                // Keep the deepest prefix that did survive. Throwing away a good
+                                // depth-1 mutant because a second edit broke it is pure loss.
+                                if (reachable == null) {
+                                    unreachableCount++;
+                                }
+                                break;
+                            }
+                            reachable = next;
+                            reachedBy = applied.toString();
+                            currentSql = next.sql;
                         }
-                        String mutation = Mutator.mutate((QueryStatement) ast, pool, seed, rnd);
-                        if (mutation == null) {
-                            continue;
-                        }
-                        StatementBase reachable = reparseThroughGrammar(ast, drops, seed, mutation);
                         if (reachable == null) {
-                            unreachableCount++;
                             continue;
                         }
+                        String mutation = reachedBy;
                         mutantCount++;
                         // M9: on a minority of mutants, evaluate under a perturbed session flag. The
                         // flag has to be restored even when evaluate throws -- it is shared with every
@@ -484,7 +516,7 @@ public class AstMutationFuzzerTest {
                                 : null;
                         try {
                             evaluate(seed, flag == null ? mutation : mutation + " | " + flag.description(),
-                                    reachable, tally, findings);
+                                    reachable.stmt, tally, findings);
                         } finally {
                             if (flag != null) {
                                 flag.close();
@@ -543,8 +575,19 @@ public class AstMutationFuzzerTest {
         return t.endsWith(";") ? t : t + ";";
     }
 
-    private static StatementBase reparseThroughGrammar(StatementBase mutated, Map<String, Drop> drops,
-                                                       String seed, String mutation) {
+    /** A mutant that survived deparse and reparse, with the text it round-tripped through. */
+    static final class Reparsed {
+        final StatementBase stmt;
+        final String sql;
+
+        Reparsed(StatementBase stmt, String sql) {
+            this.stmt = stmt;
+            this.sql = sql;
+        }
+    }
+
+    private static Reparsed reparseThroughGrammar(StatementBase mutated, Map<String, Drop> drops,
+                                                  String seed, String mutation) {
         String text;
         try {
             text = AstToSQLBuilder.toSQL(mutated);
@@ -562,11 +605,32 @@ public class AstMutationFuzzerTest {
                 noteDrop(drops, "parse-empty", oneLineSql(text));
                 return null;
             }
-            return parsed.get(0);
+            return new Reparsed(parsed.get(0), text);
         } catch (Throwable t) {
             noteDrop(drops, "reparse-failed:" + oneLine(t), oneLineSql(text));
             return null;
         }
+    }
+
+    /**
+     * How many mutations to apply on top of each other for one mutant.
+     *
+     * <p>Every mutant used to be exactly one edit on a freshly parsed seed, which caps a mutant's
+     * complexity at its seed's: the corpus is SQL-Tester cases whose median query is 91 characters,
+     * 89% have no join and 96.5% have no CTE, and a single local edit does not change that. Chaining
+     * edits is the only way the mutator can produce a statement deeper than anything it was given.
+     *
+     * <p>Most mutants stay at depth 1 on purpose. A one-edit delta from a known-good seed is what
+     * makes a finding cheap to reduce, and losing that would trade triage cost for depth.
+     */
+    private static int chainDepth(Random rnd, int max) {
+        int depth = 1;
+        // 35% chance of another edit at each step, so depth 1 stays the common case and the tail thins
+        // out quickly: roughly 65 / 23 / 8 / 3 percent for depths 1 through 4.
+        while (depth < max && rnd.nextInt(100) < 35) {
+            depth++;
+        }
+        return depth;
     }
 
     /**
@@ -933,12 +997,21 @@ public class AstMutationFuzzerTest {
          * makes such a finding reconstructible from the seed alone.
          */
         static String mutate(QueryStatement stmt, Pool pool, String seed, Random rnd) {
+            return mutate(stmt, pool, seed, rnd, 45);
+        }
+
+        /**
+         * @param structuralPercent how often to reach for a structural operator before falling back to an
+         *     expression edit. Measured over 6154 rejections, the default mix is 48% M1-M4-expr, 27%
+         *     M7-typestress, 14% M5-clause and only 11% M6-nesting -- three quarters of all edits replace a
+         *     leaf. That is why stacking edits alone did not deepen anything: chaining three leaf swaps
+         *     still yields a leaf swap. Later links in a chain raise this, because they start from a tree
+         *     that already round-tripped and adding nesting on top of it is the point.
+         */
+        static String mutate(QueryStatement stmt, Pool pool, String seed, Random rnd, int structuralPercent) {
             List<Mutation> order = new ArrayList<>(OPERATORS);
             java.util.Collections.shuffle(order, rnd);
-            // Expression-level mutation stays the majority of iterations; the structural operators
-            // change the shape of the statement, which is much more likely to leave the mutant
-            // unanalyzable, so a run made mostly of them buys less depth per unit of time.
-            int structuralShare = rnd.nextInt(100) < 45 ? order.size() : 0;
+            int structuralShare = rnd.nextInt(100) < structuralPercent ? order.size() : 0;
             for (int i = 0; i < structuralShare; i++) {
                 String applied = tryOperator(order.get(i), stmt, pool, rnd);
                 if (applied != null) {
