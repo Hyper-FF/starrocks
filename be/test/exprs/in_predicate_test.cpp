@@ -19,6 +19,7 @@
 
 #include "butil/time.h"
 #include "column/binary_column.h"
+#include "column/chunk.h"
 #include "column/column_helper.h"
 #include "column/fixed_length_column.h"
 #include "exprs/mock_vectorized_expr.h"
@@ -476,6 +477,87 @@ TEST_F(VectorizedInPredicateTest, inArrayConstAllNULL) {
             ColumnPtr ptr = expr->evaluate(nullptr, nullptr);
             ASSERT_TRUE(ptr->only_null());
         }
+    }
+}
+
+// `SELECT [1,2] IN ([1,2],[3,4]) FROM t` where t returns more than one row per chunk.
+// Every child is constant, so open() caches a single-row column for each of them. The
+// result must still cover every row of the chunk.
+TEST_F(VectorizedInPredicateTest, inArrayConstAllOverMultiRowChunk) {
+    constexpr size_t kNumRows = 4;
+    for (auto not_in : is_not_in) {
+        expr_node.__isset.child_type_desc = true;
+        expr_node.child_type_desc = ttype_desc;
+        expr_node.opcode = not_in ? TExprOpcode::FILTER_NOT_IN : TExprOpcode::FILTER_IN;
+        expr_node.type = gen_type_desc(TPrimitiveType::BOOLEAN);
+        expr_node.in_predicate.is_not_in = not_in;
+
+        auto expr = std::unique_ptr<Expr>(VectorizedInPredicateFactory::from_thrift(expr_node));
+
+        TypeDescriptor type_arr_int = array_type(TYPE_INT);
+        // The constant children are evaluated by open() with a null chunk, which is what
+        // makes their cached columns hold exactly one row.
+        for (int32_t i = 0; i < 3; ++i) {
+            auto array = ColumnHelper::create_column(type_arr_int, false);
+            array->append_datum(DatumArray{Datum((int32_t)11), Datum((int32_t)(4 + i))});
+            expr->add_child(new_fake_const_expr(ConstColumn::create(std::move(array), 1), type_arr_int));
+        }
+
+        auto chunk = std::make_shared<Chunk>();
+        auto keys = Int32Column::create();
+        for (size_t i = 0; i < kNumRows; ++i) {
+            keys->append(static_cast<int32_t>(i));
+        }
+        chunk->append_column(std::move(keys), 1);
+        ASSERT_EQ(kNumRows, chunk->num_rows());
+
+        ASSERT_TRUE(expr->prepare(nullptr, nullptr).ok());
+        ASSERT_TRUE(expr->open(nullptr, nullptr, FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
+
+        auto res = expr->evaluate_checked(nullptr, chunk.get());
+        ASSERT_TRUE(res.ok()) << res.status().to_string();
+        // [11,4] is not in ([11,5],[11,6])
+        ASSERT_EQ(kNumRows, res.value()->size());
+        for (size_t i = 0; i < kNumRows; ++i) {
+            ASSERT_FALSE(res.value()->is_null(i));
+            ASSERT_EQ(not_in, res.value()->get(i).get_uint8());
+        }
+    }
+}
+
+// A constant left operand combined with a non-constant IN-list operand must still
+// produce one result row per chunk row, not one row in total.
+TEST_F(VectorizedInPredicateTest, inArrayConstLhsVariableOperand) {
+    constexpr size_t kNumRows = 4;
+    expr_node.__isset.child_type_desc = true;
+    expr_node.child_type_desc = ttype_desc;
+    expr_node.opcode = TExprOpcode::FILTER_IN;
+    expr_node.type = gen_type_desc(TPrimitiveType::BOOLEAN);
+    expr_node.in_predicate.is_not_in = false;
+
+    auto expr = std::unique_ptr<Expr>(VectorizedInPredicateFactory::from_thrift(expr_node));
+
+    TypeDescriptor type_arr_int = array_type(TYPE_INT);
+    auto lhs = ColumnHelper::create_column(type_arr_int, false);
+    lhs->append_datum(DatumArray{Datum((int32_t)11), Datum((int32_t)4)});
+    expr->add_child(new_fake_const_expr(ConstColumn::create(std::move(lhs), 1), type_arr_int));
+
+    auto rhs = ColumnHelper::create_column(type_arr_int, false);
+    for (size_t i = 0; i < kNumRows; ++i) {
+        rhs->append_datum(DatumArray{Datum((int32_t)11), Datum((int32_t)4)});
+    }
+    auto rhs_expr = MockExpr(type_arr_int, std::move(rhs));
+    expr->add_child(&rhs_expr);
+
+    ASSERT_TRUE(expr->prepare(nullptr, nullptr).ok());
+    ASSERT_TRUE(expr->open(nullptr, nullptr, FunctionContext::FunctionStateScope::FRAGMENT_LOCAL).ok());
+
+    auto res = expr->evaluate_checked(nullptr, nullptr);
+    ASSERT_TRUE(res.ok()) << res.status().to_string();
+    ASSERT_EQ(kNumRows, res.value()->size());
+    for (size_t i = 0; i < kNumRows; ++i) {
+        ASSERT_FALSE(res.value()->is_null(i));
+        ASSERT_EQ(1, res.value()->get(i).get_uint8());
     }
 }
 
