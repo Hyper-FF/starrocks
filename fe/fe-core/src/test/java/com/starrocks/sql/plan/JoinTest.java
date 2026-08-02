@@ -22,6 +22,7 @@ import com.starrocks.common.ExceptionChecker;
 import com.starrocks.common.FeConstants;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.RunMode;
+import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.optimizer.OptimizerContext;
 import com.starrocks.sql.optimizer.rule.RuleSet;
 import com.starrocks.sql.optimizer.rule.transformation.JoinAssociativityRule;
@@ -3593,9 +3594,14 @@ public class JoinTest extends PlanTestBase {
 
     @Test
     public void testAsofJoinConditionNormalizeWithSubqueries() {
+        // The temporal condition compares an uncorrelated scalar subquery -- effectively a constant --
+        // against a left-side column, so it does not order the two relations against each other and is
+        // rejected. This used to surface as an IllegalStateException from JoinHelper during plan
+        // building, because the analyzer only counted inequalities and never checked that they spanned
+        // both sides; the analyzer now rejects it with a message that names the actual problem.
         String sql1 = "select t0.v1 from t0 asof join t1 on t0.v1 = t1.v4 and (SELECT MAX(v5) FROM t1) > t0.v2";
-        ExceptionChecker.expectThrowsWithMsg(IllegalStateException.class,
-                "ASOF JOIN requires exactly one temporal inequality condition",
+        ExceptionChecker.expectThrowsWithMsg(SemanticException.class,
+                "ASOF JOIN temporal condition must reference both sides of the join",
                 () -> getFragmentPlan(sql1));
     }
 

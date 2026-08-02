@@ -1229,7 +1229,7 @@ public class QueryAnalyzer {
 
                 // Validate ASOF JOIN conditions
                 if (join.getJoinOp().isAsofJoin()) {
-                    validateAsofJoinConditions(joinEqual);
+                    validateAsofJoinConditions(joinEqual, leftScope, rightScope);
                 }
 
                 // check the join on predicate, example:
@@ -1299,12 +1299,12 @@ public class QueryAnalyzer {
             return newFields;
         }
 
-        private void validateAsofJoinConditions(Expr joinPredicate) {
+        private void validateAsofJoinConditions(Expr joinPredicate, Scope leftScope, Scope rightScope) {
             if (joinPredicate == null) {
                 throw new SemanticException("ASOF JOIN requires ON clause with join conditions");
             }
 
-            AsofJoinConditionValidator validator = new AsofJoinConditionValidator();
+            AsofJoinConditionValidator validator = new AsofJoinConditionValidator(leftScope, rightScope);
             validator.validate(joinPredicate);
         }
 
@@ -2662,15 +2662,35 @@ public class QueryAnalyzer {
     }
 
     private static class AsofJoinConditionValidator {
+        private final Scope leftScope;
+        private final Scope rightScope;
         private int equalityPredicateCount = 0;
         private int inequalityPredicateCount = 0;
+        private int crossSideEqualityCount = 0;
         private boolean containsOrOperator = false;
+
+        AsofJoinConditionValidator(Scope leftScope, Scope rightScope) {
+            this.leftScope = leftScope;
+            this.rightScope = rightScope;
+        }
 
         public void validate(Expr joinPredicate) {
             visit(joinPredicate);
 
             if (equalityPredicateCount == 0) {
                 throw new SemanticException("ASOF JOIN requires at least one equality condition in join ON clause");
+            }
+
+            // A condition whose operands all come from one side is not a join condition, it is a filter, and
+            // the optimizer moves it out of the ON clause. Counting such a condition here as though it joined
+            // the two relations lets a plan through that nothing downstream can execute, and every symptom
+            // surfaces far from the clause that caused it: a single-sided temporal predicate is already gone
+            // when JoinHelper.extractAndValidateAsofTemporalPredicate looks for it, which throws
+            // IllegalStateException during plan building, while other shapes reach the backend as
+            // "slot_id N not found" or "nest-loop join not support: ASOF_LEFT_OUTER_JOIN".
+            if (crossSideEqualityCount == 0) {
+                throw new SemanticException("ASOF JOIN requires an equality condition that references both sides " +
+                        "of the join in join ON clause");
             }
 
             if (inequalityPredicateCount == 0) {
@@ -2693,9 +2713,17 @@ public class QueryAnalyzer {
             } else if (expr instanceof BinaryPredicate binary) {
                 if (binary.getOp() == BinaryType.EQ) {
                     equalityPredicateCount++;
+                    if (referencesBothSides(binary)) {
+                        crossSideEqualityCount++;
+                    }
                 } else if (binary.getOp().isRange()) {
                     inequalityPredicateCount++;
                     validateTemporalConditionTypes(binary);
+                    if (!referencesBothSides(binary)) {
+                        throw new SemanticException(
+                                "ASOF JOIN temporal condition must reference both sides of the join in join ON clause, " +
+                                        "found: " + ExprToSql.toMySql(binary));
+                    }
                 } else {
                     throw new SemanticException("ASOF JOIN does not support '" + binary.getOp() + "' operator " +
                             "in join ON clause");
@@ -2705,6 +2733,20 @@ public class QueryAnalyzer {
             if (containsOrOperator) {
                 throw new SemanticException("ASOF JOIN conditions do not support OR operators in join ON clause");
             }
+        }
+
+        /**
+         * True when the predicate draws a column from the left relation and a column from the right one,
+         * which is what makes it a join condition rather than a filter on a single side.
+         */
+        private boolean referencesBothSides(BinaryPredicate predicate) {
+            return referencesScope(predicate, leftScope) && referencesScope(predicate, rightScope);
+        }
+
+        private boolean referencesScope(Expr expr, Scope scope) {
+            List<SlotRef> slots = Lists.newArrayList();
+            expr.collect(SlotRef.class, slots);
+            return slots.stream().anyMatch(slot -> scope.tryResolveField(slot).isPresent());
         }
 
         private void validateTemporalConditionTypes(BinaryPredicate predicate) {

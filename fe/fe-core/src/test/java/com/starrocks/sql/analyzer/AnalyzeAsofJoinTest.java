@@ -54,6 +54,34 @@ public class AnalyzeAsofJoinTest {
 
     }
 
+    /**
+     * A condition whose operands all come from one side is a filter, not a join condition, and the
+     * optimizer moves it out of the ON clause. Accepting one here lets a plan through that nothing
+     * downstream can execute, and each shape fails somewhere else entirely: the temporal case throws
+     * IllegalStateException from JoinHelper during plan building, while the others reach the backend
+     * as "slot_id N not found" or "nest-loop join not support: ASOF_LEFT_OUTER_JOIN".
+     */
+    @Test
+    public void testTemporalConditionMustReferenceBothSides() {
+        // right-side only -- the shape a fuzzer found, which reached plan building
+        analyzeFail("SELECT t0.v1 FROM t0 ASOF LEFT JOIN t1 ON t0.v1 = t1.v4 AND t1.v5 >= t1.v5",
+                "temporal condition must reference both sides of the join");
+        // left-side only -- this one reached the backend with a dangling slot
+        analyzeFail("SELECT t0.v1 FROM t0 ASOF LEFT JOIN t1 ON t0.v1 = t1.v4 AND t0.v2 >= t0.v2",
+                "temporal condition must reference both sides of the join");
+        // distinct columns, still one-sided
+        analyzeFail("SELECT t0.v1 FROM t0 ASOF JOIN t1 ON t0.v1 = t1.v4 AND t0.v2 >= t0.v3",
+                "temporal condition must reference both sides of the join");
+    }
+
+    @Test
+    public void testEqualityMustReferenceBothSides() {
+        analyzeFail("SELECT t0.v1 FROM t0 ASOF LEFT JOIN t1 ON t1.v4 = t1.v4 AND t0.v2 >= t1.v5",
+                "requires an equality condition that references both sides");
+        analyzeFail("SELECT t0.v1 FROM t0 ASOF JOIN t1 ON t0.v1 = t0.v2 AND t0.v3 >= t1.v5",
+                "requires an equality condition that references both sides");
+    }
+
     @Test
     public void testValidAsofJoin() {
         analyzeSuccess("SELECT t0.v1 FROM t0 ASOF JOIN t1 ON t0.v1 = t1.v4 AND t0.v2 <= t1.v5");
