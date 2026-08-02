@@ -218,6 +218,15 @@ public class AstMutationFuzzerTest {
         final Map<String, ScopedPool> scoped = new LinkedHashMap<>();
 
         /**
+         * Every query seed in the same corpus file, for M10 to splice against.
+         *
+         * <p>Same file on purpose: those statements were written against one schema, so a spliced pair
+         * resolves. Splicing across files names tables that do not exist in the target's schema, and
+         * name resolution is already the largest single category of analyzer rejection.
+         */
+        final List<String> siblingSeeds = new ArrayList<>();
+
+        /**
          * How often to inject file-wide material at a site that has narrower material available.
          *
          * <p>Not zero on purpose. The out-of-scope fragments this change exists to reduce are also the
@@ -398,6 +407,9 @@ public class AstMutationFuzzerTest {
                         continue;
                     }
                     seeds.add(sql);
+                    // Only seeds that analyzed get here, so M10 always splices against something that
+                    // resolves in this file's schema.
+                    pool.siblingSeeds.add(sql);
                     harvest((QueryStatement) probe, sql, pool);
 
                     // Evaluate the seed itself, unmutated. The grammar-reachability gate below drops
@@ -987,7 +999,8 @@ public class AstMutationFuzzerTest {
         private static final List<Mutation> OPERATORS = java.util.Arrays.asList(
                 new TypeStressMutation(),   // most likely to reach a real complex-type defect
                 new ClauseMutation(),
-                new NestingMutation());
+                new NestingMutation(),
+                new SpliceMutation());      // the only operator that can exceed the corpus's own depth
 
         /**
          * Applies one mutation and returns a description of it, or null when nothing was applied.
