@@ -1,0 +1,10 @@
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_707`.`partitions_multi_column_1`;
+SELECT CAST((CAST((CAST((count(*)) AS DECIMAL128(38,38))) AS VARCHAR)) AS CHAR(1)) AS `CAST((CAST((CAST((count(*)) AS DECIMAL128(38,38))) AS VARCHAR)) AS CHAR(1))` FROM `srfuzz_mut_707`.`partitions_multi_column_1`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_707`.`partitions_multi_column_1` LIMIT 1, 2;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_707`.`partitions_multi_column_1` HAVING (count(*)) >= 2;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_707`.`partitions_multi_column_1` HAVING (count(*)) >= 2;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_707`.`partitions_multi_column_1`.`c1`, `srfuzz_mut_707`.`partitions_multi_column_1`.`c2`, `srfuzz_mut_707`.`partitions_multi_column_1`.`c3` FROM `srfuzz_mut_707`.`partitions_multi_column_1`) `partitions_multi_column_1` RIGHT OUTER JOIN (SELECT `srfuzz_mut_707`.`partitions_multi_column_1`.`c1`, `srfuzz_mut_707`.`partitions_multi_column_1`.`c2`, `srfuzz_mut_707`.`partitions_multi_column_1`.`c3` FROM `srfuzz_mut_707`.`partitions_multi_column_1`) `srfuzz_n1` ON 1 = 1;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_707`.`partitions_multi_column_1`.`c1`, `srfuzz_mut_707`.`partitions_multi_column_1`.`c2`, `srfuzz_mut_707`.`partitions_multi_column_1`.`c3` FROM `srfuzz_mut_707`.`partitions_multi_column_1`) `partitions_multi_column_1` , LATERAL generate_series(1,3,1) srfuzz_n1(`e`);
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_707`.`partitions_multi_column_1` HAVING (count(*)) > 0;
+WITH `srfuzz_n1` AS (SELECT `srfuzz_mut_707`.`partitions_multi_column_1`.`c1`, `srfuzz_mut_707`.`partitions_multi_column_1`.`c2`, `srfuzz_mut_707`.`partitions_multi_column_1`.`c3` FROM `srfuzz_mut_707`.`partitions_multi_column_1`) SELECT count(*) AS `count(*)` FROM `srfuzz_n1` AS partitions_multi_column_1;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_707`.`partitions_multi_column_1` HAVING (count(*)) < 10;

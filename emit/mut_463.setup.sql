@@ -1,0 +1,28 @@
+CREATE TABLE `t_json_schema_change` (
+  `id` bigint(20) NOT NULL,
+  `data` json NULL,
+  `col1` int NULL,
+  `col2` int NULL,
+  `col3` int NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`id`)
+DISTRIBUTED BY HASH(`id`) BUCKETS 1
+PROPERTIES (
+"replication_num" = "1",
+"fast_schema_evolution" = "true"
+);
+INSERT INTO t_json_schema_change VALUES
+(1, parse_json('{"name": "alice", "age": 30, "city": "seattle"}'), 1, 2, 3),
+(2, parse_json('{"name": "bob", "age": 25, "city": "boston"}'), 4, 5, 6),
+(3, parse_json('{"name": "charlie", "age": 35, "city": "chicago"}'), 7, 8, 9);
+ALTER TABLE t_json_schema_change ADD COLUMN col4 int;
+ALTER TABLE t_json_schema_change ADD COLUMN col5 int;
+ALTER TABLE t_json_schema_change ADD COLUMN col6 int;
+ALTER TABLE t_json_schema_change DROP COLUMN col1;
+ALTER TABLE t_json_schema_change DROP COLUMN col2;
+ALTER TABLE t_json_schema_change DROP COLUMN col3;
+ALTER TABLE t_json_schema_change ADD COLUMN col7 int;
+ALTER TABLE t_json_schema_change ADD COLUMN col8 int;
+INSERT INTO t_json_schema_change (id, data, col4, col5, col6, col7, col8) VALUES
+(4, parse_json('{"name": "david", "age": 40, "city": "denver"}'), 10, 11, 12, 13, 14),
+(5, parse_json('{"name": "eve", "age": 28, "city": "detroit"}'), 15, 16, 17, 18, 19);

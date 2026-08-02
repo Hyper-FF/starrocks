@@ -1,0 +1,11 @@
+SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS `total_elems` FROM `srfuzz_mut_76`.`st`;
+SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS `total_elems` FROM `srfuzz_mut_76`.`st`;
+SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS `total_elems` FROM `srfuzz_mut_76`.`st` HAVING (count(*)) > 0;
+WITH `srfuzz_n1` AS (SELECT `srfuzz_mut_76`.`st`.`k`, `srfuzz_mut_76`.`st`.`v` FROM `srfuzz_mut_76`.`st`) SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`st`.`v`))) AS `total_elems` FROM `srfuzz_n1` AS st;
+SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS `total_elems` FROM `srfuzz_mut_76`.`st` ORDER BY sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) ASC NULLS LAST;
+SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS `total_elems` FROM `srfuzz_mut_76`.`st` WHERE array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`));
+SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS `total_elems` FROM `srfuzz_mut_76`.`st`;
+SELECT count(*) AS `n`, CAST((sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`)))) AS JSON)->'k' AS `total_elems` FROM `srfuzz_mut_76`.`st`;
+SELECT count(*) AS `n`, sum(get_json_string(CAST((array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS JSON), '$.a')) AS `total_elems` FROM `srfuzz_mut_76`.`st`;
+SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS `total_elems` FROM `srfuzz_mut_76`.`st`;
+SELECT count(*) AS `n`, sum(array_length(array_agg_distinct_state_merge(`srfuzz_mut_76`.`st`.`v`))) AS `total_elems` FROM `srfuzz_mut_76`.`st` LIMIT 2;

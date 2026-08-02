@@ -1,0 +1,11 @@
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_950`.`t1_alter_with_data`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_950`.`t1_alter_with_data` HAVING (count(*)) >= 2;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_950`.`t1_alter_with_data` LIMIT 7, 0;
+SELECT CAST((count(*)) AS JSON)->'$' AS `CAST((count(*)) AS JSON)->'$'` FROM `srfuzz_mut_950`.`t1_alter_with_data`;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_950`.`t1_alter_with_data`.`dt`, `srfuzz_mut_950`.`t1_alter_with_data`.`id`, `srfuzz_mut_950`.`t1_alter_with_data`.`value` FROM `srfuzz_mut_950`.`t1_alter_with_data`) `t1_alter_with_data` , LATERAL generate_series(1,3,1) srfuzz_n1(`e`);
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_950`.`t1_alter_with_data`.`dt`, `srfuzz_mut_950`.`t1_alter_with_data`.`id`, `srfuzz_mut_950`.`t1_alter_with_data`.`value` FROM `srfuzz_mut_950`.`t1_alter_with_data` UNION ALL SELECT `srfuzz_mut_950`.`t1_alter_with_data`.`dt`, `srfuzz_mut_950`.`t1_alter_with_data`.`id`, `srfuzz_mut_950`.`t1_alter_with_data`.`value` FROM `srfuzz_mut_950`.`t1_alter_with_data`) `t1_alter_with_data`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_950`.`t1_alter_with_data` LIMIT 1;
+SELECT CAST((count(*)) AS JSON)->'k' AS `CAST((count(*)) AS JSON)->'k'` FROM `srfuzz_mut_950`.`t1_alter_with_data`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_950`.`t1_alter_with_data` LIMIT 1, 100;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_950`.`t1_alter_with_data`.`dt`, `srfuzz_mut_950`.`t1_alter_with_data`.`id`, `srfuzz_mut_950`.`t1_alter_with_data`.`value` FROM `srfuzz_mut_950`.`t1_alter_with_data` EXCEPT SELECT `srfuzz_mut_950`.`t1_alter_with_data`.`dt`, `srfuzz_mut_950`.`t1_alter_with_data`.`id`, `srfuzz_mut_950`.`t1_alter_with_data`.`value` FROM `srfuzz_mut_950`.`t1_alter_with_data`) `t1_alter_with_data`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_950`.`t1_alter_with_data` HAVING (count(*)) > 1;

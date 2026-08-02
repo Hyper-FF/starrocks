@@ -1,0 +1,13 @@
+SELECT @@run_mode AS `@@run_mode`;
+SELECT @@run_mode AS `@@run_mode` ORDER BY @@run_mode DESC;
+SELECT json_query(CAST((@@run_mode) AS JSON), '$.a') AS `json_query(CAST((@@run_mode) AS JSON), '$.a')`;
+SELECT json_query(CAST((@@run_mode) AS JSON), '$.a') AS `json_query(CAST((@@run_mode) AS JSON), '$.a')`;
+SELECT max(@@run_mode) OVER () AS `max(@@run_mode) OVER ()`;
+SELECT @@run_mode AS `@@run_mode` WHERE @@run_mode;
+SELECT @@run_mode AS `@@run_mode` LIMIT 0;
+SELECT @@run_mode AS `@@run_mode` WHERE @@run_mode;
+SELECT @@run_mode AS `@@run_mode` LIMIT 100;
+SELECT DISTINCT @@run_mode AS `@@run_mode`;
+SELECT @@run_mode AS `@@run_mode` ORDER BY @@run_mode ASC;
+SELECT @@run_mode AS `@@run_mode` LIMIT 7, 1;
+SELECT @@run_mode AS `@@run_mode` GROUP BY @@run_mode;

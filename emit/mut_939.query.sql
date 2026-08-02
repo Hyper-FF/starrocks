@@ -1,0 +1,2 @@
+SELECT `srfuzz_mut_939`.`partition_unixtime_ms`.`create_time`, `srfuzz_mut_939`.`partition_unixtime_ms`.`sku_id`, `srfuzz_mut_939`.`partition_unixtime_ms`.`total_amount`, `srfuzz_mut_939`.`partition_unixtime_ms`.`id` FROM `srfuzz_mut_939`.`partition_unixtime_ms`;
+SELECT `srfuzz_mut_939`.`partition_unixtime_ms`.`create_time`, `srfuzz_mut_939`.`partition_unixtime_ms`.`sku_id`, `srfuzz_mut_939`.`partition_unixtime_ms`.`total_amount`, `srfuzz_mut_939`.`partition_unixtime_ms`.`id` FROM `srfuzz_mut_939`.`partition_unixtime_ms` PARTITION (`p20210105`);

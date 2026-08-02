@@ -1,0 +1,2 @@
+CREATE TABLE `unique_table_with_null` ( `k1` date, `k2` datetime, `k3` char(20), `k4` varchar(20), `k5` boolean, `v1` tinyint, `v2` smallint, `v3` int, `v4` bigint, `v5` largeint, `v6` float, `v7` double, `v8` decimal(27,9) ) UNIQUE KEY(`k1`, `k2`, `k3`, `k4`, `k5`) COMMENT "OLAP" DISTRIBUTED BY HASH(`k1`, `k2`, `k3`, `k4`, `k5`) BUCKETS 3;
+CREATE VIEW `unique_view_with_null` AS SELECT * FROM `unique_table_with_null`;

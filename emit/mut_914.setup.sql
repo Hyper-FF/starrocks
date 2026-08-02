@@ -1,0 +1,2 @@
+CREATE TABLE test_table ( id INT, name VARCHAR(50), age INT, email VARCHAR(100)) DUPLICATE KEY(id) PROPERTIES ("compression" = "LZ4","replicated_storage" = "true","replication_num" = "1");
+INSERT INTO test_table VALUES (1, 'John', 30, 'john@example.com');

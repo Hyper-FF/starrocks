@@ -1,0 +1,4 @@
+SELECT `srfuzz_mut_927`.`tab1`.`k1`, `srfuzz_mut_927`.`tab1`.`k2`, `srfuzz_mut_927`.`tab1`.`v1`, `srfuzz_mut_927`.`tab1`.`v2`, `srfuzz_mut_927`.`tab1`.`v3` FROM `srfuzz_mut_927`.`tab1`;
+SELECT `srfuzz_mut_927`.`tab1`.`k1`, `srfuzz_mut_927`.`tab1`.`k2`, `srfuzz_mut_927`.`tab1`.`v1`, `srfuzz_mut_927`.`tab1`.`v2`, `srfuzz_mut_927`.`tab1`.`v3` FROM `srfuzz_mut_927`.`tab1`;
+SELECT `srfuzz_mut_927`.`tab1`.`k1`, `srfuzz_mut_927`.`tab1`.`k2`, `srfuzz_mut_927`.`tab1`.`v1`, `srfuzz_mut_927`.`tab1`.`v2`, `srfuzz_mut_927`.`tab1`.`v3` FROM `srfuzz_mut_927`.`tab1`;
+SELECT `srfuzz_mut_927`.`tab1`.`k1`, `srfuzz_mut_927`.`tab1`.`k2`, `srfuzz_mut_927`.`tab1`.`v1`, `srfuzz_mut_927`.`tab1`.`v2`, `srfuzz_mut_927`.`tab1`.`v3` FROM `srfuzz_mut_927`.`tab1`;

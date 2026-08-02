@@ -1,0 +1,1 @@
+SELECT `srfuzz_mut_315`.`t0`.`c0`, `srfuzz_mut_315`.`t0`.`c1` FROM `srfuzz_mut_315`.`t0` ORDER BY `srfuzz_mut_315`.`t0`.`c0` ASC;

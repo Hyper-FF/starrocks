@@ -1,0 +1,2 @@
+CREATE TABLE ss(event_day DATE, pv BIGINT) DUPLICATE KEY(event_day) DISTRIBUTED BY HASH(event_day) BUCKETS 1 PROPERTIES("replication_num" = "1");
+insert into ss values('2020-01-14', 1), ('2020-01-15', 2);

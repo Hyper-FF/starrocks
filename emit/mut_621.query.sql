@@ -1,0 +1,1 @@
+SELECT `srfuzz_mut_621`.`site_access`.`event_day`, `srfuzz_mut_621`.`site_access`.`site_id`, `srfuzz_mut_621`.`site_access`.`city_code`, `srfuzz_mut_621`.`site_access`.`user_name`, `srfuzz_mut_621`.`site_access`.`pv` FROM `srfuzz_mut_621`.`site_access`;

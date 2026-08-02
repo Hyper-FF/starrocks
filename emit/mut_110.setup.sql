@@ -1,0 +1,56 @@
+CREATE TABLE `test_table` (
+  `id` bigint(20) NOT NULL,
+  `cargo_code` bigint(20) NOT NULL,
+  `cargo_upc` varchar(100) NULL,
+  `cargo_name` varchar(256) NULL,
+  `item1_desc` varchar(256) NULL,
+  `upc_nbr` varchar(64) NULL,
+  `vendor_nbr` varchar(64) NULL,
+  `division` varchar(64) NULL,
+  `sub_division` varchar(64) NULL,
+  `sub_division_en` varchar(200) NULL,
+  `category` varchar(200) NULL,
+  `category_cn` varchar(200) NULL,
+  `category_en` varchar(200) NULL,
+  `sub_category` varchar(200) NULL,
+  `sub_category_cn` varchar(200) NULL,
+  `sub_category_en` varchar(200) NULL,
+  `node_code` varchar(200) NOT NULL,
+  `node_type` varchar(200) NULL,
+  `storage_area` varchar(256) NULL,
+  `fragile_flag` int(11) NULL,
+  `storehouse_sell_date` int(11) NULL,
+  `custom_box_gauge` int(11) NULL,
+  `minimum_order_quantity` int(11) NULL,
+  `activation_status` int(11) NULL,
+  `day_sold_out_flag` int(11) NULL,
+  `new_category_flag` int(11) NULL,
+  `updated_time` datetime NULL,
+  `calc_node_code_cargo_code` varchar(200) NULL,
+  `sell_by_date` int(11) NULL,
+  `dc_storage_conditions_code` varchar(200) NULL,
+  `dc_storage_conditions` varchar(256) NULL,
+  `deleted_flag` int(11) NULL,
+  `specification` varchar(255) NULL,
+  `lead_time_day` int(11) NULL,
+  `lead_time_hour` int(11) NULL,
+  `next_status` int(11) NULL,
+  `next_switch_time` datetime NULL,
+  `cloud_status` int(11) NULL,
+  `latest_activate_date` datetime NULL,
+  `long_desc` varchar(256) NULL,
+  `activate_effect_time` datetime NULL,
+  `inactivate_effect_time` datetime NULL,
+  `ti` int(11) NULL,
+  `hi` int(11) NULL
+) ENGINE=OLAP 
+PRIMARY KEY(`id`)
+DISTRIBUTED BY HASH(`id`) BUCKETS 20 
+PROPERTIES (
+"replication_num" = "1"
+);
+insert into test_table (id, cargo_code, cargo_upc, cargo_name, item1_desc, upc_nbr, vendor_nbr, division, sub_division, sub_division_en, category, category_cn, category_en, sub_category, sub_category_cn, sub_category_en, node_code, node_type, storage_area, fragile_flag, storehouse_sell_date, custom_box_gauge, minimum_order_quantity, activation_status, day_sold_out_flag, new_category_flag, updated_time, calc_node_code_cargo_code, sell_by_date, dc_storage_conditions_code, dc_storage_conditions, deleted_flag, specification, lead_time_day, lead_time_hour, next_status, next_switch_time, cloud_status, latest_activate_date, long_desc, activate_effect_time, inactivate_effect_time, ti, hi) values
+(1, 900000000, 'UPC0001', 'CargoName1', 'Desc1', 'UPC1', 'VEND1', 'DIV1', 'SUBDIV1', 'SUBDIV_EN1', 'CAT1', 'CAT_CN1', 'CAT_EN1', 'SUBCAT1', 'SUBCAT_CN1', 'SUBCAT_EN1', 'NODE1', 'TYPE1', 'AREA1', 0, 20230101, 1, 10, 1, 0, 1, '2023-01-01 10:00:00', 'NODE1_900000000', 20240101, 'DCSC1', 'COND1', 0, 'SPEC1', 2, 3, 1, '2023-01-02 10:00:00', 1, '2023-01-03 10:00:00', 'LongDesc1', '2023-01-04 10:00:00', '2023-01-05 10:00:00', 10, 20),
+(2, 900000001, 'UPC0002', 'CargoName2', 'Desc2', 'UPC2', 'VEND2', 'DIV2', 'SUBDIV2', 'SUBDIV_EN2', 'CAT2', 'CAT_CN2', 'CAT_EN2', 'SUBCAT2', 'SUBCAT_CN2', 'SUBCAT_EN2', 'NODE2', 'TYPE2', 'AREA2', 1, 20230102, 2, 20, 0, 1, 0, '2023-01-02 11:00:00', 'NODE2_900000001', 20240102, 'DCSC2', 'COND2', 0, 'SPEC2', 3, 4, 2, '2023-01-03 11:00:00', 2, '2023-01-04 11:00:00', 'LongDesc2', '2023-01-05 11:00:00', '2023-01-06 11:00:00', 11, 21),
+(3, 900000002, 'UPC0003', 'CargoName3', 'Desc3', 'UPC3', 'VEND3', 'DIV3', 'SUBDIV3', 'SUBDIV_EN3', 'CAT3', 'CAT_CN3', 'CAT_EN3', 'SUBCAT3', 'SUBCAT_CN3', 'SUBCAT_EN3', 'NODE3', 'TYPE3', 'AREA3', 0, 20230103, 3, 30, 1, 0, 1, '2023-01-03 12:00:00', 'NODE3_900000002', 20240103, 'DCSC3', 'COND3', 0, 'SPEC3', 4, 5, 3, '2023-01-04 12:00:00', 3, '2023-01-05 12:00:00', 'LongDesc3', '2023-01-06 12:00:00', '2023-01-07 12:00:00', 12, 22),
+(4, 900000003, 'UPC0004', 'CargoName4', 'Desc4', 'UPC4', 'VEND4', 'DIV4', 'SUBDIV4', 'SUBDIV_EN4', 'CAT4', 'CAT_CN4', 'CAT_EN4', 'SUBCAT4', 'SUBCAT_CN4', 'SUBCAT_EN4', 'NODE4', 'TYPE4', 'AREA4', 1, 20230104, 4, 40, 0, 1, 0, '2023-01-04 13:00:00', 'NODE4_900000003', 20240104, 'DCSC4', 'COND4', 0, 'SPEC4', 5, 6, 4, '2023-01-05 13:00:00', 4, '2023-01-06 13:00:00', 'LongDesc4', '2023-01-07 13:00:00', '2023-01-08 13:00:00', 13, 23);

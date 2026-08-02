@@ -1,0 +1,13 @@
+CREATE TABLE `t` (
+    k1 int,
+    v0 int,
+    v1 int
+)
+DUPLICATE KEY(`k1`)
+DISTRIBUTED BY HASH(`k1`) BUCKETS 3
+PROPERTIES('replication_num' = '1');
+INSERT INTO t VALUES (1, 1, 1);
+ALTER TABLE t ADD COLUMN v2 int;
+ALTER TABLE t DROP COLUMN v0;
+ALTER TABLE t ADD COLUMN v0 string;
+INSERT INTO t (k1, v1, v0) VALUES (2, 2, 'test');

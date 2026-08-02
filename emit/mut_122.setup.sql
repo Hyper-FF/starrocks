@@ -1,0 +1,6 @@
+CREATE TABLE amt (id INT, arr ARRAY<INT>) DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES ("replication_num" = "1");
+INSERT INTO amt VALUES (1, NULL), (2, []), (3, []);
+CREATE TABLE amt2 (id INT, arr ARRAY<INT>) DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES ("replication_num" = "1");
+INSERT INTO amt2 VALUES (1, NULL), (2, []), (3, [5]);

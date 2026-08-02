@@ -1,0 +1,10 @@
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_236`.`vok`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_236`.`vok` ORDER BY count(*) ASC;
+WITH `srfuzz_n1` AS (SELECT `srfuzz_mut_236`.`vok`.`id`, `srfuzz_mut_236`.`vok`.`j` FROM `srfuzz_mut_236`.`vok`) SELECT count(*) AS `count(*)` FROM `srfuzz_n1` AS vok;
+WITH `srfuzz_n1` AS (SELECT `srfuzz_mut_236`.`vok`.`id`, `srfuzz_mut_236`.`vok`.`j` FROM `srfuzz_mut_236`.`vok`) SELECT count(*) AS `count(*)` FROM `srfuzz_n1` AS vok;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_236`.`vok` ORDER BY count(*) ASC;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_236`.`vok` HAVING (count(*)) > 1;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_236`.`vok`.`id`, `srfuzz_mut_236`.`vok`.`j` FROM `srfuzz_mut_236`.`vok` INTERSECT SELECT `srfuzz_mut_236`.`vok`.`id`, `srfuzz_mut_236`.`vok`.`j` FROM `srfuzz_mut_236`.`vok`) `vok`;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_236`.`vok`.`id`, `srfuzz_mut_236`.`vok`.`j` FROM `srfuzz_mut_236`.`vok`) `vok`;
+SELECT count(*) AS `count(*)` FROM `srfuzz_mut_236`.`vok` HAVING (count(*)) < 10;
+SELECT count(*) AS `count(*)` FROM (SELECT `srfuzz_mut_236`.`vok`.`id`, `srfuzz_mut_236`.`vok`.`j` FROM `srfuzz_mut_236`.`vok` INTERSECT SELECT `srfuzz_mut_236`.`vok`.`id`, `srfuzz_mut_236`.`vok`.`j` FROM `srfuzz_mut_236`.`vok`) `vok`;

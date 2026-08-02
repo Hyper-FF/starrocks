@@ -1,0 +1,3 @@
+CREATE TABLE t_bar (v INT) DUPLICATE KEY(v)
+DISTRIBUTED BY HASH(v) BUCKETS 1 PROPERTIES ("replication_num" = "1");
+INSERT INTO t_bar VALUES (0), (50), (100);

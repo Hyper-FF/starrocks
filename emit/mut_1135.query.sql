@@ -1,0 +1,5 @@
+SELECT `srfuzz_mut_1135`.`pri_test`.`k1`, `srfuzz_mut_1135`.`pri_test`.`k2`, `srfuzz_mut_1135`.`pri_test`.`v1`, `srfuzz_mut_1135`.`pri_test`.`v2`, `srfuzz_mut_1135`.`pri_test`.`v3` FROM `srfuzz_mut_1135`.`pri_test`;
+SELECT `srfuzz_mut_1135`.`pri_test`.`k1`, `srfuzz_mut_1135`.`pri_test`.`k2`, `srfuzz_mut_1135`.`pri_test`.`v1`, `srfuzz_mut_1135`.`pri_test`.`v2`, `srfuzz_mut_1135`.`pri_test`.`v3` FROM `srfuzz_mut_1135`.`pri_test`;
+SELECT `srfuzz_mut_1135`.`pri_test`.`k1`, `srfuzz_mut_1135`.`pri_test`.`k2`, `srfuzz_mut_1135`.`pri_test`.`v1`, `srfuzz_mut_1135`.`pri_test`.`v2`, `srfuzz_mut_1135`.`pri_test`.`v3` FROM `srfuzz_mut_1135`.`pri_test`;
+SELECT `srfuzz_mut_1135`.`pri_test`.`k1`, `srfuzz_mut_1135`.`pri_test`.`k2`, `srfuzz_mut_1135`.`pri_test`.`v1`, `srfuzz_mut_1135`.`pri_test`.`v2`, `srfuzz_mut_1135`.`pri_test`.`v3` FROM `srfuzz_mut_1135`.`pri_test`;
+SELECT `srfuzz_mut_1135`.`pri_test`.`k1`, `srfuzz_mut_1135`.`pri_test`.`k2`, `srfuzz_mut_1135`.`pri_test`.`v1`, `srfuzz_mut_1135`.`pri_test`.`v2`, `srfuzz_mut_1135`.`pri_test`.`v3` FROM `srfuzz_mut_1135`.`pri_test`;
