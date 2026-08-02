@@ -22,8 +22,10 @@
 #include "column/hash_set.h"
 #include "column/runtime_type_traits.h"
 #include "column/struct_column.h"
+#include "common/logging.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/function_context.h"
+#include "gutil/compiler_util.h"
 #include "runtime/mem_pool.h"
 #include "types/logical_type.h"
 
@@ -113,11 +115,45 @@ public:
 
     void update_state(FunctionContext* ctx, const ArrayColumn* input_column, AggDataPtr __restrict state,
                       size_t row_num) const {
-        // Array element is nullable, so we need to extract the data from nullable column first
         auto offset_size = input_column->get_element_offset_size(row_num);
-        auto& array_element = down_cast<const NullableColumn&>(input_column->elements());
-        auto* element_data_column = down_cast<const InputColumnType*>(ColumnHelper::get_data_column(&array_element));
-        size_t element_null_count = array_element.null_count(offset_size.first, offset_size.second);
+        const auto& array_element = input_column->elements();
+        const Column* raw_element_column = ColumnHelper::get_data_column(&array_element);
+
+        // The offsets and the element column must agree on how many elements the array has. If they
+        // don't, the update() below indexes past the element column and hands the state a wild Slice.
+        if (UNLIKELY(offset_size.first + offset_size.second > raw_element_column->size())) {
+            LOG_FIRST_N(ERROR, 20) << get_name() << ": inconsistent array column"
+                                   << " row=" << row_num << " offset=" << offset_size.first
+                                   << " size=" << offset_size.second << " elements=" << raw_element_column->size()
+                                   << " array_rows=" << input_column->size()
+                                   << " elem_nullable=" << array_element.is_nullable();
+            const std::string error = get_name() + ": corrupted array column (offsets exceed element column)";
+            ctx->set_error(error.c_str());
+            return;
+        }
+
+        // update() reinterprets the element column as the column for LT. Nothing in the type system
+        // ties the two together -- the storage layer rewrites an ARRAY<VARCHAR> field into ARRAY<INT>
+        // dictionary codes without touching the aggregate function this column is read with -- so
+        // check rather than reinterpret. is_binary() is a cheap virtual, never a dynamic_cast.
+        if constexpr (lt_is_string<LT>) {
+            static_assert(std::is_same_v<InputColumnType, BinaryColumn>);
+            if (UNLIKELY(!raw_element_column->is_binary())) {
+                LOG_FIRST_N(ERROR, 20) << get_name() << ": array element column is "
+                                       << raw_element_column->get_name()
+                                       << ", expected a binary column for logical type " << static_cast<int>(LT);
+                const std::string error = get_name() + ": unexpected array element column type";
+                ctx->set_error(error.c_str());
+                return;
+            }
+        }
+
+        const auto* element_data_column = down_cast<const InputColumnType*>(raw_element_column);
+        // Array elements are normally nullable, but nothing in the type system guarantees it.
+        size_t element_null_count = array_element.is_nullable()
+                                            ? down_cast<const NullableColumn&>(array_element)
+                                                      .null_count(offset_size.first, offset_size.second)
+                                            : 0;
         DCHECK_LE(element_null_count, offset_size.second);
 
         if (element_null_count == 0) {
