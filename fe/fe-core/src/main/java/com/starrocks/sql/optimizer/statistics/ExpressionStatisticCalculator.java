@@ -702,24 +702,36 @@ public class ExpressionStatisticCalculator {
                     minValue = Double.NEGATIVE_INFINITY;
                     maxValue = Double.POSITIVE_INFINITY;
                     break;
-                case FunctionSet.TO_DATE, FunctionSet.DATE:
+                case FunctionSet.TO_DATE, FunctionSet.DATE: {
                     if (minMaxValueInfinite) {
                         break;
                     }
-                    minValue = Utils.getDatetimeFromLong((long) minValue).toLocalDate()
-                            .atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
-                    maxValue = Utils.getDatetimeFromLong((long) maxValue).toLocalDate()
-                            .atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
+                    final var min = datetimeFromStatisticValue(minValue);
+                    final var max = datetimeFromStatisticValue(maxValue);
+                    if (min.isEmpty() || max.isEmpty()) {
+                        minValue = Double.NEGATIVE_INFINITY;
+                        maxValue = Double.POSITIVE_INFINITY;
+                        break;
+                    }
+                    minValue = min.get().toLocalDate().atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
+                    maxValue = max.get().toLocalDate().atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
                     break;
-                case FunctionSet.TO_DAYS:
+                }
+                case FunctionSet.TO_DAYS: {
                     if (minMaxValueInfinite) {
                         break;
                     }
-                    minValue = Utils.getDatetimeFromLong((long) minValue).toLocalDate().toEpochDay() +
-                            (double) DAYS_FROM_0_TO_1970;
-                    maxValue = Utils.getDatetimeFromLong((long) maxValue).toLocalDate().toEpochDay() +
-                            (double) DAYS_FROM_0_TO_1970;
+                    final var min = datetimeFromStatisticValue(minValue);
+                    final var max = datetimeFromStatisticValue(maxValue);
+                    if (min.isEmpty() || max.isEmpty()) {
+                        minValue = Double.NEGATIVE_INFINITY;
+                        maxValue = Double.POSITIVE_INFINITY;
+                        break;
+                    }
+                    minValue = min.get().toLocalDate().toEpochDay() + (double) DAYS_FROM_0_TO_1970;
+                    maxValue = max.get().toLocalDate().toEpochDay() + (double) DAYS_FROM_0_TO_1970;
                     break;
+                }
                 case FunctionSet.FROM_DAYS:
                     if (minValue < DAYS_FROM_0_TO_1970) {
                         minValue = LocalDate.ofEpochDay(0).atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
@@ -1165,6 +1177,27 @@ public class ExpressionStatisticCalculator {
             }
         }
 
+        /**
+         * Converts a statistics min/max value (an epoch second) to a LocalDateTime.
+         * <p>
+         * Statistics estimation must never fail a query, but a statistics value is just a double and can hold
+         * any finite value outside of the representable epoch-second range (a constant such as
+         * -9223372036854775808, or a corrupt/garbage collected statistic). {@link Utils#getDatetimeFromLong}
+         * is a bare {@code LocalDateTime.ofInstant(Instant.ofEpochSecond(..))} and raises a
+         * {@link DateTimeException} for those, so callers in the estimator have to degrade instead.
+         */
+        private Optional<LocalDateTime> datetimeFromStatisticValue(double value) {
+            if (Double.isNaN(value) || Double.isInfinite(value)) {
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(Utils.getDatetimeFromLong((long) value));
+            } catch (DateTimeException | ArithmeticException e) {
+                LOG.debug("cannot convert statistic value {} to a datetime", value, e);
+                return Optional.empty();
+            }
+        }
+
         private ColumnStatistic calculateDateTruncStats(CallOperator callOperator, ColumnStatistic dateStatistic) {
             final var fmtArg = toConstantOperator(callOperator.getChild(0));
             final var type = callOperator.getType();
@@ -1178,10 +1211,10 @@ public class ExpressionStatisticCalculator {
                 final Optional<Long> estimatedNdv;
                 if (!dateStatistic.hasNaNValue() && dateStatistic.getMinValue() != Double.NEGATIVE_INFINITY
                         && dateStatistic.getMaxValue() != Double.POSITIVE_INFINITY) {
-                    final var minDateTime = Utils.getDatetimeFromLong((long) dateStatistic.getMinValue());
-                    final var maxDateTime = Utils.getDatetimeFromLong((long) dateStatistic.getMaxValue());
-                    final var truncatedMinDateTime = truncateDateValue(fmtString, minDateTime, type);
-                    final var truncatedMaxDateTime = truncateDateValue(fmtString, maxDateTime, type);
+                    final var minDateTime = datetimeFromStatisticValue(dateStatistic.getMinValue());
+                    final var maxDateTime = datetimeFromStatisticValue(dateStatistic.getMaxValue());
+                    final var truncatedMinDateTime = minDateTime.flatMap(dt -> truncateDateValue(fmtString, dt, type));
+                    final var truncatedMaxDateTime = maxDateTime.flatMap(dt -> truncateDateValue(fmtString, dt, type));
 
                     if (truncatedMinDateTime.isPresent() && truncatedMaxDateTime.isPresent()) {
                         minValue = Utils.getLongFromDateTime(truncatedMinDateTime.get());
@@ -1452,8 +1485,13 @@ public class ExpressionStatisticCalculator {
             if (col.hasNaNValue() || col.isInfiniteRange()) {
                 return 53;
             }
-            LocalDateTime min = Utils.getDatetimeFromLong((long) col.getMinValue());
-            LocalDateTime max = Utils.getDatetimeFromLong((long) col.getMaxValue());
+            final var minOpt = datetimeFromStatisticValue(col.getMinValue());
+            final var maxOpt = datetimeFromStatisticValue(col.getMaxValue());
+            if (minOpt.isEmpty() || maxOpt.isEmpty()) {
+                return 53;
+            }
+            LocalDateTime min = minOpt.get();
+            LocalDateTime max = maxOpt.get();
 
             // the range is more than one year
             if (min.plusYears(1).compareTo(max) <= 0) {

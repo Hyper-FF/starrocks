@@ -3054,4 +3054,60 @@ public class ExpressionStatisticsCalculatorTest {
         assertBooleanDistribution(stat, 175L, 825L, 0.0);
     }
 
+    /**
+     * A statistics min/max is just a double and can hold any finite value outside the representable
+     * epoch-second range (a constant such as -9223372036854775808, or a stale/garbage statistic).
+     * Statistics estimation must degrade to unknown for those, never propagate a java.time exception
+     * and fail the query.
+     */
+    @Test
+    public void testDateTruncWithOutOfRangeStatisticValue() {
+        final var col = new ColumnRefOperator(0, DateType.DATETIME, "dt", true);
+        final double[] outOfRange = {Long.MIN_VALUE, Long.MAX_VALUE, -31557014167219201.0, 31557014167219201.0};
+        for (double value : outOfRange) {
+            final var statistics = Statistics.builder()
+                    .setOutputRowCount(100)
+                    .addColumnStatistic(col, ColumnStatistic.builder()
+                            .setMinValue(value)
+                            .setMaxValue(value)
+                            .setDistinctValuesCount(1)
+                            .build())
+                    .build();
+            final var call = new CallOperator(FunctionSet.DATE_TRUNC, DateType.DATETIME,
+                    Lists.newArrayList(ConstantOperator.createVarchar("quarter"), col));
+
+            final var result = ExpressionStatisticCalculator.calculate(call, statistics);
+
+            Assertions.assertEquals(Double.NEGATIVE_INFINITY, result.getMinValue(), 0.0, "value=" + value);
+            Assertions.assertEquals(Double.POSITIVE_INFINITY, result.getMaxValue(), 0.0, "value=" + value);
+        }
+    }
+
+    @Test
+    public void testDateFunctionsWithOutOfRangeStatisticValue() {
+        final var col = new ColumnRefOperator(0, DateType.DATETIME, "dt", true);
+        final var statistics = Statistics.builder()
+                .setOutputRowCount(100)
+                .addColumnStatistic(col, ColumnStatistic.builder()
+                        .setMinValue(Long.MIN_VALUE)
+                        .setMaxValue(Long.MAX_VALUE)
+                        .setDistinctValuesCount(1000)
+                        .build())
+                .build();
+
+        for (String fnName : List.of(FunctionSet.TO_DATE, FunctionSet.DATE, FunctionSet.TO_DAYS)) {
+            final var call = new CallOperator(fnName, DateType.DATE, Lists.newArrayList(col));
+
+            final var result = ExpressionStatisticCalculator.calculate(call, statistics);
+
+            Assertions.assertEquals(Double.NEGATIVE_INFINITY, result.getMinValue(), 0.0, fnName);
+            Assertions.assertEquals(Double.POSITIVE_INFINITY, result.getMaxValue(), 0.0, fnName);
+        }
+
+        // week() derives its NDV from the same conversion and falls back to the whole-year default
+        final var week = new CallOperator(FunctionSet.WEEK, IntegerType.INT,
+                Lists.newArrayList(col, ConstantOperator.createInt(0)));
+        Assertions.assertEquals(53, ExpressionStatisticCalculator.calculate(week, statistics)
+                .getDistinctValuesCount(), 0.001);
+    }
 }

@@ -2086,4 +2086,24 @@ public class ExpressionTest extends PlanTestBase {
             starRocksAssert.dropTable("rc_t2");
         }
     }
+
+    @Test
+    public void testDateFunctionStatisticsWithOutOfRangeConstant() throws Exception {
+        // "nation" carries column statistics, so statistics estimation actually runs here. The estimator
+        // converted a min/max value to a LocalDateTime with a bare Instant.ofEpochSecond() and let the
+        // raw java.time exception fail the query. StarRocks already knows the answer of these
+        // expressions is NULL - only the estimation blew up.
+        for (String sql : new String[] {
+                "select date_trunc('quarter', -9223372036854775808) from nation",
+                "select date_trunc('quarter', 9223372036854775807) from nation",
+                "select date_trunc('quarter', -31557014167219201) from nation",
+                "select to_date(cast(-9223372036854775808 as datetime)) from nation",
+                "select to_days(cast(-9223372036854775808 as datetime)) from nation",
+                "select week(cast(-9223372036854775808 as datetime)) from nation"}) {
+            Assertions.assertTrue(getFragmentPlan(sql).contains("nation"), sql);
+        }
+        // representable values keep their estimation
+        Assertions.assertTrue(getFragmentPlan(
+                "select date_trunc('quarter', -31556889864403199) from nation").contains("nation"));
+    }
 }
