@@ -545,13 +545,25 @@ public class ListPartitionPruner implements PartitionPruner {
     // string_col = '001' 3
     // will generate new partition value map
     // int_col = 1  [1, 2, 3]
+    // Returns null when a partition value cannot be expressed in the cast's target type, which means
+    // the predicate cannot be evaluated against the partition value map and pruning must be skipped.
     private ConcurrentNavigableMap<LiteralExpr, Set<Long>> getCastPartitionValueMap(CastOperator castOperator,
                                             ConcurrentNavigableMap<LiteralExpr, Set<Long>> partitionValueMap) {
         ConcurrentNavigableMap<LiteralExpr, Set<Long>> newPartitionValueMap = new ConcurrentSkipListMap<>();
 
         for (Map.Entry<LiteralExpr, Set<Long>> entry : partitionValueMap.entrySet()) {
             LiteralExpr key = entry.getKey();
-            LiteralExpr literalExpr = castLiteralExpr(key, castOperator.getType());
+            LiteralExpr literalExpr;
+            try {
+                literalExpr = castLiteralExpr(key, castOperator.getType());
+            } catch (Exception e) {
+                // Partition pruning is an optimization, so a partition value that does not fit the
+                // predicate's type must not fail the query: give up pruning and let the predicate be
+                // evaluated at scan time, exactly like the same predicate on an unpartitioned table.
+                LOG.debug("can not cast partition value {} to target type {}, skip list partition pruning",
+                        key.getStringValue(), castOperator.getType().prettyPrint());
+                return null;
+            }
             Set<Long> partitions = newPartitionValueMap.computeIfAbsent(literalExpr, k -> Sets.newHashSet());
             partitions.addAll(entry.getValue());
         }

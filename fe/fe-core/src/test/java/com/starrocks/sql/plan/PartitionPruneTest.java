@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -780,5 +782,62 @@ public class PartitionPruneTest extends PlanTestBase {
         starRocksAssert.dropTable("t4_expr_range_minmax");
         FeConstants.runningUnitTest = true;
 
+    }
+
+    private static List<String> predicateLines(String plan) {
+        List<String> lines = new ArrayList<>();
+        for (String line : plan.split("\n")) {
+            if (line.contains("PREDICATES:")) {
+                lines.add(line.trim());
+            }
+        }
+        return lines;
+    }
+
+    @Test
+    public void testListPartitionPruneSkippedWhenPartitionValueNotCastable() throws Exception {
+        starRocksAssert.withTable("create table lp_uncastable (k1 int, p varchar(16)) duplicate key(k1) " +
+                "partition by list(p) (partition p1 values in ('a'), partition p2 values in ('b')) " +
+                "distributed by hash(k1) buckets 1 properties(\"replication_num\" = \"1\")");
+        // Same columns, no partitioning: the reference semantics for the same predicate.
+        starRocksAssert.withTable("create table lp_uncastable_flat (k1 int, p varchar(16)) duplicate key(k1) " +
+                "distributed by hash(k1) buckets 1 properties(\"replication_num\" = \"1\")");
+        try {
+            setTableStatistics((OlapTable) starRocksAssert.getTable("test", "lp_uncastable"), 100);
+            setTableStatistics((OlapTable) starRocksAssert.getTable("test", "lp_uncastable_flat"), 100);
+            for (String predicate : List.of(
+                    "p > 0.0", "p >= 0.0", "p < 0.0", "p <= 0.0", "p > 0", "p > 1.5",
+                    "cast(p as int) = 1", "cast(p as int) in (1, 2)")) {
+                // The implicit cast cannot be applied to the partition values 'a'/'b'. Pruning is an
+                // optimization, so it must be skipped instead of failing the query.
+                String partitioned = getFragmentPlan("select count(*) from lp_uncastable where " + predicate);
+                assertContains(partitioned, "partitions=2/2");
+                // The surviving predicate must be the very same one the unpartitioned table evaluates,
+                // so the two tables cannot disagree on the result.
+                String flat = getFragmentPlan("select count(*) from lp_uncastable_flat where " + predicate);
+                Assertions.assertEquals(predicateLines(flat), predicateLines(partitioned), predicate);
+            }
+        } finally {
+            starRocksAssert.dropTable("lp_uncastable");
+            starRocksAssert.dropTable("lp_uncastable_flat");
+        }
+    }
+
+    @Test
+    public void testListPartitionPruneStillWorksWhenPartitionValueCastable() throws Exception {
+        starRocksAssert.withTable("create table lp_castable (k1 int, p varchar(16)) duplicate key(k1) " +
+                "partition by list(p) (partition q1 values in ('10'), partition q2 values in ('20')) " +
+                "distributed by hash(k1) buckets 1 properties(\"replication_num\" = \"1\")");
+        try {
+            setTableStatistics((OlapTable) starRocksAssert.getTable("test", "lp_castable"), 100);
+            assertContains(getFragmentPlan("select count(*) from lp_castable where cast(p as int) = 10"),
+                    "partitions=1/2");
+            assertContains(getFragmentPlan("select count(*) from lp_castable where cast(p as int) in (10)"),
+                    "partitions=1/2");
+            assertContains(getFragmentPlan("select count(*) from lp_castable where cast(p as int) != 10"),
+                    "partitions=1/2");
+        } finally {
+            starRocksAssert.dropTable("lp_castable");
+        }
     }
 }
