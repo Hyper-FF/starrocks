@@ -134,6 +134,28 @@ rows while silently losing statistics for a whole subtree.
    that, so the bias is checkable rather than assumed — watch it in `rounds.tsv` after M11 ships.
    The one thing deliberately NOT done: a predicate is never attached to a join that has no ON clause.
    That turns a cross join into an inner join, which is a shape change and belongs to M6.
+
+   **Measured A/B**, same 40 corpus files, same rng seed 4242, 20 mutations/seed, 1207 seeds — the only
+   difference between the two runs is whether `PredicateMutation` is in `OPERATORS`:
+
+   | | control | with M11 | |
+   | --- | ---: | ---: | --- |
+   | mutants | 22700 | 22736 | +0.2% |
+   | emitted statements | 13885 | 14163 | +2.0% |
+   | statements with a WHERE | 3071 | 3644 | **+18.7%** |
+   | statements with a HAVING | 433 | 1263 | **+192%** |
+   | `AND` occurrences | 1256 | 1315 | +4.7% |
+   | analyzer rejections | 9990 | 9750 | −2.4% |
+
+   HAVING nearly tripled, which is the number this operator was written for. **It costs nothing in
+   usable output** — that was the real risk, since M10 showed a type-matched injection loses output
+   where a type-agnostic one does not, and rejections went slightly *down* rather than up. M11 takes
+   9.0% of rejections, in line with M10 (9.3%) and M5 (8.5%), so it is not a rejection factory.
+
+   The `AND` delta is deliberately reported as the modest number it is: M11 is one of five operators,
+   draws roughly 9% of edits, and adds at most one conjunct per application. Moving the corpus-wide
+   0.36 `AND`/query materially needs either operator weights (item 2) or a longer chain, not a better
+   predicate generator.
 2. **Operator weights**, e.g. `-Dsrfuzz.weights=M10-splice:4,M6-nesting:3`. Today operators are shuffled
    uniformly and the first applicable one wins, so the effective mix is "uniform x applicability" and
    cannot be steered. Useful as a targeted mode on a couple of shards, not as a permanent global change.
