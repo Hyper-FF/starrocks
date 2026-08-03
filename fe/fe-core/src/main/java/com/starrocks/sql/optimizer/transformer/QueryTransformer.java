@@ -90,7 +90,7 @@ public class QueryTransformer {
     }
 
     public LogicalPlan plan(SelectRelation queryBlock, ExpressionMapping outer) {
-        OptExprBuilder builder = planFrom(queryBlock.getRelation(), cteContext);
+        OptExprBuilder builder = planFrom(queryBlock.getRelation(), cteContext, outer);
         builder.setExpressionMapping(new ExpressionMapping(builder.getScope(), builder.getFieldMappings(), outer,
                 builder.getColumnRefToConstOperators()));
 
@@ -183,10 +183,18 @@ public class QueryTransformer {
         return outputs;
     }
 
-    private OptExprBuilder planFrom(Relation node, CTETransformerContext cteContext) {
+    /**
+     * A relation of the FROM clause is planned with an empty outer mapping on purpose: it must not be able to
+     * see the enclosing query. The one expression built down there that *can* legitimately reference the
+     * enclosing query is a JOIN's ON predicate -- the analyzer resolves it against a scope chained onto the
+     * enclosing query's scope -- so the outer mapping is handed down through a dedicated channel that only
+     * the ON predicate translation reads. Without it, an outer field resolved from an ON predicate yields a
+     * hierarchical index for which no column ref exists, and planning dies with an internal error.
+     */
+    private OptExprBuilder planFrom(Relation node, CTETransformerContext cteContext, ExpressionMapping outer) {
         TransformerContext transformerContext = new TransformerContext(
                 columnRefFactory, session, new ExpressionMapping(new Scope(RelationId.anonymous(), new RelationFields())),
-                cteContext, mvTransformerContext);
+                outer, cteContext, mvTransformerContext);
         return new RelationTransformer(transformerContext).visit(node).getRootBuilder();
     }
 

@@ -177,6 +177,8 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
     private final ConnectContext session;
 
     private final ExpressionMapping outer;
+    // See TransformerContext#onPredicateOuter: only consulted when translating a JOIN's ON predicate.
+    private final ExpressionMapping onPredicateOuter;
     private final CTETransformerContext cteContext;
     private final List<ColumnRefOperator> correlation = new ArrayList<>();
     private final MVTransformerContext mvTransformerContext;
@@ -197,6 +199,7 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
         this.columnRefFactory = context.getColumnRefFactory();
         this.session = context.getSession();
         this.outer = context.getOuter();
+        this.onPredicateOuter = context.getOnPredicateOuter();
         this.cteContext = context.getCteContext();
         this.mvTransformerContext = context.getMVTransformerContext();
     }
@@ -1049,10 +1052,13 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
         Scope joinScope = new Scope(RelationId.of(node),
                 node.getLeft().getRelationFields().joinWith(node.getRight().getRelationFields()));
         joinScope.setParent(node.getScope().getParent());
-        ExpressionMapping expressionMapping = new ExpressionMapping(joinScope, Streams.concat(
+        List<ColumnRefOperator> joinFieldMappings = Streams.concat(
                         leftOpt.getFieldMappings().stream(),
                         rightOpt.getFieldMappings().stream())
-                .collect(Collectors.toList()), generateNewConstMap(leftConstMap, rightConstMap, node.getJoinOp()));
+                .collect(Collectors.toList());
+        Map<ColumnRefOperator, ScalarOperator> joinConstMap =
+                generateNewConstMap(leftConstMap, rightConstMap, node.getJoinOp());
+        ExpressionMapping expressionMapping = new ExpressionMapping(joinScope, joinFieldMappings, joinConstMap);
 
         ScalarOperator onPredicate = null;
 
@@ -1063,8 +1069,16 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
                 throw new SemanticException("JOIN USING predicate must evaluate to a boolean");
             }
         } else if (node.getOnPredicate() != null) {
+            // joinScope's parent is the enclosing query's scope, so the ON predicate may resolve a slot to a
+            // field of the outer relation (a correlated reference). Such a field carries a hierarchical index
+            // that starts right after the join's own fields, hence the outer plan's column refs must be part
+            // of the mapping used to translate the ON predicate -- the very same thing QueryTransformer#plan
+            // does for the WHERE clause. Note this mapping is used *only* for the ON predicate: the join's
+            // own output must keep exposing the join's fields alone.
+            ExpressionMapping onPredicateMapping =
+                    ExpressionMapping.withOuterFields(joinScope, joinFieldMappings, onPredicateOuter, joinConstMap);
             Triple<ScalarOperator, OptExprBuilder, OptExprBuilder> triple = parseJoinOnPredicate(node,
-                    leftOpt, rightOpt, leftPlan.getOutputColumn(), rightPlan.getOutputColumn(), expressionMapping);
+                    leftOpt, rightOpt, leftPlan.getOutputColumn(), rightPlan.getOutputColumn(), onPredicateMapping);
             onPredicate = triple.getLeft();
             leftOpt = triple.getMiddle();
             rightOpt = triple.getRight();

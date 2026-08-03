@@ -1,0 +1,63 @@
+-- name: test_correlated_column_in_join_on
+CREATE TABLE `t_int` (
+  `id` int(11) NULL COMMENT "",
+  `int_col` int(11) NULL COMMENT ""
+) ENGINE=OLAP
+DUPLICATE KEY(`id`)
+DISTRIBUTED BY HASH(`id`) BUCKETS 1
+PROPERTIES (
+"replication_num" = "1"
+);
+
+CREATE TABLE `t_large` (
+  `id` int(11) NULL COMMENT "",
+  `category_id` varchar(64) NULL COMMENT ""
+) ENGINE=OLAP
+DUPLICATE KEY(`id`)
+DISTRIBUTED BY HASH(`id`) BUCKETS 1
+PROPERTIES (
+"replication_num" = "1"
+);
+
+CREATE TABLE `t_dimension` (
+  `dim_id` varchar(64) NULL COMMENT ""
+) ENGINE=OLAP
+DUPLICATE KEY(`dim_id`)
+DISTRIBUTED BY HASH(`dim_id`) BUCKETS 1
+PROPERTIES (
+"replication_num" = "1"
+);
+
+insert into t_int values (1, 1), (2, 2);
+insert into t_large values (1, '1'), (2, '2');
+insert into t_dimension values ('1'), ('2');
+
+-- A correlated column referenced from the ON clause of a join nested in a sub-query must be reported as an
+-- unsupported correlated reference. It used to blow up with the internal planner error
+-- "Get columnRef with index N out fieldMappings length" because the ON predicate was translated with an
+-- ExpressionMapping that only covered the join's own two sides.
+select id, int_col from t_int where id in (
+    select l.id from t_large l join t_dimension d
+    on l.category_id = d.dim_id and l.category_id <> t_int.int_col);
+
+-- Same shape without the implicit cast: the cast is not part of the trigger.
+select id from t_int where id in (
+    select l.id from t_large l join t_dimension d on l.category_id = d.dim_id and l.id = t_int.int_col);
+
+-- The correlated column being the FIRST field of the outer relation used to raise a raw
+-- ArrayIndexOutOfBoundsException instead of the planner error, because the bound check was off by one.
+select id from t_int where id in (
+    select l.id from t_large l join t_dimension d on l.category_id = d.dim_id and l.id = t_int.id);
+
+-- EXISTS flavour of the same shape.
+select id from t_int where exists (
+    select l.id from t_large l join t_dimension d on l.category_id = d.dim_id and l.id = t_int.id);
+
+-- The supported way to write it - the correlated predicate lives in the sub-query's WHERE clause - keeps working.
+select id, int_col from t_int where id in (
+    select l.id from t_large l join t_dimension d on l.category_id = d.dim_id
+    where l.id = t_int.id) order by id;
+
+-- An uncorrelated ON predicate over the very same join is unaffected.
+select id, int_col from t_int where id in (
+    select l.id from t_large l join t_dimension d on l.category_id = d.dim_id and l.id = 1) order by id;

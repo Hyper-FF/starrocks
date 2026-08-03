@@ -91,6 +91,34 @@ public class ExpressionMapping {
                 columnRefToConstOperators == null ? new HashMap<>() : columnRefToConstOperators;
     }
 
+    /**
+     * Build a mapping for an expression whose scope hierarchy has already been wired up by the caller
+     * (typically by the analyzer) and which may still reference fields of the enclosing query.
+     * <p>
+     * The ON predicate of a JOIN inside a sub-query is exactly such an expression: it is resolved against a
+     * scope whose parent chain reaches the outer query, so {@link Scope#resolveField} can hand back a
+     * hierarchical field index that points past the join's own fields and into the outer relation. The outer
+     * plan's column refs therefore have to be appended to fieldMappings; otherwise such an index is out of
+     * range and {@link #getColumnRefWithIndex} fails with an internal error instead of the intended
+     * "correlated column" diagnostic.
+     * <p>
+     * Unlike {@link #ExpressionMapping(Scope, List, ExpressionMapping, Map)} this keeps {@code scope}'s
+     * existing parent untouched, because the expression was resolved against that very hierarchy.
+     */
+    public static ExpressionMapping withOuterFields(Scope scope, List<ColumnRefOperator> fieldMappings,
+                                                    ExpressionMapping outer,
+                                                    Map<ColumnRefOperator, ScalarOperator> columnRefToConstOperators) {
+        List<ColumnRefOperator> fieldsList = new ArrayList<>(fieldMappings);
+        if (outer != null) {
+            fieldsList.addAll(outer.getFieldMappings());
+        }
+        ExpressionMapping mapping = new ExpressionMapping(scope, fieldsList, columnRefToConstOperators);
+        if (outer != null) {
+            mapping.outerScopeRelationId = outer.getScope().getRelationId();
+        }
+        return mapping;
+    }
+
     public ExpressionMapping(Scope scope) {
         this.scope = scope;
 
@@ -118,7 +146,7 @@ public class ExpressionMapping {
     }
 
     public ColumnRefOperator getColumnRefWithIndex(int fieldIndex) {
-        if (fieldIndex > fieldMappings.length) {
+        if (fieldIndex < 0 || fieldIndex >= fieldMappings.length) {
             throw new StarRocksPlannerException(
                     String.format("Get columnRef with index %d out fieldMappings length", fieldIndex),
                     ErrorType.INTERNAL_ERROR);

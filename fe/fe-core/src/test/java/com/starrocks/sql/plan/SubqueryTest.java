@@ -18,6 +18,7 @@ import com.starrocks.common.FeConstants;
 import com.starrocks.qe.SessionVariable;
 import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.sql.analyzer.SemanticException;
+import com.starrocks.sql.common.StarRocksPlannerException;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -2096,5 +2097,54 @@ public class SubqueryTest extends PlanTestBase {
                 + " left join t1 xx1 on x1.v5 = xx1.v5 and xx1.v6 = (select v8 from t2 where v9 = 1 order by v8 limit 1) ";
         String plan = getFragmentPlan(sql);
         assertContains(plan, "ASSERT NUMBER OF ROWS");
+    }
+
+    /**
+     * A correlated column referenced from the ON clause of a join nested in a sub-query used to die with the
+     * internal planner error "Get columnRef with index N out fieldMappings length" (and with a raw
+     * ArrayIndexOutOfBoundsException when the correlated column was the outer relation's first field),
+     * because the ON predicate was translated with an ExpressionMapping that only covered the join's own
+     * two sides. It must be reported as an unsupported correlated reference instead.
+     */
+    @Test
+    public void testCorrelatedColumnInJoinOnClause() {
+        String[] sqls = new String[] {
+                // IN sub-query, correlated column in the ON clause
+                "select v1 from t0 where v1 in (select l.v4 from t1 l join t2 d on l.v5 = d.v8 and l.v6 = t0.v2)",
+                // an implicit/explicit cast around the correlated column is not part of the trigger
+                "select v1 from t0 where v1 in (select l.v4 from t1 l join t2 d on l.v5 = d.v8 "
+                        + "and cast(l.v6 as varchar) <> cast(t0.v2 as varchar))",
+                // correlated column is the first field of the outer relation (used to be an AIOOBE)
+                "select v1 from t0 where v1 in (select l.v4 from t1 l join t2 d on l.v5 = d.v8 and l.v6 = t0.v1)",
+                // the correlated column is the only ON conjunct
+                "select v1 from t0 where v1 in (select l.v4 from t1 l join t2 d on l.v5 = t0.v2)",
+                // EXISTS / NOT IN / scalar sub-query flavours
+                "select v1 from t0 where exists (select l.v4 from t1 l join t2 d on l.v5 = d.v8 and l.v6 = t0.v2)",
+                "select v1 from t0 where v1 not in (select l.v4 from t1 l join t2 d on l.v5 = d.v8 and l.v6 = t0.v2)",
+                "select v1, (select max(l.v4) from t1 l join t2 d on l.v5 = d.v8 and l.v6 = t0.v2) from t0",
+                // outer join and a deeper join tree
+                "select v1 from t0 where v1 in (select l.v4 from t1 l left join t2 d on l.v5 = d.v8 and l.v6 = t0.v2)",
+                "select v1 from t0 where v1 in (select l.v4 from t1 l join t2 d on l.v5 = d.v8 "
+                        + "join t3 e on l.v4 = e.v10 and l.v6 = t0.v2)",
+        };
+        for (String sql : sqls) {
+            Throwable exception = assertThrows(StarRocksPlannerException.class, () -> getFragmentPlan(sql), sql);
+            assertThat(sql, exception.getMessage(),
+                    containsString("Only support use correlated columns in the where clause of subqueries"));
+        }
+    }
+
+    /**
+     * The supported spelling -- the correlated predicate in the sub-query's WHERE clause -- keeps planning,
+     * and so does an uncorrelated ON predicate over the very same join.
+     */
+    @Test
+    public void testCorrelatedJoinSubqueryStillPlans() throws Exception {
+        String plan = getFragmentPlan(
+                "select v1 from t0 where v1 in (select l.v4 from t1 l join t2 d on l.v5 = d.v8 where l.v6 = t0.v2)");
+        assertContains(plan, "LEFT SEMI JOIN");
+        plan = getFragmentPlan(
+                "select v1 from t0 where v1 in (select l.v4 from t1 l join t2 d on l.v5 = d.v8 and l.v6 = 3)");
+        assertContains(plan, "LEFT SEMI JOIN");
     }
 }
