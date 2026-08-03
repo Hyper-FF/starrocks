@@ -132,6 +132,10 @@ public class ScalarOperatorFunctions {
     private static final BigInteger INT_128_OPENER = BigInteger.ONE.shiftLeft(CONSTANT_128 + 1);
     private static final BigInteger[] INT_128_MASK1_ARR1 = new BigInteger[CONSTANT_128];
 
+    // LARGEINT is an int128 in the BE, BigInteger is unbounded in the FE.
+    private static final BigInteger LARGE_INT_MAX = BigInteger.ONE.shiftLeft(CONSTANT_128 - 1).subtract(BigInteger.ONE);
+    private static final BigInteger LARGE_INT_MIN = BigInteger.ONE.shiftLeft(CONSTANT_128 - 1).negate();
+
     private static final int YEAR_MIN = 0;
     private static final int YEAR_MAX = 9999;
     private static final int DAY_OF_YEAR_MIN = 1;
@@ -1207,6 +1211,19 @@ public class ScalarOperatorFunctions {
      * Arithmetic function
      */
 
+    // BigInteger arithmetic is unbounded, but LARGEINT is an int128 in the BE, which wraps around on
+    // overflow. Folding an out-of-range result in the FE would therefore either abort the query with
+    // "Large int literal is out of range" or, when the error is swallowed by an enclosing cast, return a
+    // value that disagrees with the very same expression evaluated over a column in the BE.
+    // All the narrower integer widths use Math.xxxExact and let the ArithmeticException abort the fold,
+    // so that the BE computes the (wrapped) value; LARGEINT does the same here.
+    private static ConstantOperator createLargeIntExact(BigInteger value) {
+        if (value.compareTo(LARGE_INT_MIN) < 0 || value.compareTo(LARGE_INT_MAX) > 0) {
+            throw new ArithmeticException("largeint overflow");
+        }
+        return ConstantOperator.createLargeInt(value);
+    }
+
     @ConstantFunction(name = "add", argTypes = {TINYINT, TINYINT}, returnType = TINYINT, isMonotonic = true)
     public static ConstantOperator addTinyInt(ConstantOperator first, ConstantOperator second) {
         return ConstantOperator.createTinyInt((byte) Math.addExact(first.getTinyInt(), second.getTinyInt()));
@@ -1244,7 +1261,7 @@ public class ScalarOperatorFunctions {
 
     @ConstantFunction(name = "add", argTypes = {LARGEINT, LARGEINT}, returnType = LARGEINT, isMonotonic = true)
     public static ConstantOperator addLargeInt(ConstantOperator first, ConstantOperator second) {
-        return ConstantOperator.createLargeInt(first.getLargeInt().add(second.getLargeInt()));
+        return createLargeIntExact(first.getLargeInt().add(second.getLargeInt()));
     }
 
     @ConstantFunction(name = "subtract", argTypes = {SMALLINT, SMALLINT}, returnType = SMALLINT, isMonotonic = true)
@@ -1280,7 +1297,7 @@ public class ScalarOperatorFunctions {
 
     @ConstantFunction(name = "subtract", argTypes = {LARGEINT, LARGEINT}, returnType = LARGEINT, isMonotonic = true)
     public static ConstantOperator subtractLargeInt(ConstantOperator first, ConstantOperator second) {
-        return ConstantOperator.createLargeInt(first.getLargeInt().subtract(second.getLargeInt()));
+        return createLargeIntExact(first.getLargeInt().subtract(second.getLargeInt()));
     }
 
     @ConstantFunction(name = "multiply", argTypes = {SMALLINT, SMALLINT}, returnType = SMALLINT)
@@ -1317,7 +1334,7 @@ public class ScalarOperatorFunctions {
 
     @ConstantFunction(name = "multiply", argTypes = {LARGEINT, LARGEINT}, returnType = LARGEINT)
     public static ConstantOperator multiplyLargeInt(ConstantOperator first, ConstantOperator second) {
-        return ConstantOperator.createLargeInt(first.getLargeInt().multiply(second.getLargeInt()));
+        return createLargeIntExact(first.getLargeInt().multiply(second.getLargeInt()));
     }
 
     private static ConstantOperator handleDivisionByZero(Type type) {
@@ -1388,7 +1405,7 @@ public class ScalarOperatorFunctions {
         if (second.getLargeInt().equals(BigInteger.ZERO)) {
             return handleDivisionByZero(IntegerType.LARGEINT);
         }
-        return ConstantOperator.createLargeInt(first.getLargeInt().divide(second.getLargeInt()));
+        return createLargeIntExact(first.getLargeInt().divide(second.getLargeInt()));
     }
 
     @ConstantFunction(name = "mod", argTypes = {TINYINT, TINYINT}, returnType = TINYINT)
@@ -1546,7 +1563,7 @@ public class ScalarOperatorFunctions {
 
     @ConstantFunction(name = "bitShiftLeft", argTypes = {LARGEINT, BIGINT}, returnType = LARGEINT)
     public static ConstantOperator bitShiftLeftLargeInt(ConstantOperator first, ConstantOperator second) {
-        return ConstantOperator.createLargeInt(first.getLargeInt().shiftLeft((int) second.getBigint()));
+        return createLargeIntExact(first.getLargeInt().shiftLeft((int) second.getBigint()));
     }
 
     @ConstantFunction(name = "bitShiftRight", argTypes = {TINYINT, BIGINT}, returnType = TINYINT)

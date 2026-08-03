@@ -1771,4 +1771,45 @@ public class ScalarOperatorFunctionsTest {
         assertEquals(0, ScalarOperatorFunctions.minute(v).getTinyInt());
         assertEquals(0, ScalarOperatorFunctions.second(v).getTinyInt());
     }
+
+    @Test
+    public void testLargeIntArithmeticOverflowAbortsFolding() {
+        // LARGEINT is an int128 in the BE and wraps around on overflow, exactly like every narrower
+        // integer width. Every narrower width uses Math.xxxExact so that the ArithmeticException aborts
+        // the constant fold and the BE computes the wrapped value; LARGEINT must behave the same way,
+        // otherwise the FE either fails the query with "Large int literal is out of range" or silently
+        // returns a value that disagrees with the BE.
+        ConstantOperator max = ConstantOperator.createLargeInt(
+                new BigInteger("170141183460469231731687303715884105727"));
+        ConstantOperator min = ConstantOperator.createLargeInt(
+                new BigInteger("-170141183460469231731687303715884105728"));
+        ConstantOperator one = ConstantOperator.createLargeInt(BigInteger.ONE);
+        ConstantOperator two = ConstantOperator.createLargeInt(BigInteger.TWO);
+        ConstantOperator minusOne = ConstantOperator.createLargeInt(BigInteger.valueOf(-1));
+
+        assertThrows(ArithmeticException.class, () -> ScalarOperatorFunctions.addLargeInt(max, one));
+        assertThrows(ArithmeticException.class, () -> ScalarOperatorFunctions.subtractLargeInt(min, one));
+        assertThrows(ArithmeticException.class, () -> ScalarOperatorFunctions.multiplyLargeInt(max, two));
+        assertThrows(ArithmeticException.class, () -> ScalarOperatorFunctions.intDivideLargeInt(min, minusOne));
+        assertThrows(ArithmeticException.class, () -> ScalarOperatorFunctions
+                .bitShiftLeftLargeInt(one, ConstantOperator.createBigint(127)));
+
+        // in-range results still fold
+        assertEquals(new BigInteger("170141183460469231731687303715884105727"),
+                ScalarOperatorFunctions.addLargeInt(
+                        ConstantOperator.createLargeInt(new BigInteger("170141183460469231731687303715884105726")),
+                        one).getLargeInt());
+        assertEquals(new BigInteger("-170141183460469231731687303715884105728"),
+                ScalarOperatorFunctions.subtractLargeInt(
+                        ConstantOperator.createLargeInt(new BigInteger("-170141183460469231731687303715884105727")),
+                        one).getLargeInt());
+        assertEquals(new BigInteger("170141183460469231731687303715884105726"),
+                ScalarOperatorFunctions.multiplyLargeInt(
+                        ConstantOperator.createLargeInt(new BigInteger("85070591730234615865843651857942052863")),
+                        two).getLargeInt());
+        assertEquals(new BigInteger("170141183460469231731687303715884105727"),
+                ScalarOperatorFunctions.intDivideLargeInt(max, one).getLargeInt());
+        assertEquals(new BigInteger("85070591730234615865843651857942052864"),
+                ScalarOperatorFunctions.bitShiftLeftLargeInt(one, ConstantOperator.createBigint(126)).getLargeInt());
+    }
 }

@@ -703,4 +703,30 @@ public class ConstantExpressionTest extends PlanTestBase {
     void testConstantDoubleAdd() throws Exception {
         assertCContains(getFragmentPlan("SELECT -1.5e308-3e307"), "NULL");
     }
+
+    @Test
+    public void testLargeIntArithmeticOverflowIsNotFolded() throws Exception {
+        // LARGEINT was the only integer width whose constant folding had no overflow check: every other
+        // width uses Math.xxxExact, whose ArithmeticException aborts the fold and lets the BE compute the
+        // wrapped int128 value (which is why `select 9223372036854775807 + 1` returns the wrapped BIGINT).
+        // Folding LARGEINT unchecked either failed the query with "Large int literal is out of range" or,
+        // when an enclosing cast swallowed that failure, produced a number the BE would never return.
+        String maxLargeInt = "170141183460469231731687303715884105727";
+
+        // used to fail with "Large int literal is out of range"
+        getFragmentPlan("select " + maxLargeInt + " + 512");
+        getFragmentPlan("select -" + maxLargeInt + " - 512");
+        getFragmentPlan("select " + maxLargeInt + " * 2");
+
+        // used to silently answer 170141183460469231731687303715884106239 while the BE answers
+        // -170141183460469231731687303715884105217 for the very same expression over a column
+        String plan = getFragmentPlan("select cast(" + maxLargeInt + " + 512 as string)");
+        Assertions.assertFalse(plan.contains("170141183460469231731687303715884106239"), plan);
+
+        // in-range arithmetic is still folded
+        testFragmentPlanContainsConstExpr("select 170141183460469231731687303715884105726 + 1", maxLargeInt);
+        // and the BIGINT precedent is unchanged: the fold is aborted, the BE wraps
+        plan = getFragmentPlan("select 9223372036854775807 + 1");
+        Assertions.assertFalse(plan.contains("9223372036854775808"), plan);
+    }
 }
