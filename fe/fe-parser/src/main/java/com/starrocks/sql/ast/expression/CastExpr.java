@@ -128,7 +128,13 @@ public class CastExpr extends Expr {
         }
         CastExpr castExpr = (CastExpr) o;
 
-        if (targetTypeDef != null && !targetTypeDef.getType().equals(castExpr.getTargetTypeDef().getType())) {
+        // targetTypeDef is null for implicit casts, on BOTH sides of the comparison. Dereferencing the
+        // other operand unguarded throws a NPE whenever an explicit cast is compared against an implicit
+        // one, which is a legal mix (e.g. `select not cast(v1 as boolean) from t group by not v1`).
+        // Objects.equals also keeps this consistent with hashCode(), which hashes the very same value.
+        Type thisTargetType = targetTypeDef == null ? null : targetTypeDef.getType();
+        Type otherTargetType = castExpr.targetTypeDef == null ? null : castExpr.targetTypeDef.getType();
+        if (!Objects.equals(thisTargetType, otherTargetType)) {
             return false;
         }
 

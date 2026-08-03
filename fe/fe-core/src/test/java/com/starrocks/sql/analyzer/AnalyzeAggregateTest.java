@@ -622,4 +622,29 @@ public class AnalyzeAggregateTest {
         analyzeSuccess("select grouping(v1) from t0 group by all");
         analyzeSuccess("select *, sum(v1) from t0 group by all");
     }
+
+    @Test
+    public void testMixedImplicitAndExplicitCastInGroupBy() {
+        // ExpressionAnalyzer wraps the non-boolean children of a compound predicate in an implicit
+        // boolean cast, so an explicit CAST in the select list ends up compared against an implicit one
+        // coming from the GROUP BY clause. CastExpr#equalsWithoutChild used to dereference the *other*
+        // operand's targetTypeDef, which is null for implicit casts, and blew up with a
+        // NullPointerException instead of answering the comparison.
+        analyzeFail("select not cast(v1 as boolean) from t0 group by not v1",
+                "must be an aggregate expression or appear in GROUP BY clause");
+        analyzeFail("select count(*) from t0 group by not v1 having not cast(v1 as boolean)",
+                "must be an aggregate expression or appear in GROUP BY clause");
+        analyzeFail("select not cast(v1 as boolean) from t0 group by not v1 order by not cast(v1 as boolean)",
+                "must be an aggregate expression or appear in GROUP BY clause");
+        analyzeFail("select v1 is null and cast(v1 as boolean) from t0 group by v1 is null and v1",
+                "must be an aggregate expression or appear in GROUP BY clause");
+        // the reversed operand order always took the non-NPE path, and still behaves the same
+        analyzeFail("select not v1 from t0 group by not cast(v1 as boolean)",
+                "must be an aggregate expression or appear in GROUP BY clause");
+
+        // matching casts on both sides keep working
+        analyzeSuccess("select not cast(v1 as boolean) from t0 group by not cast(v1 as boolean)");
+        analyzeSuccess("select not v1 from t0 group by not v1");
+        analyzeSuccess("select cast(v1 as boolean) from t0 group by cast(v1 as boolean)");
+    }
 }
