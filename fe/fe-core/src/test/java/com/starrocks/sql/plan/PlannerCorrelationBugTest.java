@@ -93,4 +93,23 @@ public class PlannerCorrelationBugTest extends PlanTestNoneDBBase {
         // control: a top level window is never correlated
         assertPlans("select row_number() over (partition by a order by b) from tb1");
     }
+
+    /**
+     * A FULL OUTER JOIN ... USING replaces its USING columns with COALESCE ones. Picking the columns to keep by
+     * name used to drop a non-USING column that happened to carry the name of a USING column, which left the
+     * child's output column list out of step with its scope fields, and a parent join indexes the two together.
+     */
+    @Test
+    public void testFullOuterJoinUsingChain() throws Exception {
+        assertPlans("select c_key from sk1 t1 join (select c_key as nk from sk1) n1 on t1.c_key = n1.nk "
+                + "full outer join sk2 using(c_key) join sk1 t3 using(c_key)");
+        // control: the same shape where the renamed column is not a USING column
+        assertPlans("select c_key from sk1 t1 join (select c_tinyint as nk from sk1) n1 on t1.c_key = n1.nk "
+                + "full outer join sk2 using(c_key) join sk1 t3 using(c_key)");
+        assertPlans("select * from sk1 full outer join sk2 using(c_key)");
+        assertPlans("select c_key from sk1 full outer join sk2 using(c_key, c_tinyint)");
+        // a non-USING field that carries a USING column's name must survive the coalesce projection
+        assertPlans("select c_key from (select c_key as nk, c_key from sk1) n1 "
+                + "full outer join sk2 using(c_key) join sk1 t3 using(c_key)");
+    }
 }

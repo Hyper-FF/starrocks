@@ -1366,8 +1366,21 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
             }
         }
 
+        // The join's field mappings were produced by deduplicateUsingColumns(), so they are positionally
+        // parallel to the join relation's scope fields: the first usingColumns.size() entries are the USING
+        // columns (taken from one side), followed by the non-USING columns of the left and then of the right
+        // side. Select the columns by position rather than by column-ref name: a name can belong to a
+        // non-USING field as well (`select c_key as nk from t` keeps the name of the underlying column), and
+        // dropping such a field desynchronises this output list from the scope fields, which a parent join
+        // then indexes positionally.
+        List<ColumnRefOperator> joinFieldMappings = joinBuilder.getExpressionMapping().getFieldMappings();
+        Preconditions.checkState(joinFieldMappings.size() >= usingColumns.size(),
+                "JOIN USING output has %s columns, fewer than the %s USING columns",
+                joinFieldMappings.size(), usingColumns.size());
+
         int fallbackIdx = 0;
-        for (String colName : usingColumns) {
+        for (int i = 0; i < usingColumns.size(); i++) {
+            String colName = usingColumns.get(i);
             String lowerColName = colName.toLowerCase();
             ScalarOperator leftExpr = leftExprMap.get(lowerColName);
             ScalarOperator rightExpr = rightExprMap.get(lowerColName);
@@ -1391,20 +1404,20 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
 
                 outputs.add(coalesceCol);
                 projections.put(coalesceCol, coalesceExpr);
+            } else {
+                // No equality was built for this USING column, so it cannot be merged. Keep the join's own
+                // column for it so that the output list stays aligned with the scope fields.
+                ColumnRefOperator col = joinFieldMappings.get(i);
+                outputs.add(col);
+                projections.put(col, col);
             }
         }
 
         // Add non-USING fields from JOIN output (left + right in order)
-        Set<String> usingColLowerSet = usingColumns.stream()
-                .map(String::toLowerCase)
-                .collect(Collectors.toSet());
-
-        for (ColumnRefOperator col : joinBuilder.getExpressionMapping().getFieldMappings()) {
-            // Skip if this column is a USING column (will be replaced by COALESCE)
-            if (!usingColLowerSet.contains(col.getName().toLowerCase())) {
-                outputs.add(col);
-                projections.put(col, col);
-            }
+        for (int i = usingColumns.size(); i < joinFieldMappings.size(); i++) {
+            ColumnRefOperator col = joinFieldMappings.get(i);
+            outputs.add(col);
+            projections.put(col, col);
         }
 
         LogicalProjectOperator projectOperator = new LogicalProjectOperator(projections);
@@ -1474,6 +1487,13 @@ public class RelationTransformer implements AstVisitorExtendInterface<LogicalPla
 
         List<Field> leftFields = node.getLeft().getRelationFields().getAllFields();
         List<Field> rightFields = node.getRight().getRelationFields().getAllFields();
+
+        // The loops below index the child plans' output columns with the analyzer's field positions, so both
+        // lists must describe the same columns in the same order.
+        Preconditions.checkState(leftFields.size() == leftColumns.size(),
+                "join left child has %s scope fields but %s output columns", leftFields.size(), leftColumns.size());
+        Preconditions.checkState(rightFields.size() == rightColumns.size(),
+                "join right child has %s scope fields but %s output columns", rightFields.size(), rightColumns.size());
 
         boolean preferRight = node.getJoinOp().isRightOuterJoin();
 
