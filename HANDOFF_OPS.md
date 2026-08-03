@@ -54,14 +54,54 @@ position — arbitrary half-statements, with no error that names the cause. Stag
 `clusterfuzz.next.sh`, `bash -n` it, then stop the loop and swap. The pre-M11 original is kept as
 `clusterfuzz.sh.bak-pre-m11`.
 
+## Running more than one instance
+
+`NINSTANCES=4 INSTANCE=0 ./clusterfuzz.sh` … one process per shard. `NINSTANCES=1` (the default) keeps
+the old single-instance layout byte for byte, so nothing moves until you actually scale up.
+
+Each instance gets its own `inst<N>/` for `rounds.tsv`, `status`, the log and every per-round scratch
+file; findings and all signature files stay shared so dedup is global, and concurrent claims on them
+go through `claim_signature`, which holds a `flock` over the read-modify-write.
+
+**Sharding is by database, not by group index**, and that is not a detail. The database name strips
+the generation prefix and the leading zeros, so `deep2_mut_007` and `mut_007` both resolve to
+`srfuzz_mut_7` — measured over the real corpus, 1767 groups map to only **762 distinct databases**. A
+stride over group indices would routinely put two groups sharing one database on two instances, which
+then create, populate and drop it underneath each other. Hashing the database name puts everything
+touching a database on one instance; verified over the full corpus at `NINSTANCES=4` (428/440/388/511
+groups, every database owned by exactly one instance). It also settles the benchmark databases for
+free — all `bench_tpch` groups land together, all `bench_tpcds` groups land together — which is what
+those shared, never-dropped databases need.
+
+`restart_be` takes a lock and re-checks `be_alive` after acquiring it, so N instances noticing the
+same crash do not fight over stop_be/start_be.
+
+**The BE is started with `setsid`.** It used to inherit the harness's process group, so stopping the
+campaign the obvious way — kill the process group — took the backend down with it, and the next start
+failed preflight with "BE is not registered and Alive", which reads as a cluster fault rather than as
+the stop having been too wide.
+
+One caveat that cannot be sharded away: `be.out` and `fe.warn.log` are global. Every instance scans
+both, so the round/group label on a crash or FE-log finding may name the wrong instance. The crashing
+SQL is still correct — the crash recorder resolves it from the banner's `query_id` via
+`fe.audit.log`, not from the round.
+
 ## Reading a round
 
 `rounds.tsv` columns: `round group tables setup_fail gen_rows queries errors diff_checked diff_bad
-diff_empty diff_void tlp_checked tlp_bad tlp_skipped fatal_delta be_restarts new_fe_sigs secs`.
+diff_empty diff_void diff_skipped tlp_checked tlp_bad tlp_skipped fatal_delta be_restarts new_fe_sigs
+secs`.
 
-The five middle columns are new. A file written under the old header is **rotated** to `rounds.tsv.N`
+The six middle columns are new. A file written under the old header is **rotated** to `rounds.tsv.N`
 on first start rather than appended to, because mixing widths makes every column-indexed awk read the
 wrong field.
+
+⚠️ **Rotating resets the round counter, and the round counter is what picks the group** (`groups[(round
+-1) % n]`). A rotation therefore sends the walk back to the start of the corpus — which, since the 125
+`bench_*` groups sort first and TLP can never run on them, means TLP does nothing for the next ~125
+rounds. After a rotation, migrate the old rows into the new layout (pad the new columns with `-`, not
+`0`: those oracles did not run for those rounds) so `wc -l` restores the counter and the walk resumes
+where it was.
 
 - `tables=0` on a group that should have a schema means setup failed.
 - `gen_rows=0` with `tables>0` means the data generator ran and loaded nothing — a harness defect, and
