@@ -18,6 +18,7 @@ import com.starrocks.common.AnalysisException;
 import com.starrocks.common.StarRocksException;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SqlModeHelper;
+import com.starrocks.sql.StatementPlanner;
 import com.starrocks.sql.analyzer.Analyzer;
 import com.starrocks.sql.analyzer.AstToSQLBuilder;
 import com.starrocks.sql.analyzer.SemanticException;
@@ -41,6 +42,7 @@ import com.starrocks.sql.ast.expression.Predicate;
 import com.starrocks.sql.ast.expression.SlotRef;
 import com.starrocks.sql.common.UnsupportedException;
 import com.starrocks.sql.parser.SqlParser;
+import com.starrocks.sql.plan.ExecPlan;
 import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
 import org.junit.jupiter.api.BeforeAll;
@@ -116,6 +118,19 @@ public class AstMutationFuzzerTest {
     private List<String> emitSetup;
     private List<String> emitQueries;
 
+    /**
+     * Percentage of round-tripped mutants that are also planned, from {@code -Dsrfuzz.plan}.
+     *
+     * <p>Sampled rather than all-or-nothing because planning is the expensive step: it runs the whole
+     * CBO -- statistics derivation, rule application, join enumeration -- where analysis only resolves
+     * names and types. The right setting is a throughput decision, so it is a knob with a measured
+     * default rather than a constant.
+     */
+    private int planPercent;
+
+    /** Seeded from the run seed, so which mutants get planned is reproducible. */
+    private Random planRnd;
+
     enum Outcome {
         /** Mutant analyzed and round-tripped cleanly. */
         OK,
@@ -130,12 +145,17 @@ public class AstMutationFuzzerTest {
         /** Deparsed mutant parses but no longer analyzes. BUG (semantic drift). */
         REANALYZE_FAIL,
         /** Deparse is not a fixpoint. Reported, not necessarily a defect — see class javadoc. */
-        FIXPOINT_MISMATCH
+        FIXPOINT_MISMATCH,
+        /** Planner refused the mutant with a declared error. Expected and uninteresting. */
+        PLAN_REJECTED,
+        /** Planner threw an internal error, or produced a plan that fails its own invariants. BUG. */
+        PLAN_INTERNAL_ERROR
     }
 
     private static boolean isBug(Outcome o) {
         return o == Outcome.ANALYZE_INTERNAL_ERROR || o == Outcome.DEPARSE_THROW
-                || o == Outcome.REPARSE_FAIL || o == Outcome.REANALYZE_FAIL;
+                || o == Outcome.REPARSE_FAIL || o == Outcome.REANALYZE_FAIL
+                || o == Outcome.PLAN_INTERNAL_ERROR;
     }
 
     /**
@@ -335,6 +355,22 @@ public class AstMutationFuzzerTest {
             Files.createDirectories(emitDir);
         }
 
+        planPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.plan", 100)));
+        planRnd = new Random(seedValue ^ 0x51ADL);
+
+        // The session must be at PRODUCT defaults before anything is planned.
+        //
+        // PlanTestBase sets cbo_push_down_aggregate_mode to -1, and that single line is why the
+        // push-down-distinct-below-window defect survived several rounds of unit tests: the setting
+        // skips the call that triggers it. A fuzzer that quietly inherited a test-only session would
+        // carry the same blind spot into every mutant it ever plans, and nothing in the report would
+        // look wrong. Assert instead of trusting -- this costs one comparison per run.
+        int pushDownMode = ctx.getSessionVariable().getCboPushDownAggregateMode();
+        if (pushDownMode != 0) {
+            throw new IllegalStateException("cbo_push_down_aggregate_mode is " + pushDownMode
+                    + ", not the product default 0; the plan oracle would inherit a test-only blind spot");
+        }
+
         Random rnd = new Random(seedValue);
 
         List<Path> files = new ArrayList<>();
@@ -376,7 +412,8 @@ public class AstMutationFuzzerTest {
             System.err.println("shard " + shard + "/" + shards + ": " + files.size() + " files");
         }
         System.err.println("corpus: " + files.size() + " files, " + mutationsPerSeed
-                + " mutations/seed, rng seed " + seedValue);
+                + " mutations/seed, rng seed " + seedValue
+                + ", planning " + planPercent + "% of round-tripped mutants");
 
         Map<Outcome, Integer> tally = new LinkedHashMap<>();
         Map<String, Finding> findings = new LinkedHashMap<>();
@@ -745,6 +782,17 @@ public class AstMutationFuzzerTest {
             return;
         }
 
+        // The optimizer. Everything above this line stops at the analyzer, which is why this harness
+        // could never report an optimizer defect however fast it ran -- a whole layer of StarRocks was
+        // simply not being called. Planning needs no BE: StatementPlanner runs entirely in the FE, and
+        // createMinStarRocksCluster has already stood up everything it needs.
+        if (planPercent > 0 && planRnd.nextInt(100) < planPercent) {
+            Outcome planOutcome = planMutant(mutantSql, tally, findings, seed, mutation);
+            if (planOutcome != null) {
+                return;
+            }
+        }
+
         String second;
         try {
             second = AstToSQLBuilder.toSQL(again);
@@ -766,6 +814,81 @@ public class AstMutationFuzzerTest {
         if (emitQueries != null) {
             emitQueries.add(mutantSql.replace('\n', ' ').trim() + ";");
         }
+    }
+
+    /**
+     * Builds an execution plan for a mutant that has already parsed, analyzed and round-tripped.
+     *
+     * @return the outcome when planning failed and the caller should stop, or null when it succeeded
+     *
+     * <p>Planned from the deparsed TEXT, with a fresh parse, rather than from the tree that was just
+     * analyzed. {@code StatementPlanner.plan} analyzes what it is given, and handing it an
+     * already-analyzed tree makes it analyze twice -- which is a state the product never reaches, so
+     * anything that fell out of it would be an artifact of the harness. A fresh parse of the mutant's
+     * own text is exactly what a client sends.
+     *
+     * <p>{@code StatementPlanner.plan} is called directly rather than through
+     * {@code UtFrameUtils.getPlanAndFragment}, which also runs {@code testView} -- that builds a view
+     * definition out of the statement and analyzes it, so a view round-trip defect would be reported
+     * here as a planner failure. That is a different oracle and it belongs in a different signature.
+     */
+    private Outcome planMutant(String mutantSql, Map<Outcome, Integer> tally, Map<String, Finding> findings,
+                               String seed, String mutation) {
+        StatementBase toPlan;
+        try {
+            toPlan = SqlParser.parse(mutantSql, ctx.getSessionVariable()).get(0);
+        } catch (Throwable t) {
+            // It parsed a moment ago, so this is the harness disagreeing with itself.
+            record(tally, findings, Outcome.PLAN_INTERNAL_ERROR, "replan-parse:" + signatureOf(t),
+                    seed, mutation, mutantSql, oneLine(t));
+            return Outcome.PLAN_INTERNAL_ERROR;
+        }
+        // Only queries. INSERT and the DDL statements reach the planner by other routes with their own
+        // preconditions, and the mutator only ever produces a QueryStatement anyway.
+        if (!(toPlan instanceof QueryStatement)) {
+            return null;
+        }
+        try {
+            ctx.setThreadLocalInfo();
+            ExecPlan plan = StatementPlanner.plan(toPlan, ctx);
+            if (plan == null) {
+                record(tally, findings, Outcome.PLAN_INTERNAL_ERROR, "plan:null", seed, mutation, mutantSql,
+                        "StatementPlanner returned no plan and did not throw");
+                return Outcome.PLAN_INTERNAL_ERROR;
+            }
+            // A fragment tree that is not connected is a defect the planner does not notice itself.
+            UtFrameUtils.validatePlanConnectedness(plan);
+        } catch (Throwable t) {
+            Outcome o = classifyPlanFailure(t);
+            String signature = o == Outcome.PLAN_REJECTED
+                    ? rejectionSignature(t, mutation) : "plan:" + signatureOf(t);
+            record(tally, findings, o, signature, seed, mutation, mutantSql, oneLine(t));
+            return o;
+        }
+        return null;
+    }
+
+    /**
+     * Same split as {@link #classifyAnalyzeFailure}, and it exists separately only because the planner
+     * adds one case: {@code StarRocksPlannerException}.
+     *
+     * <p>Its subclass {@code UnsupportedException} is a declared refusal and is not a defect. Every
+     * other StarRocksPlannerException is -- "Invalid plan" and friends are how this codebase reports
+     * that the optimizer built something it cannot execute, and several of this campaign's confirmed
+     * fixes were first seen exactly that way.
+     */
+    private static Outcome classifyPlanFailure(Throwable t) {
+        if (t instanceof UnsupportedException) {
+            return Outcome.PLAN_REJECTED;
+        }
+        if (t instanceof SemanticException || t instanceof AnalysisException
+                || t instanceof StarRocksException || t instanceof StorageAccessException) {
+            return Outcome.PLAN_REJECTED;
+        }
+        if (isDeliberateGuard(t)) {
+            return Outcome.PLAN_REJECTED;
+        }
+        return Outcome.PLAN_INTERNAL_ERROR;
     }
 
     private static Outcome classifyAnalyzeFailure(Throwable t) {
