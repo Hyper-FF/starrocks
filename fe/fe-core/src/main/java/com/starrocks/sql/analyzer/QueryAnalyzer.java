@@ -1232,6 +1232,10 @@ public class QueryAnalyzer {
                     validateAsofJoinConditions(joinEqual, leftScope, rightScope);
                 }
 
+                if (HintNode.HINT_JOIN_SKEW.equals(join.getJoinHint()) && join.getSkewColumn() != null) {
+                    validateSkewJoinColumn(join, joinEqual);
+                }
+
                 // check the join on predicate, example:
                 // we have col_json, we can't join on table_a.col_json = table_b.col_json,
                 // but we can join on cast(table_a.col_json->"a" as int) = cast(table_b.col_json->"a" as int)
@@ -1306,6 +1310,29 @@ public class QueryAnalyzer {
 
             AsofJoinConditionValidator validator = new AsofJoinConditionValidator(leftScope, rightScope);
             validator.validate(joinPredicate);
+        }
+
+        /**
+         * The skew join optimization salts the skew column and its counterpart on the other side of an equi-join
+         * condition, so a skew column that does not take part in any equality condition of this join cannot be
+         * optimized at all. Reject it here, next to the other skew hint validations, instead of letting the
+         * planner rule fail with an internal error.
+         */
+        private void validateSkewJoinColumn(JoinRelation join, Expr joinPredicate) {
+            Expr skewColumn = join.getSkewColumn();
+            for (Expr conjunct : AnalyzerUtils.extractConjuncts(joinPredicate)) {
+                if (!(conjunct instanceof BinaryPredicate binary) || binary.getOp() != BinaryType.EQ) {
+                    continue;
+                }
+                List<SlotRef> slotRefs = Lists.newArrayList();
+                binary.collect(SlotRef.class, slotRefs);
+                if (slotRefs.stream().anyMatch(skewColumn::equals)) {
+                    return;
+                }
+            }
+
+            throw new SemanticException("Skew join column %s must be used in an equality condition of this join",
+                    ExprToSql.toSql(skewColumn));
         }
 
         private Expr analyzeJoinUsing(List<String> usingColNames, Scope left, Scope right) {

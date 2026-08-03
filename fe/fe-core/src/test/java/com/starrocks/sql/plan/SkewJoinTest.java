@@ -17,6 +17,7 @@ package com.starrocks.sql.plan;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Table;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.common.StarRocksPlannerException;
 import com.starrocks.sql.optimizer.statistics.ColumnStatistic;
 import com.starrocks.sql.optimizer.statistics.EmptyStatisticStorage;
@@ -179,6 +180,35 @@ public class SkewJoinTest extends PlanTestBase {
         String sql = "select v2, v5 from t0 left join[skew|abs(t0.v1)(1,2)] t1 on v1 = v4 ";
         Throwable exception = assertThrows(StarRocksPlannerException.class, () -> getFragmentPlan(sql));
         assertThat(exception.getMessage(), containsString("Skew join column must be a column reference"));
+    }
+
+    @Test
+    public void testSkewJoinColumnNotInEqualCondition() {
+        // the skew column does not take part in any equality condition of this join
+        String sql = "select v2, v5 from t0 join[skew|t0.v2(1,2)] t1 on t0.v1 = t1.v4";
+        Throwable exception = assertThrows(SemanticException.class, () -> getFragmentPlan(sql));
+        assertThat(exception.getMessage(),
+                containsString("must be used in an equality condition of this join"));
+
+        String sql2 = "select v2, v5 from t0 left join[skew|t1.v6(1,2)] t1 on t0.v1 = t1.v4";
+        Throwable exception2 = assertThrows(SemanticException.class, () -> getFragmentPlan(sql2));
+        assertThat(exception2.getMessage(),
+                containsString("must be used in an equality condition of this join"));
+
+        // the skew column is only used in a non-equality condition
+        String sql3 = "select v2, v5 from t0 join[skew|t0.v2(1,2)] t1 on t0.v1 = t1.v4 and t0.v2 > t1.v5";
+        Throwable exception3 = assertThrows(SemanticException.class, () -> getFragmentPlan(sql3));
+        assertThat(exception3.getMessage(),
+                containsString("must be used in an equality condition of this join"));
+    }
+
+    @Test
+    public void testSkewJoinColumnNotAJoinKey() {
+        // the skew column is used in an equality condition, but only inside an expression; the v1 rule cannot
+        // match it to a join key and refuses the hint as a planner error
+        String sql = "select v2, v5 from t0 join[skew|t0.v1(1,2)] t1 on abs(v1) = abs(v4)";
+        Throwable exception = assertThrows(StarRocksPlannerException.class, () -> getFragmentPlan(sql));
+        assertThat(exception.getMessage(), containsString("among the join keys of this join"));
     }
 
     @Test

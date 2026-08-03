@@ -20,7 +20,6 @@ import com.starrocks.catalog.Function;
 import com.starrocks.catalog.FunctionSet;
 import com.starrocks.catalog.TableFunction;
 import com.starrocks.common.Pair;
-import com.starrocks.connector.exception.StarRocksConnectorException;
 import com.starrocks.sql.ast.HintNode;
 import com.starrocks.sql.ast.JoinOperator;
 import com.starrocks.sql.ast.expression.ExprUtils;
@@ -292,9 +291,13 @@ public class SkewJoinOptimizeRule extends TransformationRule {
                 }
             }
         }
-        // when use hint, we should check the skew column, and throw exception if not found
+        // The analyzer already rejects a skew column that is not used in any equality condition of this join.
+        // What is left here is a column this rule cannot match to a join key, e.g. one used inside an expression
+        // of the equality condition; refuse it as a planner error instead of a connector error.
         if (otherSideSkewColumn == null && oldJoinOperator.getJoinHint().equals(HintNode.HINT_JOIN_SKEW)) {
-            throw new StarRocksConnectorException("Can't find skew column");
+            throw new StarRocksPlannerException(
+                    "Can't find skew column " + skewColumn + " among the join keys of this join",
+                    ErrorType.UNSUPPORTED);
         } else if (otherSideSkewColumn == null) {
             return Lists.newArrayList();
         }
