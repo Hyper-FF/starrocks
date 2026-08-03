@@ -589,3 +589,117 @@ in `wip/topkfix-3commits` counts constants from the end — a workaround layered
 not needed. Verification worktree `/home/public/sr-topkverify` `440874e8dab` + tests `4ce78921f45`;
 3445 plan tests, 0 failures. The SQL regression case under `test/sql/test_agg_function/` is **unrun**
 (needs a live cluster).
+
+---
+
+## Round 631+ (2026-08-02): five new crashes, all release-visible
+
+The signature-deduped crash recorder found these in a few hundred rounds, each with its crashing
+statement resolved from the crash banner's `query_id` against `fe.audit.log` — no bisection. They had
+been happening all along; the old harness wrote one record per round and captured the wrong lines.
+
+### C8 — `tokenize` / `ngram_search`: FE-accepted constant of a type the BE cannot read
+
+```sql
+select tokenize(cast('english' as time), 'Today is saturday')   -- CONFIRMED, kills a release BE
+SELECT ngram_search(col, 'aabaa', json_query(CAST(4 AS JSON), '$.a')) FROM <table with NGRAMBF index>
+```
+
+Shared mechanism, and it explains the whole class: `ColumnHelper::get_const_value<T>()` ends in
+`cast_to_raw`, which is `down_cast` — **a bare `static_cast` under NDEBUG**. No type check, no null
+check. These are *release-only* crashes; a debug or ASan build DCHECKs instead.
+
+An FE plan probe confirmed the FE half: the analyzer inserts the implicit cast and the expression *is*
+constant, but the FE cannot fold it, so it never learns the value is NULL. The BE then receives a
+`ConstColumn` over a `NullableColumn` and `static_cast`s it to `BinaryColumn`/`Int32Column`.
+
+The `ngram_search` case is sharper than it looks: `ngram_search_prepare_impl` **does** guard argument
+2, but NGRAMBF index evaluation runs in `ColumnReader::bloom_filter` *before* the function is ever
+evaluated, so the guard is bypassed entirely. `support_ngram_bloom_filter` only checks argument 1.
+
+Fix `/home/public/sr-fnargs`: FE analyzer rejection (per repo preference) plus BE guards as defence in
+depth, since the storage-layer path runs before any prepare guard and a rolling upgrade can pair a new
+BE with an old FE. `761cffba57c`, tests `02194ebe78a` / `9fe01172537`, seen failing first, 47 green.
+
+**The general lesson is bigger than the fix.** `get_const_value<T>()` is called at dozens of BE sites,
+every one assuming the FE guaranteed a non-null constant of exactly the right type. Each is a
+potential release-only wild read of this same shape — a good systematic fuzz target.
+
+### C9 — `ObjectColumn<JsonValue>::byte_size` via INTERSECT (also a wrong-results bug)
+
+`ObjectColumn<T>::deserialize_and_append_batch()` is a `DCHECK(false)`-only stub, i.e. **a silent
+no-op in release**, and `JsonColumn` never overrode it. It is reached only when the destination column
+is *not* nullable — a nullable destination routes through the working per-row implementation. So for
+`js json NOT NULL` the JSON column stayed size 0 while its sibling held N rows, `Chunk::num_rows()`
+reported N from column 0, and `bytes_usage()` walked an empty pool.
+
+```sql
+CREATE TABLE js7 (v1 int NOT NULL, js json NOT NULL) ...;
+SELECT v1, js FROM js7 INTERSECT SELECT v1, js FROM js7;   -- inferred, not executed
+```
+
+The same defect hits non-nullable JSON group-by keys, where `AggHashMapWithSerializedKey` picks the
+per-row path when `keys[0].size > 64` and the broken batch path otherwise — so it was **silently
+size-dependent**. Fixed the producer rather than making `byte_size` tolerant: a tolerant accessor only
+moves the crash to the next reader. `/home/public/sr-jsonbytes` `c355e87e79e`, test `2570688dcd6`,
+seen failing first, `column_test` 602 green.
+
+### C10 — `GenerateSeries<TYPE_INT>::process`: `min() / -1` raises SIGFPE
+
+```cpp
+auto count = (stop - current) / step + 1;   // computed in the argument type
+```
+
+The direction guard admits `current >= stop`, so `stop - current` can be exactly `INT32_MIN`; with
+`step == -1` the `idiv` traps. **LogicalType 5 is `TYPE_INT`**, and that is why the derived table
+matters — `-2147483648` written as a literal types as BIGINT, but an INT *column* holds it, which is
+how the fuzzer produced a `GenerateSeries<TYPE_INT>` with an `INT_MIN` distance.
+
+Per type, on the unfixed binary: INT and BIGINT SIGFPE; LARGEINT does not trap but returns
+**uninitialized column memory**; TINYINT and SMALLINT are safe only because operands are promoted to
+`int` first.
+
+There is **no FE value validation for `generate_series` at all** — not even for `step = 0`. And since
+start/stop/step are always read per row from parameter columns, no constant-time FE check could cover
+this, so the fix belongs in the BE despite the repo's FE-first preference.
+
+Fix `/home/public/sr-genseries` `4fd0263751e`, test `2ef865bf782`. Failing-first evidence is exact: the
+faulting PC symbolizes to `generate_series.h:103` in `GenerateSeries<(LogicalType)5>::process`, a
+byte-for-byte match with the fuzzer's reported frame. 10 tests green after; module-boundary checks clean.
+
+### C11 — `encode_fingerprint_sha256` reads a constant argument at the per-row index
+
+A constant argument arrives as a `ConstColumn` reporting `chunk_size` rows over an inner column holding
+**one** element. `ColumnHelper::get_data_column()` strips the ConstColumn and returns that one-element
+column, which was then indexed by the loop counter. For a string argument this hands a wild pointer and
+a huge length to `SHA256_Update`.
+
+```sql
+CREATE TABLE t_fp (k INT, v INT) ...;
+INSERT INTO t_fp SELECT generate_series, generate_series FROM TABLE(generate_series(1, 5000));
+SELECT count(encode_fingerprint_sha256(v, 'x')) FROM t_fp;   -- CONFIRMED on the cluster
+```
+
+The agent marked this inferred; **I ran it and it killed the BE**, while the control
+`encode_fingerprint_sha256(v, k)` (no constant argument) returned 5000 rows. It needs a >1-row chunk,
+at least one constant argument and at least one non-constant one — an all-constant call is folded in
+the FE, which is why the existing one-row test never tripped it.
+
+This is the **third** variant of the same class in this one function (#65541, #75042 preceded it).
+Fix `/home/public/sr-fingerprint` `b5e9819753b`, test `7f7d7c3bc3e` — **written and compiled but never
+run**: this box cannot link BE test binaries against current main (thirdparty is from April, main has
+had 11 dependency bumps, and no Thrift >= 0.23 exists here).
+
+Two side findings, neither fixed: the `ANY_ELEMENT` signature accepts ARRAY/MAP/STRUCT but
+`type_dispatch_filter` covers only scalars and discards the result, so **a complex-type argument
+contributes nothing to the digest** and different rows can collide; and IVM materialized views store
+`__ROW_ID__` from this function, so any MV built with a constant argument holds heap-dependent garbage
+row-ids that this fix changes — a repair, but visible in stored data.
+
+### Operational note: parallel agents interfered with each other
+
+Two collisions worth preventing next time. One agent mutated `thirdparty/installed/lib64/libfmt.a`
+inside another agent's worktree while building an overlay. Another ran `pkill -f "run-be-ut.sh"` to
+clear its own OOM-killed build, which is not worktree-scoped and may have killed a concurrent build in
+a different worktree. Future agent briefs must forbid touching `thirdparty/` and forbid unscoped
+`pkill`.
