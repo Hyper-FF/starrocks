@@ -40,6 +40,8 @@ import com.starrocks.sql.ast.expression.FunctionCallExpr;
 import com.starrocks.sql.ast.expression.LiteralExpr;
 import com.starrocks.sql.ast.expression.Predicate;
 import com.starrocks.sql.ast.expression.SlotRef;
+import com.starrocks.sql.common.ErrorType;
+import com.starrocks.sql.common.StarRocksPlannerException;
 import com.starrocks.sql.common.UnsupportedException;
 import com.starrocks.sql.parser.SqlParser;
 import com.starrocks.sql.plan.ExecPlan;
@@ -869,17 +871,26 @@ public class AstMutationFuzzerTest {
     }
 
     /**
-     * Same split as {@link #classifyAnalyzeFailure}, and it exists separately only because the planner
-     * adds one case: {@code StarRocksPlannerException}.
+     * Same split as {@link #classifyAnalyzeFailure}, plus the one case the planner adds:
+     * {@code StarRocksPlannerException}, which carries the answer in a field.
      *
-     * <p>Its subclass {@code UnsupportedException} is a declared refusal and is not a defect. Every
-     * other StarRocksPlannerException is -- "Invalid plan" and friends are how this codebase reports
-     * that the optimizer built something it cannot execute, and several of this campaign's confirmed
-     * fixes were first seen exactly that way.
+     * <p><b>Read the field; do not guess from the type.</b> Keying on the exception class alone
+     * repeated the UnsupportedException mistake one layer down. The planner reports "table function not
+     * support null parameter", "percentile parameter must be constant in percentile_approx" and
+     * "Incorrect DATETIME value" as StarRocksPlannerException as well, and the first soak round with
+     * this oracle filed 494 instances of the first one as a defect. Every one of them is
+     * {@code ErrorType.USER_ERROR}: a message written for a user, about a query that deserved refusing.
+     *
+     * <p>{@code INTERNAL_ERROR} is the one this oracle exists for -- the optimizer built something that
+     * fails its own invariants, which is how {@code InputDependenciesChecker} and {@code PlanValidator}
+     * report "Invalid plan", and how several of this campaign's confirmed fixes were first seen.
+     * UNSUPPORTED, META_NOT_FOUND and RULE_EXHAUSTED are declared outcomes; a rule budget running out is
+     * a limit, not a defect.
      */
     private static Outcome classifyPlanFailure(Throwable t) {
-        if (t instanceof UnsupportedException) {
-            return Outcome.PLAN_REJECTED;
+        if (t instanceof StarRocksPlannerException) {
+            return ((StarRocksPlannerException) t).getType() == ErrorType.INTERNAL_ERROR
+                    ? Outcome.PLAN_INTERNAL_ERROR : Outcome.PLAN_REJECTED;
         }
         if (t instanceof SemanticException || t instanceof AnalysisException
                 || t instanceof StarRocksException || t instanceof StorageAccessException) {
