@@ -48,6 +48,7 @@ that fails is an outcome; the round-trip is the oracle. Operators:
 | M7-typestress | complex-type accessors, conditionals |
 | M9 | session-flag perturbation on 15% of mutants |
 | M10-splice | **combines two seeds** — CROSS JOIN a derived table, or EXISTS in WHERE |
+| M11-predicate | **the only operator that produces a condition** — conjoins/disjoins/negates WHERE, adds HAVING, adds an ON conjunct |
 
 Knobs: `-Dsrfuzz.mutations` (per seed, default 10, soak uses 40), `-Dsrfuzz.chain` (max stacked edits,
 default 4, geometric with 35% continuation), `-Dsrfuzz.shards` / `-Dsrfuzz.shard`, `-Dsrfuzz.corpus`,
@@ -111,17 +112,28 @@ hung 29 minutes on a `.part.lock`) — shards now use `-Dmaven.repo.local` point
 and twelve mavens running the full `test` lifecycle drive the thrift codegen plugin into the same
 `target/`, which lost 10 of 12 shards. Build once, then shards run `surefire:test` only.
 
+## What the soak can and cannot see
+
+**The soak is FE-only and stops at the analyzer.** Its chain is parse → mutate → `Analyzer.analyze` →
+deparse → reparse → re-analyze, and every `Outcome` lives in the analyzer or the deparser. It never
+calls `StatementPlanner`, `Optimizer` or `ExecPlan`, so no optimizer defect can be reported by it, at
+any throughput. Optimizer coverage comes entirely from the cluster replay, which has three oracles:
+crash/error, the knob differential, and the FE warn-log signatures — the last of which is what caught
+the push-down-distinct stale-projection defect, because that one planned fine and returned the right
+rows while silently losing statistics for a whole subtree.
+
 ## Open work, roughly by value
 
-1. **M11 predicate mutation.** No operator generates a predicate. Every WHERE in the output came from
-   the corpus; M10's EXISTS is the only thing ever added to one. Average 0.36 `AND` per query means
-   most WHEREs are a single condition, and HAVING sits at 1.8% and never moves. This is why almost
-   nothing has been found in predicate pushdown, partition pruning, index selection or runtime filters.
-   With benchmark data now imported, literals can be drawn from real value ranges (`l_shipdate` spans
-   1992-1998, a one-year predicate selects 15%) rather than random values that match everything or
-   nothing. Bias toward weak forms (`IS NOT NULL`, wide `BETWEEN`, `IN (subquery)`) and **add a
-   `diff_empty` counter first** — over-selective predicates would silently shrink differential coverage,
-   because the differential skips statements whose baseline is empty.
+1. ~~**M11 predicate mutation.**~~ **Done.** `PredicateMutation.java`, registered in `OPERATORS`.
+   Conjoins, disjoins and negates WHERE; adds and extends HAVING; adds a conjunct to a join's ON
+   clause. Constants are drawn from the pool's harvested scalars, so they sit in the corpus's own value
+   ranges; column references come from the block's own `SlotRef`s, so they resolve where they land.
+   The generator is **biased towards weak predicates** (`IS NOT NULL`, tautologies, wide `BETWEEN`) for
+   the reason this item always carried: an over-selective predicate empties the baseline, and the
+   cluster differential cannot compare two plans over zero rows. `diff_empty` now measures exactly
+   that, so the bias is checkable rather than assumed — watch it in `rounds.tsv` after M11 ships.
+   The one thing deliberately NOT done: a predicate is never attached to a join that has no ON clause.
+   That turns a cross join into an inner join, which is a shape change and belongs to M6.
 2. **Operator weights**, e.g. `-Dsrfuzz.weights=M10-splice:4,M6-nesting:3`. Today operators are shuffled
    uniformly and the first applicable one wins, so the effective mix is "uniform x applicability" and
    cannot be steered. Useful as a targeted mode on a couple of shards, not as a permanent global change.
