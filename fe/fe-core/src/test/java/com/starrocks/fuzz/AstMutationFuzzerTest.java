@@ -39,6 +39,7 @@ import com.starrocks.sql.ast.expression.FunctionCallExpr;
 import com.starrocks.sql.ast.expression.LiteralExpr;
 import com.starrocks.sql.ast.expression.Predicate;
 import com.starrocks.sql.ast.expression.SlotRef;
+import com.starrocks.sql.common.UnsupportedException;
 import com.starrocks.sql.parser.SqlParser;
 import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
@@ -747,6 +748,14 @@ public class AstMutationFuzzerTest {
     private static Outcome classifyAnalyzeFailure(Throwable t) {
         if (t instanceof SemanticException || t instanceof AnalysisException
                 || t instanceof StarRocksException || t instanceof StorageAccessException) {
+            return Outcome.ANALYZE_REJECTED;
+        }
+        // UnsupportedException is a declared refusal -- "table function cannot appear on the left side
+        // of a join", "unsupported type", and so on -- carrying a message written for the user. It just
+        // happens to extend StarRocksPlannerException extends RuntimeException rather than
+        // SemanticException, so keying on the type alone filed every one of them as an internal error
+        // and reported a non-defect as a bug.
+        if (t instanceof UnsupportedException) {
             return Outcome.ANALYZE_REJECTED;
         }
         if (isDeliberateGuard(t)) {
