@@ -25,6 +25,9 @@ import org.junit.jupiter.api.Test;
  */
 public class PlannerCorrelationBugTest extends PlanTestNoneDBBase {
 
+    private static final String CORRELATION_NOT_SUPPORTED =
+            "Only support use correlated columns in the where clause of subqueries";
+
     @BeforeAll
     public static void beforeClass() throws Exception {
         PlanTestNoneDBBase.beforeClass();
@@ -46,6 +49,12 @@ public class PlannerCorrelationBugTest extends PlanTestNoneDBBase {
         Assertions.assertFalse(plan.isEmpty(), sql);
     }
 
+    private void assertRefused(String sql) {
+        Exception e = Assertions.assertThrows(Exception.class, () -> getFragmentPlan(sql), sql);
+        Assertions.assertTrue(e.getMessage() != null && e.getMessage().contains(CORRELATION_NOT_SUPPORTED),
+                sql + " => " + e.getClass().getName() + ": " + e.getMessage());
+    }
+
     /**
      * A subquery used inside a window function used to reach the translator through the short overload that
      * passes no plan builder, and NPE'd on that null builder.
@@ -64,5 +73,24 @@ public class PlannerCorrelationBugTest extends PlanTestNoneDBBase {
                 + "order by exists (select v1 from t1)) from t1");
         // control: the same expression without the window
         assertPlans("select sum(v1 in (select v1 from t1)) from t1");
+    }
+
+
+    /**
+     * An outer-query column referenced from a window's partition by / order by used to have its correlation
+     * silently dropped, producing an invalid plan instead of the declared refusal.
+     */
+    @Test
+    public void testCorrelatedColumnInWindow() throws Exception {
+        assertRefused("select a from tb1 where b > (select row_number() over (partition by tb1.a) from tb1 t2)");
+        assertRefused("select a from tb1 where b > (select row_number() over (order by tb1.a) from tb1 t2)");
+        assertRefused("select a from tb1 where b > (select sum(t2.a) over (partition by tb1.a) from tb1 t2)");
+        assertRefused("select (select row_number() over (partition by tb1.a) from tb1 t2) from tb1");
+        // control: the same correlation without a window
+        assertRefused("select a from tb1 where b > (select tb1.a from tb1 t2)");
+        // control: an uncorrelated window inside the subquery keeps working
+        assertPlans("select a from tb1 where b > (select row_number() over (partition by t2.a) from tb1 t2)");
+        // control: a top level window is never correlated
+        assertPlans("select row_number() over (partition by a order by b) from tb1");
     }
 }

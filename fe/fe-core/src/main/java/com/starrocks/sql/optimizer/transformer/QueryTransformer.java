@@ -468,8 +468,13 @@ public class QueryTransformer {
         boolean allColumnRef = true;
         Map<Expr, ColumnRefOperator> tempMapping = new HashMap<>();
         for (Expr expression : projectExpressions) {
+            // A window partition by/order by expression may reference a column of an outer query block. The
+            // window cannot be de-correlated, so reject it with the declared error message instead of silently
+            // dropping the correlation and producing an invalid plan later on.
+            List<ColumnRefOperator> windowCorrelation = new ArrayList<>();
             ScalarOperator operator = SqlToScalarOperatorTranslator.translate(expression, expressionMapping,
-                    columnRefFactory);
+                    windowCorrelation, columnRefFactory);
+            checkWindowCorrelation(windowCorrelation);
             if (!operator.isColumnRef()) {
                 allColumnRef = false;
                 tempMapping.clear();

@@ -65,6 +65,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.starrocks.sql.common.UnsupportedException.unsupportedException;
+
 public class WindowTransformer {
     /**
      * If necessary, rewrites the analytic function, window, and/or order-by elements into
@@ -340,6 +342,22 @@ public class WindowTransformer {
     }
 
     /**
+     * Translate a window sub-expression. A window cannot be de-correlated, so a reference to a column of an
+     * outer query block has to be rejected with the declared error message here; letting the correlation be
+     * silently dropped produces an invalid plan much later.
+     */
+    private static ScalarOperator translateWindowExpr(Expr expression, OptExprBuilder subOpt,
+                                                      ColumnRefFactory columnRefFactory) {
+        List<ColumnRefOperator> correlation = Lists.newArrayList();
+        ScalarOperator operator = SqlToScalarOperatorTranslator.translate(expression, subOpt.getExpressionMapping(),
+                correlation, columnRefFactory);
+        if (!correlation.isEmpty()) {
+            throw unsupportedException("Only support use correlated columns in the where clause of subqueries");
+        }
+        return operator;
+    }
+
+    /**
      * Reorder window function and build SortGroup
      * SortGroup represent the window functions that can be calculated in one SortNode
      * to reduce the generation of SortNode
@@ -359,9 +377,7 @@ public class WindowTransformer {
                 // because it may conflict with the function of the same name
                 // in the aggregation and be converted into the expression generated on agg
                 // eg. select sum(v1), sum(v1) over(order by v2) from foo
-                ScalarOperator agg =
-                        SqlToScalarOperatorTranslator.translate(analyticExpr, subOpt.getExpressionMapping(),
-                                columnRefFactory);
+                ScalarOperator agg = translateWindowExpr(analyticExpr, subOpt, columnRefFactory);
                 ColumnRefOperator columnRefOperator =
                         columnRefFactory.create(agg.toString(), agg.getType(), agg.isNullable());
                 analyticCall.put(columnRefOperator, (CallOperator) agg);
@@ -370,16 +386,13 @@ public class WindowTransformer {
 
             List<ScalarOperator> partitions = new ArrayList<>();
             for (Expr partitionExpression : windowOperator.getPartitionExprs()) {
-                ScalarOperator operator = SqlToScalarOperatorTranslator
-                        .translate(partitionExpression, subOpt.getExpressionMapping(), columnRefFactory);
-                partitions.add(operator);
+                partitions.add(translateWindowExpr(partitionExpression, subOpt, columnRefFactory));
             }
 
             List<Ordering> orderings = new ArrayList<>();
             for (OrderByElement orderByElement : windowOperator.getOrderByElements()) {
-                ColumnRefOperator col =
-                        (ColumnRefOperator) SqlToScalarOperatorTranslator
-                                .translate(orderByElement.getExpr(), subOpt.getExpressionMapping(), columnRefFactory);
+                ColumnRefOperator col = (ColumnRefOperator) translateWindowExpr(orderByElement.getExpr(), subOpt,
+                        columnRefFactory);
                 orderings.add(new Ordering(col, orderByElement.getIsAsc(),
                         OrderByElement.nullsFirst(orderByElement.getNullsFirstParam())));
             }
