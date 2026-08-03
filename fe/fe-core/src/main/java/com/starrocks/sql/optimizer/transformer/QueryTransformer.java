@@ -69,6 +69,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.starrocks.sql.common.ErrorType.INTERNAL_ERROR;
+import static com.starrocks.sql.common.UnsupportedException.unsupportedException;
 import static com.starrocks.sql.optimizer.transformer.SqlToScalarOperatorTranslator.findOrCreateColumnRefForExpr;
 
 public class QueryTransformer {
@@ -356,10 +357,95 @@ public class QueryTransformer {
         return subOpt.withNewRoot(filterOperator);
     }
 
+    private static void checkWindowCorrelation(List<ColumnRefOperator> windowCorrelation) {
+        if (!windowCorrelation.isEmpty()) {
+            throw unsupportedException("Only support use correlated columns in the where clause of subqueries");
+        }
+    }
+
+    /**
+     * Plan the subqueries that appear inside window expressions.
+     * <p>
+     * The select list rewrites its subqueries away in {@link #project} / {@link #projectForOrder}, but the
+     * arguments, the partition by and the order by expressions of a window function are translated separately
+     * (here and in {@link WindowTransformer#reorderWindowOperator}) through the short translator overloads, which
+     * pass no plan builder at all. A live Subquery reaching those overloads either dereferences the null builder
+     * or leaks a SubqueryOperator down to the backend.
+     * <p>
+     * So translate every window sub-expression that contains a subquery with the full context first, attach the
+     * resulting Apply operators to the plan, and register the expression in the expression mapping. Every later
+     * translation of that expression then resolves through the mapping and never sees the Subquery again.
+     */
+    private OptExprBuilder windowSubqueries(OptExprBuilder subOpt, List<AnalyticExpr> window) {
+        List<Expr> subqueryExpressions = new ArrayList<>();
+        for (AnalyticExpr analyticExpr : window) {
+            List<Expr> candidates = new ArrayList<>(analyticExpr.getFnCall().getChildren());
+            candidates.addAll(analyticExpr.getPartitionExprs());
+            analyticExpr.getOrderByElements().forEach(orderBy -> candidates.add(orderBy.getExpr()));
+            for (Expr candidate : candidates) {
+                List<Subquery> subqueries = Lists.newArrayList();
+                candidate.collect(Subquery.class, subqueries);
+                if (!subqueries.isEmpty() && !subqueryExpressions.contains(candidate)) {
+                    subqueryExpressions.add(candidate);
+                }
+            }
+        }
+
+        if (subqueryExpressions.isEmpty()) {
+            return subOpt;
+        }
+
+        // Keep every column the plan currently exposes alive across the projection added below.
+        Map<ColumnRefOperator, ScalarOperator> projections = Maps.newHashMap();
+        for (ColumnRefOperator columnRef : subOpt.getFieldMappings()) {
+            if (columnRef != null) {
+                projections.put(columnRef, columnRef);
+            }
+        }
+        for (ColumnRefOperator columnRef : subOpt.getExpressionMapping().getExpressionToColumns().values()) {
+            projections.put(columnRef, columnRef);
+        }
+
+        Map<Expr, ColumnRefOperator> windowMapping = Maps.newHashMap();
+        for (Expr expression : subqueryExpressions) {
+            Map<ScalarOperator, SubqueryOperator> subqueryPlaceholders = Maps.newHashMap();
+            List<ColumnRefOperator> windowCorrelation = new ArrayList<>();
+            ScalarOperator scalarOperator = SqlToScalarOperatorTranslator.translate(expression,
+                    subOpt.getExpressionMapping(), windowCorrelation, columnRefFactory,
+                    session, cteContext, subOpt, subqueryPlaceholders, false);
+            checkWindowCorrelation(windowCorrelation);
+
+            Pair<ScalarOperator, OptExprBuilder> pair =
+                    SubqueryUtils.rewriteScalarOperator(scalarOperator, subOpt, subqueryPlaceholders);
+            scalarOperator = pair.first;
+            subOpt = pair.second;
+
+            ColumnRefOperator columnRefOperator;
+            if (scalarOperator.isColumnRef()) {
+                columnRefOperator = (ColumnRefOperator) scalarOperator;
+            } else {
+                columnRefOperator = columnRefFactory.create(expression, expression.getType(),
+                        scalarOperator.isNullable());
+            }
+            projections.put(columnRefOperator, scalarOperator);
+            windowMapping.put(expression, columnRefOperator);
+        }
+
+        LogicalProjectOperator projectOperator = new LogicalProjectOperator(projections);
+        subOpt = subOpt.withNewRoot(projectOperator);
+        subOpt.getExpressionMapping().getExpressionToColumns().putAll(windowMapping);
+        return subOpt;
+    }
+
     private OptExprBuilder window(OptExprBuilder subOpt, List<AnalyticExpr> window) {
         if (window.isEmpty()) {
             return subOpt;
         }
+
+        // Subqueries nested in a window function's arguments/partition by/order by are not covered by the
+        // select-list subquery rewrite, so they must be planned (and turned into Apply operators) here, before
+        // any of the window expressions is translated through the short overloads of the translator.
+        subOpt = windowSubqueries(subOpt, window);
 
         /*
          * Build ProjectOperator of partition expression and order by expression in window function.
