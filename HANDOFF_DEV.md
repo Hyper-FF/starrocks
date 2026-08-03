@@ -1,0 +1,140 @@
+# Handoff: fuzzer development
+
+For the session that changes the fuzzer itself. The session that *runs* it and triages findings reads
+`HANDOFF_OPS.md` instead.
+
+## Where the code is
+
+- Source of truth: `/home/public/sr-fuzzer`, branch `fuzz/ast-mutation`. Nothing here is pushed.
+- The fuzzer is a JUnit test: `fe/fe-core/src/test/java/com/starrocks/fuzz/AstMutationFuzzerTest.java`,
+  plus one class per operator in the same package.
+- Runner for concurrent soaking: `soak/parallel_soak.sh`.
+
+## Build and test go in a dev container, never locally and never on a bare host
+
+This is the single biggest time sink discovered so far. Current `main` needs **thrift 0.23**; the local
+box and the bare dev1 host both have **0.22**, so BE test binaries cannot be linked and FE builds fail
+in `fe-grammar`. Three subagents each lost most of their run rediscovering this, one built a private
+fmt overlay to get around it, and another's `pkill` killed a third's build.
+
+Working container pattern (dev1 = `ssh fha@39.99.136.234`):
+
+```
+git -C /home/disk5/fha/DorisDB worktree add /home/disk1/fha/sr-ws/<name> -b <branch> starrocks-2/main
+docker run -d --name sr-dev-<name> --network host --privileged \
+  -v /home/disk5/fha/DorisDB/.git:/home/disk5/fha/DorisDB/.git \
+  -v /home/disk1/fha/sr-ws/<name>:/home/disk1/fha/sr-ws/<name> \
+  -v <any output dir you write to>:<same path> \
+  -v /home/disk5/fha/.m2:/root/.m2 -v /home/disk5/fha/mold:/opt/mold \
+  172.26.92.142:5000/starrocks/dev-env-ubuntu:latest sleep infinity
+```
+
+Inside it you will need `git config --global --add safe.directory <path>`, and for BE test binaries
+`export LD_LIBRARY_PATH=/var/local/thirdparty/installed/open_jdk/lib/server:$LD_LIBRARY_PATH`.
+
+**Mount every directory you write to.** A run whose output directory was not mounted wrote into the
+container's own filesystem, so the host saw an empty log and it looked like the job never started.
+
+## What the mutator does
+
+Per mutant: parse a corpus seed, apply 1..N edits, analyze, deparse, reparse, analyze again. Each step
+that fails is an outcome; the round-trip is the oracle. Operators:
+
+| id | what it does |
+| --- | --- |
+| M1-M4 | expression-level: subtree swap, function swap, literal boundary, identifier rebind |
+| M5-clause | ORDER BY / LIMIT / DISTINCT |
+| M6-nesting | wrap in subquery, add join, table function |
+| M7-typestress | complex-type accessors, conditionals |
+| M9 | session-flag perturbation on 15% of mutants |
+| M10-splice | **combines two seeds** — CROSS JOIN a derived table, or EXISTS in WHERE |
+
+Knobs: `-Dsrfuzz.mutations` (per seed, default 10, soak uses 40), `-Dsrfuzz.chain` (max stacked edits,
+default 4, geometric with 35% continuation), `-Dsrfuzz.shards` / `-Dsrfuzz.shard`, `-Dsrfuzz.corpus`,
+`-Dsrfuzz.seed`, `-Dsrfuzz.report`, `-Dsrfuzz.emit`, `-Dsrfuzz.maxFiles`.
+
+## Measured facts, so you do not re-derive them
+
+**The corpus is the ceiling for anything the mutator cannot manufacture.** Over 21947 SQL-Tester
+queries: median 91 characters, 89% no join, 86.5% no subquery, 96.5% no CTE.
+
+**Chaining edits alone changed nothing** (median 306 -> 308 chars). The reason is the operator mix:
+across 6154 rejections it is 48% M1-M4-expr, 27% M7, 14% M5 and only 11% M6-nesting, so three quarters
+of edits replace a leaf. Biasing chained steps to 90% structural moved subqueries per query from 0.353
+to 0.425 and cost 16% of usable output.
+
+**M10 splice was the real step change**: joins per query 0.071 -> 0.170, queries with a join 4.1% ->
+11.9%, subqueries 0.353 -> 0.553, and usable output went *up*, because a type-agnostic splice survives
+the analyzer where a type-matched one does not.
+
+**The benchmark catalog is a much better corpus source than the SQL-Tester tree.**
+`CREATE EXTERNAL CATALOG bench PROPERTIES('type'='benchmark')` gives tpch/tpcds/ssb schemas and data
+with no setup. Materialise them into native tables (`CREATE TABLE ... AS SELECT ...`) rather than
+querying the external catalog directly: the external path goes through `BenchmarkScanner` and **never
+touches the OLAP storage engine**, which is where most of the crashes found so far live. 32 tables /
+28M rows import in ~70s. Benchmark queries are 1019 chars median, 99.2% have a WHERE, 24.8% a CTE.
+
+**The benchmark corpus is currently dead weight in the soak.** Its 125 files were installed under
+`test/sql/benchmark_suite/T/` and each begins with `USE bench_tpcds;`, but the soak's in-process FE has
+only the tables `StarRocksAssert` created — `bench_tpch` and `bench_tpcds` exist solely on the dev2
+cluster. Measured: `corpus: 125 files` -> `seeds: 0, mutants: 0`. Every one is dropped as stale, so the
+benchmark queries raise complexity **only on the cluster replay side**, where they are not mutated at
+all. To make them count in the soak, put the 32 tables' DDL into each file's setup section rather than
+a bare `USE`; the soak only analyzes, so no data is needed and `StarRocksAssert.withTable` suffices.
+
+## Concurrency: what is actually true
+
+Shards are **processes, not threads**. Schema setup goes through `StarRocksAssert` into the process's
+one in-process catalog and `GlobalStateMgr` is a singleton, so two threads setting up different corpus
+files would race on table names.
+
+Measured scaling on a 104-core box:
+
+| shards | round | aggregate |
+| --- | --- | --- |
+| 1 | 80s | 316/s |
+| 4 | 83s | 1112/s |
+| 12 | 141s | 1982/s |
+| 24 | 456s | ~1400/s (worse) |
+
+**The bottleneck is load imbalance, not contention.** Per-shard rate is the same alone (316/s) as at
+12-way (308/s). But shard time ranges 51s to 149s because stride partitioning assumes equal work per
+file while seed counts per file vary 3x. The round waits for the tail; the machine sits at load 6.
+Three wrong hypotheses were tested and disproved first: framework startup (only 7s),
+`-XX:ActiveProcessorCount` (no effect at all), disk I/O (`wa=0`, no D-state processes).
+
+**Open fix**: greedy bin-pack shards by seed count instead of `fi += shards`. Should take 12-way from
+141s to about 80s with no extra processes.
+
+Two traps that cost a round each: twelve mavens sharing one `~/.m2` serialise on lock files (one round
+hung 29 minutes on a `.part.lock`) — shards now use `-Dmaven.repo.local` pointing at a private copy;
+and twelve mavens running the full `test` lifecycle drive the thrift codegen plugin into the same
+`target/`, which lost 10 of 12 shards. Build once, then shards run `surefire:test` only.
+
+## Open work, roughly by value
+
+1. **M11 predicate mutation.** No operator generates a predicate. Every WHERE in the output came from
+   the corpus; M10's EXISTS is the only thing ever added to one. Average 0.36 `AND` per query means
+   most WHEREs are a single condition, and HAVING sits at 1.8% and never moves. This is why almost
+   nothing has been found in predicate pushdown, partition pruning, index selection or runtime filters.
+   With benchmark data now imported, literals can be drawn from real value ranges (`l_shipdate` spans
+   1992-1998, a one-year predicate selects 15%) rather than random values that match everything or
+   nothing. Bias toward weak forms (`IS NOT NULL`, wide `BETWEEN`, `IN (subquery)`) and **add a
+   `diff_empty` counter first** — over-selective predicates would silently shrink differential coverage,
+   because the differential skips statements whose baseline is empty.
+2. **Operator weights**, e.g. `-Dsrfuzz.weights=M10-splice:4,M6-nesting:3`. Today operators are shuffled
+   uniformly and the first applicable one wins, so the effective mix is "uniform x applicability" and
+   cannot be steered. Useful as a targeted mode on a couple of shards, not as a permanent global change.
+3. **Corpus seed filtering**, e.g. `-Dsrfuzz.seedFilter=window`, to stress one feature without paying
+   for the whole corpus.
+4. **Load-balanced sharding** (above).
+5. **Mutating DDL/DML.** 52% of corpus statements (ALTER, INSERT, CREATE MV, schema change) are replayed
+   verbatim and never mutated, and schema change is historically bug-dense.
+
+## Rules that have earned their place
+
+- An operator returning null is normal and cheap. Prefer it to forcing a mutation that does not fit.
+- Never share an `Expr` between two trees; keep injected fragments as text and reparse at injection.
+- The tree is unanalyzed when an operator runs: decide from the node class, never from `getType()`.
+- Worry about producing a tree that deparses to something the parser accepts but that *means something
+  different*. That is a false finding, and it is the failure mode to design against.

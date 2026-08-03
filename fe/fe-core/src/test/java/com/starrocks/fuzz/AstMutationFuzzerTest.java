@@ -352,6 +352,29 @@ public class AstMutationFuzzerTest {
         if (files.size() > maxFiles) {
             files = files.subList(0, maxFiles);
         }
+
+        // Corpus sharding, so several JVMs can fuzz disjoint slices at once.
+        //
+        // Threads are not an option here: schema setup goes through StarRocksAssert into the process's
+        // one in-process catalog, and GlobalStateMgr is a singleton, so two files creating the same
+        // table name would race and see each other's schemas. Separate processes each get their own
+        // catalog and share nothing. The box this runs on has 104 cores and the single-process soak
+        // uses under three of them, so the whole gain is here rather than in any per-mutant tuning.
+        //
+        // Sharding by index rather than by contiguous block: file order follows the corpus directory
+        // layout, so neighbouring files are related and a contiguous split would give one shard all the
+        // JSON tests and another all the joins. Striding spreads that evenly, which matters because a
+        // shard that finishes early is idle for the rest of the round.
+        int shards = Math.max(1, Integer.getInteger("srfuzz.shards", 1));
+        int shard = Math.max(0, Integer.getInteger("srfuzz.shard", 0));
+        if (shards > 1) {
+            List<Path> mine = new ArrayList<>();
+            for (int fi = shard; fi < files.size(); fi += shards) {
+                mine.add(files.get(fi));
+            }
+            files = mine;
+            System.err.println("shard " + shard + "/" + shards + ": " + files.size() + " files");
+        }
         System.err.println("corpus: " + files.size() + " files, " + mutationsPerSeed
                 + " mutations/seed, rng seed " + seedValue);
 
