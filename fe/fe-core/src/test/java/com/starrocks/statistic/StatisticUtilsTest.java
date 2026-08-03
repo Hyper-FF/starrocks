@@ -14,17 +14,28 @@
 
 package com.starrocks.statistic;
 
+import com.starrocks.catalog.OlapTable;
 import com.starrocks.common.Config;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SessionVariable;
 import com.starrocks.sql.plan.PlanTestBase;
 import com.starrocks.system.SystemInfoService;
+import com.starrocks.type.BitmapType;
+import com.starrocks.type.HLLType;
+import com.starrocks.type.IntegerType;
+import com.starrocks.type.JsonType;
+import com.starrocks.type.PercentileType;
+import com.starrocks.type.VarbinaryType;
+import com.starrocks.type.VariantType;
 import com.starrocks.utframe.UtFrameUtils;
 import mockit.Mock;
 import mockit.MockUp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Optional;
 
 class StatisticUtilsTest extends PlanTestBase {
 
@@ -129,5 +140,46 @@ class StatisticUtilsTest extends PlanTestBase {
                 "d6cfa1ed-0000-0000-0000-000000000000";
         Assertions.assertNotEquals(hash1, StatisticUtils.hashTableUuidForPkStorage(otherTableUuid),
                 "different table_uuid values must not collide for realistic inputs");
+    }
+
+    @Test
+    void convertStatisticsToDoubleDeclinesTypesThatCannotCarryStatistics() {
+        // A type that cannot carry statistics means "no estimate available", not "fail the query".
+        Assertions.assertFalse(VarbinaryType.VARBINARY.canStatistic());
+        Assertions.assertEquals(Optional.empty(),
+                StatisticUtils.convertStatisticsToDouble(VarbinaryType.VARBINARY, "90"));
+        Assertions.assertEquals(Optional.empty(), StatisticUtils.convertStatisticsToDouble(JsonType.JSON, "1"));
+        Assertions.assertEquals(Optional.empty(), StatisticUtils.convertStatisticsToDouble(HLLType.HLL, "1"));
+        Assertions.assertEquals(Optional.empty(), StatisticUtils.convertStatisticsToDouble(BitmapType.BITMAP, "1"));
+        Assertions.assertEquals(Optional.empty(),
+                StatisticUtils.convertStatisticsToDouble(PercentileType.PERCENTILE, "1"));
+        Assertions.assertEquals(Optional.empty(), StatisticUtils.convertStatisticsToDouble(VariantType.VARIANT, "1"));
+
+        // Types that do carry statistics keep working.
+        Assertions.assertEquals(Optional.of(90.0), StatisticUtils.convertStatisticsToDouble(IntegerType.INT, "90"));
+    }
+
+    @Test
+    void predicateOnConstantOfNonStatisticTypeDoesNotFailPlanning() throws Exception {
+        starRocksAssert.withTable("create table stat_type_degrade (k int) duplicate key(k) " +
+                "distributed by hash(k) buckets 1 properties(\"replication_num\"=\"1\")");
+        try {
+            // The estimator only runs on a non-empty table; an empty one collapses to EMPTYSET.
+            setTableStatistics((OlapTable) starRocksAssert.getTable("test", "stat_type_degrade"), 100);
+            for (String predicate : List.of(
+                    "k <= cast(90 as varbinary)",
+                    "k < cast(90 as varbinary)",
+                    "k >= cast(90 as varbinary)",
+                    "k > cast(90 as varbinary)",
+                    "k = cast(90 as varbinary)",
+                    "k != cast(90 as varbinary)",
+                    "k in (cast(90 as varbinary))")) {
+                String sql = "select k from stat_type_degrade where " + predicate;
+                String plan = getFragmentPlan(sql);
+                Assertions.assertTrue(plan.contains("OlapScanNode"), sql + " -> " + plan);
+            }
+        } finally {
+            starRocksAssert.dropTable("stat_type_degrade");
+        }
     }
 }

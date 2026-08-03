@@ -455,7 +455,10 @@ public class StatisticUtils {
 
     public static Optional<Double> convertStatisticsToDouble(Type type, String statistic) {
         if (!type.canStatistic()) {
-            throw new StarRocksPlannerException("Error statistic type : " + type.toSql(), ErrorType.INTERNAL_ERROR);
+            // HLL/BITMAP/PERCENTILE/JSON/STRUCT/FUNCTION/BINARY/VARIANT have no numeric representation
+            // that statistics can be estimated on. Decline to estimate instead of failing the query:
+            // every caller already treats an absent value as "cannot narrow the estimate".
+            return Optional.empty();
         }
         try {
             switch (type.getPrimitiveType()) {
