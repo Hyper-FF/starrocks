@@ -264,6 +264,16 @@ public class AggregationAnalyzer {
                     throw new SemanticException(PARSER_ERROR_MSG.unsupportedNestAgg("window function"), expr.getPos());
                 }
 
+                // The children of an aggregation are not visited any further, so a nested GROUPING()/GROUPING_ID()
+                // would never reach visitGroupingFunctionCall and would survive until the plan translation, where
+                // it fails with an internal error. Reject it here like the two cases above.
+                if (expr.getChildren().stream().anyMatch(childExpr -> {
+                    childExpr.collectAll((Predicate<Expr>) arg -> arg instanceof GroupingFunctionCallExpr, aggFunc);
+                    return !aggFunc.isEmpty();
+                })) {
+                    throw new SemanticException(PARSER_ERROR_MSG.unsupportedNestAgg("grouping function"), expr.getPos());
+                }
+
                 return true;
             }
             return expr.getChildren().stream().allMatch(this::visit);

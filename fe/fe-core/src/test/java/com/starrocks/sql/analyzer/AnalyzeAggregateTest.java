@@ -192,6 +192,27 @@ public class AnalyzeAggregateTest {
     }
 
     @Test
+    public void testGroupingNestedInAggregation() {
+        //a grouping function inside an aggregation never reaches the translator, reject it during analysis
+        analyzeFail("select v1, sum(grouping(v1)) from t0 group by grouping sets((), (v1))",
+                "Unsupported nest grouping function inside aggregation");
+        analyzeFail("select v1, sum(grouping_id(v1)) from t0 group by grouping sets((), (v1))",
+                "Unsupported nest grouping function inside aggregation");
+        analyzeFail("select v1, max(grouping(v1)) from t0 group by rollup(v1)",
+                "Unsupported nest grouping function inside aggregation");
+        analyzeFail("select v1, count(grouping(v1)) from t0 group by cube(v1)",
+                "Unsupported nest grouping function inside aggregation");
+        analyzeFail("select v1, sum(v2 + grouping(v1)) from t0 group by grouping sets((), (v1))",
+                "Unsupported nest grouping function inside aggregation");
+        analyzeFail("select v1, sum(abs(grouping(v1))) from t0 group by grouping sets((), (v1))",
+                "Unsupported nest grouping function inside aggregation");
+
+        //a grouping function outside an aggregation is still allowed
+        analyzeSuccess("select v1, grouping(v1), sum(v2) from t0 group by grouping sets((), (v1))");
+        analyzeSuccess("select v1, grouping_id(v1), sum(v2) from t0 group by rollup(v1)");
+    }
+
+    @Test
     public void testAggInSort() {
         analyzeSuccess("SELECT max(v1) FROM t0 WHERE true ORDER BY sum(1)");
         analyzeSuccess("SELECT v1 FROM t0 group by v1 ORDER BY sum(1)");
