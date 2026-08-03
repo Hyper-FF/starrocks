@@ -48,16 +48,42 @@ whole process group with it. Keep stderr: discarding it is how one death became 
 Soak: `docker exec -d sr-dev-fuzzdev bash -lc 'ROOT=... OUT=... SHARDS=12 XMX=3g exec .../parallel_soak.sh'`.
 12 is the measured optimum; 24 is *slower* (see `HANDOFF_DEV.md`).
 
+**Never edit `clusterfuzz.sh` in place while it is running.** Bash reads a script incrementally, from a
+byte offset, so an edit under a live instance makes it execute the tail of the new file from the old
+position — arbitrary half-statements, with no error that names the cause. Stage as
+`clusterfuzz.next.sh`, `bash -n` it, then stop the loop and swap. The pre-M11 original is kept as
+`clusterfuzz.sh.bak-pre-m11`.
+
 ## Reading a round
 
 `rounds.tsv` columns: `round group tables setup_fail gen_rows queries errors diff_checked diff_bad
-fatal_delta be_restarts new_fe_sigs secs`.
+diff_empty diff_void tlp_checked tlp_bad tlp_skipped fatal_delta be_restarts new_fe_sigs secs`.
+
+The five middle columns are new. A file written under the old header is **rotated** to `rounds.tsv.N`
+on first start rather than appended to, because mixing widths makes every column-indexed awk read the
+wrong field.
 
 - `tables=0` on a group that should have a schema means setup failed.
 - `gen_rows=0` with `tables>0` means the data generator ran and loaded nothing — a harness defect, and
   the log says so explicitly. `gen_rows=-1` means a benchmark group, which is not amplified.
 - `diff_checked` is how many statements the differential compared; `diff_bad` is how many returned
   different rows under a knob. A knob mismatch is a **correctness** finding, not a crash.
+- `diff_empty` is how many statements were **never compared** because their baseline returned no rows.
+  If it dominates `diff_checked`, the differential is running on air — the corpus is producing queries
+  that select nothing, and `diff_checked=0 diff_bad=0` would otherwise read as a clean round.
+- `diff_void` is how many knob runs returned nothing where the baseline had rows. That is not
+  agreement, it is the run failing: a timeout, an error, or a knob the server rejected. This is
+  incident 8 made visible at run time; a run of them is logged as a WARNING line.
+- `tlp_checked` / `tlp_bad` / `tlp_skipped`: the TLP metamorphic oracle. For a predicate `p`, every row
+  satisfies exactly one of `p`, `NOT p`, `p IS NULL`, so `SELECT * FROM t` must equal the three-way
+  UNION ALL of those branches. Unlike the knob differential this needs no second plan, so it catches a
+  rule that is wrong in **every** plan. `tlp_skipped` is mostly tables above `TLP_MAX_ROWS` (default
+  20000) — the bench tables are all far above it, so TLP only really runs on corpus groups.
+- The knob pool is now ~50 session variables covering predicate pushdown, join reorder, CTE reuse,
+  table/partition pruning, the agg rewrites and runtime filters, and each statement is checked against
+  `DIFF_KNOB_SAMPLE` (default 4) of them drawn at random. Per-round cost is unchanged; coverage
+  accumulates across rounds. Every name was validated against a live FE, and `validate_knobs` still
+  refuses to start if one is rejected.
 - `be_restarts` above zero without a crash signature is usually the neighbour on that box SIGTERMing
   the BE, not a defect. Check `be.out` for a clean "BE is shutting down".
 

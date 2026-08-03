@@ -1032,6 +1032,7 @@ public class AstMutationFuzzerTest {
                 new TypeStressMutation(),   // most likely to reach a real complex-type defect
                 new ClauseMutation(),
                 new NestingMutation(),
+                new PredicateMutation(),    // the only operator that produces a condition at all
                 new SpliceMutation());      // the only operator that can exceed the corpus's own depth
 
         /**
