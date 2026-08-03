@@ -312,4 +312,20 @@ public class DecimalTypeTest extends PlanTestBase {
         String plan = getFragmentPlan(sql);
         assertContains(plan, "<slot 11> : 6: t1f * 1.0\n");
     }
+
+    @Test
+    public void testDecimalV2ConstantOverflowDegradesToNull() throws Exception {
+        starRocksAssert.withTable("create table decimalv2_overflow (k int, d decimalv2(27,9)) " +
+                "properties(\"replication_num\"=\"1\")");
+        // ConstantOperator#castTo had no range check on the DECIMALV2 branch, while the DECIMALV3
+        // branch right below it degrades an out-of-range constant to NULL. The oversized constant then
+        // reached plan emission, where an untyped DecimalLiteral rejected it with a java.lang.InternalError
+        // -- not an Exception, so it escaped the surrounding catch and unwound out of StatementPlanner.
+        for (String literal : new String[] {"1.0E308", "1.0E77", "1.0E76", "1.0E40", "1.0E30"}) {
+            getFragmentPlan("select k from decimalv2_overflow where d = " + literal);
+            getFragmentPlan("select cast(" + literal + " as decimalv2(27,9))");
+        }
+        // in-range constants are unaffected
+        assertContains(getFragmentPlan("select k from decimalv2_overflow where d = 1.5"), "1.5");
+    }
 }

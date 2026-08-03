@@ -88,6 +88,14 @@ public final class ConstantOperator extends ScalarOperator implements Comparable
     public static final ConstantOperator TRUE = ConstantOperator.createBoolean(true);
     public static final ConstantOperator FALSE = ConstantOperator.createBoolean(false);
 
+    // A DECIMALV2 is an int128 scaled by 10^9 in the BE, bounded by DecimalV2Value::MAX_DECIMAL_VALUE
+    // (see be/src/types/decimalv2_value.h). A constant that does not fit in that range cannot be a
+    // DECIMALV2 value at all.
+    private static final int DECIMALV2_SCALE = 9;
+    private static final BigInteger DECIMALV2_MAX_UNSCALED =
+            BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(1000000000L))
+                    .add(BigInteger.valueOf(999999999L));
+
     private static final BigInteger MAX_LARGE_INT = new BigInteger("2").pow(127).subtract(BigInteger.ONE);
     private static final BigInteger MIN_LARGE_INT = new BigInteger("2").pow(128).multiply(BigInteger.valueOf(-1));
 
@@ -517,6 +525,11 @@ public final class ConstantOperator extends ScalarOperator implements Comparable
         }
     }
 
+    private static boolean isDecimalV2Representable(BigDecimal value) {
+        BigInteger unscaled = value.setScale(DECIMALV2_SCALE, RoundingMode.HALF_UP).unscaledValue();
+        return unscaled.abs().compareTo(DECIMALV2_MAX_UNSCALED) <= 0;
+    }
+
     public Optional<ConstantOperator> castTo(Type desc) {
         if ((type.isTime() || desc.isTime()) && !(type.isTime() && desc.isDatetime())) {
             // Don't support constant time cast to types other than datetime in FE
@@ -597,8 +610,16 @@ public final class ConstantOperator extends ScalarOperator implements Comparable
                     res = ConstantOperator.createDatetime(dateTime, desc);
                 }
             } else if (desc.isDecimalV2()) {
-                res = ConstantOperator.createDecimal(BigDecimal.valueOf(Double.parseDouble(childString)),
-                        DecimalType.DECIMALV2);
+                BigDecimal decimal = BigDecimal.valueOf(Double.parseDouble(childString));
+                // An out-of-range constant must degrade to NULL here, exactly like the DECIMALV3 branch
+                // below. Otherwise it escapes into plan emission, where an untyped DecimalLiteral rejects it
+                // with a java.lang.InternalError -- not an Exception, so it slips past the catch below and
+                // unwinds out of StatementPlanner -- or it reaches the BE and fails there without context.
+                if (isDecimalV2Representable(decimal)) {
+                    res = ConstantOperator.createDecimal(decimal, DecimalType.DECIMALV2);
+                } else {
+                    res = ConstantOperator.createNull(DecimalType.DECIMALV2);
+                }
             } else if (desc.isDecimalV3()) {
                 BigDecimal decimal = new BigDecimal(childString);
                 ScalarType scalarType = (ScalarType) desc;
