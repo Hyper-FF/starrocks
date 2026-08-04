@@ -50,6 +50,13 @@ while true; do
     printf 'round %s RUNNING since %s (seed %s, %s shards)\n' \
         "$round" "$(date '+%F %T')" "$seed" "$SHARDS" > "$STATUS"
 
+    # A leftover *.part.lock in the shared repo blocks EVERY later resolution of that artifact,
+    # forever, because its owner is long gone. All 12 shards share $OUT/m2ro, so one stale lock wedges
+    # the whole fan-out -- that is how one round sat for 16.7 hours. The locks are only meaningful
+    # while a maven is running, and none is at this point in the round, so sweeping here is safe.
+    find "$OUT/m2ro" -name '*.part' -delete 2>/dev/null
+    find "$OUT/m2ro" -name '*.lock' -delete 2>/dev/null
+
     # Compile ONCE, before the fan-out. Twelve mavens running the full `test` lifecycle against one
     # tree all drive the thrift codegen plugin into the same target/ directory and clobber each other:
     # the first attempt lost 10 of 12 shards to "maven-thrift-plugin ... thrift failed". Shards then
@@ -83,7 +90,14 @@ while true; do
             # The build phase above has already resolved everything, so shards need no writes at all.
             # A hung shard must not hold the round. One did, for 29 minutes, and the merge simply
             # waited: the round looked like it was working because nothing said otherwise.
-            timeout "$SHARD_TIMEOUT" \
+            # -k: SIGTERM alone does not kill a wedged JVM. One shard sat in futex_wait for
+            # 16.7 HOURS after its timeout fired, and the round waited on it the whole time --
+            # zero output, process tree perfectly healthy-looking. Escalate to SIGKILL.
+            # -s QUIT before the kill: a JVM dumps every thread stack on SIGQUIT, so a wedged
+            # shard writes WHY it is wedged into its own log before it dies. The one that hung
+            # for 16.7 hours took the answer with it -- there was nothing to look at afterwards.
+            # QUIT does not terminate the JVM, so -k still does the actual killing.
+            timeout -k 60 -s QUIT "$SHARD_TIMEOUT" \
             mvn -q -o -Dmaven.repo.local="$OUT/m2ro" -pl fe-core surefire:test -Dtest=AstMutationFuzzerTest \
                 -Dsrfuzz.corpus="$ROOT/test/sql" \
                 -Dsrfuzz.mutations="$MUTATIONS" \
