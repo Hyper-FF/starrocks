@@ -67,6 +67,16 @@ struct PercentileState {
     double rate = 0.0;
 };
 
+// K-way merge of the sorted runs held in `grid` via a loser tree. Every run is padded by merge()
+// with RunTimeTypeLimits<LT>::min_value() at the front and max_value() at the back, and slot `k` of
+// the tree is a virtual player seeded with the same extreme so that the tree can be built.
+//
+// Neither the end of a run nor the virtual slot may be recognised by *comparing values*: for
+// TYPE_DATE and TYPE_DATETIME the padding values are ordinary user data ('0000-01-01',
+// '9999-12-31'), so a row that happens to carry one of them is indistinguishable from the padding.
+// A tie against slot `k` leaves `k` inside the loser array; once it reaches ls[0] the merge loop
+// reads grid[k]/mp[k] out of bounds and the BE dies in finalize_to_column. Exhaustion and the
+// virtual slot are therefore decided by position/identity only.
 template <LogicalType LT, typename CppType, bool reverse>
 void kWayMergeSort(const typename PercentileStateTypes<LT>::GridType& grid, std::vector<CppType>& b,
                    std::vector<int>& ls, std::vector<int>& mp, size_t goal, int k, CppType& junior_elm,
@@ -78,7 +88,7 @@ void kWayMergeSort(const typename PercentileStateTypes<LT>::GridType& grid, std:
     mp.resize(k);
     for (int i = 0; i < k; ++i) {
         if constexpr (reverse) {
-            mp[i] = grid[i].size() - 2;
+            mp[i] = static_cast<int>(grid[i].size()) - 2;
         } else {
             mp[i] = 1;
         }
@@ -96,15 +106,46 @@ void kWayMergeSort(const typename PercentileStateTypes<LT>::GridType& grid, std:
         ls[i] = k;
     }
 
+    // mp[i] always points one step past the element currently sitting in b[i], so run i is drained
+    // exactly when mp[i] has walked off the padded end of the run. Slot k never owns a run.
+    auto exhausted = [&](int i) {
+        if (i == k) {
+            return true;
+        }
+        if constexpr (reverse) {
+            return mp[i] < 0;
+        } else {
+            return mp[i] >= static_cast<int>(grid[i].size());
+        }
+    };
+
+    // Ordering of the loser tree: slot k is the -inf/+inf the tree is seeded with and can never be
+    // beaten, a drained run can never win, and only otherwise are the values compared.
+    auto loses = [&](int q, int r) {
+        if (q == k) {
+            return false;
+        }
+        if (r == k) {
+            return true;
+        }
+        if (exhausted(q)) {
+            return !exhausted(r);
+        }
+        if (exhausted(r)) {
+            return false;
+        }
+        if constexpr (reverse) {
+            return b[q] < b[r];
+        } else {
+            return b[q] > b[r];
+        }
+    };
+
     for (int i = k - 1; i >= 0; --i) {
         int q = i;
         int t = (q + k) / 2;
         while (t > 0) {
-            if constexpr (reverse) {
-                if (b[q] < b[ls[t]]) {
-                    std::swap(q, ls[t]);
-                }
-            } else if (b[q] > b[ls[t]]) {
+            if (loses(q, ls[t])) {
                 std::swap(q, ls[t]);
             }
             t = t / 2;
@@ -112,10 +153,9 @@ void kWayMergeSort(const typename PercentileStateTypes<LT>::GridType& grid, std:
         ls[0] = q;
     }
 
-    CppType tp = reverse ? minV : maxV;
     size_t cnt = 0;
 
-    while (b[ls[0]] != tp) {
+    while (!exhausted(ls[0])) {
         int q = ls[0];
         if (UNLIKELY(cnt >= goal)) {
             if (cnt == goal) {
@@ -142,11 +182,7 @@ void kWayMergeSort(const typename PercentileStateTypes<LT>::GridType& grid, std:
         }
         int t = (q + k) / 2;
         while (t > 0) {
-            if constexpr (reverse) {
-                if (b[q] < b[ls[t]]) {
-                    std::swap(q, ls[t]);
-                }
-            } else if (b[q] > b[ls[t]]) {
+            if (loses(q, ls[t])) {
                 std::swap(q, ls[t]);
             }
             t = t / 2;

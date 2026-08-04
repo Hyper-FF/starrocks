@@ -1,0 +1,43 @@
+-- name: test_percentile_cont_boundary_date
+
+-- percentile_cont pads every merged run with RunTimeTypeLimits<LT>::min_value()/max_value().
+-- For DATE and DATETIME those paddings are ordinary user values ('0000-01-01', '9999-12-31'),
+-- so a row carrying one of them used to be mistaken for the padding, which left the loser
+-- tree's virtual slot inside the tree and made the BE read past the end of the run grid.
+-- BUCKETS 4 keeps more than one partial state alive so that the k-way merge is really used.
+
+CREATE TABLE `t_pc_bound` (
+  `d` date NULL,
+  `dt` datetime NULL,
+  `g` int(11) NULL,
+  `id` int(11) NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`d`)
+DISTRIBUTED BY HASH(`id`) BUCKETS 4
+PROPERTIES ("replication_num" = "1");
+
+insert into t_pc_bound values ("0000-01-01","0000-01-01 00:00:00",1,1);
+insert into t_pc_bound values ("2020-01-01","2020-01-01 00:00:00",1,2);
+insert into t_pc_bound values ("2021-01-01","2021-01-01 00:00:00",1,3);
+insert into t_pc_bound values ("9999-12-31","9999-12-31 23:59:59",1,4);
+
+select percentile_cont(d, 0) from t_pc_bound;
+select percentile_cont(d, 0.25) from t_pc_bound;
+select percentile_cont(d, 0.5) from t_pc_bound;
+select percentile_cont(d, 0.75) from t_pc_bound;
+select percentile_cont(d, 1) from t_pc_bound;
+
+select percentile_cont(dt, 0) from t_pc_bound;
+select percentile_cont(dt, 0.5) from t_pc_bound;
+select percentile_cont(dt, 1) from t_pc_bound;
+
+select percentile_cont(d, 0.5) from t_pc_bound group by g;
+select percentile_cont(dt, 0.75) from t_pc_bound group by g;
+
+select percentile_disc(d, 0.5) from t_pc_bound;
+select percentile_disc(d, 1) from t_pc_bound;
+
+-- only the minimum boundary
+select percentile_cont(d, 0.5) from t_pc_bound where d < "9999-12-31";
+-- only the maximum boundary
+select percentile_cont(d, 0.75) from t_pc_bound where d > "0000-01-01";

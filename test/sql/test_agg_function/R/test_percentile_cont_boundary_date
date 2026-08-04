@@ -1,0 +1,80 @@
+-- name: test_percentile_cont_boundary_date
+CREATE TABLE `t_pc_bound` (
+  `d` date NULL,
+  `dt` datetime NULL,
+  `g` int(11) NULL,
+  `id` int(11) NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`d`)
+DISTRIBUTED BY HASH(`id`) BUCKETS 4
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+insert into t_pc_bound values ("0000-01-01","0000-01-01 00:00:00",1,1);
+-- result:
+-- !result
+insert into t_pc_bound values ("2020-01-01","2020-01-01 00:00:00",1,2);
+-- result:
+-- !result
+insert into t_pc_bound values ("2021-01-01","2021-01-01 00:00:00",1,3);
+-- result:
+-- !result
+insert into t_pc_bound values ("9999-12-31","9999-12-31 23:59:59",1,4);
+-- result:
+-- !result
+select percentile_cont(d, 0) from t_pc_bound;
+-- result:
+0000-01-01
+-- !result
+select percentile_cont(d, 0.25) from t_pc_bound;
+-- result:
+1515-01-01
+-- !result
+select percentile_cont(d, 0.5) from t_pc_bound;
+-- result:
+2020-07-02
+-- !result
+select percentile_cont(d, 0.75) from t_pc_bound;
+-- result:
+4015-10-02
+-- !result
+select percentile_cont(d, 1) from t_pc_bound;
+-- result:
+9999-12-31
+-- !result
+select percentile_cont(dt, 0) from t_pc_bound;
+-- result:
+0000-01-01 00:00:00
+-- !result
+select percentile_cont(dt, 0.5) from t_pc_bound;
+-- result:
+2020-07-02 00:00:00
+-- !result
+select percentile_cont(dt, 1) from t_pc_bound;
+-- result:
+9999-12-31 23:59:59
+-- !result
+select percentile_cont(d, 0.5) from t_pc_bound group by g;
+-- result:
+2020-07-02
+-- !result
+select percentile_cont(dt, 0.75) from t_pc_bound group by g;
+-- result:
+4015-10-02 05:59:59
+-- !result
+select percentile_disc(d, 0.5) from t_pc_bound;
+-- result:
+2021-01-01
+-- !result
+select percentile_disc(d, 1) from t_pc_bound;
+-- result:
+9999-12-31
+-- !result
+select percentile_cont(d, 0.5) from t_pc_bound where d < "9999-12-31";
+-- result:
+2020-01-01
+-- !result
+select percentile_cont(d, 0.75) from t_pc_bound where d > "0000-01-01";
+-- result:
+6010-07-02
+-- !result
