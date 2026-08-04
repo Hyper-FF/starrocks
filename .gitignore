@@ -126,3 +126,4 @@ memory/
 !be/src/runtime/memory/**
 !be/test/runtime/memory/
 !be/test/runtime/memory/**
+seeds/
