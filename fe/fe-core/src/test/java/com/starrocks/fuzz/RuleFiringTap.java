@@ -15,9 +15,9 @@
 package com.starrocks.fuzz;
 
 import com.starrocks.sql.optimizer.OptExpression;
-import com.starrocks.sql.optimizer.OptimizerContext;
 import com.starrocks.sql.optimizer.rule.Rule;
 import com.starrocks.sql.optimizer.rule.RuleType;
+import com.starrocks.sql.optimizer.task.RewriteTreeTask;
 import mockit.Invocation;
 import mockit.Mock;
 import mockit.MockUp;
@@ -54,7 +54,6 @@ import java.util.List;
 public final class RuleFiringTap {
 
     private static final BitSet FIRED = new BitSet(RuleType.NUM_RULES.ordinal() + 1);
-    private static final BitSet PRODUCED = new BitSet(RuleType.NUM_RULES.ordinal() + 1);
     private static volatile boolean installed;
 
     private RuleFiringTap() {
@@ -65,23 +64,24 @@ public final class RuleFiringTap {
         if (installed) {
             return;
         }
-        new MockUp<Rule>() {
+        // Intercepting Rule#transform itself does not work: it is ABSTRACT, so there is no method
+        // body to replace and every real call dispatches to one of the hundreds of subclasses.
+        // Measured: the tap recorded 0 firings while the mask signal recorded 27 over the same 816
+        // queries -- a silent zero, which is exactly the shape of a measurement that is not running.
+        //
+        // The two CALL SITES are concrete, and between them they cover both phases:
+        //   RewriteTreeTask#applyRules  -- the RBO tree rewrite the masks cannot see
+        //   ApplyRuleTask#execute       -- the memo exploration the masks do see
+        new MockUp<RewriteTreeTask>() {
             @Mock
-            public List<OptExpression> transform(Invocation invocation, OptExpression input,
-                                                 OptimizerContext context) {
-                Rule self = invocation.getInvokedInstance();
-                List<OptExpression> out = invocation.proceed(input, context);
-                int ordinal = self.type().ordinal();
-                synchronized (FIRED) {
-                    FIRED.set(ordinal);
-                    // A rule that matched and returned nothing changed no plan. Tracking the two
-                    // separately keeps "the optimizer considered this" apart from "this rewrote
-                    // something", which are different claims about coverage.
-                    if (out != null && !out.isEmpty()) {
-                        PRODUCED.set(ordinal);
+            public OptExpression applyRules(Invocation invocation, OptExpression parent, int childIndex,
+                                            OptExpression root, List<Rule> rules) {
+                for (Rule r : rules) {
+                    synchronized (FIRED) {
+                        FIRED.set(r.type().ordinal());
                     }
                 }
-                return out;
+                return invocation.proceed(parent, childIndex, root, rules);
             }
         };
         installed = true;
@@ -90,7 +90,6 @@ public final class RuleFiringTap {
     public static synchronized void reset() {
         synchronized (FIRED) {
             FIRED.clear();
-            PRODUCED.clear();
         }
     }
 
@@ -101,10 +100,4 @@ public final class RuleFiringTap {
         }
     }
 
-    /** Rules whose transform returned at least one expression. */
-    public static BitSet produced() {
-        synchronized (FIRED) {
-            return (BitSet) PRODUCED.clone();
-        }
-    }
 }

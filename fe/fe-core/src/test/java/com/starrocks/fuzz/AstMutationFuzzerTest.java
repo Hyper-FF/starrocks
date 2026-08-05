@@ -43,6 +43,7 @@ import com.starrocks.sql.ast.expression.SlotRef;
 import com.starrocks.sql.common.ErrorType;
 import com.starrocks.sql.common.StarRocksPlannerException;
 import com.starrocks.sql.common.UnsupportedException;
+import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.parser.SqlParser;
 import com.starrocks.sql.plan.ExecPlan;
 import com.starrocks.utframe.StarRocksAssert;
@@ -64,6 +65,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -154,6 +157,23 @@ public class AstMutationFuzzerTest {
      */
     private BitSet firedRules;
     private int coverageSampled;
+    private int coverageFailed;
+    private String coverageFirstError;
+
+    /** The current file's splice pool, so plan-shape feedback can add to it. */
+    private Pool feedbackPool;
+
+    /**
+     * Plan shapes already seen, keyed on what the optimizer CHOSE rather than the rules it applied.
+     *
+     * The rule masks cannot serve as the key twice over: they see only the memo phase (measured --
+     * 27 rules against the 151 the RBO phase actually runs), and they do not move at all when
+     * statistics change. The chosen plan discriminates: 19 of 131 mutants reached a shape no earlier
+     * mutant had, against 10 of 131 for the masks.
+     */
+    private Set<String> seenPlanShapes;
+    private int interestingMutants;
+    private int feedbackPercent;
     private int coverageExpanders;
     private int coveragePercent;
     private Random coverageRnd;
@@ -385,6 +405,11 @@ public class AstMutationFuzzerTest {
         unbindableSeeds = 0;
         firedRules = new BitSet(RuleCoverage.NUM_RULES + 1);
         coverageSampled = 0;
+        coverageFailed = 0;
+        coverageFirstError = null;
+        seenPlanShapes = new HashSet<>();
+        interestingMutants = 0;
+        feedbackPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.feedback", 0)));
         coverageExpanders = 0;
         coveragePercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.coverage", 0)));
         coverageRnd = new Random(Long.getLong("srfuzz.seed", 20260730L) ^ 0xC0FFEEL);
@@ -471,6 +496,7 @@ public class AstMutationFuzzerTest {
 
                 List<String> seeds = new ArrayList<>();
                 Pool pool = new Pool();
+                feedbackPool = pool;
                 for (String sql : statements) {
                     StatementBase ast = tryParse(sql);
                     if (ast == null) {
@@ -664,8 +690,13 @@ public class AstMutationFuzzerTest {
 
         writeReport(report, tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds, drops);
         if (coveragePercent > 0) {
-            System.out.printf("rule coverage: %d/%d fired; %d of %d sampled mutants reached a new rule%n",
-                    firedRules.cardinality(), RuleCoverage.NUM_RULES, coverageExpanders, coverageSampled);
+            System.out.printf("plan shapes: %d distinct; %d of %d planned mutants reached a new one%s%n",
+                    seenPlanShapes.size(), interestingMutants, coverageSampled,
+                    feedbackPercent > 0 ? " (fed back into the splice pool)" : "");
+            if (coverageFailed > 0) {
+                System.out.printf("shape collection FAILED on %d of %d; first: %s%n",
+                        coverageFailed, coverageSampled, coverageFirstError);
+            }
         }
         printSummary(tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds,
                 unbindableSeeds);
@@ -905,19 +936,36 @@ public class AstMutationFuzzerTest {
             // Sampled, because collecting re-runs the optimizer and planning is already the
             // expensive step. A failure here must not fail the mutant: the mutant planned, and a
             // defect in the measurement is not a defect in the product.
-            if (coveragePercent > 0 && coverageRnd.nextInt(100) < coveragePercent) {
+            if (coveragePercent > 0) {
+                // Counted BEFORE the work, so a probe that throws every time cannot report itself as
+                // "0 of 0 sampled" -- which is what a silently failing measurement looks like, and is
+                // indistinguishable from never having run.
+                coverageSampled++;
                 try {
-                    BitSet fired = RuleCoverage.collect(ctx,
-                            (QueryStatement) SqlParser.parse(mutantSql, ctx.getSessionVariable()).get(0));
-                    coverageSampled++;
-                    BitSet fresh = (BitSet) fired.clone();
-                    fresh.andNot(firedRules);
-                    if (!fresh.isEmpty()) {
-                        coverageExpanders++;
+                    // The shape comes off the ExecPlan just built. Re-running transform + optimize to
+                    // reach a memo doubled the cost of the loop's most expensive step and forced
+                    // sampling; getPhysicalPlan() returns the same OptExpression for free, so every
+                    // planned mutant can be measured. It also removes the re-parse that needed its own
+                    // Analyzer pass -- TableRelation#getColumns is null until analysis, and that NPE
+                    // failed all 132 samples of the first attempt.
+                    OptExpression physical = plan.getPhysicalPlan();
+                    String shape = physical == null ? "" : PlanShape.fingerprint(physical);
+                    if (!shape.isEmpty() && seenPlanShapes.add(shape)) {
+                        interestingMutants++;
+                        // Feedback: a mutant that reached a shape nothing reached before becomes
+                        // splice material, so later mutations build on it rather than restarting from
+                        // the seed. Bounded -- an unbounded pool drifts the corpus away from the
+                        // production shapes it was harvested from, and those shapes are the point.
+                        if (feedbackPercent > 0 && feedbackPool != null
+                                && feedbackPool.siblingSeeds.size() < 5000) {
+                            feedbackPool.siblingSeeds.add(mutantSql);
+                        }
                     }
-                    firedRules.or(fired);
-                } catch (Throwable ignored) {
-                    // Measurement only.
+                } catch (Throwable t2) {
+                    coverageFailed++;
+                    if (coverageFirstError == null) {
+                        coverageFirstError = t2.getClass().getSimpleName() + ": " + t2.getMessage();
+                    }
                 }
             }
         } catch (Throwable t) {
