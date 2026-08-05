@@ -25,6 +25,10 @@ OUT=${OUT:-${TMPDIR:-/tmp}/srfuzz-soak}
 # seed corpora were harvested to fill: every mutant the soak has ever produced descends from a shape
 # a StarRocks test author wrote, not from one a user ran.
 CORPUS=${CORPUS:-$ROOT/test/sql}
+# Extra -D flags passed straight to each shard. Exists so two runs can differ in exactly one
+# setting -- the A/B that decides whether coverage feedback is worth keeping needs the arms to be
+# identical but for one flag, and editing this script per arm would not give that.
+SRFUZZ_EXTRA=${SRFUZZ_EXTRA:-}
 SHARDS=${SHARDS:-12}
 MUTATIONS=${MUTATIONS:-40}
 CHAIN=${CHAIN:-4}
@@ -120,6 +124,7 @@ while true; do
             timeout -k 60 -s QUIT "$SHARD_TIMEOUT" \
             mvn -q -o -Dmaven.repo.local="$OUT/m2ro" -pl fe-core surefire:test -Dtest=AstMutationFuzzerTest \
                 -Dsrfuzz.corpus="$CORPUS" \
+                $SRFUZZ_EXTRA \
                 -Dsrfuzz.mutations="$MUTATIONS" \
                 -Dsrfuzz.chain="$CHAIN" \
                 -Dsrfuzz.seed=$(( seed + i * 7919 )) \
