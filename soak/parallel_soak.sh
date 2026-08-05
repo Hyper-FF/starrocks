@@ -84,9 +84,18 @@ while true; do
 
     # One shared copy of the resolved repository for the shards to read. Made once per round, after
     # the build has resolved everything, so no shard ever writes to it and none can lock another out.
-    if [ ! -d "$OUT/m2ro" ]; then
+    # Re-prime when the source tree has pulled in dependencies the copy predates. The build above
+    # runs online and downloads them into ~/.m2; the shards run OFFLINE against this copy, so a
+    # rebase that adds a dependency makes all N shards fail with "Cannot access central ... in
+    # offline mode" while the build itself keeps succeeding. That is invisible in the round line --
+    # it shows up only as every shard producing no report.
+    if [ ! -d "$OUT/m2ro" ] \
+        || [ "${HOME:-/root}/.m2/repository" -nt "$OUT/m2ro" ]; then
         say "  priming a read-only maven repository for the shards"
+        rm -rf "$OUT/m2ro.old" 2>/dev/null
+        [ -d "$OUT/m2ro" ] && mv "$OUT/m2ro" "$OUT/m2ro.old" 2>/dev/null
         cp -a "${HOME:-/root}/.m2/repository" "$OUT/m2ro" 2>/dev/null || mkdir -p "$OUT/m2ro"
+        rm -rf "$OUT/m2ro.old" 2>/dev/null
     fi
 
     pids=()
