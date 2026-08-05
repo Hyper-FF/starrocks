@@ -176,9 +176,8 @@ public class RuleCoverageProbeTest {
         System.out.println("distinct plan shapes: " + planShapes.size());
         if (tap) {
             BitSet tapped = RuleFiringTap.fired();
-            BitSet produced = RuleFiringTap.produced();
-            System.out.printf("tap: %d rules ran, %d of them rewrote something (mask-based saw %d)%n",
-                    tapped.cardinality(), produced.cardinality(), firedAll.cardinality());
+            System.out.printf("tap: %d rules ran in the RBO phase (mask-based saw %d in the memo phase)%n",
+                    tapped.cardinality(), firedAll.cardinality());
             BitSet missedByMask = (BitSet) tapped.clone();
             missedByMask.andNot(firedAll);
             System.out.println("invisible to the mask signal: " + missedByMask.cardinality() + " rules");
