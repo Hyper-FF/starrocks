@@ -174,6 +174,16 @@ public class AstMutationFuzzerTest {
     private Set<String> seenPlanShapes;
     private int interestingMutants;
     private int feedbackPercent;
+
+    /**
+     * Mutants that first reached a plan shape, kept across the whole run.
+     *
+     * The splice pool is rebuilt per corpus file, so a mutant that found a new shape helps only the
+     * file it came from and is discarded at the end of it. Persisting them turns the run's output
+     * into a corpus where every entry corresponds to a DIFFERENT plan -- far denser than emitting
+     * every mutant, and reusable as a seed corpus for later runs.
+     */
+    private List<String> shapeCorpus;
     private int coverageExpanders;
     private int coveragePercent;
     private Random coverageRnd;
@@ -409,6 +419,7 @@ public class AstMutationFuzzerTest {
         coverageFirstError = null;
         seenPlanShapes = new HashSet<>();
         interestingMutants = 0;
+        shapeCorpus = new ArrayList<>();
         feedbackPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.feedback", 0)));
         coverageExpanders = 0;
         coveragePercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.coverage", 0)));
@@ -689,6 +700,17 @@ public class AstMutationFuzzerTest {
         }
 
         writeReport(report, tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds, drops);
+        String shapeOut = System.getProperty("srfuzz.shapeCorpus");
+        if (shapeOut != null && !shapeCorpus.isEmpty()) {
+            try {
+                Path dest = Paths.get(shapeOut);
+                Files.createDirectories(dest.getParent() == null ? dest : dest.getParent());
+                Files.write(dest, String.join("\n", shapeCorpus).getBytes(StandardCharsets.UTF_8));
+                System.out.printf("shape corpus: %d statements -> %s%n", shapeCorpus.size(), dest);
+            } catch (Throwable t3) {
+                System.out.println("shape corpus write FAILED: " + t3);
+            }
+        }
         if (coveragePercent > 0) {
             System.out.printf("plan shapes: %d distinct; %d of %d planned mutants reached a new one%s%n",
                     seenPlanShapes.size(), interestingMutants, coverageSampled,
@@ -952,6 +974,9 @@ public class AstMutationFuzzerTest {
                     String shape = physical == null ? "" : PlanShape.fingerprint(physical);
                     if (!shape.isEmpty() && seenPlanShapes.add(shape)) {
                         interestingMutants++;
+                        if (shapeCorpus.size() < 20000) {
+                            shapeCorpus.add(terminated(mutantSql));
+                        }
                         // Feedback: a mutant that reached a shape nothing reached before becomes
                         // splice material, so later mutations build on it rather than restarting from
                         // the seed. Bounded -- an unbounded pool drifts the corpus away from the
