@@ -36,6 +36,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <cstring>
+#include <limits>
 #include <random>
 
 #include "common/logging.h"
@@ -252,6 +255,133 @@ TEST_F(TDigestTest, Montonicity) {
         EXPECT_GE(q, lastQuantile);
         lastQuantile = q;
     }
+}
+
+// `Value` is float while the SQL argument of percentile_approx()/percentile_hash() is DOUBLE, so any
+// DOUBLE past the float range narrows to +/-inf on the way in. Once two of those meet inside
+// Centroid::add() the mean becomes NaN, and a NaN mean satisfies neither branch of the comparison in
+// weightedAverage(), which used to leave the digest answering NaN for every quantile.
+TEST_F(TDigestTest, DoubleValuesBeyondFloatRange) {
+    // Enough rows that the centroids actually merge; below that no two extremes ever meet.
+    for (size_t rows : {2, 1000, 10000, 100000}) {
+        TDigest digest(1000);
+        for (size_t i = 0; i < rows; ++i) {
+            digest.add(static_cast<float>(1e39));
+        }
+        digest.compress();
+
+        for (const auto& centroid : digest.processed()) {
+            ASSERT_TRUE(std::isfinite(centroid.mean())) << "rows = " << rows;
+        }
+        for (double q : {0.0, 0.25, 0.5, 0.75, 1.0}) {
+            EXPECT_FLOAT_EQ(std::numeric_limits<Value>::max(), digest.quantile(q)) << "rows = " << rows;
+        }
+    }
+}
+
+TEST_F(TDigestTest, InfiniteValues) {
+    TDigest digest(1000);
+    for (int i = 0; i < 5000; ++i) {
+        digest.add(-std::numeric_limits<float>::infinity());
+        digest.add(std::numeric_limits<float>::infinity());
+    }
+    digest.compress();
+
+    for (const auto& centroid : digest.processed()) {
+        ASSERT_TRUE(std::isfinite(centroid.mean()));
+    }
+    // Rank is preserved: the infinities land on the two ends of the representable range.
+    EXPECT_FLOAT_EQ(std::numeric_limits<Value>::lowest(), digest.quantile(0.0));
+    EXPECT_FLOAT_EQ(std::numeric_limits<Value>::max(), digest.quantile(1.0));
+    EXPECT_TRUE(std::isfinite(digest.quantile(0.5)));
+}
+
+// Finite input only: `c._weight * (c._mean - _mean)` used to overflow float inside Centroid::add()
+// for large means and heavy centroids, and that inf turned into NaN on the following merge.
+TEST_F(TDigestTest, LargeFiniteValuesDoNotOverflow) {
+    std::mt19937 gen(20260805);
+    std::uniform_real_distribution<double> reals(std::numeric_limits<float>::lowest(),
+                                                 std::numeric_limits<float>::max());
+
+    // A small compression makes the centroids as fat, and their spans as wide, as possible.
+    for (float compression : {2.0f, 5.0f, 1000.0f}) {
+        TDigest digest(compression);
+        for (int i = 0; i < 200000; ++i) {
+            digest.add(static_cast<float>(reals(gen)));
+        }
+        // Bimodal at both ends of the float range, the widest span a centroid can straddle.
+        for (int i = 0; i < 200000; ++i) {
+            digest.add(i % 2 ? 3.0e38f : -3.0e38f);
+        }
+        digest.compress();
+
+        for (const auto& centroid : digest.processed()) {
+            ASSERT_TRUE(std::isfinite(centroid.mean())) << "compression = " << compression;
+        }
+        for (double q : {0.0, 0.25, 0.5, 0.75, 1.0}) {
+            EXPECT_TRUE(std::isfinite(digest.quantile(q))) << "compression = " << compression << ", q = " << q;
+        }
+    }
+}
+
+// percentile_approx_weighted() takes its weight from a column, so the FE cannot reject a
+// non-positive one. A zero weight carries no data and a negative one drags _processed_weight towards
+// zero, which turns the quantile index arithmetic into NaN.
+TEST_F(TDigestTest, NonPositiveWeightIsIgnored) {
+    for (float weight : {0.0f, -1.0f, -1e30f}) {
+        TDigest digest(1000);
+        for (int i = 0; i < 1000; ++i) {
+            EXPECT_FALSE(digest.add(static_cast<float>(i), weight));
+        }
+        digest.compress();
+
+        EXPECT_TRUE(digest.processed().empty()) << "weight = " << weight;
+        EXPECT_TRUE(std::isnan(digest.quantile(0.5))) << "weight = " << weight;
+    }
+
+    // Rows carrying a usable weight still count when they are mixed with rejected ones.
+    TDigest digest(1000);
+    for (int i = 0; i < 1000; ++i) {
+        digest.add(1000.0f, 0);
+        digest.add(static_cast<float>(i), 1);
+    }
+    digest.compress();
+    EXPECT_NEAR(500.0, digest.quantile(0.5), 1.0);
+}
+
+// A PERCENTILE column materialised before add() started clamping can still hold non-finite means.
+TEST_F(TDigestTest, DeserializeClampsNonFiniteCentroids) {
+    TDigest digest(1000);
+    for (int i = 0; i < 1000; ++i) {
+        digest.add(static_cast<float>(i));
+    }
+    digest.compress();
+
+    std::vector<uint8_t> buffer(digest.serialize_size());
+    digest.serialize(buffer.data());
+
+    // Poison the last centroid's mean the way a pre-fix writer would have: the centroids stay
+    // sorted, which is exactly the shape a digest built from an out-of-float-range DOUBLE had.
+    Value poison = std::numeric_limits<Value>::infinity();
+    size_t centroids_at = sizeof(Value) * 5 + sizeof(Index) * 2 + sizeof(uint32_t);
+    size_t last_centroid = centroids_at + (digest.processed().size() - 1) * sizeof(Centroid);
+    memcpy(buffer.data() + last_centroid, &poison, sizeof(Value));
+
+    TDigest restored;
+    restored.deserialize(reinterpret_cast<const char*>(buffer.data()));
+    for (const auto& centroid : restored.processed()) {
+        ASSERT_TRUE(std::isfinite(centroid.mean()));
+    }
+    for (double q : {0.0, 0.5, 1.0}) {
+        EXPECT_TRUE(std::isfinite(restored.quantile(q))) << "q = " << q;
+    }
+}
+
+TEST_F(TDigestTest, CompressEmptyDigest) {
+    TDigest digest(1000);
+    digest.compress();
+    EXPECT_TRUE(digest.processed().empty());
+    EXPECT_TRUE(std::isnan(digest.quantile(0.5)));
 }
 
 } // namespace starrocks
