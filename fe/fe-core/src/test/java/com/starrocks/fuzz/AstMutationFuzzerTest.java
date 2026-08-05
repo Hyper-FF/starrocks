@@ -58,6 +58,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -142,6 +143,20 @@ public class AstMutationFuzzerTest {
      * always read together.
      */
     private int unbindableSeeds;
+
+    /**
+     * Union of the optimizer rules every planned mutant applied, and how many mutants contributed a
+     * rule no earlier mutant had.
+     *
+     * The second number is the one that decides whether coverage-guided selection is worth building:
+     * feedback can only steer if mutants DIFFER in what they reach. Measured first, built second.
+     * Off by default -- collecting costs a second optimize per sampled mutant.
+     */
+    private BitSet firedRules;
+    private int coverageSampled;
+    private int coverageExpanders;
+    private int coveragePercent;
+    private Random coverageRnd;
 
     enum Outcome {
         /** Mutant analyzed and round-tripped cleanly. */
@@ -368,6 +383,11 @@ public class AstMutationFuzzerTest {
         }
 
         unbindableSeeds = 0;
+        firedRules = new BitSet(RuleCoverage.NUM_RULES + 1);
+        coverageSampled = 0;
+        coverageExpanders = 0;
+        coveragePercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.coverage", 0)));
+        coverageRnd = new Random(Long.getLong("srfuzz.seed", 20260730L) ^ 0xC0FFEEL);
         planPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.plan", 100)));
         planRnd = new Random(seedValue ^ 0x51ADL);
 
@@ -643,6 +663,10 @@ public class AstMutationFuzzerTest {
         }
 
         writeReport(report, tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds, drops);
+        if (coveragePercent > 0) {
+            System.out.printf("rule coverage: %d/%d fired; %d of %d sampled mutants reached a new rule%n",
+                    firedRules.cardinality(), RuleCoverage.NUM_RULES, coverageExpanders, coverageSampled);
+        }
         printSummary(tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds,
                 unbindableSeeds);
     }
@@ -878,6 +902,24 @@ public class AstMutationFuzzerTest {
             }
             // A fragment tree that is not connected is a defect the planner does not notice itself.
             UtFrameUtils.validatePlanConnectedness(plan);
+            // Sampled, because collecting re-runs the optimizer and planning is already the
+            // expensive step. A failure here must not fail the mutant: the mutant planned, and a
+            // defect in the measurement is not a defect in the product.
+            if (coveragePercent > 0 && coverageRnd.nextInt(100) < coveragePercent) {
+                try {
+                    BitSet fired = RuleCoverage.collect(ctx,
+                            (QueryStatement) SqlParser.parse(mutantSql, ctx.getSessionVariable()).get(0));
+                    coverageSampled++;
+                    BitSet fresh = (BitSet) fired.clone();
+                    fresh.andNot(firedRules);
+                    if (!fresh.isEmpty()) {
+                        coverageExpanders++;
+                    }
+                    firedRules.or(fired);
+                } catch (Throwable ignored) {
+                    // Measurement only.
+                }
+            }
         } catch (Throwable t) {
             Outcome o = classifyPlanFailure(t);
             String signature = o == Outcome.PLAN_REJECTED
