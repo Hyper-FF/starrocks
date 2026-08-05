@@ -68,8 +68,29 @@
 
 #include "base/orlp/pdqsort.h"
 #include "common/logging.h"
+#include "gutil/compiler_util.h"
 
 namespace starrocks {
+
+namespace {
+
+// The digest arithmetic is closed over finite values only. Centroid::add() evaluates
+// `c._mean - _mean`, so an infinite mean becomes NaN the moment it meets another infinity, and a NaN
+// mean then breaks the `x1 <= x2` ordering weightedAverage() depends on: neither branch of its
+// comparison holds, the DCHECK in weightedAverageSorted() fires, and every later quantile is NaN.
+//
+// Values reach the digest through a double -> float narrowing (`Value` is float while the SQL
+// argument is DOUBLE), so an ordinary DOUBLE past the float range arrives here as +/-inf. Clamping
+// keeps the row counted and preserves its rank, which is all a percentile needs; dropping it would
+// silently move the answer instead. NaN inputs are rejected by the caller and never get here.
+Value clamp_to_finite(Value x) {
+    if (LIKELY(std::isfinite(x))) {
+        return x;
+    }
+    return x > 0 ? std::numeric_limits<Value>::max() : std::numeric_limits<Value>::lowest();
+}
+
+} // namespace
 
 Centroid::Centroid() : Centroid(0.0, 0.0) {}
 
@@ -95,7 +116,13 @@ void Centroid::add(const Centroid& c) {
     DCHECK_GT(c._weight, 0);
     if (_weight != 0.0) {
         _weight += c._weight;
-        _mean += c._weight * (c._mean - _mean) / _weight;
+        // Accumulate in double: in float the numerator `c._weight * (c._mean - _mean)` overflows to
+        // inf once the means are large and the incoming centroid is heavy, even though every input
+        // value is an ordinary finite float, and that inf becomes NaN on the next merge. The
+        // quotient itself always lands between the two means, so the narrowing back to Value cannot
+        // overflow.
+        _mean = static_cast<Value>(static_cast<double>(_mean) +
+                                   static_cast<double>(c._weight) * (static_cast<double>(c._mean) - _mean) / _weight);
     } else {
         _weight = c._weight;
         _mean = c._mean;
@@ -375,7 +402,13 @@ bool TDigest::add(Value x, Weight w) {
     if (std::isnan(x)) {
         return false;
     }
-    _unprocessed.emplace_back(x, w);
+    // A non-positive weight carries no data, and a negative one drags _processed_weight towards zero,
+    // which turns the `wSoFar / _processed_weight` in process() and the quantile index arithmetic
+    // into NaN. `!(w > 0)` also rejects a NaN weight.
+    if (UNLIKELY(!(w > 0) || std::isinf(w))) {
+        return false;
+    }
+    _unprocessed.emplace_back(clamp_to_finite(x), w);
     _unprocessed_weight += w;
     processIfNecessary();
     return true;
@@ -480,6 +513,18 @@ void TDigest::deserialize(const char* type_reader) {
         memcpy(&_cumulative[i], type_reader, sizeof(Weight));
         type_reader += sizeof(Weight);
     }
+
+    // A PERCENTILE column materialised before the guard in add() existed can still hold non-finite
+    // means, and merging one of those back in reintroduces the NaN. Clamp on the way in so stored
+    // data cannot resurrect the problem after an upgrade.
+    for (auto& centroid : _processed) {
+        centroid.mean() = clamp_to_finite(centroid.mean());
+    }
+    for (auto& centroid : _unprocessed) {
+        centroid.mean() = clamp_to_finite(centroid.mean());
+    }
+    _min = clamp_to_finite(_min);
+    _max = clamp_to_finite(_max);
 }
 
 Value TDigest::mean(int i) const noexcept {
@@ -564,6 +609,13 @@ void TDigest::updateCumulative() {
 }
 
 void TDigest::process() {
+    // With both buffers empty there is no data at all, and the merge below dereferences
+    // _unprocessed[0] unconditionally. Reachable once add() starts rejecting rows, e.g. a
+    // percentile_approx_weighted() whose weights are all zero.
+    if (_unprocessed.empty() && _processed.empty()) {
+        return;
+    }
+
     CentroidComparator cc;
     pdqsort(_unprocessed.begin(), _unprocessed.end(), [&](auto& lhs, auto& rhs) { return lhs.mean() < rhs.mean(); });
     auto count = _unprocessed.size();
@@ -643,6 +695,9 @@ Value TDigest::weightedAverage(Value x1, Value w1, Value x2, Value w2) {
 
 Value TDigest::weightedAverageSorted(Value x1, Value w1, Value x2, Value w2) {
     DCHECK_LE(x1, x2);
+    // `x1 * w1 + x2 * w2` can still overflow float for means near the ends of the range, but the
+    // clamp below keeps the result inside [x1, x2] and finite, so it is left alone: widening it to
+    // double would move the last digit of every ordinary percentile_approx() answer.
     const Value x = (x1 * w1 + x2 * w2) / (w1 + w2);
     return std::max(x1, std::min(x, x2));
 }
