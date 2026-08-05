@@ -25,6 +25,7 @@ import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 /**
  * Triage for candidates reported by {@link AstMutationFuzzerTest}.
@@ -40,6 +41,9 @@ import org.junit.jupiter.api.Test;
  *   <li>{@code UNPARSEABLE} — the grammar rejects it, so the fuzzer's tree was unreachable: artifact.</li>
  * </ul>
  */
+// Not a test class: every method here prints a triage table and asserts nothing, so it cannot
+// fail. It is a report generator kept for hand investigation, and it runs only when asked.
+@EnabledIfSystemProperty(named = "srfuzz.probe", matches = ".+")
 public class FuzzFindingTriageTest {
 
     private static final String DB = "fuzz_triage_db";

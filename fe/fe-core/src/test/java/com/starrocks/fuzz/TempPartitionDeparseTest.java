@@ -27,6 +27,7 @@ import com.starrocks.utframe.UtFrameUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 /**
  * Reachability probe for the TEMPORARY PARTITION deparse loss found in P0.5
@@ -72,8 +73,6 @@ public class TempPartitionDeparseTest {
     public void testTemporaryQualifierIsLostOnDeparse() {
         String temp = deparse("select * from t temporary partition(tp1)");
         String formal = deparse("select * from t partition(tp1)");
-        System.out.println("[temp  ] " + temp.replace('\n', ' '));
-        System.out.println("[formal] " + formal.replace('\n', ' '));
 
         // Fixed: the two forms are semantically different and must serialize differently.
         Assertions.assertNotEquals(formal, temp, "TEMPORARY qualifier lost again");
@@ -85,12 +84,14 @@ public class TempPartitionDeparseTest {
     @Test
     public void testTemporaryQualifierIsLostOnInsertTarget() {
         String temp = deparse("insert into t temporary partition(tp1) select * from t");
-        System.out.println("[insert-temp] " + temp.replace('\n', ' '));
         Assertions.assertTrue(temp.contains("TEMPORARY PARTITION (tp1)"),
                 "TEMPORARY qualifier lost again on INSERT target: " + temp);
     }
 
     /** Can a temporary partition share a name with a formal one? Decides the blast radius. */
+    // A probe, not a test: it catches everything and asserts nothing, so it can only ever
+    // pass. Useful to run by hand when deciding how far a defect reaches; useless in CI.
+    @EnabledIfSystemProperty(named = "srfuzz.probe", matches = ".+")
     @Test
     public void testWhetherTempAndFormalPartitionsMayShareAName() {
         String outcome;
@@ -104,6 +105,9 @@ public class TempPartitionDeparseTest {
     }
 
     /** Does the loss reach persisted metadata via a view's stored (deparsed) definition? */
+    // A probe, not a test: it catches everything and asserts nothing, so it can only ever
+    // pass. Useful to run by hand when deciding how far a defect reaches; useless in CI.
+    @EnabledIfSystemProperty(named = "srfuzz.probe", matches = ".+")
     @Test
     public void testWhetherLossReachesStoredViewDefinition() throws Exception {
         String outcome;

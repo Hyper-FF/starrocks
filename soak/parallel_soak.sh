@@ -12,8 +12,19 @@
 
 set -u
 
-ROOT=${ROOT:-/home/disk1/fha/sr-ws/fuzzdev}
-OUT=${OUT:-/home/disk1/fha/soak-parallel}
+# Where the source tree is. Derived by walking up from this script until the FE module comes into
+# view, so the same file works whether it sits in tools/soak/ or in soak/, on any checkout, on
+# anybody's machine. Both are overridable: the long-running deployments pass them explicitly.
+if [ -z "${ROOT:-}" ]; then
+    ROOT=$(cd "$(dirname "$0")" && pwd)
+    while [ "$ROOT" != "/" ] && [ ! -d "$ROOT/fe/fe-core" ]; do ROOT=$(dirname "$ROOT"); done
+fi
+OUT=${OUT:-${TMPDIR:-/tmp}/srfuzz-soak}
+# Corpus roots, comma-separated (the fuzzer splits on ','). Defaults to the repo's own SQL tests,
+# which is what this soak ran on for its whole life -- and is exactly the blind spot the production
+# seed corpora were harvested to fill: every mutant the soak has ever produced descends from a shape
+# a StarRocks test author wrote, not from one a user ran.
+CORPUS=${CORPUS:-$ROOT/test/sql}
 SHARDS=${SHARDS:-12}
 MUTATIONS=${MUTATIONS:-40}
 CHAIN=${CHAIN:-4}
@@ -99,7 +110,7 @@ while true; do
             # QUIT does not terminate the JVM, so -k still does the actual killing.
             timeout -k 60 -s QUIT "$SHARD_TIMEOUT" \
             mvn -q -o -Dmaven.repo.local="$OUT/m2ro" -pl fe-core surefire:test -Dtest=AstMutationFuzzerTest \
-                -Dsrfuzz.corpus="$ROOT/test/sql" \
+                -Dsrfuzz.corpus="$CORPUS" \
                 -Dsrfuzz.mutations="$MUTATIONS" \
                 -Dsrfuzz.chain="$CHAIN" \
                 -Dsrfuzz.seed=$(( seed + i * 7919 )) \

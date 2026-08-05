@@ -133,6 +133,16 @@ public class AstMutationFuzzerTest {
     /** Seeded from the run seed, so which mutants get planned is reproducible. */
     private Random planRnd;
 
+    /**
+     * Corpus statements that parsed as queries but did not analyze, so they were never mutated.
+     *
+     * The bind rate is the first number to look at when a corpus is new, and it was the one number
+     * this harness did not report: an unbindable seed is dropped with a bare {@code continue}, which
+     * is correct behaviour and invisible reporting. Surfaced next to the seed count so the two are
+     * always read together.
+     */
+    private int unbindableSeeds;
+
     enum Outcome {
         /** Mutant analyzed and round-tripped cleanly. */
         OK,
@@ -357,6 +367,7 @@ public class AstMutationFuzzerTest {
             Files.createDirectories(emitDir);
         }
 
+        unbindableSeeds = 0;
         planPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.plan", 100)));
         planRnd = new Random(seedValue ^ 0x51ADL);
 
@@ -467,6 +478,12 @@ public class AstMutationFuzzerTest {
                     try {
                         Analyzer.analyze(probe, ctx);
                     } catch (Throwable t) {
+                        // Counted. Dropping an unbindable seed is right -- there is nothing to
+                        // mutate -- but doing it silently makes a corpus that binds at 2% and one
+                        // that binds at 95% produce reports of identical shape, differing only in a
+                        // seed count nobody reads as a percentage. A harvested production corpus
+                        // arrived binding at 1.9% and its run looked perfectly healthy.
+                        unbindableSeeds++;
                         continue;
                     }
                     seeds.add(sql);
@@ -626,7 +643,8 @@ public class AstMutationFuzzerTest {
         }
 
         writeReport(report, tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds, drops);
-        printSummary(tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds);
+        printSummary(tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds,
+                unbindableSeeds);
     }
 
     /**
@@ -1777,12 +1795,18 @@ public class AstMutationFuzzerTest {
     }
 
     private static void printSummary(Map<Outcome, Integer> tally, Map<String, Finding> findings,
-                                     int seeds, int mutants, int unreachable, int staleSeeds) {
+                                     int seeds, int mutants, int unreachable, int staleSeeds,
+                                     int unbindable) {
         System.out.println();
         System.out.printf("=== seeds=%d mutants=%d unreachable=%d (%.1f%% dropped) stale=%d ===%n",
                 seeds, mutants, unreachable,
                 mutants + unreachable == 0 ? 0.0 : 100.0 * unreachable / (mutants + unreachable),
                 staleSeeds);
+        // The bind rate belongs beside the seed count: a run over a corpus that mostly does not
+        // resolve reports the same shape as one over a corpus that does.
+        System.out.printf("seeds bound=%d unbindable=%d (%.1f%% of corpus queries bound)%n",
+                seeds, unbindable,
+                seeds + unbindable == 0 ? 0.0 : 100.0 * seeds / (seeds + unbindable));
         for (Outcome o : Outcome.values()) {
             System.out.printf("%-24s %d%n", o, tally.getOrDefault(o, 0));
         }
