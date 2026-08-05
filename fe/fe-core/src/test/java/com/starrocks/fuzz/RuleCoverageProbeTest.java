@@ -46,7 +46,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -99,12 +101,21 @@ public class RuleCoverageProbeTest {
         // Optional synthetic statistics. Without them the optimizer has no reason to enumerate the
         // cost-driven transformations, which is most of the rule set -- measured at 16/263 fired.
         String statsSeed = System.getProperty("srfuzz.stats");
+        FuzzStatisticStorage injected = null;
         if (statsSeed != null) {
-            GlobalStateMgr.getCurrentState()
-                    .setStatisticStorage(new FuzzStatisticStorage(Long.parseLong(statsSeed)));
+            injected = new FuzzStatisticStorage(Long.parseLong(statsSeed));
+            GlobalStateMgr.getCurrentState().setStatisticStorage(injected);
             System.out.println("synthetic statistics ON (seed " + statsSeed + ")");
         } else {
             System.out.println("synthetic statistics OFF (default storage)");
+        }
+
+        // Dynamic tap: catches every phase, where the mask-based signal only sees the memo.
+        boolean tap = System.getProperty("srfuzz.tap") != null;
+        if (tap) {
+            RuleFiringTap.install();
+            RuleFiringTap.reset();
+            System.out.println("rule-firing tap ON");
         }
 
         BitSet firedAll = new BitSet(RuleType.NUM_RULES.ordinal() + 1);
@@ -112,6 +123,7 @@ public class RuleCoverageProbeTest {
         int planned = 0;
         int failed = 0;
         int fileIdx = 0;
+        Set<String> planShapes = new HashSet<>();
 
         for (Path f : files) {
             String db = "rulecov_db_" + (fileIdx++);
@@ -143,7 +155,11 @@ public class RuleCoverageProbeTest {
                 }
                 try {
                     Analyzer.analyze(ast, ctx);
-                    collect(firedHere, (QueryStatement) ast);
+                    RuleCoverage.Result r = RuleCoverage.collectBoth(ctx, (QueryStatement) ast);
+                    firedHere.or(r.fired);
+                    if (!r.planShape.isEmpty()) {
+                        planShapes.add(r.planShape);
+                    }
                     planned++;
                 } catch (Throwable t) {
                     failed++;
@@ -153,6 +169,21 @@ public class RuleCoverageProbeTest {
             firedPerFile.put(f.getFileName().toString(), firedHere);
         }
 
+        if (injected != null) {
+            // If this is 0 the optimizer never consulted the storage, and the A/B measured nothing.
+            System.out.println("statistics consulted: " + injected.callCount() + " times");
+        }
+        System.out.println("distinct plan shapes: " + planShapes.size());
+        if (tap) {
+            BitSet tapped = RuleFiringTap.fired();
+            BitSet produced = RuleFiringTap.produced();
+            System.out.printf("tap: %d rules ran, %d of them rewrote something (mask-based saw %d)%n",
+                    tapped.cardinality(), produced.cardinality(), firedAll.cardinality());
+            BitSet missedByMask = (BitSet) tapped.clone();
+            missedByMask.andNot(firedAll);
+            System.out.println("invisible to the mask signal: " + missedByMask.cardinality() + " rules");
+            System.out.println("  e.g. " + names(missedByMask, 12));
+        }
         report(firedAll, firedPerFile, planned, failed);
     }
 
@@ -190,6 +221,17 @@ public class RuleCoverageProbeTest {
                 into.or(ge.getAppliedRuleMasks());
             }
         }
+    }
+
+    /** Names of the set bits, for reporting which rules a signal missed. */
+    private static String names(BitSet bs, int limit) {
+        RuleType[] rules = RuleType.values();
+        StringBuilder sb = new StringBuilder();
+        int shown = 0;
+        for (int i = bs.nextSetBit(0); i >= 0 && shown < limit; i = bs.nextSetBit(i + 1)) {
+            sb.append(shown++ == 0 ? "" : ", ").append(rules[i].name());
+        }
+        return sb.toString();
     }
 
     private static void report(BitSet all, Map<String, BitSet> perFile, int planned, int failed) {

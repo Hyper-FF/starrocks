@@ -55,6 +55,21 @@ public class FuzzStatisticStorage implements StatisticStorage {
 
     private final long seed;
 
+    /**
+     * How many times the optimizer actually asked for a statistic.
+     *
+     * Installing a storage and having the optimizer consult it are two different things -- a cache
+     * in front, or a context that captured the previous storage, would leave the injection inert
+     * while every log line still says it is on. Zero here means the measurement, not the hypothesis,
+     * is what failed.
+     */
+    private final java.util.concurrent.atomic.AtomicLong calls =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    public long callCount() {
+        return calls.get();
+    }
+
     public FuzzStatisticStorage(long seed) {
         this.seed = seed;
     }
@@ -78,6 +93,7 @@ public class FuzzStatisticStorage implements StatisticStorage {
 
     @Override
     public Map<Long, Optional<Long>> getTableStatistics(Long tableId, Collection<Partition> partitions) {
+        calls.incrementAndGet();
         long total = ROW_COUNTS[(int) (mix(String.valueOf(tableId), "#rows", 1) % ROW_COUNTS.length)];
         int n = Math.max(1, partitions.size());
         long per = total / n;
@@ -87,6 +103,7 @@ public class FuzzStatisticStorage implements StatisticStorage {
 
     @Override
     public ColumnStatistic getColumnStatistic(Table table, String column) {
+        calls.incrementAndGet();
         long rows = rowCountOf(table);
         long h = mix(table.getName(), column, 2);
 
