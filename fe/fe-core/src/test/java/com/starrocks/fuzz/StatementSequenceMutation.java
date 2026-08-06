@@ -47,7 +47,7 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * M8 of SQL_AST_FUZZER_PLAN.md §2 — statement-sequence splicing. The plan calls it the highest-value
+ * M8 of srfuzz/docs/SQL_AST_FUZZER_PLAN.md §2 — statement-sequence splicing. The plan calls it the highest-value
  * operator; this class is the FE-only half of it, and the class javadoc is the design note the rest of
  * the harness has to be read against.
  *

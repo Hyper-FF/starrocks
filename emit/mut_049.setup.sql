@@ -1,4 +1,0 @@
-CREATE TABLE t_hist (k INT, v INT)
-  DUPLICATE KEY(k) DISTRIBUTED BY HASH(k) BUCKETS 1
-  PROPERTIES("replication_num" = "1");
-INSERT INTO t_hist VALUES (1,10),(2,20),(3,30),(4,40);

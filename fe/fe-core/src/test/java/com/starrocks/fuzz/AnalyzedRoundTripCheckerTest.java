@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * P0.5 of SQL_AST_FUZZER_PLAN.md.
+ * P0.5 of srfuzz/docs/SQL_AST_FUZZER_PLAN.md.
  *
  * <p>{@code RoundTripFidelityChecker} in fe-fuzz measures the deparser on <b>unanalyzed</b> ASTs,
  * which is not how {@link AstToSQLBuilder} is used in production. This re-measures the same corpus in

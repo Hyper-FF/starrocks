@@ -1,4 +1,0 @@
-SELECT `srfuzz_mut_691`.`t_pj`.`id`, get_json_string(`srfuzz_mut_691`.`t_pj`.`s`, '$.a') AS `get_json_string(s, '$.a')` FROM `srfuzz_mut_691`.`t_pj` ORDER BY `srfuzz_mut_691`.`t_pj`.`id` ASC;
-SELECT `srfuzz_mut_691`.`t_pj`.`id`, parse_json(`srfuzz_mut_691`.`t_pj`.`s`) AS `parse_json(s)` FROM `srfuzz_mut_691`.`t_pj` ORDER BY `srfuzz_mut_691`.`t_pj`.`id` ASC;
-SELECT `srfuzz_mut_691`.`t_dst`.`id`, `srfuzz_mut_691`.`t_dst`.`j` FROM `srfuzz_mut_691`.`t_dst` ORDER BY `srfuzz_mut_691`.`t_dst`.`id` ASC;
-SELECT `srfuzz_mut_691`.`t_pj`.`id`, parse_json(`srfuzz_mut_691`.`t_pj`.`s`) AS `parse_json(s)` FROM `srfuzz_mut_691`.`t_pj` ORDER BY `srfuzz_mut_691`.`t_pj`.`id` ASC;

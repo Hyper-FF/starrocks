@@ -40,7 +40,7 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * M7 — type stress, as enumerated in SQL_AST_FUZZER_PLAN.md §2.
+ * M7 — type stress, as enumerated in srfuzz/docs/SQL_AST_FUZZER_PLAN.md §2.
  *
  * <p>Picks one expression position and wraps whatever sits there in a complex-type accessor: a CAST
  * chain, an array subscript, a map key lookup, a struct field access, a collection function, or a

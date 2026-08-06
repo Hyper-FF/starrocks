@@ -1,1 +1,0 @@
-create table tmp as select 1 as a;

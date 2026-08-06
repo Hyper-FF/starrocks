@@ -30,7 +30,7 @@
     <packaging>jar</packaging>
 
     <!--
-      AST-mutation / coverage-guided SQL fuzzer harness. See SQL_AST_FUZZER_PLAN.md.
+      AST-mutation / coverage-guided SQL fuzzer harness. See srfuzz/docs/SQL_AST_FUZZER_PLAN.md.
       Built only under the `fuzz` maven profile; it is not part of the default FE build.
     -->
 

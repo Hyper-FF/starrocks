@@ -128,3 +128,12 @@ memory/
 !be/test/runtime/memory/**
 seeds/
 .fuzzwork/
+
+# srfuzz generated output. The emitted corpora are round output -- 1520 files and 136 MB of them
+# reached git once -- and the harvested seeds are anonymised production data. Both are inputs to a
+# run and neither is source; keeping them out is what makes `git status` mean something after a soak.
+/emit/
+/srfuzz/emit/
+/seeds/
+.fuzzwork/
+fuzz_*.log

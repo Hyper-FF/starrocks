@@ -1,2 +1,0 @@
-create table t1 (id int, v1 bigint, v2 string, v3 array<int>) distributed by hash(id) properties ("replication_num" = "1");
-insert into t1 values(1, 9223372036854775807, 'STARROCKS', [1, 2, 3]), (2, -9223372036854775807, 'STARROCKS', [1, 2, 3]), (3, 9223372036854775806, 'STARROCKS', [1, 2, 3]);

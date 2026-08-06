@@ -25,7 +25,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
- * M9 of SQL_AST_FUZZER_PLAN.md §2 — session flag perturbation.
+ * M9 of srfuzz/docs/SQL_AST_FUZZER_PLAN.md §2 — session flag perturbation.
  *
  * <p>Not a tree edit, so it does not implement {@link Mutation}: it changes the environment the same
  * tree is parsed and analyzed in. The driver flips a flag, runs the usual analyze / deparse / reparse

@@ -1,1 +1,0 @@
-SELECT `srfuzz_mut_891`.`mv1`.`event_day`, `srfuzz_mut_891`.`mv1`.`sum(pv)` FROM `srfuzz_mut_891`.`mv1`;
