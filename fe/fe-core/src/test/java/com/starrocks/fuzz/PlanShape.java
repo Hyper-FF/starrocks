@@ -57,10 +57,54 @@ public final class PlanShape {
         return String.join(",", parts);
     }
 
+    /**
+     * The same plan decomposed into coverage-map elements, so novelty can be partial.
+     *
+     * <p>{@link #fingerprint} is one string, and as a feedback key that means a plan is either
+     * entirely known or entirely new. A plan differing from a known one by a single operator scores
+     * the same as an exact repeat, and once the common shapes are enumerated nothing scores at all.
+     *
+     * <p>Two element kinds, mirroring the node/edge split that made edge coverage better than block
+     * coverage for code fuzzers:
+     * <ul>
+     *   <li>{@code OP:<op>} -- the operator appears somewhere in the plan.</li>
+     *   <li>{@code EDGE:<parent>-><child>} -- the operator appears UNDER that parent. This is the
+     *       discriminating half: {@code AGGREGATE} under a {@code JOIN} and {@code AGGREGATE} over
+     *       one are different optimizer outcomes that node elements alone cannot tell apart.</li>
+     * </ul>
+     */
+    public static List<String> elements(OptExpression plan) {
+        List<String> out = new ArrayList<>();
+        collect(plan, null, out);
+        return out;
+    }
+
+    private static void collect(OptExpression node, String parent, List<String> out) {
+        if (node == null || node.getOp() == null || out.size() > 512) {
+            return;
+        }
+        String label = label(node);
+        out.add("OP:" + label);
+        if (parent != null) {
+            out.add("EDGE:" + parent + "->" + label);
+        }
+        for (OptExpression child : node.getInputs()) {
+            collect(child, label, out);
+        }
+    }
+
     private static void walk(OptExpression node, List<String> out) {
         if (node == null || node.getOp() == null) {
             return;
         }
+        out.add(label(node));
+        for (OptExpression child : node.getInputs()) {
+            walk(child, out);
+        }
+    }
+
+    /** One node's contribution: its operator, plus the plan choices worth separating. */
+    private static String label(OptExpression node) {
         StringBuilder sb = new StringBuilder(node.getOp().getOpType().name());
         if (node.getOp() instanceof PhysicalJoinOperator) {
             // Broadcast vs shuffle shows up as a sibling Distribution node, but the join TYPE
@@ -72,9 +116,6 @@ public final class PlanShape {
             sb.append('[').append(((PhysicalDistributionOperator) node.getOp()).getDistributionSpec()
                     .getType()).append(']');
         }
-        out.add(sb.toString());
-        for (OptExpression child : node.getInputs()) {
-            walk(child, out);
-        }
+        return sb.toString();
     }
 }
