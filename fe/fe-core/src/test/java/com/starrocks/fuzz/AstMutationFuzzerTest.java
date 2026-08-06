@@ -190,6 +190,16 @@ public class AstMutationFuzzerTest {
     private CoverageMap coverage;
 
     /**
+     * Share of edits drawn with operators weighted by coverage deficit rather than uniformly.
+     *
+     * <p>A percentage rather than a flag, and off by default, for the same reason the feedback loop
+     * is: steering is a hypothesis about where budget is best spent, and a hypothesis that cannot be
+     * turned off cannot be measured. Requires {@code srfuzz.coverage} -- with no map there is
+     * nothing to steer by, and the run says so rather than steering by an empty one.
+     */
+    private int steerPercent;
+
+    /**
      * Mutants that first reached a plan shape, kept across the whole run.
      *
      * The splice pool is rebuilt per corpus file, so a mutant that found a new shape helps only the
@@ -434,6 +444,7 @@ public class AstMutationFuzzerTest {
         seenPlanShapes = new HashSet<>();
         coverage = new CoverageMap();
         interestingMutants = 0;
+        steerPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.steer", 0)));
         shapeCorpus = new ArrayList<>();
         feedbackPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.feedback", 0)));
         coverageExpanders = 0;
@@ -495,9 +506,16 @@ public class AstMutationFuzzerTest {
             files = mine;
             System.err.println("shard " + shard + "/" + shards + ": " + files.size() + " files");
         }
+        // Steering without a coverage map would weight every operator by its declared target count
+        // and call it feedback. Refuse rather than run something that looks steered and is not.
+        if (steerPercent > 0 && coveragePercent == 0) {
+            System.err.println("srfuzz.steer ignored: it needs srfuzz.coverage, and there is no map to steer by");
+            steerPercent = 0;
+        }
         System.err.println("corpus: " + files.size() + " files, " + mutationsPerSeed
                 + " mutations/seed, rng seed " + seedValue
-                + ", planning " + planPercent + "% of round-tripped mutants");
+                + ", planning " + planPercent + "% of round-tripped mutants"
+                + (steerPercent > 0 ? ", steering " + steerPercent + "% of edits" : ""));
 
         Map<Outcome, Integer> tally = new LinkedHashMap<>();
         Map<String, Finding> findings = new LinkedHashMap<>();
@@ -646,7 +664,8 @@ public class AstMutationFuzzerTest {
                             // always was; every edit after it goes structural, which is the only way the
                             // statement gets deeper rather than merely different.
                             String mutation = Mutator.mutate((QueryStatement) ast, pool, seed, rnd,
-                                    step == 0 ? 45 : 90);
+                                    step == 0 ? 45 : 90, steerPercent > 0 && rnd.nextInt(100) < steerPercent
+                                            ? coverage : null);
                             if (mutation == null) {
                                 break;
                             }
@@ -760,6 +779,12 @@ public class AstMutationFuzzerTest {
                     neverFired.size(), RuleCoverage.NUM_RULES);
             System.out.println("  e.g. " + String.join(", ",
                     neverFired.subList(0, Math.min(15, neverFired.size()))));
+            // Printed whenever a map exists, steering or not: the weights say what steering WOULD
+            // do, so a run can be read for whether the bias is worth turning on. All-equal weights
+            // mean every declared target is covered, and then the corpus is the ceiling, not the
+            // scheduler.
+            System.out.println("operator weights" + (steerPercent > 0 ? "" : " (steering OFF)") + ": "
+                    + MutationSteering.report(Mutator.OPERATORS, coverage));
             if (coverageFailed > 0) {
                 System.out.printf("shape collection FAILED on %d of %d; first: %s%n",
                         coverageFailed, coverageSampled, coverageFirstError);
@@ -1436,7 +1461,7 @@ public class AstMutationFuzzerTest {
          * every tree, which is exactly what makes them a poor first choice -- picking them first would
          * starve the structural operators.
          */
-        private static final List<Mutation> OPERATORS = java.util.Arrays.asList(
+        static final List<Mutation> OPERATORS = java.util.Arrays.asList(
                 new TypeStressMutation(),   // most likely to reach a real complex-type defect
                 new ClauseMutation(),
                 new NestingMutation(),
@@ -1463,8 +1488,17 @@ public class AstMutationFuzzerTest {
          *     that already round-tripped and adding nesting on top of it is the point.
          */
         static String mutate(QueryStatement stmt, Pool pool, String seed, Random rnd, int structuralPercent) {
-            List<Mutation> order = new ArrayList<>(OPERATORS);
-            java.util.Collections.shuffle(order, rnd);
+            return mutate(stmt, pool, seed, rnd, structuralPercent, null);
+        }
+
+        /**
+         * @param coverage when non-null, operators are drawn weighted by what the run has NOT
+         *     reached rather than uniformly -- see {@link MutationSteering}. Null restores the
+         *     uniform draw, which is what makes steering measurable against the same build.
+         */
+        static String mutate(QueryStatement stmt, Pool pool, String seed, Random rnd, int structuralPercent,
+                             CoverageMap coverage) {
+            List<Mutation> order = MutationSteering.order(OPERATORS, coverage, rnd);
             int structuralShare = rnd.nextInt(100) < structuralPercent ? order.size() : 0;
             for (int i = 0; i < structuralShare; i++) {
                 String applied = tryOperator(order.get(i), stmt, pool, rnd);

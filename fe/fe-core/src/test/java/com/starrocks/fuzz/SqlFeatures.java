@@ -17,6 +17,7 @@ package com.starrocks.fuzz;
 import com.starrocks.catalog.FunctionSet;
 import com.starrocks.sql.ast.CTERelation;
 import com.starrocks.sql.ast.GroupByClause;
+import com.starrocks.sql.ast.JoinOperator;
 import com.starrocks.sql.ast.JoinRelation;
 import com.starrocks.sql.ast.QueryRelation;
 import com.starrocks.sql.ast.QueryStatement;
@@ -93,6 +94,24 @@ public final class SqlFeatures {
             FunctionSet.WINDOW_FUNNEL));
 
     private SqlFeatures() {
+    }
+
+    /**
+     * The element key for a join of this type, for both the emitter and any operator declaring it
+     * as a steering target.
+     *
+     * <p>Shared on purpose. {@code JoinOperator.name()} is {@code LEFT_OUTER_JOIN} while its
+     * {@code toString()} is {@code "LEFT OUTER JOIN"}, and a steering target spelled the second way
+     * matches nothing, costs weight every round and never closes the deficit it was aimed at. One
+     * function means the table cannot drift from what is actually emitted.
+     */
+    public static String joinKey(JoinOperator op) {
+        return "F:join:" + op.name();
+    }
+
+    /** The element key for a set operation, coarse grain. See {@link #joinKey} for why this exists. */
+    public static String setOpKey(String relationClassSimpleName) {
+        return "F:setop:" + relationClassSimpleName;
     }
 
     /**
@@ -194,7 +213,7 @@ public final class SqlFeatures {
         } else if (relation instanceof JoinRelation) {
             JoinRelation join = (JoinRelation) relation;
             c.joins++;
-            add(out, "join:" + join.getJoinOp().name());
+            out.add(joinKey(join.getJoinOp()));
             if (join.isLateral()) {
                 add(out, "lateral");
             }
@@ -216,8 +235,13 @@ public final class SqlFeatures {
             collect(((SubqueryRelation) relation).getQueryStatement().getQueryRelation(), out, c, depth + 1);
         } else if (relation instanceof SetOperationRelation) {
             SetOperationRelation setop = (SetOperationRelation) relation;
-            add(out, "setop:" + setop.getClass().getSimpleName()
-                    + (setop.getQualifier() == null ? "" : ":" + setop.getQualifier()));
+            // Both grains. The qualified key distinguishes UNION ALL from UNION DISTINCT, which are
+            // genuinely different plans; the bare key is what an operator can promise to produce,
+            // since it does not get to choose the qualifier a steering target asks for.
+            out.add(setOpKey(setop.getClass().getSimpleName()));
+            if (setop.getQualifier() != null) {
+                add(out, "setop:" + setop.getClass().getSimpleName() + ":" + setop.getQualifier());
+            }
             for (QueryRelation child : setop.getRelations()) {
                 collect(child, out, c, depth + 1);
             }

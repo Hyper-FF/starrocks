@@ -37,6 +37,7 @@ import com.starrocks.sql.parser.SqlParser;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * M7 — type stress, as enumerated in SQL_AST_FUZZER_PLAN.md §2.
@@ -213,6 +214,18 @@ public class TypeStressMutation implements Mutation {
     public String name() {
         return "M7-typestress";
     }
+
+    /**
+     * Complex-type accessors and the conditional/cast expressions around them -- the subfield
+     * pruning and type-inference paths several confirmed defects have come out of.
+     */
+    @Override
+    public Set<String> coverageTargets() {
+        return TARGETS;
+    }
+
+    private static final Set<String> TARGETS = Set.of(
+            "F:complextype", "F:case", "F:cast", "F:lambda", "F:tablefunction");
 
     @Override
     public String apply(QueryStatement stmt, AstMutationFuzzerTest.Pool pool, Random rnd) {
