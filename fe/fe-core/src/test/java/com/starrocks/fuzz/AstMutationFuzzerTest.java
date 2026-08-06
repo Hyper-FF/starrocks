@@ -74,7 +74,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * P1 of SQL_AST_FUZZER_PLAN.md — AST-mutation fuzzer, FE-only mode, no coverage feedback yet.
+ * P1 of srfuzz/docs/SQL_AST_FUZZER_PLAN.md — AST-mutation fuzzer, FE-only mode, no coverage feedback yet.
  *
  * <p>Loop, per corpus file:
  * <pre>

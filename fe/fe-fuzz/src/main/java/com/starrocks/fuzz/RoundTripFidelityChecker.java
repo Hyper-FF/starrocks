@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * P0 of SQL_AST_FUZZER_PLAN.md: quantify the round-trip fidelity of the FE deparser.
+ * P0 of srfuzz/docs/SQL_AST_FUZZER_PLAN.md: quantify the round-trip fidelity of the FE deparser.
  *
  * For every statement in the existing corpus we check the deparser fixpoint invariant:
  * <pre>

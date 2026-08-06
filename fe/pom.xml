@@ -100,7 +100,7 @@ under the License.
     </properties>
 
     <profiles>
-        <!-- AST-mutation SQL fuzzer harness; see SQL_AST_FUZZER_PLAN.md. Off by default. -->
+        <!-- AST-mutation SQL fuzzer harness; see srfuzz/docs/SQL_AST_FUZZER_PLAN.md. Off by default. -->
         <profile>
             <id>fuzz</id>
             <modules>

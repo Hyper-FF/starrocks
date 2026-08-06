@@ -21,7 +21,7 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * One mutation operator, as enumerated in SQL_AST_FUZZER_PLAN.md §2.
+ * One mutation operator, as enumerated in srfuzz/docs/SQL_AST_FUZZER_PLAN.md §2.
  *
  * <p>An operator edits the tree <b>in place</b> and returns a human-readable description of what it
  * did, or {@code null} when it did not apply to this statement. The description is not decoration: a

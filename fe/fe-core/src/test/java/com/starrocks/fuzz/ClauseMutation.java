@@ -44,7 +44,7 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * M5 — clause add/remove, as enumerated in SQL_AST_FUZZER_PLAN.md §2. Target: optimizer rules.
+ * M5 — clause add/remove, as enumerated in srfuzz/docs/SQL_AST_FUZZER_PLAN.md §2. Target: optimizer rules.
  *
  * <p>M1–M4 all rewrite one {@code Expr} in place; they never change the <i>shape</i> of a query block, so
  * whole families of optimizer rules are unreachable from them. A seed without a GROUP BY never reaches
