@@ -1,5 +1,0 @@
-SELECT `srfuzz_mut_158`.`t_recharge_detail`.`id`, `srfuzz_mut_158`.`t_recharge_detail`.`user_id`, `srfuzz_mut_158`.`t_recharge_detail`.`recharge_money`, `srfuzz_mut_158`.`t_recharge_detail`.`province`, `srfuzz_mut_158`.`t_recharge_detail`.`dt` FROM `srfuzz_mut_158`.`t_recharge_detail`;
-SELECT `srfuzz_mut_158`.`t_recharge_detail`.`id`, `srfuzz_mut_158`.`t_recharge_detail`.`user_id`, `srfuzz_mut_158`.`t_recharge_detail`.`recharge_money`, `srfuzz_mut_158`.`t_recharge_detail`.`province`, `srfuzz_mut_158`.`t_recharge_detail`.`dt` FROM `srfuzz_mut_158`.`t_recharge_detail`;
-SELECT `srfuzz_mut_158`.`t1`.`id`, `srfuzz_mut_158`.`t1`.`user_id`, `srfuzz_mut_158`.`t1`.`recharge_money`, `srfuzz_mut_158`.`t1`.`province`, `srfuzz_mut_158`.`t1`.`dt` FROM `srfuzz_mut_158`.`t1`;
-SELECT `srfuzz_mut_158`.`t2`.`dt`, `srfuzz_mut_158`.`t2`.`user_id`, `srfuzz_mut_158`.`t2`.`recharge_money`, `srfuzz_mut_158`.`t2`.`province`, `srfuzz_mut_158`.`t2`.`id` FROM `srfuzz_mut_158`.`t2`;
-SELECT `srfuzz_mut_158`.`t3`.`dt`, `srfuzz_mut_158`.`t3`.`user_id`, `srfuzz_mut_158`.`t3`.`recharge_money`, `srfuzz_mut_158`.`t3`.`province`, `srfuzz_mut_158`.`t3`.`id` FROM `srfuzz_mut_158`.`t3`;

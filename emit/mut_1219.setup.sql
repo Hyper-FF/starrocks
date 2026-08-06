@@ -1,4 +1,0 @@
-CREATE TABLE t_joda_m (k INT, dt DATETIME, fmt VARCHAR(500))
-  DUPLICATE KEY(k) DISTRIBUTED BY HASH(k) BUCKETS 1
-  PROPERTIES("replication_num" = "1");
-INSERT INTO t_joda_m VALUES (1, "2023-05-15 10:20:30", repeat("m", 200));
