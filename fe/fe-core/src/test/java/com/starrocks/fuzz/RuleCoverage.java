@@ -19,6 +19,7 @@ import com.starrocks.sql.ast.QueryStatement;
 import com.starrocks.sql.optimizer.Group;
 import com.starrocks.sql.optimizer.GroupExpression;
 import com.starrocks.sql.optimizer.Memo;
+import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.Optimizer;
 import com.starrocks.sql.optimizer.OptimizerContext;
 import com.starrocks.sql.optimizer.OptimizerFactory;
@@ -32,8 +33,6 @@ import com.starrocks.sql.optimizer.transformer.RelationTransformer;
 import com.starrocks.sql.optimizer.transformer.TransformerContext;
 
 import java.util.BitSet;
-
-import com.starrocks.sql.optimizer.OptExpression;
 
 /**
  * Which optimizer rules a query's optimization actually applied.
