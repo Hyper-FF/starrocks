@@ -845,27 +845,61 @@ public class DecodeCollector extends OptExpressionVisitor<DecodeInfo, DecodeInfo
             Preconditions.checkState(!(dist instanceof HashDistributionSpec));
             DecodeInfo result = DecodeInfo.create();
             result.inputStringColumns.union(context.outputStringColumns);
-            for (int i = 0; i < setOp.getOutputColumnRefOp().size(); ++i) {
+            int outputSize = setOp.getOutputColumnRefOp().size();
+            List<List<ColumnRefOperator>> positionChildColumns = Lists.newArrayListWithCapacity(outputSize);
+            // per output position: the child column whose dictionary the position is encoded with,
+            // or null when the position cannot be dictionary encoded
+            List<Integer> positionUseChildIds = Lists.newArrayListWithCapacity(outputSize);
+            for (int i = 0; i < outputSize; ++i) {
                 final int finalI = i;
                 List<ColumnRefOperator> childColumns = setOp.getChildOutputColumns().stream()
                         .map(l -> l.get(finalI)).toList();
                 List<Integer> childColumnIds = childColumns.stream().map(ColumnRefOperator::getId).toList();
                 boolean isCandidate = childColumns.stream().allMatch(
                         c -> context.outputStringColumns.contains(c) || unionDictionaryManager.isSupportedConstant(c));
-                ColumnRefOperator outputColumn = setOp.getOutputColumnRefOp().get(i);
-                Integer useChildId;
-                if (isCandidate && (useChildId = unionDictionaryManager.mergeDictionaries(childColumnIds)) != null) {
-                    childColumnIds.stream().filter(context.outputStringColumns::contains).forEach(c -> {
-                        result.usedStringColumns.union(c);
-                        expressionStringRefCounter.put(c, expressionStringRefCounter.getOrDefault(c, 0) + 1);
-                    });
-                    setDefineExpr(outputColumn, childColumns.stream()
-                            .filter(c -> c.getId() == useChildId).findAny().orElseThrow(), 1);
-                    result.outputStringColumns.union(outputColumn);
-                } else {
-                    childColumns.stream().filter(c -> context.outputStringColumns.contains(c))
-                            .forEach(result.decodeStringColumns::union);
+                positionChildColumns.add(childColumns);
+                positionUseChildIds.add(isCandidate ? unionDictionaryManager.mergeDictionaries(childColumnIds) : null);
+            }
+
+            // A child column that has to be decoded for one output position cannot stay encoded for
+            // another one: the same column ref would then reach the union as a string on one branch
+            // and as a dictionary code on another. Give up on every position that shares a column
+            // with a position we already gave up on, and keep propagating until nothing changes.
+            boolean changed = true;
+            while (changed) {
+                changed = false;
+                for (int i = 0; i < outputSize; ++i) {
+                    List<ColumnRefOperator> childColumns = positionChildColumns.get(i);
+                    if (positionUseChildIds.get(i) != null
+                            && childColumns.stream().noneMatch(result.decodeStringColumns::contains)) {
+                        continue;
+                    }
+                    positionUseChildIds.set(i, null);
+                    for (ColumnRefOperator childColumn : childColumns) {
+                        if (context.outputStringColumns.contains(childColumn)
+                                && !result.decodeStringColumns.contains(childColumn)) {
+                            result.decodeStringColumns.union(childColumn);
+                            changed = true;
+                        }
+                    }
                 }
+            }
+
+            for (int i = 0; i < outputSize; ++i) {
+                Integer useChildId = positionUseChildIds.get(i);
+                if (useChildId == null) {
+                    continue;
+                }
+                List<ColumnRefOperator> childColumns = positionChildColumns.get(i);
+                childColumns.stream().map(ColumnRefOperator::getId)
+                        .filter(context.outputStringColumns::contains).forEach(c -> {
+                            result.usedStringColumns.union(c);
+                            expressionStringRefCounter.put(c, expressionStringRefCounter.getOrDefault(c, 0) + 1);
+                        });
+                ColumnRefOperator outputColumn = setOp.getOutputColumnRefOp().get(i);
+                setDefineExpr(outputColumn, childColumns.stream()
+                        .filter(c -> c.getId() == useChildId.intValue()).findAny().orElseThrow(), 1);
+                result.outputStringColumns.union(outputColumn);
             }
             result.inputStringColumns.except(result.decodeStringColumns);
             return result;
