@@ -40,6 +40,12 @@ def rnd_int(lo, hi):
     return random.choice([lo, hi, 0, -1, 1, random.randint(lo, hi)])
 
 
+def _fit(s, maxlen):
+    """Cut a string to fit varchar(maxlen), which is a limit in BYTES."""
+    b = s.encode("utf-8")
+    return s if len(b) <= maxlen else b[:maxlen].decode("utf-8", "ignore")
+
+
 def rnd_str(maxlen):
     if random.random() < 0.15:
         return ""
@@ -62,7 +68,7 @@ def esc(s):
     return s.replace("\\", "\\\\").replace("'", "\\'")
 
 
-def value(t, allow_null=True):
+def value(t, allow_null=True, pool=None):
     # NULL only where the schema allows one. A single NULL anywhere in a 4000-row INSERT ... VALUES
     # rejects the WHOLE statement ("Insert has filtered data"), so drawing NULL at 12% per value made
     # every table with a NOT NULL column -- which is most of them, since key columns usually are --
@@ -103,7 +109,18 @@ def value(t, allow_null=True):
                               "'%04d-%02d-%02d'" % (random.randint(1970, 2030), random.randint(1, 12), random.randint(1, 28))])
     if t.startswith(("varchar", "char", "string", "text")):
         m = re.search(r"\((\d+)\)", t)
-        return "'" + esc(rnd_str(min(int(m.group(1)), 200) if m else 40)) + "'"
+        maxlen = min(int(m.group(1)), 200) if m else 40
+        if pool is not None:
+            # Draw from a small fixed pool so the column stays a global-dictionary candidate. See
+            # low_card_pool: every string this generator wrote used to be freshly random, which put
+            # every string column over the threshold and made the whole low-cardinality subsystem
+            # unreachable on the cluster arm.
+            #
+            # Truncated by BYTES, not characters -- varchar(N) is N bytes, the pool holds multi-byte
+            # values, and one over-long value fails the whole INSERT ... VALUES and leaves the table
+            # empty. Same trap rnd_str carries, and a character slice walks straight into it.
+            return "'" + esc(_fit(pool[random.randrange(len(pool))], maxlen)) + "'"
+        return "'" + esc(rnd_str(maxlen)) + "'"
     if t.startswith("json"):
         return random.choice(["'{}'", "'[]'", "'null'", "'{\"a\":1}'", "'[1,[2,[3,[4]]]]'",
                               "'{\"a\":{\"b\":{\"c\":[1,2,3]}}}'", "'{\"A\":1,\"a\":2}'"])
@@ -143,6 +160,68 @@ def value(t, allow_null=True):
     if t.startswith(("bitmap", "hll", "percentile")):
         return None  # not expressible as a literal
     return "NULL"
+
+
+# ---------------------------------------------------------------------------------------------
+# Low-cardinality string columns.
+#
+# The global dictionary is the entry point to a whole subsystem -- dictionary-encoded scans, the
+# rewrites behind cbo_enable_low_cardinality_optimize and its family, and the dictionary MERGE that
+# runs when a UNION ALL puts two dictionary columns in the same slot. None of it was reachable on
+# the cluster arm: every string this generator wrote was drawn fresh from a 25-character pool at a
+# random length, so every string column blew past the threshold and the optimizer never saw a
+# dictionary at all.
+#
+# Two rules, and the second matters more than it looks.
+#
+# 1. Make some columns low-cardinality on purpose: draw from a pool of at most
+#    LOW_CARD_POOL_MAX distinct values, well under the server's low_cardinality_threshold of 255.
+#
+# 2. NEVER WIDEN a column the corpus already loaded as low-cardinality. FE-side rejection is
+#    PERMANENT: CacheDictManager.NO_DICT_STRING_COLUMNS is a static set with an add() and a
+#    contains() and no remove() anywhere in the file, so one over-threshold column is disqualified
+#    for the life of the FE process. Writing random strings into a column the corpus had already
+#    made a dictionary candidate destroys it, and the corpus is where the realistic candidates come
+#    from -- production seeds carry status, region and type columns with a handful of values each.
+#    So: sample what is already there, and if it is narrow, keep drawing from exactly those values.
+LOW_CARD_POOL_MAX = int(os.environ.get("SRFUZZ_LOWCARD_POOL", "50"))
+# Share of string columns with no existing narrow values that are given a synthetic pool anyway.
+# Not all of them: a run where every string column is low-cardinality is as unrepresentative as one
+# where none is, and the wide path still needs to be exercised.
+LOW_CARD_SHARE = float(os.environ.get("SRFUZZ_LOWCARD_SHARE", "0.5"))
+
+_SYNTH_POOL = ["", "a", "A", "ab", "NULL", "null", "0", "1", "-1", "true", "false",
+               "active", "inactive", "pending", "CN", "US", "EU", "中文", "é",
+               "x" * 32, "  ", "\t", "'", "\\", "%"]
+
+
+def low_card_pool(db, tbl, col, coltype, has_rows):
+    """The value pool for one string column, or None to keep drawing wide random strings.
+
+    Existing values win over a synthetic pool. A corpus column holding four statuses is a better
+    dictionary candidate than anything invented here, and reusing its values preserves it instead
+    of widening it.
+    """
+    t = (coltype or "").lower().strip()
+    if not t.startswith(("varchar", "char", "string", "text")):
+        return None
+    if has_rows:
+        # LIMIT one past the cap so "narrow" and "already too wide" are distinguishable. NULL is
+        # excluded because it is not a dictionary entry and would take a slot in the sample.
+        rc, out, _ = q("SELECT DISTINCT `%s` FROM `%s` WHERE `%s` IS NOT NULL LIMIT %d"
+                       % (col, tbl, col, LOW_CARD_POOL_MAX + 1), db)
+        if rc == 0:
+            vals = [v for v in out.split("\n") if v != ""]
+            if 0 < len(vals) <= LOW_CARD_POOL_MAX:
+                return vals
+            if len(vals) > LOW_CARD_POOL_MAX:
+                # Already wide. Nothing to protect and nothing to gain -- a synthetic pool here
+                # would not make it a candidate again, because the rows already written decide that.
+                return None
+    if random.random() >= LOW_CARD_SHARE:
+        return None
+    n = random.randint(2, min(LOW_CARD_POOL_MAX, len(_SYNTH_POOL)))
+    return random.sample(_SYNTH_POOL, n)
 
 
 def _errmsg(err):
@@ -315,6 +394,9 @@ elif NINST > 1:
 print("databases: %d (instance %s of %s) seed=%s" % (len(targets), INST, NINST, GEN_SEED), flush=True)
 _log("RUN inst=%s/%s seed=%s rows=%s targets=%s" % (INST, NINST, GEN_SEED, ROWS, ",".join(targets)[:200]))
 filled = skipped = 0
+# Counted and printed: a low-cardinality mode nobody can see the effect of is indistinguishable from
+# one that silently never fired, which is how the whole subsystem stayed unreachable in the first place.
+lowcard_cols = analyze_failed = 0
 for db in targets:
     # SHOW TABLES lists views and materialised views alongside real tables, and inserting into either
     # is rejected -- "the data of a materialized view must be consistent with the base table". Every
@@ -340,21 +422,38 @@ for db in targets:
         if bad or not cols:
             skipped += 1
             continue
+        # Whether the corpus already put rows here decides whether a string column's existing values
+        # are worth preserving, so ask once per table rather than once per column.
+        rc, cnt, _ = q("SELECT COUNT(*) FROM `%s`" % tbl, db)
+        has_rows = rc == 0 and cnt.strip().isdigit() and int(cnt.strip()) > 0
+        pools = {c[0]: low_card_pool(db, tbl, c[0], c[1], has_rows) for c in cols}
+        lowcard = sum(1 for p in pools.values() if p is not None)
         rows = []
         for _ in range(ROWS):
             vals = []
             for c in cols:
                 pv = _partition_value(db, tbl, c[0], c[1])
-                vals.append(pv if pv is not None else value(c[1], c[2]))
+                vals.append(pv if pv is not None else value(c[1], c[2], pools.get(c[0])))
             rows.append("(" + ",".join(vals) + ")")
         sql = "INSERT INTO `%s` VALUES %s" % (tbl, ",".join(rows))
         rc, _, err = q(sql, db)
         if rc == 0:
             filled += 1
+            lowcard_cols += lowcard
+            # Statistics, so the cost model has something to work with. Without them the optimizer
+            # has no reason to choose among the plans a dictionary makes available, and half the
+            # low-cardinality rewrites are cost-gated. Failure is logged, not fatal: a table with no
+            # statistics still holds the rows this generator came to write.
+            rc2, _, err2 = q("ANALYZE TABLE `%s`" % tbl, db)
+            if rc2 != 0:
+                analyze_failed += 1
+                _log("ANALYZE-FAIL %s.%s :: %s" % (db, tbl, _errmsg(err2)))
         else:
             skipped += 1
             _log("REJECT %s.%s rc=%s cols=%s :: %s" % (
                 db, tbl, rc, ",".join("%s:%s" % (c[0], c[1]) for c in cols)[:200],
                 _errmsg(err)))
-print("filled=%d skipped=%d" % (filled, skipped), flush=True)
-_log("DONE filled=%d skipped=%d" % (filled, skipped))
+print("filled=%d skipped=%d lowcard_cols=%d analyze_failed=%d"
+      % (filled, skipped, lowcard_cols, analyze_failed), flush=True)
+_log("DONE filled=%d skipped=%d lowcard_cols=%d analyze_failed=%d"
+     % (filled, skipped, lowcard_cols, analyze_failed))
