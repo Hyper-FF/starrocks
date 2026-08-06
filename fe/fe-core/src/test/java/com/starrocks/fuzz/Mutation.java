@@ -16,7 +16,9 @@ package com.starrocks.fuzz;
 
 import com.starrocks.sql.ast.QueryStatement;
 
+import java.util.Collections;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * One mutation operator, as enumerated in SQL_AST_FUZZER_PLAN.md §2.
@@ -53,4 +55,26 @@ public interface Mutation {
      * @return a description of the edit, or null when the operator does not apply
      */
     String apply(QueryStatement stmt, AstMutationFuzzerTest.Pool pool, Random rnd);
+
+    /**
+     * The {@link SqlFeatures} elements this operator can MANUFACTURE, for coverage steering.
+     *
+     * <p>Declared per operator rather than in one table beside the scheduler, because the answer
+     * changes whenever an operator gains a shape -- and at that moment only the operator's own file
+     * is open. A central table would be correct on the day it was written and quietly wrong after.
+     *
+     * <p>Read as a capability claim, not a guarantee: an operator that CAN produce {@code F:cte}
+     * still returns null on a tree with nowhere to put one. Steering raises an operator's draw
+     * order; whether the edit lands is still decided by the tree.
+     *
+     * <p>Only claim what the operator really creates. Claiming an element it cannot produce makes
+     * steering chase a target it can never reach, which is worse than not steering: the weight is
+     * spent every round and the deficit never closes.
+     *
+     * @return element keys spelled as {@link SqlFeatures} emits them, or empty for an operator that
+     *     edits expressions only and reaches no structural feature
+     */
+    default Set<String> coverageTargets() {
+        return Collections.emptySet();
+    }
 }
