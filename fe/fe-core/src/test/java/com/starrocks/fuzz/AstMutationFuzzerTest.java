@@ -61,11 +61,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -819,9 +819,21 @@ public class AstMutationFuzzerTest {
         }
     }
 
+    /**
+     * Flattens to one line and keeps every character.
+     *
+     * This cut at 400, on the reasoning -- written in the comment above sample() -- that the report
+     * printed only 300 anyway. Once the report stopped abbreviating the reproducing SQL that
+     * reasoning inverted: this cut happens when the Finding is BUILT, so the evidence was already
+     * gone before any report could print it, and lifting the report's own limit changed nothing. An
+     * InputDependenciesChecker finding was stored with its statement cut mid-expression in both the
+     * round report and the cumulative findings file, and six candidate statements reconstructed
+     * from what survived all failed to reproduce it.
+     *
+     * Truncation belongs in the display layer, never in the record.
+     */
     private static String oneLineSql(String sql) {
-        String flat = sql.replace('\n', ' ').trim();
-        return flat.length() > 400 ? flat.substring(0, 400) + " ..." : flat;
+        return sql.replace('\n', ' ').trim();
     }
 
     static final class Drop {
@@ -1084,8 +1096,22 @@ public class AstMutationFuzzerTest {
      * changes -- it only stops the run from carrying whole SQL texts it will never show.
      */
     private static String sample(String s) {
-        return s == null || s.length() <= 1000 ? s : s.substring(0, 1000);
+        return s == null || s.length() <= SAMPLE_CAP ? s : s.substring(0, SAMPLE_CAP);
     }
+
+    /**
+     * Retained-sample ceiling, set to hold a whole mutant rather than a readable excerpt.
+     *
+     * The old 1000 was justified by "well above the 300 characters abbrev prints", the same
+     * reasoning that made the 400-character cut in oneLineSql look free. Both assumed the report
+     * would never want more than an excerpt. It does: the seed and the mutant are the only things
+     * that let anyone reproduce a finding, and three caps in series (1000 -> 400 -> 300) meant the
+     * one finding that needed its full text lost it before the first of them.
+     *
+     * A deeply chained mutant runs to a few kilobytes; at a few thousand findings that is single-
+     * digit megabytes, which is worth paying to keep findings actionable.
+     */
+    private static final int SAMPLE_CAP = 64_000;
 
     // ---------------------------------------------------------------- harvest
 
@@ -1692,9 +1718,24 @@ public class AstMutationFuzzerTest {
     }
 
     private static String abbrev(String s) {
-        String x = s.replace('\n', ' ').replace('\r', ' ').replaceAll("\\s+", " ").trim();
+        String x = oneLineSql(s);
         return x.length() > 300 ? x.substring(0, 300) + " ..." : x;
     }
+
+    /**
+     * The SQL, whole.
+     *
+     * A finding's seed and mutant are the only things that let anyone reproduce it, and abbreviating
+     * them at 300 characters silently threw that away for exactly the findings worth having: a
+     * deeply chained mutant is both the most interesting and the longest. One InputDependenciesChecker
+     * finding was reported with its statement cut off mid-expression, leaving a signature nobody
+     * could act on. The mutation DESCRIPTION and the exception detail stay abbreviated -- they are
+     * commentary, not evidence.
+     */
+    private static String fullSql(String s) {
+        return oneLineSql(s);
+    }
+
 
     // -------------------------------------------------------------- reporting
 
@@ -1872,9 +1913,9 @@ public class AstMutationFuzzerTest {
                 w.println("### " + f.outcome + " — " + f.signature + " (x" + f.count + ")");
                 w.println();
                 w.println("- detail: " + f.detail);
-                w.println("- seed:     " + abbrev(f.seedSql));
+                w.println("- seed:     " + fullSql(f.seedSql));
                 w.println("- mutation: " + abbrev(f.mutation));
-                w.println("- mutant:   " + abbrev(f.mutantSql));
+                w.println("- mutant:   " + fullSql(f.mutantSql));
             }
 
             writeRejectionSection(w, findings);
@@ -1902,7 +1943,7 @@ public class AstMutationFuzzerTest {
             for (Finding f : other) {
                 w.println();
                 w.println("### " + f.outcome + " — " + f.signature + " (x" + f.count + ")");
-                w.println("- mutant: " + abbrev(f.mutantSql));
+                w.println("- mutant: " + fullSql(f.mutantSql));
                 w.println("- detail: " + f.detail);
             }
         }
