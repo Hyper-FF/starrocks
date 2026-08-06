@@ -137,6 +137,21 @@ public class PredicateMutation implements Mutation {
         return "M11-predicate";
     }
 
+    /**
+     * Conditions: WHERE and HAVING themselves, the boolean connectives, and the predicate forms the
+     * generator emits. Deliberately does NOT claim any join feature -- attaching a predicate to a
+     * join without an ON clause would turn a cross join into an inner one, which is a shape change
+     * and belongs to M6.
+     */
+    @Override
+    public Set<String> coverageTargets() {
+        return TARGETS;
+    }
+
+    private static final Set<String> TARGETS = Set.of(
+            "F:where", "F:having", "F:compound:AND", "F:compound:OR", "F:compound:NOT",
+            "F:isnull", "F:between", "F:like", "F:in");
+
     @Override
     public String apply(QueryStatement stmt, AstMutationFuzzerTest.Pool pool, Random rnd) {
         if (stmt == null || stmt.getQueryRelation() == null) {

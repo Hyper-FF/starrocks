@@ -32,6 +32,7 @@ import com.starrocks.sql.parser.SqlParser;
 
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * M10: combines two seeds into one statement.
@@ -72,6 +73,19 @@ public class SpliceMutation implements Mutation {
     public String name() {
         return "M10-splice";
     }
+
+    /**
+     * A cross join against a derived table, or an EXISTS over one. Both come from a SECOND seed,
+     * which is why this operator can exceed the corpus's own depth where the others cannot.
+     */
+    @Override
+    public Set<String> coverageTargets() {
+        return TARGETS;
+    }
+
+    private static final Set<String> TARGETS = Set.of(
+            "F:derived", "F:exists", "F:subquery", "F:join:noon",
+            SqlFeatures.joinKey(JoinOperator.CROSS_JOIN));
 
     @Override
     public String apply(QueryStatement stmt, AstMutationFuzzerTest.Pool pool, Random rnd) {

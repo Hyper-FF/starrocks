@@ -18,6 +18,7 @@ import com.starrocks.catalog.TableName;
 import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.sql.analyzer.AstToSQLBuilder;
 import com.starrocks.sql.ast.CTERelation;
+import com.starrocks.sql.ast.JoinOperator;
 import com.starrocks.sql.ast.JoinRelation;
 import com.starrocks.sql.ast.NormalizedTableFunctionRelation;
 import com.starrocks.sql.ast.ParseNode;
@@ -36,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -112,6 +114,27 @@ public class NestingMutation implements Mutation {
     public String name() {
         return "M6-nesting";
     }
+
+    /**
+     * One entry per {@link Shape}: derived table, CTE, the four set operations, self join, ASOF
+     * join and table function. This is the only operator that can introduce a set operation or a
+     * CTE at all, so a deficit in those has nowhere else to go.
+     */
+    @Override
+    public Set<String> coverageTargets() {
+        return TARGETS;
+    }
+
+    private static final Set<String> TARGETS = Set.of(
+            "F:derived", "F:cte", "F:tablefunction", "F:join:noon",
+            SqlFeatures.setOpKey("UnionRelation"), SqlFeatures.setOpKey("ExceptRelation"),
+            SqlFeatures.setOpKey("IntersectRelation"),
+            SqlFeatures.joinKey(JoinOperator.INNER_JOIN),
+            SqlFeatures.joinKey(JoinOperator.LEFT_OUTER_JOIN),
+            SqlFeatures.joinKey(JoinOperator.RIGHT_OUTER_JOIN),
+            SqlFeatures.joinKey(JoinOperator.FULL_OUTER_JOIN),
+            SqlFeatures.joinKey(JoinOperator.CROSS_JOIN),
+            SqlFeatures.joinKey(JoinOperator.ASOF_LEFT_OUTER_JOIN));
 
     @Override
     public String apply(QueryStatement stmt, AstMutationFuzzerTest.Pool pool, Random rnd) {

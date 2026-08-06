@@ -121,6 +121,18 @@ public class ClauseMutation implements Mutation {
         return "M5-clause";
     }
 
+    /**
+     * GROUP BY, HAVING, ORDER BY, LIMIT, DISTINCT and window clauses -- the clause-level features
+     * whose absence makes whole rule families unreachable, which is the reason this operator exists.
+     */
+    @Override
+    public Set<String> coverageTargets() {
+        return TARGETS;
+    }
+
+    private static final Set<String> TARGETS = Set.of(
+            "F:groupby", "F:having", "F:orderby", "F:limit", "F:distinct", "F:window");
+
     @Override
     public String apply(QueryStatement stmt, AstMutationFuzzerTest.Pool pool, Random rnd) {
         if (stmt == null || stmt.getQueryRelation() == null) {
