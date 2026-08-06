@@ -63,6 +63,7 @@ import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -174,6 +175,18 @@ public class AstMutationFuzzerTest {
     private Set<String> seenPlanShapes;
     private int interestingMutants;
     private int feedbackPercent;
+
+    /**
+     * The grey-box coverage map: RBO rules, plan operators and edges, and static SQL features, all
+     * counted per element rather than matched as one string.
+     *
+     * <p>{@link #seenPlanShapes} above is kept, but only as a REPORTED number. As a feedback key an
+     * exact-match set has no partial credit and saturates: once the common shapes are enumerated
+     * nothing scores, and the loop goes quiet exactly when the run is long enough to benefit. The
+     * map replaces it for every decision; the shape count stays because it is comparable with every
+     * measurement taken before this change.
+     */
+    private CoverageMap coverage;
 
     /**
      * Mutants that first reached a plan shape, kept across the whole run.
@@ -418,6 +431,7 @@ public class AstMutationFuzzerTest {
         coverageFailed = 0;
         coverageFirstError = null;
         seenPlanShapes = new HashSet<>();
+        coverage = new CoverageMap();
         interestingMutants = 0;
         shapeCorpus = new ArrayList<>();
         feedbackPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.feedback", 0)));
@@ -712,9 +726,22 @@ public class AstMutationFuzzerTest {
             }
         }
         if (coveragePercent > 0) {
-            System.out.printf("plan shapes: %d distinct; %d of %d planned mutants reached a new one%s%n",
-                    seenPlanShapes.size(), interestingMutants, coverageSampled,
+            // Broken out by namespace, because the three signals answer different questions and a
+            // single total hides which one is carrying the run. R: is what the optimizer DID, OP:
+            // and EDGE: are what it CHOSE, F: is what the corpus could ask for in the first place.
+            System.out.printf("coverage: %d elements over %d mutants "
+                            + "(rules %d/%d, plan-ops %d, plan-edges %d, sql-features %d)%n",
+                    coverage.size(), coverage.observations(),
+                    coverage.sizeOf("R:"), RuleCoverage.NUM_RULES,
+                    coverage.sizeOf("OP:"), coverage.sizeOf("EDGE:"), coverage.sizeOf("F:"));
+            // Denominator is every CREDITED mutant, not just the planned ones: rejected mutants are
+            // credited for their features now, and dividing by the planned count would report a
+            // rate against a population that is not the one being measured.
+            System.out.printf("plan shapes: %d distinct; %d of %d credited mutants gained coverage%s%n",
+                    seenPlanShapes.size(), interestingMutants, coverage.observations(),
                     feedbackPercent > 0 ? " (fed back into the splice pool)" : "");
+            System.out.printf("rarest elements (threshold %d): %s%n",
+                    coverage.rareThreshold(), String.join(", ", coverage.rarest(12)));
             if (coverageFailed > 0) {
                 System.out.printf("shape collection FAILED on %d of %d; first: %s%n",
                         coverageFailed, coverageSampled, coverageFirstError);
@@ -957,8 +984,18 @@ public class AstMutationFuzzerTest {
         if (!(toPlan instanceof QueryStatement)) {
             return null;
         }
+        // Static features come off the parse tree, so they are available whether or not the plan is.
+        // A rejected mutant used to teach the run nothing at all, which is backwards: the shapes the
+        // planner refuses are the ones worth knowing we have already tried.
+        Set<String> elements = coveragePercent > 0
+                ? new LinkedHashSet<>(SqlFeatures.of((QueryStatement) toPlan)) : null;
         try {
             ctx.setThreadLocalInfo();
+            if (elements != null) {
+                // Armed before planning, read after. The tracer is per-thread and StatementPlanner
+                // never re-inits it, so what comes back is this mutant's rules and nobody else's.
+                RuleTrace.arm();
+            }
             ExecPlan plan = StatementPlanner.plan(toPlan, ctx);
             if (plan == null) {
                 record(tally, findings, Outcome.PLAN_INTERNAL_ERROR, "plan:null", seed, mutation, mutantSql,
@@ -970,12 +1007,18 @@ public class AstMutationFuzzerTest {
             // Sampled, because collecting re-runs the optimizer and planning is already the
             // expensive step. A failure here must not fail the mutant: the mutant planned, and a
             // defect in the measurement is not a defect in the product.
-            if (coveragePercent > 0) {
+            if (elements != null) {
                 // Counted BEFORE the work, so a probe that throws every time cannot report itself as
                 // "0 of 0 sampled" -- which is what a silently failing measurement looks like, and is
                 // indistinguishable from never having run.
                 coverageSampled++;
                 try {
+                    // Rules the RBO phase actually applied. This is the half the memo's applied-rule
+                    // masks structurally cannot see, and measured, it is most of the rule activity:
+                    // a filtered query fires 22 RBO rules against 1 visible to the masks.
+                    for (String rule : RuleTrace.firedNames()) {
+                        elements.add("R:" + rule);
+                    }
                     // The shape comes off the ExecPlan just built. Re-running transform + optimize to
                     // reach a memo doubled the cost of the loop's most expensive step and forced
                     // sampling; getPhysicalPlan() returns the same OptExpression for free, so every
@@ -983,19 +1026,11 @@ public class AstMutationFuzzerTest {
                     // Analyzer pass -- TableRelation#getColumns is null until analysis, and that NPE
                     // failed all 132 samples of the first attempt.
                     OptExpression physical = plan.getPhysicalPlan();
-                    String shape = physical == null ? "" : PlanShape.fingerprint(physical);
-                    if (!shape.isEmpty() && seenPlanShapes.add(shape)) {
-                        interestingMutants++;
-                        if (shapeCorpus.size() < 20000) {
-                            shapeCorpus.add(terminated(mutantSql));
-                        }
-                        // Feedback: a mutant that reached a shape nothing reached before becomes
-                        // splice material, so later mutations build on it rather than restarting from
-                        // the seed. Bounded -- an unbounded pool drifts the corpus away from the
-                        // production shapes it was harvested from, and those shapes are the point.
-                        if (feedbackPercent > 0 && feedbackPool != null
-                                && feedbackPool.siblingSeeds.size() < 5000) {
-                            feedbackPool.siblingSeeds.add(mutantSql);
+                    if (physical != null) {
+                        elements.addAll(PlanShape.elements(physical));
+                        String shape = PlanShape.fingerprint(physical);
+                        if (!shape.isEmpty()) {
+                            seenPlanShapes.add(shape);
                         }
                     }
                 } catch (Throwable t2) {
@@ -1004,8 +1039,15 @@ public class AstMutationFuzzerTest {
                         coverageFirstError = t2.getClass().getSimpleName() + ": " + t2.getMessage();
                     }
                 }
+                creditCoverage(elements, mutantSql);
             }
         } catch (Throwable t) {
+            if (elements != null) {
+                // A mutant the planner refused still exercised the parser and analyzer, and its
+                // features are the record that this run has already been down that road. Crediting
+                // it is what stops the feedback loop from re-deriving rejected shapes forever.
+                creditCoverage(elements, mutantSql);
+            }
             Outcome o = classifyPlanFailure(t);
             String signature = o == Outcome.PLAN_REJECTED
                     ? rejectionSignature(t, mutation) : "plan:" + signatureOf(t);
@@ -1013,6 +1055,38 @@ public class AstMutationFuzzerTest {
             return o;
         }
         return null;
+    }
+
+    /**
+     * Records what one mutant reached, and turns any gain into mutation budget.
+     *
+     * <p>The power schedule rides on the splice pool rather than restructuring the loop. Splice
+     * material is drawn uniformly, so inserting a mutant {@code energy} times makes it {@code
+     * energy} times likelier to be picked up by a later edit -- which is what a power schedule is,
+     * expressed in the mechanism that already exists.
+     *
+     * <p>Copies are capped and the pool stays bounded. Both limits protect the same thing: the
+     * corpus was harvested from production shapes, and a feedback loop that is allowed to fill the
+     * pool with its own output drifts away from them. Coverage bought by leaving the query
+     * distribution the product actually sees is not coverage worth having.
+     */
+    private void creditCoverage(Set<String> elements, String mutantSql) {
+        CoverageMap.Gain gain = coverage.observe(elements);
+        if (!gain.isInteresting()) {
+            return;
+        }
+        interestingMutants++;
+        // The persisted corpus takes only genuinely new coverage. Rare-element hits are worth budget
+        // now but would bloat a corpus meant to have one entry per distinct thing reached.
+        if (gain.newElements > 0 && shapeCorpus.size() < 20000) {
+            shapeCorpus.add(terminated(mutantSql));
+        }
+        if (feedbackPercent > 0 && feedbackPool != null) {
+            int copies = Math.min(gain.energy(), 4);
+            for (int i = 0; i < copies && feedbackPool.siblingSeeds.size() < 5000; i++) {
+                feedbackPool.siblingSeeds.add(mutantSql);
+            }
+        }
     }
 
     /**
