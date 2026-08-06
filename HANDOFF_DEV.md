@@ -114,13 +114,58 @@ and twelve mavens running the full `test` lifecycle drive the thrift codegen plu
 
 ## What the soak can and cannot see
 
-**The soak is FE-only and stops at the analyzer.** Its chain is parse → mutate → `Analyzer.analyze` →
-deparse → reparse → re-analyze, and every `Outcome` lives in the analyzer or the deparser. It never
-calls `StatementPlanner`, `Optimizer` or `ExecPlan`, so no optimizer defect can be reported by it, at
-any throughput. Optimizer coverage comes entirely from the cluster replay, which has three oracles:
+~~**The soak is FE-only and stops at the analyzer.**~~ **No longer true.** It plans every
+round-tripped mutant (`srfuzz.plan`, default 100%) and reports `PLAN_REJECTED` /
+`PLAN_INTERNAL_ERROR` classified by `ErrorType`. Optimizer defects now come out of the soak
+directly -- `InputDependenciesChecker`, `PlanValidator`, `MultiDistinctByMultiFuncRewriter` and the
+varbinary statistics defect were all found this way.
+
+The old chain (parse → mutate → analyze → deparse → reparse → re-analyze) still runs; planning is
+an extra stage on top of it. Optimizer coverage comes entirely from the cluster replay, which has three oracles:
 crash/error, the knob differential, and the FE warn-log signatures — the last of which is what caught
 the push-down-distinct stale-projection defect, because that one planned fine and returned the right
 rows while silently losing statistics for a whole subtree.
+
+## Grey-box: what is measured, what works, what does not
+
+Three signals exist. **Only one of them is usable as a feedback key**, and the two measurements that
+established that are worth not repeating:
+
+| signal | covers | responds to statistics | cost | use |
+|---|---|---|---|---|
+| `RuleCoverage` (`appliedRuleMasks`) | memo phase ONLY -- 27 of the 178 rules that actually run | **no** | free | do not use alone |
+| `RuleFiringTap` (JMockit on `RewriteTreeTask#applyRules`) | the RBO phase -- the other 151 | untested | high | offline blind-spot analysis |
+| **`PlanShape.fingerprint`** | the plan the optimizer CHOSE | **yes** (128 → 136 shapes) | free | **the feedback key** |
+
+**The masks are blind to cost.** With `FuzzStatisticStorage` installed and consulted 90,240 times
+over 816 production queries, the fired-rule set did not move by one bit. Exploration applies every
+rule that MATCHES a shape; cost only picks among the alternatives. So the masks measure a corpus's
+syntactic reach and nothing about the resulting plan.
+
+**The masks are also incomplete.** `logicalRuleRewrite` rewrites the `OptExpression` tree via
+`RewriteTreeTask` and never creates a `GroupExpression`, so predicate pushdown, partition pruning and
+aggregate splitting are invisible to them. They reported as "never fired" across 816 queries with
+WHERE clauses, which is impossible. **Real coverage is 178/265 ≈ 67%, not the 10.2% the masks show.**
+Any plan built on "the corpus only reaches 10% of the optimizer" is built on a number that is wrong
+by 6.6x.
+
+Discrimination over the same 131 mutants: 19 reached a new plan shape, 10 reached a new rule. The
+fingerprint is read from `ExecPlan#getPhysicalPlan()`, so it costs nothing beyond the plan already
+built -- an earlier version re-ran transform + optimize and had to sample.
+
+The feedback loop (`srfuzz.feedback`, default off) puts a mutant that reached an unseen plan shape
+into the splice pool, and `srfuzz.shapeCorpus` writes those mutants out as a corpus where every entry
+is a different plan. The pool is bounded on purpose: an unbounded one drifts the corpus away from the
+production shapes it was harvested from.
+
+**A/B in flight on dev1** -- `astsoak` (feedback=0) vs `astfb` (feedback=100), identical but for
+`SRFUZZ_EXTRA`. Judge it on **de-duplicated defect signatures after 50+ rounds**, not on shape or
+rule counts: coverage and defect-finding are not the same claim. Design and stopping conditions in
+`.fuzzwork/plan_ab.md`.
+
+⚠️ To confirm the two arms actually differ, look for `(fed back into the splice pool)` in the
+`plan shapes:` line. Do NOT grep the shard log for `srfuzz.feedback=` -- that log holds test output,
+not the maven command line, so it never appears and the check silently passes for both arms.
 
 ## Open work, roughly by value
 
@@ -166,6 +211,29 @@ rows while silently losing statistics for a whole subtree.
    verbatim and never mutated, and schema change is historically bug-dense.
 
 ## Rules that have earned their place
+
+**Verify the artifact contains your change before you measure with it.** Class timestamp plus a
+`strings`/`javap` check for something only the new code has. An A/B ran twice over the same stale
+classes and its identical results nearly retired a hypothesis that was fine. (Anonymous inner
+classes carry their generics in `Outer$1.class`, not `Outer.class`.)
+
+**A measurement that cannot fail loudly is one whose zero means nothing.** Increment the counter
+BEFORE the work and report failures separately. `catch (Throwable ignored)` in probe code
+manufactures data: a collector that threw on all 132 samples reported "0 of 0 sampled".
+
+**Truncation belongs in the display layer, never in the record.** Three caps in series
+(`sample` 1000 → `oneLineSql` 400 → `abbrev` 300), each justified by the next being smaller, threw
+away the only statement that could reproduce a finding. Lifting the outermost changed nothing.
+
+**Nothing reaches a long-running tree without checkstyle and a full `-am` build first.** The soak
+runs checkstyle bound to `validate` and stops after three consecutive build failures. Both arms of
+the A/B died that way -- twice in one day, the second time after the lesson was already written down.
+
+**One maven per tree.** Concurrent builds clobber `target/` and produce compile errors unrelated to
+anything you changed; concurrent JVMs starve the in-process cluster until `beforeAll` times out.
+
+**Never `pkill -f` a pattern that appears in your own command line** -- including inside a commit
+message or heredoc. Five self-kills in one session. Put the logic in a script file, or filter by PID.
 
 - An operator returning null is normal and cheap. Prefer it to forcing a mutation that does not fit.
 - Never share an `Expr` between two trees; keep injected fragments as text and reparse at injection.
