@@ -55,6 +55,24 @@ import java.util.function.Function;
  *
  * <p>These become worthwhile once the plan-differential oracle (O4) exists, because a plan is exactly
  * what they do change. Add them here then, gated on the oracle in use.
+ *
+ * <h3>That condition is now met for plan-visible flags</h3>
+ *
+ * <p>Every round-tripped mutant is planned, and {@link PlanShape#elements} reads the plan the
+ * optimizer chose. A flag that changes only the plan is no longer invisible: it moves {@code OP:}
+ * and {@code EDGE:} elements in the coverage map even when the deparsed text is byte-identical.
+ *
+ * <p>The low-cardinality family is added on exactly that basis, and it is the family to add first.
+ * The global dictionary gates a whole subsystem -- dictionary-encoded scans, the rewrites these
+ * flags name, and the dictionary MERGE that runs when a UNION ALL puts two dictionary columns in one
+ * slot, which is where a confirmed BE crash lives. OFF is the informative direction: every one of
+ * them defaults to ON, so the unexplored plans are the ones without the rewrite.
+ *
+ * <p><b>They do not reach the text oracle and are not meant to.</b> Judge them by whether the
+ * coverage map moves, not by round-trip findings. And note the limit of what the FE arm can do here:
+ * it has no data, so no dictionary ever materialises: what these reach is the FE-side rewrite
+ * gating. The crash behind it needs the cluster arm, real rows, and a column the data generator kept
+ * narrow.
  */
 public final class SessionFlagPerturbation {
 
@@ -91,6 +109,37 @@ public final class SessionFlagPerturbation {
                 SqlModeHelper.MODE_DEFAULT | SqlModeHelper.MODE_FORBID_INVALID_DATE,
                 SqlModeHelper.MODE_DEFAULT | SqlModeHelper.MODE_DOUBLE_LITERAL,
                 SqlModeHelper.MODE_DEFAULT | SqlModeHelper.MODE_ALLOW_THROW_EXCEPTION));
+
+        // The low-cardinality family. Plan-only, so inert against the text oracle and deliberately
+        // included anyway -- see the class comment. Only false is offered as the second value
+        // because true is the product default and re-applying it perturbs nothing.
+        knobs.add(new Knob("cbo_enable_low_cardinality_optimize",
+                SessionVariable::isEnableLowCardinalityOptimize,
+                (sv, v) -> sv.setEnableLowCardinalityOptimize((Boolean) v),
+                false, true));
+        // cbo_enable_low_cardinality_optimize_for_join is deliberately absent: SessionVariable has
+        // isEnableLowCardinalityOptimizeForJoin() and no matching setter, so the previous value
+        // cannot be handed back and a perturbation would leak into every later mutant. Same reason
+        // count_distinct_implementation is excluded above. The cluster arm reaches it instead --
+        // there it is a `set` statement, not a Java accessor.
+        // The one that gates the UNION ALL dictionary merge, which is the path a confirmed BE crash
+        // sits on -- a partial merge across branches feeding VARCHAR into an INT slot.
+        knobs.add(new Knob("enable_low_cardinality_optimize_for_union_all",
+                SessionVariable::isEnableLowCardinalityOptimizeForUnionAll,
+                (sv, v) -> sv.setEnableLowCardinalityOptimizeForUnionAll((Boolean) v),
+                false, true));
+        knobs.add(new Knob("low_cardinality_optimize_v2",
+                SessionVariable::isUseLowCardinalityOptimizeV2,
+                (sv, v) -> sv.setUseLowCardinalityOptimizeV2((Boolean) v),
+                false, true));
+        knobs.add(new Knob("array_low_cardinality_optimize",
+                SessionVariable::isEnableArrayLowCardinalityOptimize,
+                (sv, v) -> sv.setEnableArrayLowCardinalityOptimize((Boolean) v),
+                false, true));
+        knobs.add(new Knob("struct_low_cardinality_optimize",
+                SessionVariable::isEnableStructLowCardinalityOptimize,
+                (sv, v) -> sv.setEnableStructLowCardinalityOptimize((Boolean) v),
+                false, true));
         return knobs;
     }
 
