@@ -445,7 +445,18 @@ public class AstMutationFuzzerTest {
         String emitProp = System.getProperty("srfuzz.emit");
         Path emitDir = emitProp == null ? null : Paths.get(emitProp);
         if (emitDir != null) {
+            // One directory per RUN, not one shared pile. The file names are keyed on the corpus
+            // file's index and nothing else, so two runs wrote the same names and the second
+            // silently replaced the first -- and under the soak, six shards per round would have
+            // clobbered each other every round and produced a mixture nobody could unpick.
+            //
+            // The seed names the run because it is what makes it reproducible; the timestamp makes
+            // the name unique, because runs that did not pass -Dsrfuzz.seed all share the default
+            // and would collide on the seed alone.
+            emitDir = emitDir.resolve(String.format("run-%d-%s", seedValue,
+                    new java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(new java.util.Date())));
             Files.createDirectories(emitDir);
+            System.err.println("emitting to " + emitDir);
         }
 
         unbindableSeeds = 0;
@@ -736,13 +747,22 @@ public class AstMutationFuzzerTest {
                     // pair self-contained.
                     emitSetup.add(0, "CREATE DATABASE IF NOT EXISTS `" + db + "`;");
                     emitSetup.add(1, "USE `" + db + "`;");
+                    // Provenance, as `--` comments: CorpusReader drops those lines and so does
+                    // mysql, so a file stays consumable by both. Without it an emitted corpus is
+                    // anonymous -- there is no way to tell which run, seed or settings produced a
+                    // statement, and a seed whose origin cannot be established cannot be trusted
+                    // when it turns into a finding.
+                    String origin = provenance(files.get(i), db, seedValue, mutationsPerSeed, chainMax);
                     Files.write(emitDir.resolve(String.format("mut_%03d.setup.sql", i)),
-                            String.join("\n", emitSetup).getBytes(StandardCharsets.UTF_8));
+                            (origin + String.join("\n", emitSetup)).getBytes(StandardCharsets.UTF_8));
                     Files.write(emitDir.resolve(String.format("mut_%03d.query.sql", i)),
-                            String.join("\n", emitQueries).getBytes(StandardCharsets.UTF_8));
+                            (origin + "-- selection: every mutant that round-tripped\n"
+                                    + String.join("\n", emitQueries)).getBytes(StandardCharsets.UTF_8));
                     if (emitNovel != null && !emitNovel.isEmpty()) {
                         Files.write(emitDir.resolve(String.format("mut_%03d.novel.sql", i)),
-                                String.join("\n", emitNovel).getBytes(StandardCharsets.UTF_8));
+                                (origin + "-- selection: reached a coverage element nothing had reached "
+                                        + "before, and round-tripped\n"
+                                        + String.join("\n", emitNovel)).getBytes(StandardCharsets.UTF_8));
                     }
                 }
                 emitSetup = null;
@@ -970,6 +990,24 @@ public class AstMutationFuzzerTest {
                 creditCoverage(elements, okSql != null ? okSql : bestEffortSql(mutant), okSql != null);
             }
         }
+    }
+
+    /**
+     * The header stamped on every emitted file: what produced these statements.
+     *
+     * <p>Everything needed to regenerate the corpus, plus the settings that decide what a statement
+     * MEANS. The knobs matter as much as the seed -- a corpus emitted with feedback on is drawn from
+     * a different distribution than one emitted without it, and once statements are separated from
+     * the run that made them the two are indistinguishable.
+     */
+    private String provenance(Path corpusFile, String db, long seedValue, int mutations, int chain) {
+        return "-- srfuzz emitted corpus\n"
+                + "-- corpus-file: " + corpusFile + "\n"
+                + "-- database: " + db + "\n"
+                + "-- srfuzz.seed: " + seedValue + "\n"
+                + "-- srfuzz.mutations: " + mutations + "  srfuzz.chain: " + chain + "\n"
+                + "-- srfuzz.coverage: " + coveragePercent + "  srfuzz.feedback: " + feedbackPercent
+                + "  srfuzz.steer: " + steerPercent + "  srfuzz.plan: " + planPercent + "\n";
     }
 
     /** Feature extraction that cannot take the run down with it; failures are counted, not thrown. */
