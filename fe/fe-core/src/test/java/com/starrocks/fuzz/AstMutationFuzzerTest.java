@@ -127,6 +127,18 @@ public class AstMutationFuzzerTest {
     private List<String> emitQueries;
 
     /**
+     * The coverage-novel subset of {@link #emitQueries}, written as {@code mut_NNN.novel.sql}.
+     *
+     * <p>Same schema, far denser: one entry per thing the run reached first, rather than every
+     * mutant that round-tripped. That density is the point when the consumer is the cluster arm,
+     * where a statement costs a real query against a real BE instead of an in-process analyze.
+     */
+    private List<String> emitNovel;
+
+    /** Novel seeds written across the whole run, for the summary. */
+    private int novelSeeds;
+
+    /**
      * Percentage of round-tripped mutants that are also planned, from {@code -Dsrfuzz.plan}.
      *
      * <p>Sampled rather than all-or-nothing because planning is the expensive step: it runs the whole
@@ -445,6 +457,7 @@ public class AstMutationFuzzerTest {
         coverage = new CoverageMap();
         interestingMutants = 0;
         steerPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.steer", 0)));
+        novelSeeds = 0;
         shapeCorpus = new ArrayList<>();
         feedbackPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.feedback", 0)));
         coverageExpanders = 0;
@@ -537,6 +550,7 @@ public class AstMutationFuzzerTest {
                 List<String> statements = CorpusReader.extractStatements(text);
                 emitSetup = emitDir == null ? null : new ArrayList<>();
                 emitQueries = emitDir == null ? null : new ArrayList<>();
+                emitNovel = emitDir == null || coveragePercent == 0 ? null : new ArrayList<>();
 
                 List<String> seeds = new ArrayList<>();
                 Pool pool = new Pool();
@@ -713,13 +727,27 @@ public class AstMutationFuzzerTest {
                 if (emitQueries != null && !emitQueries.isEmpty()) {
                     // Split, so a replay can create the schema, load data into it, and only then run
                     // the queries. Interleaved, every query before the last INSERT scans an empty table.
+                    //
+                    // The database is created and selected by the setup file itself. The emitted
+                    // statements are FULLY QUALIFIED -- `srfuzz_mut_0`.`tbl_31` -- while the DDL is
+                    // not, so a replay that does not first create that exact database either fails
+                    // on every query or, worse, runs the DDL into whatever database happened to be
+                    // current. Shipping the two lines that close the gap costs nothing and makes the
+                    // pair self-contained.
+                    emitSetup.add(0, "CREATE DATABASE IF NOT EXISTS `" + db + "`;");
+                    emitSetup.add(1, "USE `" + db + "`;");
                     Files.write(emitDir.resolve(String.format("mut_%03d.setup.sql", i)),
                             String.join("\n", emitSetup).getBytes(StandardCharsets.UTF_8));
                     Files.write(emitDir.resolve(String.format("mut_%03d.query.sql", i)),
                             String.join("\n", emitQueries).getBytes(StandardCharsets.UTF_8));
+                    if (emitNovel != null && !emitNovel.isEmpty()) {
+                        Files.write(emitDir.resolve(String.format("mut_%03d.novel.sql", i)),
+                                String.join("\n", emitNovel).getBytes(StandardCharsets.UTF_8));
+                    }
                 }
                 emitSetup = null;
                 emitQueries = null;
+                emitNovel = null;
                 try {
                     srAssert.dropDatabase(db);
                 } catch (Throwable ignored) {
@@ -785,6 +813,12 @@ public class AstMutationFuzzerTest {
             // scheduler.
             System.out.println("operator weights" + (steerPercent > 0 ? "" : " (steering OFF)") + ": "
                     + MutationSteering.report(Mutator.OPERATORS, coverage));
+            if (System.getProperty("srfuzz.emit") != null) {
+                // Reported next to the coverage it was selected by, so "the seed corpus is thin" and
+                // "the run reached nothing new" are never confused for one another.
+                System.out.printf("novel seeds emitted: %d, replayable beside their mut_NNN.setup.sql%n",
+                        novelSeeds);
+            }
             if (coverageFailed > 0) {
                 System.out.printf("shape collection FAILED on %d of %d; first: %s%n",
                         coverageFailed, coverageSampled, coverageFirstError);
@@ -926,13 +960,14 @@ public class AstMutationFuzzerTest {
         // and never reach the planner, so collecting here rather than inside planMutant is the
         // difference between crediting 1548 mutants and crediting all of them.
         Set<String> elements = coveragePercent > 0 ? featuresOf(mutant) : null;
+        String okSql = null;
         try {
-            evaluate(seed, mutation, mutant, tally, findings, elements);
+            okSql = evaluate(seed, mutation, mutant, tally, findings, elements);
         } finally {
             // One credit per mutant, on every path out. Crediting inside each branch is how a
             // population ends up counted twice on one route and not at all on another.
             if (elements != null) {
-                creditCoverage(elements, bestEffortSql(mutant));
+                creditCoverage(elements, okSql != null ? okSql : bestEffortSql(mutant), okSql != null);
             }
         }
     }
@@ -953,9 +988,9 @@ public class AstMutationFuzzerTest {
         }
     }
 
-    private void evaluate(String seed, String mutation, StatementBase mutant,
-                          Map<Outcome, Integer> tally, Map<String, Finding> findings,
-                          Set<String> elements) {
+    private String evaluate(String seed, String mutation, StatementBase mutant,
+                            Map<Outcome, Integer> tally, Map<String, Finding> findings,
+                            Set<String> elements) {
         String mutantSql;
         // The mutated tree is unanalyzed, so serialize only after analysis succeeds. To report the
         // mutant when analysis fails we fall back to a best-effort rendering.
@@ -966,7 +1001,7 @@ public class AstMutationFuzzerTest {
             String signature = o == Outcome.ANALYZE_REJECTED
                     ? rejectionSignature(t, mutation) : signatureOf(t);
             record(tally, findings, o, signature, seed, mutation, bestEffortSql(mutant), oneLine(t));
-            return;
+            return null;
         }
 
         try {
@@ -974,12 +1009,12 @@ public class AstMutationFuzzerTest {
         } catch (Throwable t) {
             record(tally, findings, Outcome.DEPARSE_THROW, signatureOf(t), seed, mutation,
                     unrenderableSample(seed, mutation), oneLine(t));
-            return;
+            return null;
         }
         if (mutantSql == null || mutantSql.trim().isEmpty()) {
             record(tally, findings, Outcome.DEPARSE_THROW, "empty-deparse", seed, mutation, "<empty>",
                     "deparse produced nothing");
-            return;
+            return null;
         }
 
         StatementBase again;
@@ -987,13 +1022,13 @@ public class AstMutationFuzzerTest {
             again = SqlParser.parse(mutantSql, ctx.getSessionVariable()).get(0);
         } catch (Throwable t) {
             record(tally, findings, Outcome.REPARSE_FAIL, signatureOf(t), seed, mutation, mutantSql, oneLine(t));
-            return;
+            return null;
         }
         try {
             Analyzer.analyze(again, ctx);
         } catch (Throwable t) {
             record(tally, findings, Outcome.REANALYZE_FAIL, signatureOf(t), seed, mutation, mutantSql, oneLine(t));
-            return;
+            return null;
         }
 
         // The optimizer. Everything above this line stops at the analyzer, which is why this harness
@@ -1003,7 +1038,7 @@ public class AstMutationFuzzerTest {
         if (planPercent > 0 && planRnd.nextInt(100) < planPercent) {
             Outcome planOutcome = planMutant(mutantSql, tally, findings, seed, mutation, elements);
             if (planOutcome != null) {
-                return;
+                return null;
             }
         }
 
@@ -1013,7 +1048,7 @@ public class AstMutationFuzzerTest {
         } catch (Throwable t) {
             record(tally, findings, Outcome.DEPARSE_THROW, signatureOf(t), seed, mutation, mutantSql,
                     "2nd pass: " + oneLine(t));
-            return;
+            return null;
         }
         if (!mutantSql.equals(second)) {
             // P0.5 left 683 fixpoint mismatches unclassified. Key them by the shape of the first
@@ -1022,12 +1057,13 @@ public class AstMutationFuzzerTest {
             String[] diff = firstDiffWindow(mutantSql, second);
             record(tally, findings, Outcome.FIXPOINT_MISMATCH, "fixpoint:" + diffShape(diff[0], diff[1]),
                     seed, mutation, mutantSql, "s1 ..." + diff[0] + "...  |  s2 ..." + diff[1] + "...");
-            return;
+            return null;
         }
         tally.merge(Outcome.OK, 1, Integer::sum);
         if (emitQueries != null) {
             emitQueries.add(mutantSql.replace('\n', ' ').trim() + ";");
         }
+        return mutantSql;
     }
 
     /**
@@ -1136,7 +1172,7 @@ public class AstMutationFuzzerTest {
      * pool with its own output drifts away from them. Coverage bought by leaving the query
      * distribution the product actually sees is not coverage worth having.
      */
-    private void creditCoverage(Set<String> elements, String mutantSql) {
+    private void creditCoverage(Set<String> elements, String mutantSql, boolean executable) {
         CoverageMap.Gain gain = coverage.observe(elements);
         if (!gain.isInteresting()) {
             return;
@@ -1146,6 +1182,21 @@ public class AstMutationFuzzerTest {
         // now but would bloat a corpus meant to have one entry per distinct thing reached.
         if (gain.newElements > 0 && shapeCorpus.size() < 20000) {
             shapeCorpus.add(terminated(mutantSql));
+        }
+        // The same selection, written where it can actually be REPLAYED. srfuzz.emit already writes
+        // an executable pair per corpus file -- the file's DDL and INSERTs beside its statements --
+        // but it takes every mutant that round-tripped, which is most of them and undiscriminating.
+        // srfuzz.shapeCorpus makes the interesting selection but writes bare statements with no
+        // schema, and a seed corpus with no DDL binds at nothing: 125 benchmark files installed with
+        // a bare `USE bench_tpcds;` produced `seeds: 0, mutants: 0`, every one dropped as stale.
+        //
+        // This is the intersection, and it is the only form worth handing to the cluster arm: the
+        // mutants that reached coverage nothing else did, next to the setup that makes them run.
+        // Requires `executable` -- a mutant the analyzer rejected can be novel and is still not a
+        // seed, and shipping one produces an error on replay rather than a query.
+        if (executable && gain.newElements > 0 && emitNovel != null) {
+            emitNovel.add(mutantSql.replace('\n', ' ').trim() + ";");
+            novelSeeds++;
         }
         if (feedbackPercent > 0 && feedbackPool != null) {
             int copies = Math.min(gain.energy(), 4);
