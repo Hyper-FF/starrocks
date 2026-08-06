@@ -44,6 +44,7 @@ import com.starrocks.sql.common.ErrorType;
 import com.starrocks.sql.common.StarRocksPlannerException;
 import com.starrocks.sql.common.UnsupportedException;
 import com.starrocks.sql.optimizer.OptExpression;
+import com.starrocks.sql.optimizer.rule.RuleType;
 import com.starrocks.sql.parser.SqlParser;
 import com.starrocks.sql.plan.ExecPlan;
 import com.starrocks.utframe.StarRocksAssert;
@@ -742,6 +743,23 @@ public class AstMutationFuzzerTest {
                     feedbackPercent > 0 ? " (fed back into the splice pool)" : "");
             System.out.printf("rarest elements (threshold %d): %s%n",
                     coverage.rareThreshold(), String.join(", ", coverage.rarest(12)));
+            // The blind-spot list, which is the actionable half of a coverage number. Rules are the
+            // only signal with a known vocabulary -- RuleType enumerates all of them -- so they are
+            // the only one that can report what was NEVER reached rather than only what was.
+            //
+            // Read with the caveat this prints: the trace covers the RBO phase, and the memo phase
+            // names its scopes by class rather than by RuleType, so memo-only rules appear here
+            // whether or not they ran. The list is a starting point for steering, not a verdict.
+            List<String> neverFired = new ArrayList<>();
+            for (RuleType rt : RuleType.values()) {
+                if (rt != RuleType.NUM_RULES && coverage.hits("R:" + rt.name()) == 0) {
+                    neverFired.add(rt.name());
+                }
+            }
+            System.out.printf("rules never traced: %d of %d (memo-phase rules are not visible here)%n",
+                    neverFired.size(), RuleCoverage.NUM_RULES);
+            System.out.println("  e.g. " + String.join(", ",
+                    neverFired.subList(0, Math.min(15, neverFired.size()))));
             if (coverageFailed > 0) {
                 System.out.printf("shape collection FAILED on %d of %d; first: %s%n",
                         coverageFailed, coverageSampled, coverageFirstError);
@@ -878,6 +896,41 @@ public class AstMutationFuzzerTest {
 
     private void evaluate(String seed, String mutation, StatementBase mutant,
                           Map<Outcome, Integer> tally, Map<String, Finding> findings) {
+        // Features first, from the tree as parsed. This is the only point every mutant passes
+        // through: measured, 863 of 2293 mutants in a three-file run are rejected by the ANALYZER
+        // and never reach the planner, so collecting here rather than inside planMutant is the
+        // difference between crediting 1548 mutants and crediting all of them.
+        Set<String> elements = coveragePercent > 0 ? featuresOf(mutant) : null;
+        try {
+            evaluate(seed, mutation, mutant, tally, findings, elements);
+        } finally {
+            // One credit per mutant, on every path out. Crediting inside each branch is how a
+            // population ends up counted twice on one route and not at all on another.
+            if (elements != null) {
+                creditCoverage(elements, bestEffortSql(mutant));
+            }
+        }
+    }
+
+    /** Feature extraction that cannot take the run down with it; failures are counted, not thrown. */
+    private Set<String> featuresOf(StatementBase mutant) {
+        if (!(mutant instanceof QueryStatement)) {
+            return new LinkedHashSet<>();
+        }
+        try {
+            return new LinkedHashSet<>(SqlFeatures.of((QueryStatement) mutant));
+        } catch (Throwable t) {
+            coverageFailed++;
+            if (coverageFirstError == null) {
+                coverageFirstError = "features: " + t.getClass().getSimpleName() + ": " + t.getMessage();
+            }
+            return new LinkedHashSet<>();
+        }
+    }
+
+    private void evaluate(String seed, String mutation, StatementBase mutant,
+                          Map<Outcome, Integer> tally, Map<String, Finding> findings,
+                          Set<String> elements) {
         String mutantSql;
         // The mutated tree is unanalyzed, so serialize only after analysis succeeds. To report the
         // mutant when analysis fails we fall back to a best-effort rendering.
@@ -923,7 +976,7 @@ public class AstMutationFuzzerTest {
         // simply not being called. Planning needs no BE: StatementPlanner runs entirely in the FE, and
         // createMinStarRocksCluster has already stood up everything it needs.
         if (planPercent > 0 && planRnd.nextInt(100) < planPercent) {
-            Outcome planOutcome = planMutant(mutantSql, tally, findings, seed, mutation);
+            Outcome planOutcome = planMutant(mutantSql, tally, findings, seed, mutation, elements);
             if (planOutcome != null) {
                 return;
             }
@@ -969,7 +1022,7 @@ public class AstMutationFuzzerTest {
      * here as a planner failure. That is a different oracle and it belongs in a different signature.
      */
     private Outcome planMutant(String mutantSql, Map<Outcome, Integer> tally, Map<String, Finding> findings,
-                               String seed, String mutation) {
+                               String seed, String mutation, Set<String> elements) {
         StatementBase toPlan;
         try {
             toPlan = SqlParser.parse(mutantSql, ctx.getSessionVariable()).get(0);
@@ -984,11 +1037,6 @@ public class AstMutationFuzzerTest {
         if (!(toPlan instanceof QueryStatement)) {
             return null;
         }
-        // Static features come off the parse tree, so they are available whether or not the plan is.
-        // A rejected mutant used to teach the run nothing at all, which is backwards: the shapes the
-        // planner refuses are the ones worth knowing we have already tried.
-        Set<String> elements = coveragePercent > 0
-                ? new LinkedHashSet<>(SqlFeatures.of((QueryStatement) toPlan)) : null;
         try {
             ctx.setThreadLocalInfo();
             if (elements != null) {
@@ -1039,15 +1087,8 @@ public class AstMutationFuzzerTest {
                         coverageFirstError = t2.getClass().getSimpleName() + ": " + t2.getMessage();
                     }
                 }
-                creditCoverage(elements, mutantSql);
             }
         } catch (Throwable t) {
-            if (elements != null) {
-                // A mutant the planner refused still exercised the parser and analyzer, and its
-                // features are the record that this run has already been down that road. Crediting
-                // it is what stops the feedback loop from re-deriving rejected shapes forever.
-                creditCoverage(elements, mutantSql);
-            }
             Outcome o = classifyPlanFailure(t);
             String signature = o == Outcome.PLAN_REJECTED
                     ? rejectionSignature(t, mutation) : "plan:" + signatureOf(t);

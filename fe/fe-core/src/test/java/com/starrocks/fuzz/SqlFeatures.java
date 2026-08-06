@@ -14,11 +14,14 @@
 
 package com.starrocks.fuzz;
 
+import com.starrocks.catalog.FunctionSet;
 import com.starrocks.sql.ast.CTERelation;
+import com.starrocks.sql.ast.GroupByClause;
 import com.starrocks.sql.ast.JoinRelation;
 import com.starrocks.sql.ast.QueryRelation;
 import com.starrocks.sql.ast.QueryStatement;
 import com.starrocks.sql.ast.Relation;
+import com.starrocks.sql.ast.SelectListItem;
 import com.starrocks.sql.ast.SelectRelation;
 import com.starrocks.sql.ast.SetOperationRelation;
 import com.starrocks.sql.ast.SubqueryRelation;
@@ -42,8 +45,9 @@ import com.starrocks.sql.ast.expression.LikePredicate;
 import com.starrocks.sql.ast.expression.SubfieldExpr;
 import com.starrocks.sql.ast.expression.Subquery;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -72,6 +76,21 @@ public final class SqlFeatures {
     /** Guards against a pathological AST turning feature extraction into the expensive step. */
     private static final int MAX_ELEMENTS = 256;
     private static final int MAX_DEPTH = 32;
+
+    /**
+     * The aggregates worth naming: the ones the optimizer treats differently, not the ones users
+     * type most.
+     *
+     * <p>Each of these reaches a distinct rewrite -- split aggregation, the meta-scan rewrite for
+     * min/max/count, the multi-distinct rewrites, the bitmap and HLL union paths. A scalar function
+     * generally reaches none, which is why the vocabulary stops here.
+     */
+    private static final Set<String> AGGREGATES = new HashSet<>(Arrays.asList(
+            FunctionSet.COUNT, FunctionSet.SUM, FunctionSet.AVG, FunctionSet.MIN, FunctionSet.MAX,
+            FunctionSet.GROUP_CONCAT, FunctionSet.ARRAY_AGG, FunctionSet.ANY_VALUE,
+            FunctionSet.STDDEV, FunctionSet.VARIANCE, FunctionSet.MULTI_DISTINCT_COUNT,
+            FunctionSet.HLL_UNION_AGG, FunctionSet.BITMAP_UNION, FunctionSet.PERCENTILE_APPROX,
+            FunctionSet.WINDOW_FUNNEL));
 
     private SqlFeatures() {
     }
@@ -143,25 +162,33 @@ public final class SqlFeatures {
             }
             if (select.hasGroupByClause()) {
                 add(out, "groupby");
-                if (select.getGroupingSetsList() != null && !select.getGroupingSetsList().isEmpty()) {
-                    // ROLLUP/CUBE/GROUPING SETS all arrive here and each expands to a different
-                    // number of aggregation branches, which is a distinct optimizer path.
-                    add(out, "groupingsets");
+                GroupByClause groupBy = select.getGroupByClause();
+                if (groupBy.getGroupingType() != null
+                        && groupBy.getGroupingType() != GroupByClause.GroupingType.GROUP_BY) {
+                    // ROLLUP/CUBE/GROUPING SETS each expand to a different number of aggregation
+                    // branches, which is a distinct optimizer path rather than a spelling.
+                    add(out, "groupby:" + groupBy.getGroupingType().name());
+                }
+                if (groupBy.getGroupingExprs() != null) {
+                    for (Expr e : groupBy.getGroupingExprs()) {
+                        collectExpr(e, out, c, 0);
+                    }
                 }
             }
             if (select.hasHavingClause()) {
                 add(out, "having");
                 collectExpr(select.getHavingClause(), out, c, 0);
             }
-            if (select.hasAnalyticInfo()) {
-                add(out, "window");
-            }
-            List<FunctionCallExpr> aggs = select.getAggregate();
-            if (aggs != null) {
-                c.aggregates += aggs.size();
-            }
-            for (Expr e : select.getOutputExpression()) {
-                collectExpr(e, out, c, 0);
+            // The select list, NOT getOutputExpression(): output expressions, the aggregate list and
+            // hasAnalyticInfo() are all filled in by the analyzer, and this runs on a tree that has
+            // only been parsed. Reading them returned null and took the whole corpus file down with
+            // it -- the same trap the mutation operators carry a rule about.
+            if (select.getSelectList() != null && select.getSelectList().getItems() != null) {
+                for (SelectListItem item : select.getSelectList().getItems()) {
+                    if (!item.isStar()) {
+                        collectExpr(item.getExpr(), out, c, 0);
+                    }
+                }
             }
             collect(select.getRelation(), out, c, depth + 1);
         } else if (relation instanceof JoinRelation) {
@@ -225,14 +252,20 @@ public final class SqlFeatures {
             add(out, "in" + (((InPredicate) expr).isNotIn() ? ":not" : ""));
         } else if (expr instanceof AnalyticExpr) {
             add(out, "window");
-            add(out, "windowfn:" + lower(((AnalyticExpr) expr).getFnCall().getFnName().getFunction()));
+            add(out, "windowfn:" + lower(((AnalyticExpr) expr).getFnCall().getFunctionName()));
         } else if (expr instanceof FunctionCallExpr) {
             FunctionCallExpr call = (FunctionCallExpr) expr;
-            // Only aggregates are named. See the class comment: naming every scalar function would
-            // flood the vocabulary and destroy the rarity signal for everything else.
-            if (call.isAggregateFunction()) {
-                add(out, "agg:" + lower(call.getFnName().getFunction())
-                        + (call.isDistinct() ? ":distinct" : ""));
+            // Matched by NAME against a fixed list, not by isAggregateFunction(): that method asserts
+            // the function has been RESOLVED and throws outright on a parsed-but-unanalyzed tree,
+            // which is every tree this class sees.
+            //
+            // Only aggregates are named at all. See the class comment: naming every scalar function
+            // would flood the vocabulary and destroy the rarity signal for everything else.
+            String name = lower(call.getFunctionName());
+            if (AGGREGATES.contains(name)) {
+                c.aggregates++;
+                add(out, "agg:" + name + (call.getParams() != null && call.getParams().isDistinct()
+                        ? ":distinct" : ""));
             }
         } else if (expr instanceof CaseExpr) {
             add(out, "case");

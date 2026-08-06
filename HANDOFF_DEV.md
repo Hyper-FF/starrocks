@@ -128,35 +128,66 @@ rows while silently losing statistics for a whole subtree.
 
 ## Grey-box: what is measured, what works, what does not
 
-Three signals exist. **Only one of them is usable as a feedback key**, and the two measurements that
-established that are worth not repeating:
+⚠️ **Two things this section used to say are wrong, and one number it quoted should not be reused.**
+Both were corrected by measurement on 2026-08-06; the corrected design is what ships today.
 
 | signal | covers | responds to statistics | cost | use |
 |---|---|---|---|---|
-| `RuleCoverage` (`appliedRuleMasks`) | memo phase ONLY -- 27 of the 178 rules that actually run | **no** | free | do not use alone |
-| `RuleFiringTap` (JMockit on `RewriteTreeTask#applyRules`) | the RBO phase -- the other 151 | untested | high | offline blind-spot analysis |
-| **`PlanShape.fingerprint`** | the plan the optimizer CHOSE | **yes** (128 → 136 shapes) | free | **the feedback key** |
+| `RuleCoverage` (`appliedRuleMasks`) | memo phase ONLY | **no** | needs a 2nd optimize | not in the loop |
+| ~~`RuleFiringTap`~~ | **nothing usable -- see below** | — | high | **do not use** |
+| **`RuleTrace`** (product's own `Tracers`) | the RBO phase, rules genuinely applied | untested | free | **feedback key** |
+| **`PlanShape.elements`** | the plan the optimizer CHOSE | **yes** | free | **feedback key** |
+| **`SqlFeatures`** | what the statement CONTAINS, pre-plan | n/a | free | **feedback key** |
 
-**The masks are blind to cost.** With `FuzzStatisticStorage` installed and consulted 90,240 times
-over 816 production queries, the fired-rule set did not move by one bit. Exploration applies every
-rule that MATCHES a shape; cost only picks among the alternatives. So the masks measure a corpus's
-syntactic reach and nothing about the resulting plan.
+**`RuleFiringTap` reports rules CONSIDERED, not applied.** It intercepts
+`RewriteTreeTask#applyRules` and sets a bit for every rule in the `rules` argument, but the product
+only reaches `transform` after four guards (`RewriteTreeTask.java:100-108`: rule disabled, rule
+exhausted, pattern match, `Rule#check`). Measured: it reads **121 rules for a bare scan and 124 for
+a filtered join** -- three bits apart -- where the real firing sets are twelve apart. It is very
+nearly a constant, so **the "real coverage is 178/265 ≈ 67%" figure is retired**: that was the
+phase's static rule list.
 
-**The masks are also incomplete.** `logicalRuleRewrite` rewrites the `OptExpression` tree via
-`RewriteTreeTask` and never creates a `GroupExpression`, so predicate pushdown, partition pruning and
-aggregate splitting are invisible to them. They reported as "never fired" across 816 queries with
-WHERE clauses, which is impossible. **Real coverage is 178/265 ≈ 67%, not the 10.2% the masks show.**
-Any plan built on "the corpus only reaches 10% of the optimizer" is built on a number that is wrong
-by 6.6x.
+**The correct hook was already in the product and costs nothing.** `RewriteTreeTask.java:117` wraps
+`rule.transform` in `Tracers.watchScope(Module.OPTIMIZER, rule.toString())`, INSIDE those guards, and
+`Rule#toString()` returns `type().name()`. So arming the tracer per query and probing
+`Tracers.getSpecifiedTimer(<RuleType name>)` gives the real per-query RBO vector -- no JMockit, no
+agent, no second optimize. `StatementPlanner` never calls `Tracers.init`/`register` itself, so the
+mask armed before planning survives the whole plan. Measured on six shapes: scan 17, filter 22,
+agg 25, join 29, sortlimit 21, union 18, **union 40**; of a filtered query's rules, **22 are
+invisible to the masks and 1 is visible**. Regression test: `RuleTraceProbeTest`.
 
-Discrimination over the same 131 mutants: 19 reached a new plan shape, 10 reached a new rule. The
-fingerprint is read from `ExecPlan#getPhysicalPlan()`, so it costs nothing beyond the plan already
-built -- an earlier version re-ran transform + optimize and had to sample.
+**The masks are blind to cost** (this part still holds). With `FuzzStatisticStorage` consulted 90,240
+times over 816 production queries, the fired-rule set did not move by one bit. Exploration applies
+every rule that MATCHES; cost only picks among the alternatives.
 
-The feedback loop (`srfuzz.feedback`, default off) puts a mutant that reached an unseen plan shape
-into the splice pool, and `srfuzz.shapeCorpus` writes those mutants out as a corpus where every entry
-is a different plan. The pool is bounded on purpose: an unbounded one drifts the corpus away from the
-production shapes it was harvested from.
+**The feedback key is no longer the fingerprint string.** An exact-match set has no partial credit --
+a plan one operator away from a known one scores the same as a repeat -- and it saturates once the
+common shapes are enumerated, which is exactly when a long run needs the signal. `CoverageMap` counts
+namespaced ELEMENTS instead: `R:` rules, `OP:`/`EDGE:` plan operators and parent→child pairs, `F:`
+static SQL features. Rarity is relative and recomputed every 1000 observations, so "rare" means the
+same share of elements at mutant one million as at mutant one thousand.
+
+**Features are read off the parse tree, so every mutant is credited.** This matters more than it
+sounds: measured, **947 of 2286 mutants are rejected by the ANALYZER** and never reach the planner.
+Collecting features inside `planMutant` credited 1548 of them; collecting at the top of `evaluate`
+credits all 2404. Do not move it back.
+
+Energy rides on the splice pool: material is drawn uniformly, so inserting a mutant once per unit of
+energy is a power schedule in the mechanism that already exists. Capped at 4, pool bounded at 5000 --
+a loop free to fill the pool with its own output drifts off the production shapes the corpus came
+from.
+
+**Measured on 3 production corpus files, 20 mutations/seed, 118 seeds, 2286 mutants:**
+
+```
+coverage: 363 elements over 2404 mutants (rules 104/265, plan-ops 36, plan-edges 156, sql-features 67)
+plan shapes: 268 distinct; 225 of 2404 credited mutants gained coverage
+rarest: EDGE:PHYSICAL_HASH_AGG->PHYSICAL_NESTLOOP_JOIN[RIGHT OUTER JOIN](1),
+        EDGE:PHYSICAL_TABLE_FUNCTION->PHYSICAL_TABLE_FUNCTION(1), R:TF_PUSH_DOWN_PREDICATE_CTE_CONSUME(1)
+```
+
+**104/265 rules is the first honest optimizer-coverage number this project has had.** It is not
+comparable with the masks' 10.2% (different phase) or the tap's 67% (different question).
 
 **A/B in flight on dev1** -- `astsoak` (feedback=0) vs `astfb` (feedback=100), identical but for
 `SRFUZZ_EXTRA`. Judge it on **de-duplicated defect signatures after 50+ rounds**, not on shape or
