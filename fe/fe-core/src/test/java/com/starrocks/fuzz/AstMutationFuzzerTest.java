@@ -139,6 +139,16 @@ public class AstMutationFuzzerTest {
     private int novelSeeds;
 
     /**
+     * How many corpus files came from each origin and generation.
+     *
+     * <p>The number that catches corpus drift. Emitted corpora are meant to be fed back, and once
+     * they are, a run's input is a mixture of production shapes and shapes this fuzzer invented --
+     * silently, and irreversibly if nobody was counting. A run that reports gen1 and gen2 files in
+     * its input is a run whose findings are about the mutator as much as about the product.
+     */
+    private Map<String, Integer> originMix;
+
+    /**
      * Percentage of round-tripped mutants that are also planned, from {@code -Dsrfuzz.plan}.
      *
      * <p>Sampled rather than all-or-nothing because planning is the expensive step: it runs the whole
@@ -469,6 +479,7 @@ public class AstMutationFuzzerTest {
         interestingMutants = 0;
         steerPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.steer", 0)));
         novelSeeds = 0;
+        originMix = new LinkedHashMap<>();
         shapeCorpus = new ArrayList<>();
         feedbackPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.feedback", 0)));
         coverageExpanders = 0;
@@ -556,8 +567,15 @@ public class AstMutationFuzzerTest {
             } catch (Throwable t) {
                 continue;
             }
+            // Declared out here because the emit block in the finally inherits the lineage from it.
+            CorpusOrigin fileOrigin = null;
             try {
                 String text = new String(Files.readAllBytes(files.get(i)), StandardCharsets.UTF_8);
+                // Where this file came from, so the emitted corpus can inherit the lineage and the
+                // run can report how much of its own input was already its own output.
+                fileOrigin = CorpusOrigin.read(text);
+                originMix.merge(fileOrigin.isUnknown() ? "unstamped"
+                        : fileOrigin.origin() + ":gen" + fileOrigin.generation(), 1, Integer::sum);
                 List<String> statements = CorpusReader.extractStatements(text);
                 emitSetup = emitDir == null ? null : new ArrayList<>();
                 emitQueries = emitDir == null ? null : new ArrayList<>();
@@ -752,7 +770,8 @@ public class AstMutationFuzzerTest {
                     // anonymous -- there is no way to tell which run, seed or settings produced a
                     // statement, and a seed whose origin cannot be established cannot be trusted
                     // when it turns into a finding.
-                    String origin = provenance(files.get(i), db, seedValue, mutationsPerSeed, chainMax);
+                    String origin = CorpusOrigin.stampFor(fileOrigin, files.get(i).getFileName().toString())
+                            + provenance(files.get(i), db, seedValue, mutationsPerSeed, chainMax);
                     Files.write(emitDir.resolve(String.format("mut_%03d.setup.sql", i)),
                             (origin + String.join("\n", emitSetup)).getBytes(StandardCharsets.UTF_8));
                     Files.write(emitDir.resolve(String.format("mut_%03d.query.sql", i)),
@@ -844,6 +863,9 @@ public class AstMutationFuzzerTest {
                         coverageFailed, coverageSampled, coverageFirstError);
             }
         }
+        System.out.println("corpus origins: " + originMix
+                + (originMix.containsKey("unstamped")
+                ? "  (unstamped = origin never recorded, NOT a claim that it is production)" : ""));
         printSummary(tally, findings, seedCount, mutantCount, unreachableCount, staleSeeds,
                 unbindableSeeds);
     }
