@@ -18,6 +18,7 @@ import com.starrocks.common.AnalysisException;
 import com.starrocks.common.StarRocksException;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SqlModeHelper;
+import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.StatementPlanner;
 import com.starrocks.sql.analyzer.Analyzer;
 import com.starrocks.sql.analyzer.AstToSQLBuilder;
@@ -137,6 +138,16 @@ public class AstMutationFuzzerTest {
 
     /** Novel seeds written across the whole run, for the summary. */
     private int novelSeeds;
+
+    /**
+     * Synthetic statistics, when {@code -Dsrfuzz.stats} asked for them.
+     *
+     * <p>Kept so the run can report its call count. Installing a storage and having the optimizer
+     * consult it are different things -- a cache in front would leave the injection inert while
+     * every log line still said it was on -- and a zero there means the measurement failed, not the
+     * hypothesis.
+     */
+    private FuzzStatisticStorage fuzzStats;
 
     /**
      * How many corpus files came from each origin and generation.
@@ -480,6 +491,34 @@ public class AstMutationFuzzerTest {
         steerPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.steer", 0)));
         novelSeeds = 0;
         originMix = new LinkedHashMap<>();
+
+        // Synthetic statistics, off by default.
+        //
+        // The whole cost-driven half of the optimizer is unreachable without them: with no
+        // statistics every table looks the same size, so join order is never reconsidered,
+        // broadcast is never weighed against shuffle, and TF_SPLIT_AGGREGATE cannot fire because
+        // splitting an aggregation is a cost decision. Those rules were in the never-traced list
+        // and no amount of mutation was going to move them.
+        //
+        // An earlier measurement concluded statistics change nothing -- 90,240 consultations and
+        // "the fired-rule set did not move by one bit". That was read off the applied-rule MASKS,
+        // which see only the memo's exploration and are blind to cost by construction: exploration
+        // applies every rule that matches a shape, and cost only picks among the alternatives. The
+        // conclusion was about the instrument. With the RBO trace and the chosen plan now in the
+        // map, this is worth re-asking.
+        String statsSeed = System.getProperty("srfuzz.stats");
+        if (statsSeed != null) {
+            try {
+                fuzzStats = new FuzzStatisticStorage(Long.parseLong(statsSeed));
+                GlobalStateMgr.getCurrentState().setStatisticStorage(fuzzStats);
+                System.err.println("synthetic statistics ON (seed " + statsSeed + ")");
+            } catch (Throwable t) {
+                System.err.println("synthetic statistics FAILED to install: " + t);
+                fuzzStats = null;
+            }
+        } else {
+            fuzzStats = null;
+        }
         shapeCorpus = new ArrayList<>();
         feedbackPercent = Math.max(0, Math.min(100, Integer.getInteger("srfuzz.feedback", 0)));
         coverageExpanders = 0;
@@ -888,6 +927,12 @@ public class AstMutationFuzzerTest {
             }
             System.out.printf("  memo classes the index could not resolve (%d): %s%n", unmapped.size(),
                     String.join(", ", unmapped.subList(0, Math.min(12, unmapped.size()))));
+            if (fuzzStats != null) {
+                System.out.printf("  synthetic statistics consulted %d times%s%n", fuzzStats.callCount(),
+                        fuzzStats.callCount() == 0
+                                ? "  ⚠ NEVER consulted -- the injection is inert and any comparison "
+                                + "against a run without it measures nothing" : "");
+            }
             // Printed whenever a map exists, steering or not: the weights say what steering WOULD
             // do, so a run can be read for whether the bias is worth turning on. All-equal weights
             // mean every declared target is covered, and then the corpus is the ceiling, not the
