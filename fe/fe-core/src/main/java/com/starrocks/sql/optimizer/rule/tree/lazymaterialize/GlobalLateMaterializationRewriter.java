@@ -846,6 +846,7 @@ public class GlobalLateMaterializationRewriter {
                 if (op instanceof PhysicalCTEAnchorOperator) {
                     begin = 1;
                 }
+                final ColumnRefSet pushedColumns = new ColumnRefSet();
                 for (int i = begin; i < optExpression.getInputs().size(); i++) {
                     OptExpression input = optExpression.inputAt(i);
                     final IdentifyOperator cIdx = new IdentifyOperator((PhysicalOperator) input.getOp());
@@ -853,11 +854,29 @@ public class GlobalLateMaterializationRewriter {
                     if (dependency == null || !dependency.contains(scanId)) {
                         continue;
                     }
-                    if (tryPushDownFetch(input, scanId, value, context)) {
-                        pushedScanFetch.add(scanId);
+                    // Depending on the scan is not the same as carrying the column. A CTE consumed on
+                    // both sides of a join makes both children depend on the producer's scan, and a
+                    // join condition column lives in exactly one of them. Pushing the fetch into the
+                    // side that does not output the column materialized it in the wrong branch and,
+                    // because the position was then dropped from this operator, left the column
+                    // unmaterialized for the branch whose predicate reads it -- an invalid plan.
+                    final ColumnRefSet childColumns = value.clone();
+                    childColumns.intersect(input.getOutputColumns());
+                    if (childColumns.isEmpty()) {
+                        continue;
+                    }
+                    if (tryPushDownFetch(input, scanId, childColumns, context)) {
+                        pushedColumns.union(childColumns);
                     }
                 }
 
+                // Only the columns a child accepted move down. Whatever is left stays here so that a
+                // fetch is introduced above this operator: a child that refused the push down (it
+                // carries a small limit, say) does not materialize the column for us.
+                value.except(pushedColumns);
+                if (value.isEmpty()) {
+                    pushedScanFetch.add(scanId);
+                }
             }
             for (IdentifyOperator pushDownedFetchPo : pushedScanFetch) {
                 context.collectorContext.fetchPositions.remove(id, pushDownedFetchPo);
