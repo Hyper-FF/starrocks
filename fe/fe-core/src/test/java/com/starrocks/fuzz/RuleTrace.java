@@ -19,7 +19,9 @@ import com.starrocks.sql.optimizer.rule.RuleType;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Which rules the RBO phase actually applied to one query, read out of the product's own tracer.
@@ -108,6 +110,104 @@ public final class RuleTrace {
             if (Tracers.getSpecifiedTimer(name).isPresent()) {
                 names.add(name);
             }
+        }
+        return names;
+    }
+
+    /**
+     * Rules the MEMO phase applied, by class name.
+     *
+     * <p>The other half of the optimizer, and the reason a run reports 115 of 265 rules and calls
+     * 161 "never traced" with the join-reorder family at the top of the list. {@code ApplyRuleTask}
+     * wraps its {@code transform} in the same tracer scope as the RBO phase, but names it
+     * {@code rule.getClass().getSimpleName()} instead of {@code rule.toString()}, so probing
+     * {@link RuleType} names -- which is all {@link #fired()} can do -- never matches one of them.
+     * They were recorded all along and nobody was reading them.
+     *
+     * <p>Recovered by parsing {@code Tracers.printScopeTimer()}, because {@code Tracers} exposes
+     * {@code getSpecifiedTimer(name)} and no way to enumerate. Parsing a human-readable format is
+     * the weaker choice and it is taken deliberately: the alternative is an accessor in product
+     * code, and this whole signal's value is that it needs no product change. {@link #parseFailed()}
+     * makes the weakness loud -- see the validation in {@link #firedScopes}.
+     *
+     * <p>Class names, not RuleTypes. Mapping one to the other needs a rule INSTANCE and the memo
+     * builds its own; as a coverage element the class name is exactly as good, since what matters
+     * is that two runs agree on whether the same rule fired.
+     */
+    public static Set<String> memoRuleClasses() {
+        Set<String> out = new LinkedHashSet<>();
+        for (String scope : firedScopes()) {
+            // StarRocks names every rule class *Rule, and the non-rule scopes in this module are
+            // phase timers put there by StatementPlanner -- Analyzer, Transformer, Optimizer,
+            // ExecPlanBuild, Lock. RuleType names are excluded because fired() already has them and
+            // counting a rule under both namespaces would inflate the map with duplicates.
+            if (scope.endsWith("Rule") && !RULE_TYPE_NAMES.contains(scope)) {
+                out.add(scope);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Every scope name the tracer recorded, parsed out of the printed form.
+     *
+     * <p>{@code ScopedTimer.toString()} is {@code <indent>-- <name>[<count>] <time>} and
+     * {@code printScopeTimer} prefixes each line with {@code <ms>ms|}, so the name is what sits
+     * between {@code "-- "} and the last {@code '['}.
+     */
+    static Set<String> firedScopes() {
+        Set<String> names = new LinkedHashSet<>();
+        String printed;
+        try {
+            printed = Tracers.printScopeTimer();
+        } catch (Throwable t) {
+            parseFailures++;
+            return names;
+        }
+        for (String line : printed.split("\n")) {
+            int start = line.indexOf("-- ");
+            if (start < 0) {
+                continue;
+            }
+            int end = line.lastIndexOf('[');
+            if (end <= start + 3) {
+                continue;
+            }
+            names.add(line.substring(start + 3, end).trim());
+        }
+        // Self-check. The probe form is known good -- RuleTraceProbeTest pins it -- so every rule it
+        // finds must also appear here. If the printed format ever changes, this is what says so;
+        // without it a broken parser would report zero memo rules, which is indistinguishable from
+        // an optimizer that ran none.
+        for (int i = 0; i < NUM_RULES; i++) {
+            String name = RULES[i].name();
+            if (Tracers.getSpecifiedTimer(name).isPresent() && !names.contains(name)) {
+                parseFailures++;
+                break;
+            }
+        }
+        return names;
+    }
+
+    /**
+     * How many times the scope parse disagreed with the probe, across the process.
+     *
+     * <p>Reported rather than thrown: a measurement defect must not fail a mutant. But it must not
+     * be silent either -- a zero here and a zero from {@link #memoRuleClasses()} mean opposite
+     * things and only this number tells them apart.
+     */
+    public static int parseFailed() {
+        return parseFailures;
+    }
+
+    private static int parseFailures;
+
+    private static final Set<String> RULE_TYPE_NAMES = ruleTypeNames();
+
+    private static Set<String> ruleTypeNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (RuleType t : RULES) {
+            names.add(t.name());
         }
         return names;
     }
