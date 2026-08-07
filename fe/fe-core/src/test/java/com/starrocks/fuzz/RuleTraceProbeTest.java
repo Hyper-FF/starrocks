@@ -175,6 +175,34 @@ public class RuleTraceProbeTest {
     }
 
     /**
+     * The memo phase, which the RuleType probe is structurally unable to see.
+     *
+     * <p>Join reordering lives there, so a query with a join must report rule classes the RBO trace
+     * does not -- and the scope parse must agree with the probe on the rules both can see, which is
+     * what makes a parsed human-readable format safe to depend on.
+     */
+    @Test
+    public void memoPhaseRulesAreRecoveredAndAgreeWithTheProbe() {
+        BitSet rbo = planAndTrace(QUERIES.get("join"));
+        java.util.Set<String> memo = RuleTrace.memoRuleClasses();
+
+        System.out.printf("join: RBO %d rules, memo %d rule classes%n", rbo.cardinality(), memo.size());
+        System.out.println("  memo e.g. " + memo.stream().limit(12).collect(java.util.stream.Collectors.toList()));
+
+        Assertions.assertEquals(0, RuleTrace.parseFailed(),
+                "the scope parse disagreed with the probe; printScopeTimer's format has changed "
+                        + "and the memo count cannot be trusted");
+        Assertions.assertFalse(memo.isEmpty(),
+                "no memo-phase rule classes recovered, so the loop is still blind to half the optimizer");
+
+        // The two namespaces must not overlap: a rule counted under both would inflate the map.
+        for (String cls : memo) {
+            Assertions.assertFalse(cls.startsWith("TF_") || cls.startsWith("IMP_"),
+                    "a RuleType name leaked into the memo class set: " + cls);
+        }
+    }
+
+    /**
      * Why {@link RuleFiringTap} cannot be the key, measured rather than argued.
      *
      * The tap sets a bit for every rule in {@code RewriteTreeTask#applyRules}' argument list, but the

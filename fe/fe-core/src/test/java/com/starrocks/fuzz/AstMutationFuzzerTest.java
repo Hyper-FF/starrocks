@@ -821,6 +821,10 @@ public class AstMutationFuzzerTest {
                     coverage.size(), coverage.observations(),
                     coverage.sizeOf("R:"), RuleCoverage.NUM_RULES,
                     coverage.sizeOf("OP:"), coverage.sizeOf("EDGE:"), coverage.sizeOf("F:"));
+            System.out.printf("  memo-phase rule classes: %d%s%n", coverage.sizeOf("M:"),
+                    RuleTrace.parseFailed() > 0
+                            ? "  ⚠ scope parse disagreed with the probe " + RuleTrace.parseFailed()
+                            + " times -- the memo count is NOT trustworthy" : "");
             // Denominator is every CREDITED mutant, not just the planned ones: rejected mutants are
             // credited for their features now, and dividing by the planned count would report a
             // rate against a population that is not the one being measured.
@@ -836,16 +840,43 @@ public class AstMutationFuzzerTest {
             // Read with the caveat this prints: the trace covers the RBO phase, and the memo phase
             // names its scopes by class rather than by RuleType, so memo-only rules appear here
             // whether or not they ran. The list is a starting point for steering, not a verdict.
+            // Split by prefix and reported as OBSERVED, not as a reachability claim.
+            //
+            // 265 is the wrong denominator -- three constants are section markers and NUM_RULES is a
+            // count -- but the tempting next step, excluding IMP_ and GP_ as "memo-only", is also
+            // wrong, and this run is what proved it: 115 rules left an RBO scope while only 97 of
+            // them were TF_, so 18 implementation or group rules fire in the rewrite phase after
+            // all. A denominator built on what the naming SUGGESTS would have understated the reach
+            // and invented a gap the corpus cannot close.
+            //
+            // So: count what fired, name what did not, and let the prefixes describe rather than
+            // decide.
+            Map<String, int[]> byPrefix = new LinkedHashMap<>();
             List<String> neverFired = new ArrayList<>();
             for (RuleType rt : RuleType.values()) {
-                if (rt != RuleType.NUM_RULES && coverage.hits("R:" + rt.name()) == 0) {
-                    neverFired.add(rt.name());
+                String n = rt.name();
+                if (rt == RuleType.NUM_RULES || n.endsWith("_RULES")) {
+                    continue;
+                }
+                String prefix = n.startsWith("TF_") ? "TF" : n.startsWith("IMP_") ? "IMP"
+                        : n.startsWith("GP_") ? "GP" : "other";
+                int[] slot = byPrefix.computeIfAbsent(prefix, k -> new int[2]);
+                slot[1]++;
+                if (coverage.hits("R:" + n) > 0) {
+                    slot[0]++;
+                } else {
+                    neverFired.add(n);
                 }
             }
-            System.out.printf("rules never traced: %d of %d (memo-phase rules are not visible here)%n",
-                    neverFired.size(), RuleCoverage.NUM_RULES);
-            System.out.println("  e.g. " + String.join(", ",
-                    neverFired.subList(0, Math.min(15, neverFired.size()))));
+            StringBuilder reach = new StringBuilder();
+            byPrefix.forEach((prefix, c) ->
+                    reach.append(reach.length() == 0 ? "" : ", ")
+                            .append(prefix).append(' ').append(c[0]).append('/').append(c[1]));
+            System.out.println("rule reach in the RBO trace, by prefix: " + reach);
+            System.out.printf("  never traced there (%d), e.g. %s%n", neverFired.size(),
+                    String.join(", ", neverFired.subList(0, Math.min(12, neverFired.size()))));
+            System.out.println("  (a rule absent here may still have fired in the memo phase, which "
+                    + "names its scopes by class -- see the memo-phase count above)");
             // Printed whenever a map exists, steering or not: the weights say what steering WOULD
             // do, so a run can be read for whether the bias is worth turning on. All-equal weights
             // mean every declared target is covered, and then the corpus is the ceiling, not the
@@ -1187,6 +1218,13 @@ public class AstMutationFuzzerTest {
                     // a filtered query fires 22 RBO rules against 1 visible to the masks.
                     for (String rule : RuleTrace.firedNames()) {
                         elements.add("R:" + rule);
+                    }
+                    // The memo phase, which the RuleType probe cannot see: it names its scopes by
+                    // rule class. Left out, the loop was blind to join reordering, aggregate
+                    // pushdown and every other cost-driven transformation -- the half of the
+                    // optimizer a fuzzer most wants to reach.
+                    for (String rule : RuleTrace.memoRuleClasses()) {
+                        elements.add("M:" + rule);
                     }
                     // The shape comes off the ExecPlan just built. Re-running transform + optimize to
                     // reach a memo doubled the cost of the loop's most expensive step and forced
