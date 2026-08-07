@@ -96,6 +96,22 @@ public class NestingMutation implements Mutation {
         /** {@code (SELECT * FROM R) a JOIN (SELECT * FROM R) b ON a.c = b.c}, or a cross join. */
         SELF_JOIN,
         /**
+         * {@code (SELECT * FROM R) a JOIN (SELECT c AS k1 FROM R) b ON ... JOIN (SELECT c AS k2 FROM R) c ON ...}
+         *
+         * <p>Three or more inputs, which is the whole point: join REORDERING needs at least three.
+         * Measured, TF_MULTI_JOIN_ORDER, TF_JOIN_ASSOCIATIVITY_* and TF_JOIN_LEFT_ASSCOM_* sat in the
+         * never-traced list across every run, and no amount of mutation was going to reach them,
+         * because SELF_JOIN produces exactly two inputs and M10 splices exactly one more. Two-input
+         * joins have nothing to reorder.
+         *
+         * <p>Every input after the first projects a single renamed key rather than {@code SELECT *}:
+         * a three-way star of {@code SELECT *} puts three copies of every column into the outer
+         * scope, and the analyzer rejects the enclosing query as ambiguous. That was already the
+         * lesson SELF_JOIN carries -- 5514 rejections when its right side was unprojected -- and it
+         * gets worse with each additional input rather than better.
+         */
+        MULTI_JOIN,
+        /**
          * {@code (SELECT * FROM R) a ASOF LEFT JOIN (SELECT * FROM R) b ON a.c = b.c AND a.t > b.t}.
          *
          * <p>The analyzer requires an ON clause with at least one equality and exactly one temporal
@@ -127,6 +143,9 @@ public class NestingMutation implements Mutation {
 
     private static final Set<String> TARGETS = Set.of(
             "F:derived", "F:cte", "F:tablefunction", "F:join:noon",
+            // MULTI_JOIN is the only operator that reaches three or more inputs, so a deficit in
+            // the join-count buckets has nowhere else to go.
+            "F:joins:2-3", "F:joins:4-7",
             SqlFeatures.setOpKey("UnionRelation"), SqlFeatures.setOpKey("ExceptRelation"),
             SqlFeatures.setOpKey("IntersectRelation"),
             SqlFeatures.joinKey(JoinOperator.INNER_JOIN),
@@ -426,6 +445,33 @@ public class NestingMutation implements Mutation {
                     }
                 }
                 wrapper = "(" + inner + ") `" + aliasA + "` " + joinType + " " + rightSide + " ON " + on;
+                break;
+            }
+            case MULTI_JOIN: {
+                // Needs a real key. Without one every input would be cross joined, and a three-way
+                // cross join is both useless to the reorder rules and quadratically expensive to
+                // replay against a cluster.
+                if (joinCond == null) {
+                    return null;
+                }
+                String col = joinCond.substring(1, joinCond.indexOf(';'));
+                // Three or four inputs. Four is worth producing because the reorder search space
+                // changes shape again above three, and the exhaustive-vs-greedy threshold sits in
+                // that range; more than four multiplies replay cost for a shape already reached.
+                int extra = 2 + (Math.abs(aliasA.hashCode()) % 2);
+                StringBuilder sb = new StringBuilder("(" + inner + ") `" + aliasA + "`");
+                for (int n = 0; n < extra; n++) {
+                    String aliasN = names.next();
+                    String key = aliasN + "_k";
+                    // All joined back to the FIRST input rather than in a chain: a star shape leaves
+                    // the reorder rules something to decide, where a left-deep chain of equalities
+                    // on the same column is often already the plan they would pick.
+                    sb.append(" INNER JOIN (SELECT `").append(col).append("` AS `").append(key)
+                            .append("` FROM ").append(targetText).append(") `").append(aliasN)
+                            .append("` ON `").append(aliasA).append("`.`").append(col)
+                            .append("` = `").append(aliasN).append("`.`").append(key).append('`');
+                }
+                wrapper = sb.toString();
                 break;
             }
             default:

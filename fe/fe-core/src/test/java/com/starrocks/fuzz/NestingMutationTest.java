@@ -103,8 +103,12 @@ public class NestingMutationTest {
 
                     // ASOF needs real column names: the analyzer demands an ON clause with an
                     // equality and exactly one temporal inequality, which cannot be invented without a
-                    // pool. Every other shape is built from the relation text alone.
-                    String cond = shape == NestingMutation.Shape.ASOF_JOIN ? "=v1;v2" : null;
+                    // pool. MULTI_JOIN needs one for a different reason -- without a key every input
+                    // would be cross joined, and a three-way cross join reaches none of the reorder
+                    // rules the shape exists for while costing a squared row count to replay. Every
+                    // other shape is built from the relation text alone.
+                    String cond = shape == NestingMutation.Shape.ASOF_JOIN
+                            || shape == NestingMutation.Shape.MULTI_JOIN ? "=v1;v2" : null;
                     String description = op.applyAt(stmt, slot, shape, cond);
                     // A join nested in a join operand used to be declined here, because the
                     // deparser emitted it without parentheses and the mutant could never survive the
@@ -201,6 +205,37 @@ public class NestingMutationTest {
         assertSharesNothingWith(seedNodes, sides.get(0));
         assertSharesNothingWith(seedNodes, sides.get(1));
         assertMutatingOneSideLeavesTheOtherAlone(sides.get(0), sides.get(1));
+    }
+
+    /**
+     * The shape exists to reach join REORDERING, which needs three or more inputs, so the thing to
+     * pin is the input count -- not that "a join appeared".
+     *
+     * <p>Written because the shape shipped and the rule numbers did not move, which has two possible
+     * causes with opposite fixes: the construction is wrong, or it is right and simply drawn too
+     * rarely to show up (roughly 1% of edits: one shape of ten, inside an operator taking about a
+     * ninth of the edits). This separates them. If it passes, the construction is sound and the
+     * problem is selection pressure.
+     */
+    @Test
+    public void testMultiJoinProducesThreeOrMoreInputs() {
+        QueryStatement stmt = parse("SELECT v1 FROM t0");
+        NestingMutation.Slot slot = slotNamed(stmt, "SelectRelation.from");
+        NestingMutation op = new NestingMutation();
+
+        // A real key is required by the shape, so hand it one rather than relying on the pool.
+        String applied = op.applyAt(stmt, slot, NestingMutation.Shape.MULTI_JOIN, "=v1;v1");
+        Assertions.assertNotNull(applied, "MULTI_JOIN did not apply to a plain single-table FROM");
+
+        String text = flat(reparseThroughGrammar(stmt));
+        int joins = text.split(" JOIN ", -1).length - 1;
+        Assertions.assertTrue(joins >= 2,
+                () -> "join reordering needs three or more inputs, got " + (joins + 1) + " in: " + text);
+        // Every input after the first must project a single renamed key. Three unprojected SELECT *
+        // copies put three of every column into the outer scope and the analyzer rejects the whole
+        // statement -- the same failure SELF_JOIN already carries a comment about, worse.
+        Assertions.assertFalse(text.contains("*, "),
+                () -> "an input was left unprojected, which makes the outer scope ambiguous: " + text);
     }
 
     /** Self join: two derived tables over the same relation, distinct aliases, distinct trees. */
