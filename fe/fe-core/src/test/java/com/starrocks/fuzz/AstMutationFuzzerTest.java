@@ -912,8 +912,22 @@ public class AstMutationFuzzerTest {
                     reach.append(reach.length() == 0 ? "" : ", ")
                             .append(prefix).append(' ').append(c[0]).append('/').append(c[1]));
             System.out.println("rule reach in the RBO trace, by prefix: " + reach);
-            System.out.printf("  never traced there (%d), e.g. %s%n", neverFired.size(),
-                    String.join(", ", neverFired.subList(0, Math.min(12, neverFired.size()))));
+            // Split by whether the rule is even OBSERVABLE, because listing the two together is how
+            // two rounds of work went into generating multi-way joins to reach TF_MULTI_JOIN_ORDER.
+            // That rule is carried by ReorderJoinRule, which QueryOptimizer builds with `new` and
+            // calls directly -- through neither RewriteTreeTask nor ApplyRuleTask, the only two
+            // places a tracer scope opens. It can fire on every query and still read as zero.
+            List<String> unobservable = new ArrayList<>();
+            List<String> realGaps = new ArrayList<>();
+            for (String n : neverFired) {
+                (RuleTypeIndex.isRegistered(RuleType.valueOf(n)) ? realGaps : unobservable).add(n);
+            }
+            System.out.printf("  never traced, REGISTERED so a corpus could reach them (%d): %s%n",
+                    realGaps.size(), String.join(", ", realGaps.subList(0, Math.min(12, realGaps.size()))));
+            System.out.printf("  never traced, not in any rule set the index walked (%d) -- likely "
+                            + "invoked directly and unobservable, do not chase: %s%n",
+                    unobservable.size(),
+                    String.join(", ", unobservable.subList(0, Math.min(8, unobservable.size()))));
             System.out.printf("  (memo rules folded in through a class-name index of %d rules)%n",
                     RuleTypeIndex.size());
             // The memo classes the index could NOT resolve. These are the reason a rule can fire and
@@ -927,6 +941,50 @@ public class AstMutationFuzzerTest {
             }
             System.out.printf("  memo classes the index could not resolve (%d): %s%n", unmapped.size(),
                     String.join(", ", unmapped.subList(0, Math.min(12, unmapped.size()))));
+            // Per-family breakdown. A single "106 of 193" says a run is half-covered and nothing
+            // about WHERE the other half is, and the two readings lead to different work: a family
+            // that is entirely dark needs a shape nobody is generating, while one that is half lit
+            // is being reached and just not exhaustively.
+            //
+            // The family is the first token after the prefix -- TF_JOIN_ASSOCIATIVITY_INNER is JOIN,
+            // TF_PUSH_DOWN_PREDICATE_SCAN is PUSH. Coarse on purpose: finer grouping fragments into
+            // families of one, which is the same as no grouping at all.
+            Map<String, int[]> families = new java.util.TreeMap<>();
+            for (RuleType rt : RuleType.values()) {
+                String n = rt.name();
+                if (rt == RuleType.NUM_RULES || n.endsWith("_RULES")) {
+                    continue;
+                }
+                String rest = n.startsWith("TF_") || n.startsWith("GP_") ? n.substring(3)
+                        : n.startsWith("IMP_") ? n.substring(4) : n;
+                int cut = rest.indexOf('_');
+                String family = cut < 0 ? rest : rest.substring(0, cut);
+                int[] c = families.computeIfAbsent(family, k -> new int[2]);
+                c[1]++;
+                if (coverage.hits("R:" + n) > 0) {
+                    c[0]++;
+                }
+            }
+            System.out.println("--- rule coverage by family (traced/total) ---");
+            List<Map.Entry<String, int[]>> dark = new ArrayList<>();
+            List<Map.Entry<String, int[]>> lit = new ArrayList<>();
+            families.entrySet().forEach(e -> (e.getValue()[0] == 0 ? dark : lit).add(e));
+            lit.sort((a, b) -> Integer.compare(b.getValue()[1] - b.getValue()[0],
+                    a.getValue()[1] - a.getValue()[0]));
+            for (Map.Entry<String, int[]> e : lit) {
+                int[] c = e.getValue();
+                System.out.printf("  %-22s %3d/%-3d %s%n", e.getKey(), c[0], c[1],
+                        bar(c[0], c[1]));
+            }
+            StringBuilder darkNames = new StringBuilder();
+            int darkRules = 0;
+            for (Map.Entry<String, int[]> e : dark) {
+                darkNames.append(darkNames.length() == 0 ? "" : ", ")
+                        .append(e.getKey()).append('(').append(e.getValue()[1]).append(')');
+                darkRules += e.getValue()[1];
+            }
+            System.out.printf("  ENTIRELY DARK: %d families, %d rules -> %s%n",
+                    dark.size(), darkRules, darkNames);
             if (fuzzStats != null) {
                 System.out.printf("  synthetic statistics consulted %d times%s%n", fuzzStats.callCount(),
                         fuzzStats.callCount() == 0
@@ -1117,6 +1175,16 @@ public class AstMutationFuzzerTest {
                 + "-- srfuzz.mutations: " + mutations + "  srfuzz.chain: " + chain + "\n"
                 + "-- srfuzz.coverage: " + coveragePercent + "  srfuzz.feedback: " + feedbackPercent
                 + "  srfuzz.steer: " + steerPercent + "  srfuzz.plan: " + planPercent + "\n";
+    }
+
+    /** A twenty-column meter, so a family's shape is readable without reading its numbers. */
+    private static String bar(int hit, int total) {
+        int filled = total == 0 ? 0 : Math.round(20f * hit / total);
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < 20; i++) {
+            sb.append(i < filled ? '#' : '.');
+        }
+        return sb.append(']').toString();
     }
 
     /** Feature extraction that cannot take the run down with it; failures are counted, not thrown. */

@@ -57,14 +57,52 @@ import java.util.Set;
  */
 public final class RuleTypeIndex {
 
-    private static final Map<String, RuleType> BY_CLASS_NAME = build();
+    private static final Map<String, Set<RuleType>> BY_CLASS_NAME = build();
+
+    /** Every RuleType carried by an instance the walk reached. */
+    private static final Set<RuleType> REGISTERED = collectRegistered();
 
     private RuleTypeIndex() {
     }
 
-    /** The RuleType for a rule class's simple name, or null when the walk never reached it. */
+    /**
+     * The RuleType for a class name, but ONLY when the class carries exactly one.
+     *
+     * <p>Some classes carry several: {@code JoinAssociativityRule} has an INNER and an OUTER static
+     * instance with different types, built from the same class. The memo names its scopes by class,
+     * so when one of those fires the trace cannot say which type it was -- and picking either would
+     * be a silent fabrication in a number whose whole purpose is to be trustworthy. The first
+     * version of this index did exactly that, by overwriting: last instance written wins, and the
+     * other type reads as never traced forever.
+     *
+     * @return the type when unambiguous, null when the class is unknown OR shared
+     */
     public static RuleType typeOf(String classSimpleName) {
-        return BY_CLASS_NAME.get(classSimpleName);
+        Set<RuleType> types = BY_CLASS_NAME.get(classSimpleName);
+        return types != null && types.size() == 1 ? types.iterator().next() : null;
+    }
+
+    /** Every type a class name may stand for, empty when the walk never reached it. */
+    public static Set<RuleType> typesOf(String classSimpleName) {
+        Set<RuleType> types = BY_CLASS_NAME.get(classSimpleName);
+        return types == null ? java.util.Collections.emptySet() : types;
+    }
+
+    /**
+     * Whether any rule set the walk covered actually holds an instance of this type.
+     *
+     * <p>The ones that answer false are the interesting ones. {@code TF_MULTI_JOIN_ORDER} is carried
+     * by {@code ReorderJoinRule}, which {@code QueryOptimizer} builds with {@code new} and calls
+     * directly rather than registering -- so it runs through neither {@code RewriteTreeTask} nor
+     * {@code ApplyRuleTask}, the only two places a tracer scope is opened. It can fire on every
+     * query and still read as never traced, which is what it did while two rounds of work went into
+     * generating multi-way joins to "reach" it.
+     *
+     * <p>Reported separately for that reason: a blind spot that no corpus can close is not a gap,
+     * and listing it beside real gaps sends the next person down the same road.
+     */
+    public static boolean isRegistered(RuleType type) {
+        return REGISTERED.contains(type);
     }
 
     /** How many distinct rule classes the index resolved, for reporting how complete it is. */
@@ -81,14 +119,20 @@ public final class RuleTypeIndex {
     public static Set<String> toRuleTypeNames(Collection<String> classNames) {
         Set<String> out = new LinkedHashSet<>();
         for (String cls : classNames) {
-            RuleType t = BY_CLASS_NAME.get(cls);
+            RuleType t = typeOf(cls);
             out.add(t == null ? cls : t.name());
         }
         return out;
     }
 
-    private static Map<String, RuleType> build() {
-        Map<String, RuleType> map = new HashMap<>();
+    private static Set<RuleType> collectRegistered() {
+        Set<RuleType> all = new LinkedHashSet<>();
+        BY_CLASS_NAME.values().forEach(all::addAll);
+        return all;
+    }
+
+    private static Map<String, Set<RuleType>> build() {
+        Map<String, Set<RuleType>> map = new HashMap<>();
         Deque<Rule> queue = new ArrayDeque<>();
         Set<Rule> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
 
@@ -143,7 +187,8 @@ public final class RuleTypeIndex {
                 continue;
             }
             try {
-                map.put(rule.getClass().getSimpleName(), rule.type());
+                map.computeIfAbsent(rule.getClass().getSimpleName(), k -> new LinkedHashSet<>())
+                        .add(rule.type());
             } catch (Throwable ignored) {
                 continue;
             }
