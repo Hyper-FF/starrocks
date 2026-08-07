@@ -370,7 +370,13 @@ Value TDigest::quantileProcessed(Value q) const {
 
     auto iter = std::lower_bound(_cumulative.cbegin(), _cumulative.cend(), index);
 
-    if (iter + 1 != _cumulative.cend()) {
+    // `index` comes from _processed_weight, which is a running float sum of the weights as rows and
+    // sub-digests arrive, while _cumulative.back() re-adds the centroid weights in double before
+    // narrowing once. The two agree on the value but not always on the last bit, so index can land
+    // just past _cumulative.back() and lower_bound then answers cend(). Dereferencing that iterator
+    // reads off the end of the vector, so treat it as the right tail below -- which is where an
+    // index that lands exactly on _processed_weight already goes.
+    if (iter != _cumulative.cend() && iter + 1 != _cumulative.cend()) {
         auto i = std::distance(_cumulative.cbegin(), iter);
         auto z1 = index - *(iter - 1);
         auto z2 = *(iter)-index;

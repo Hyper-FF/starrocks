@@ -377,6 +377,33 @@ TEST_F(TDigestTest, DeserializeClampsNonFiniteCentroids) {
     }
 }
 
+// _processed_weight is a running float sum of the incoming weights while _cumulative.back() re-adds
+// the centroid weights in double, so the two can disagree in the last bit. When _processed_weight is
+// the larger of the two, quantile(1.0) asks for an index past the end of _cumulative and the search
+// there used to run off the vector. percentile_approx_weighted() takes its weight from a column, so
+// weights this large are reachable from SQL.
+TEST_F(TDigestTest, QuantileIndexPastCumulativeEnd) {
+    TDigest digest(10000);
+    // 2^24 forces the running float sum to round at every step: 16777216 + 3 + 3 accumulates to
+    // 16777224 in float but sums to 16777222 exactly.
+    digest.add(1.0f, 16777216.0f);
+    digest.add(2.0f, 3.0f);
+    digest.add(3.0f, 3.0f);
+    digest.compress();
+
+    double exact_weight = 0;
+    for (const auto& centroid : digest.processed()) {
+        exact_weight += centroid.weight();
+    }
+    // The case is only interesting while the two disagree in this direction.
+    ASSERT_GT(digest.processedWeight(), static_cast<Weight>(exact_weight));
+
+    EXPECT_EQ(3.0, digest.quantile(1.0));
+    for (double q : {0.0, 0.25, 0.5, 0.9, 0.999, 1.0}) {
+        EXPECT_TRUE(std::isfinite(digest.quantile(q))) << "q = " << q;
+    }
+}
+
 TEST_F(TDigestTest, CompressEmptyDigest) {
     TDigest digest(1000);
     digest.compress();
