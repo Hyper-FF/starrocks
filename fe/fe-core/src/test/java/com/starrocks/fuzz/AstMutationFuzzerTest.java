@@ -875,8 +875,19 @@ public class AstMutationFuzzerTest {
             System.out.println("rule reach in the RBO trace, by prefix: " + reach);
             System.out.printf("  never traced there (%d), e.g. %s%n", neverFired.size(),
                     String.join(", ", neverFired.subList(0, Math.min(12, neverFired.size()))));
-            System.out.println("  (a rule absent here may still have fired in the memo phase, which "
-                    + "names its scopes by class -- see the memo-phase count above)");
+            System.out.printf("  (memo rules folded in through a class-name index of %d rules)%n",
+                    RuleTypeIndex.size());
+            // The memo classes the index could NOT resolve. These are the reason a rule can fire and
+            // still sit in the never-traced list, so naming them is what turns "the list looks wrong"
+            // into a fixable gap in the index rather than a mystery.
+            List<String> unmapped = new ArrayList<>();
+            for (String e : coverage.snapshot().keySet()) {
+                if (e.startsWith("M:") && RuleTypeIndex.typeOf(e.substring(2)) == null) {
+                    unmapped.add(e.substring(2));
+                }
+            }
+            System.out.printf("  memo classes the index could not resolve (%d): %s%n", unmapped.size(),
+                    String.join(", ", unmapped.subList(0, Math.min(12, unmapped.size()))));
             // Printed whenever a map exists, steering or not: the weights say what steering WOULD
             // do, so a run can be read for whether the bias is worth turning on. All-equal weights
             // mean every declared target is covered, and then the corpus is the ceiling, not the
@@ -1225,6 +1236,13 @@ public class AstMutationFuzzerTest {
                     // optimizer a fuzzer most wants to reach.
                     for (String rule : RuleTrace.memoRuleClasses()) {
                         elements.add("M:" + rule);
+                        // Also under the RuleType name, so the two phases share one vocabulary and a
+                        // memo-only rule stops being counted as never reached. Unresolvable names are
+                        // left in M: alone rather than invented into R:.
+                        RuleType resolved = RuleTypeIndex.typeOf(rule);
+                        if (resolved != null) {
+                            elements.add("R:" + resolved.name());
+                        }
                     }
                     // The shape comes off the ExecPlan just built. Re-running transform + optimize to
                     // reach a memo doubled the cost of the loop's most expensive step and forced
