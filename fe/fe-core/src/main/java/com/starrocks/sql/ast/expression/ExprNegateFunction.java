@@ -42,8 +42,28 @@ public final class ExprNegateFunction {
         }
     }
 
+    /**
+     * Negates {@code expr}, falling back to a {@code NOT} wrapper for anything it cannot invert.
+     *
+     * <p>Total by construction: {@link #isSupportNegate} is consulted here and nowhere else, so
+     * whatever it declines is wrapped instead of inverted. That single gate is the fix for a defect
+     * where the two disagreed. {@code ExprUtils.pushNegationToOperands} checked
+     * {@code isSupportNegate} on the NOT's direct child only, and
+     * {@link #negateCompoundPredicate} then recursed with a bare {@code negate()} on each operand.
+     * So {@code NOT (a <=> b)} was correctly left alone -- {@code EQ_FOR_NULL} is not in the
+     * supported list -- while {@code NOT (a <=> b AND c)} passed the outer check as a compound and
+     * reached {@code negateBinaryPredicate}, whose switch has no case for it, with
+     * {@code IllegalStateException: Not implemented} escaping the analyzer on valid SQL. Every
+     * query's WHERE and HAVING goes through this path.
+     *
+     * <p>De Morgan still holds with the wrapper: {@code NOT (a <=> b AND c)} becomes
+     * {@code NOT(a <=> b) OR NOT(c)}, which is correct if less flat than a fully inverted tree.
+     */
     public static Expr negate(Expr expr) {
         Preconditions.checkNotNull(expr, "expression cannot be null");
+        if (!isSupportNegate(expr)) {
+            return defaultNegate(expr);
+        }
         if (expr instanceof BinaryPredicate) {
             return negateBinaryPredicate((BinaryPredicate) expr);
         } else if (expr instanceof CompoundPredicate) {
@@ -84,7 +104,13 @@ public final class ExprNegateFunction {
                 newOp = BinaryType.LE;
                 break;
             default:
-                throw new IllegalStateException("Not implemented");
+                // Unreachable through negate(), which gates on isSupportNegate first. Kept as a
+                // fallback rather than a throw so that a BinaryType added to one list and not the
+                // other costs an un-flattened NOT wrapper instead of an internal error on user SQL
+                // -- which is exactly what EQ_FOR_NULL cost before the gate existed. A new operator
+                // belongs in isSupportNegate AND in this switch; getting only the first right is
+                // now merely suboptimal.
+                return defaultNegate(predicate);
         }
         return new BinaryPredicate(newOp, predicate.getChild(0), predicate.getChild(1), predicate.getPos());
     }
