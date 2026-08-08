@@ -442,6 +442,14 @@ public class AlterJobMgr {
         long dbId = log.getDbId();
         long mvId = log.getMvId();
         Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(dbId);
+        // A journal entry records what was true when it was written. By the time it is replayed the
+        // database may be gone -- the drop that removed it also removed this MV, so there is nothing
+        // left to apply and skipping is the correct outcome, not merely a convenient one. Dereferencing
+        // it instead throws inside the checkpoint worker, and EditLog.loadJournal rethrows rather than
+        // skipping, which leaves image creation permanently broken.
+        if (db == null) {
+            return;
+        }
         MaterializedView mv = (MaterializedView) GlobalStateMgr.getCurrentState().getLocalMetastore().getTable(db.getId(), mvId);
         if (mv == null) {
             return;
@@ -463,6 +471,13 @@ public class AlterJobMgr {
         long dbId = log.getDbId();
         long tableId = log.getTableId();
         Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(dbId);
+        // See replayAlterMaterializedViewBaseTableInfos: the database can be gone by replay time, and
+        // this is the entry that was seen doing it -- a concurrent DROP DATABASE landing between this
+        // ALTER's existence check and its journal write leaves an entry naming a database that no
+        // longer exists.
+        if (db == null) {
+            return;
+        }
         MaterializedView mv = (MaterializedView) GlobalStateMgr.getCurrentState().getLocalMetastore()
                     .getTable(db.getId(), tableId);
         if (mv == null) {
@@ -490,6 +505,11 @@ public class AlterJobMgr {
         long materializedViewId = log.getId();
         String newMaterializedViewName = log.getNewMaterializedViewName();
         Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(dbId);
+        // The MV lookup below already tolerates a missing MV; the database it is looked up in has to be
+        // tolerated for the same reason, since a dropped database takes its MVs with it.
+        if (db == null) {
+            return;
+        }
         MaterializedView oldMaterializedView = (MaterializedView) GlobalStateMgr.getCurrentState().getLocalMetastore()
                     .getTable(db.getId(), materializedViewId);
         if (oldMaterializedView != null) {
@@ -583,6 +603,10 @@ public class AlterJobMgr {
         long origTblId = log.getOrigTblId();
         long newTblId = log.getNewTblId();
         Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(dbId);
+        // Both tables went with the database if it was dropped, so there is no swap left to replay.
+        if (db == null) {
+            return;
+        }
         // swapTableInternal drops and re-registers both tables in the db's nameToTable/idToTable maps
         // (DB-level state), racing follower query threads, so hold the DB WRITE lock for the whole
         // sequence (the live swap path also runs under DB WRITE).
@@ -594,8 +618,10 @@ public class AlterJobMgr {
                     (OlapTable) GlobalStateMgr.getCurrentState().getLocalMetastore().getTable(db.getId(), origTblId);
             OlapTable newTbl =
                     (OlapTable) GlobalStateMgr.getCurrentState().getLocalMetastore().getTable(db.getId(), newTblId);
-            LOG.debug("finish replay swap table {}-{} with table {}-{}", origTblId, origTable.getName(), newTblId,
-                    newTbl.getName());
+            // Only the log line needs them, so a table that is gone must not cost the whole replay.
+            LOG.debug("finish replay swap table {}-{} with table {}-{}", origTblId,
+                    origTable == null ? "<dropped>" : origTable.getName(), newTblId,
+                    newTbl == null ? "<dropped>" : newTbl.getName());
         } finally {
             locker.unLockDatabase(db.getId(), LockType.WRITE);
         }
@@ -716,8 +742,16 @@ public class AlterJobMgr {
 
     public void replayAlterView(AlterViewInfo alterViewInfo) {
         Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(alterViewInfo.getDbId());
+        // Neither lookup was checked here: a dropped database or view turned this replay into a NPE,
+        // and a NPE in replay stops the checkpoint worker rather than just this entry.
+        if (db == null) {
+            return;
+        }
         View view = (View) GlobalStateMgr.getCurrentState()
                 .getLocalMetastore().getTable(db.getId(), alterViewInfo.getTableId());
+        if (view == null) {
+            return;
+        }
 
         Locker locker = new Locker();
         locker.lockTablesWithIntensiveDbLock(db.getId(), Lists.newArrayList(view.getId()), LockType.WRITE);
@@ -765,8 +799,16 @@ public class AlterJobMgr {
 
     public void replayModifyPartition(ModifyPartitionInfo info) {
         Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(info.getDbId());
+        // Same as replayAlterView: a partition change has nothing to modify once its database or table
+        // is gone, and letting the lookup fail here would take the checkpoint down with it.
+        if (db == null) {
+            return;
+        }
         OlapTable olapTable = (OlapTable) GlobalStateMgr.getCurrentState().getLocalMetastore()
                     .getTable(db.getId(), info.getTableId());
+        if (olapTable == null) {
+            return;
+        }
 
         Locker locker = new Locker();
         locker.lockTablesWithIntensiveDbLock(db.getId(), Lists.newArrayList(olapTable.getId()), LockType.WRITE);

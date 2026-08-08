@@ -46,6 +46,7 @@ import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.LocalMetastore;
 import com.starrocks.server.RunMode;
 import com.starrocks.server.WarehouseManager;
+import com.starrocks.sql.ast.AlterMaterializedViewStatusClause;
 import com.starrocks.sql.ast.AlterMaterializedViewStmt;
 import com.starrocks.sql.ast.CreateResourceGroupStmt;
 import com.starrocks.sql.ast.KeysType;
@@ -1399,5 +1400,35 @@ public class AlterMVJobExecutorEditLogTest {
         MaterializedView unchangedMv = (MaterializedView) db.getTable(MV_NAME);
         Assertions.assertNotNull(unchangedMv);
         Assertions.assertEquals(oldMvName, unchangedMv.getName());
+    }
+
+    /**
+     * A journal entry records what was true when it was written. An ALTER whose existence check passed
+     * just before a concurrent DROP DATABASE completed leaves an entry naming a database that is gone
+     * by the time anything replays it, and replay has to skip such an entry rather than fail on it.
+     *
+     * <p>Failing is not confined to the entry: the checkpoint worker replays the journal to build an
+     * image, and EditLog.loadJournal turns any exception into a JournalInconsistentException and
+     * rethrows it instead of skipping. One unreadable entry therefore disables image creation for
+     * good, and does it silently -- queries keep working while the journal grows without bound and
+     * every later restart has more to replay. Reproduced on a live cluster by racing
+     * ALTER MATERIALIZED VIEW ... INACTIVE against DROP DATABASE ... FORCE.
+     */
+    @Test
+    public void testReplayAlterMvStatusSkipsEntryWhoseDatabaseIsGone() {
+        AlterMaterializedViewStatusLog log = new AlterMaterializedViewStatusLog(
+                DB_ID, MV_ID, AlterMaterializedViewStatusClause.INACTIVE, "database dropped");
+
+        // A metastore that never had this database is the state a replica reaches after the drop.
+        LocalMetastore emptyMetastore = new LocalMetastore(GlobalStateMgr.getCurrentState(), null, null);
+        LocalMetastore originalMetastore = GlobalStateMgr.getCurrentState().getLocalMetastore();
+        GlobalStateMgr.getCurrentState().setLocalMetastore(emptyMetastore);
+        try {
+            AlterJobMgr alterJobMgr = new AlterJobMgr(
+                    new SchemaChangeHandler(), new MaterializedViewHandler(), new SystemHandler());
+            Assertions.assertDoesNotThrow(() -> alterJobMgr.replayAlterMaterializedViewStatus(log));
+        } finally {
+            GlobalStateMgr.getCurrentState().setLocalMetastore(originalMetastore);
+        }
     }
 }
