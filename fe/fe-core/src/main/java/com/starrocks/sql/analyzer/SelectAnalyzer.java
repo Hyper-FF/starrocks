@@ -111,7 +111,8 @@ public class SelectAnalyzer {
                 selectList.isDistinct());
 
         List<OrderByElement> orderByElements =
-                analyzeOrderBy(sortClause, analyzeState, sourceAndOutputScope, outputExpressions, selectList.isDistinct());
+                analyzeOrderBy(sortClause, analyzeState, sourceAndOutputScope, outputExpressions,
+                        selectList.isDistinct(), groupByClause != null);
         List<Expr> orderByExpressions =
                 orderByElements.stream().map(OrderByElement::getExpr).collect(Collectors.toList());
 
@@ -452,7 +453,7 @@ public class SelectAnalyzer {
     private List<OrderByElement> analyzeOrderBy(List<OrderByElement> orderByElements, AnalyzeState analyzeState,
                                                 Scope orderByScope,
                                                 List<Expr> outputExpressions,
-                                                boolean isDistinct) {
+                                                boolean isDistinct, boolean hasGroupBy) {
         if (orderByElements == null) {
             analyzeState.setOrderBy(Collections.emptyList());
             return Collections.emptyList();
@@ -513,11 +514,63 @@ public class SelectAnalyzer {
                 throw new SemanticException(Type.NOT_SUPPORT_ORDER_ERROR_MSG);
             }
 
+            // Without GROUP BY the aggregate rule already rejects a column the select list does not
+            // emit, with its own established message; this only fills the gap GROUP BY opened.
+            if (isDistinct && hasGroupBy) {
+                verifyOrderByIsProducibleUnderDistinct(expression, outputExpressions, orderByScope);
+            }
+
             orderByElement.setExpr(expression);
         }
 
         analyzeState.setOrderBy(orderByElements);
         return orderByElements;
+    }
+
+    /**
+     * With SELECT DISTINCT, sorting happens on the distinct result, so an ORDER BY expression can only
+     * be computed from what the select list produces.
+     *
+     * <p>Without GROUP BY this is already enforced, but by a different rule: the aggregate check
+     * rejects "select distinct v2 from t order by v1" because v1 is neither aggregated nor grouped.
+     * Adding GROUP BY v1 satisfies that rule, and the only DISTINCT rule here covers ORDER BY
+     * expressions that contain an aggregate -- so "select distinct f(v1) from t group by v1 order by
+     * v1" fell between the two. It was accepted, planned with a sort key the distinct step does not
+     * output, and died in the optimizer as an internal error while estimating statistics:
+     * "only found column statistics: {4: case}, but missing statistic of col: 1: v1".
+     *
+     * <p>Under DISTINCT the order-by scope holds exactly the select list's fields, but it keeps the
+     * source scope as its parent, so a column the select list does not emit still resolves -- one
+     * level up. That fall-through is the leak, so the test is where a column resolves, not whether
+     * some output expression looks equal to it: comparing expressions would reject "select distinct
+     * v1 as a ... order by a", where the alias resolves to the output field but is a different Expr.
+     */
+    private void verifyOrderByIsProducibleUnderDistinct(Expr expression, List<Expr> outputExpressions,
+                                                        Scope orderByScope) {
+        // Ordering by an expression the select list computes is fine whatever it reads: the sort key
+        // comes out of the projection. That covers ORDER BY by position, both as written and after a
+        // deparse renders the ordinal back into the expression it pointed at.
+        if (outputExpressions.stream().anyMatch(output -> output.equals(expression))) {
+            return;
+        }
+
+        List<SlotRef> referenced = Lists.newArrayList();
+        expression.collect(SlotRef.class, referenced);
+        for (SlotRef column : referenced) {
+            // A column emitted under an alias is still emitted: "select distinct v1 cc from t0 order
+            // by v1" orders by a column the select list produces, it just answers to another name.
+            boolean emittedUnderAlias = orderByScope.getRelationFields().getAllFields().stream()
+                    .anyMatch(field -> column.equals(field.getOriginExpression()));
+            if (emittedUnderAlias) {
+                continue;
+            }
+            Optional<ResolvedField> resolved = orderByScope.tryResolveField(column);
+            if (resolved.isEmpty() || resolved.get().getScope() != orderByScope) {
+                throw new SemanticException(
+                        "for SELECT DISTINCT, ORDER BY expressions must appear in select list",
+                        expression.getPos());
+            }
+        }
     }
 
     private void analyzeWindowFunctions(AnalyzeState analyzeState, List<Expr> outputExpressions,
