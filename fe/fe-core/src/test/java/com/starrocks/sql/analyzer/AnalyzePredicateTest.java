@@ -100,4 +100,24 @@ public class AnalyzePredicateTest {
         connectContext.getSessionVariable().setLargeInPredicateThreshold(100000);
     }
 
+    /**
+     * Negating a compound that contains a null-safe equality must not throw out of the analyzer.
+     *
+     * <p>ExprUtils#pushNegationToOperands runs on every WHERE and HAVING and checks
+     * ExprNegateFunction#isSupportNegate on the NOT's direct child. EQ_FOR_NULL is absent from that
+     * list, so `NOT (a <=> b)` was always left alone -- but a compound child passed the check and
+     * negateCompoundPredicate recursed without it, reaching a switch with no case for `<=>` and
+     * throwing IllegalStateException on valid SQL.
+     */
+    @Test
+    public void testNegateNullSafeEqual() {
+        analyzeSuccess("select * from test.t0 where not (v1 <=> v2)");
+        analyzeSuccess("select * from test.t0 where not (v1 <=> v2 and v1 > 0)");
+        analyzeSuccess("select * from test.t0 where not (v1 > 0 and v1 <=> v2)");
+        analyzeSuccess("select * from test.t0 where not (v1 <=> v2 or v1 > 0)");
+        analyzeSuccess("select * from test.t0 where not (not (v1 <=> v2 and v1 > 0))");
+        analyzeSuccess("select * from test.t0 where not (v1 <=> v2 and (v2 <=> v3 or v1 > 0))");
+        analyzeSuccess("select v1 from test.t0 group by v1 having not (max(v1) <=> 1 and v1 > 0)");
+    }
+
 }
