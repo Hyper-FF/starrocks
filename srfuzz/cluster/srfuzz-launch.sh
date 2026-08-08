@@ -108,7 +108,16 @@ CONF="$RUN_DIR/run.conf"
 # ---------------------------------------------------------------- status / stop
 if [ "$CMD" = status ] || [ "$CMD" = stop ]; then
     have "$CONF" || die "$CONF 不存在，--run-dir 指对了吗"
-    eval "$(sh_run "grep -E '^[A-Z_]+=' '$CONF'")"
+    # run.conf is written to be read by a human: values carry spaces and parentheses.
+    # eval choked on them and left every RUN_* variable unset, so status reported
+    # nonsense instead of failing. Parse it as data, never as shell.
+    while IFS= read -r _line; do
+        case "$_line" in
+            [A-Z_]*=*) printf -v "${_line%%=*}" '%s' "${_line#*=}" ;;
+        esac
+    done <<EOF
+$(sh_run "grep -E '^[A-Z_]+=' '$CONF'")
+EOF
     if [ "$CMD" = stop ]; then
         sh_run "pkill -f '[s]rfuzz-watch-$RUN_ID'; pkill -f 'INSTANCE=.*$RUN_ID'; sleep 3; true"
         sh_run "pkill -f '$RUN_DIR/clusterfuzz.run.sh'; sleep 2; true"
@@ -172,20 +181,29 @@ else
     esac
 fi
 
+# --sr-home may point at a tree holding output/{fe,be} (a build tree) or at the
+# deployment itself, holding {fe,be}. Resolve which before deriving anything from it.
+SR_LAYOUT=""
+if [ -n "$SR_HOME" ]; then
+    if [ -d "$SR_HOME/output/be" ]; then SR_LAYOUT="$SR_HOME/output"
+    elif [ -d "$SR_HOME/be" ]; then SR_LAYOUT="$SR_HOME"
+    fi
+fi
+
 # 4. 崩溃预言机：需要读得到 be.out。读不到就必须显式关掉 —— 否则「没有崩溃」和「没在看崩溃」长得一样。
-[ -z "$BE_LOG" ] && [ -n "$SR_HOME" ] && BE_LOG="$SR_HOME/output/be/log/be.out"
+[ -z "$BE_LOG" ] && [ -n "$SR_LAYOUT" ] && BE_LOG="$SR_LAYOUT/be/log/be.out"
 [ -n "$BE_LOG" ] && ! have "$BE_LOG" && BE_LOG=""
 if [ -n "$BE_LOG" ]; then ok "崩溃预言机启用（$BE_LOG）"; else warn "崩溃预言机：读不到 be.out，本次运行不检测 BE 崩溃"; fi
 
 # 5. FE 日志签名预言机
-[ -z "$FE_LOG_DIR" ] && [ -n "$SR_HOME" ] && FE_LOG_DIR="$SR_HOME/output/fe/log"
+[ -z "$FE_LOG_DIR" ] && [ -n "$SR_LAYOUT" ] && FE_LOG_DIR="$SR_LAYOUT/fe/log"
 [ -n "$FE_LOG_DIR" ] && ! have "$FE_LOG_DIR/fe.warn.log" && FE_LOG_DIR=""
 if [ -n "$FE_LOG_DIR" ]; then ok "FE 日志签名预言机启用（$FE_LOG_DIR）"; else warn "FE 日志签名预言机：读不到 fe.warn.log，本次运行不采集 FE 内部异常"; fi
 
 # 6. 自动重启能力
 RESTART=0
-if [ "$NO_RESTART" = 0 ] && [ -n "$SR_HOME" ] && have "$SR_HOME/output/be/bin/start_be.sh"; then
-    RESTART=1; ok "FE/BE 自动重启启用（$SR_HOME/output）"
+if [ "$NO_RESTART" = 0 ] && [ -n "$SR_LAYOUT" ] && have "$SR_LAYOUT/be/bin/start_be.sh"; then
+    RESTART=1; ok "FE/BE 自动重启启用（$SR_LAYOUT）"
 else
     warn "自动重启：未启用 —— 集群挂了需要人工介入（对着别人的集群跑时这是对的）"
 fi
@@ -209,10 +227,25 @@ if '$BE_LOG':   src = re.sub(r'(?m)^BELOG=.*\$', 'BELOG=$BE_LOG', src, count=1)
 if '$FE_LOG_DIR':
     src = re.sub(r'(?m)^FELOG=.*\$', 'FELOG=$FE_LOG_DIR/fe.warn.log', src, count=1)
     src = re.sub(r'(?m)^FEDIR=.*\$', 'FEDIR=$FE_LOG_DIR', src, count=1)
+if '$SR_LAYOUT':
+    # Restart scripts, the FE conf repair and the log readers all derive from it.
+    src = src.replace('\$W/output/', '$SR_LAYOUT/')
 open('$RUN_DIR/clusterfuzz.run.sh','w').write(src)
 PYEOF
 chmod +x '$RUN_DIR/clusterfuzz.run.sh'"
-sh_run "cp '$GEN_DATA' '$RUN_DIR/gen_data.py'"
+# gen_data.py 的连接端点也写死过一次（-P9030）。副本必须跟着这次运行的 FE 走，
+# 否则数据灌进另一套集群，而 harness 在本集群上看到「空表」，preflight 会去怪 schema。
+sh_run "python3 - <<'PYEOF'
+import re, sys
+src = open('$GEN_DATA').read()
+new = re.sub(r'(?m)^MYSQL = \\[.*\\]$',
+             'MYSQL = [\"mysql\", \"-h$FE_HOST\", \"-P$FE_PORT\", \"-u$FE_USER\", \"-N\", \"-B\"]',
+             src, count=1)
+if new == src:
+    sys.exit('gen_data.py: MYSQL endpoint not rewritten -- refusing to run against the wrong cluster')
+open('$RUN_DIR/gen_data.py','w').write(new)
+PYEOF" || die "gen_data.py 的连接端点改写失败"
+sh_run "grep -q -- '-P$FE_PORT' '$RUN_DIR/gen_data.py'" || die "gen_data.py 副本没指向 $FE_HOST:$FE_PORT"
 sh_run "bash -n '$RUN_DIR/clusterfuzz.run.sh'" || die "生成的 harness 副本语法不通过"
 ok "harness 副本已生成并通过语法检查"
 
@@ -286,7 +319,15 @@ done
 
 WATCH=$(dirname "$HARNESS")/watch_cf.sh
 if have "$WATCH"; then
-    sh_run "cp '$WATCH' '$RUN_DIR/watch_cf.sh' && sed -i 's|^CF=.*|CF=$RUN_DIR|; s|^W=.*|W=${SR_HOME:-$RUN_DIR}|' '$RUN_DIR/watch_cf.sh'"
+    # The watchdog polls the BE's /varz and asserts the mem_limit has not been reset.
+    # Both the endpoint and the expected value were hardcoded to one particular cluster,
+    # so against any other one it alerted forever about a backend this run never touches.
+    sh_run "cp '$WATCH' '$RUN_DIR/watch_cf.sh' && sed -i \
+        's|^CF=.*|CF=$RUN_DIR|; s|^W=.*|W=${SR_LAYOUT:-$RUN_DIR}|; \
+         s|http://127.0.0.1:8040/varz|http://$BE_HTTP/varz|; \
+         s|^WANT_MEM_LIMIT=.*|WANT_MEM_LIMIT=\${WANT_MEM_LIMIT:-${MEMLIMIT:-unset}}|' '$RUN_DIR/watch_cf.sh'"
+    sh_run "grep -q '$BE_HTTP/varz' '$RUN_DIR/watch_cf.sh'" \
+        || die "watchdog 的 /varz 端点没改写成 $BE_HTTP —— 它会对着别的 BE 报警"
     sh_run_d "cd '$RUN_DIR' && NINSTANCES=$INSTANCES INTERVAL=300 SRFUZZ_GEN_SEED=$SEED exec ./watch_cf.sh >> watch.stdout 2>> watch.stderr"
     ok "watchdog 已启动（只告警不自动拉起实例）"
 else
