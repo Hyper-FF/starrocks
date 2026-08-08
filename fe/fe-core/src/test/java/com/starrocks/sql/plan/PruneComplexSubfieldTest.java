@@ -912,8 +912,13 @@ public class PruneComplexSubfieldTest extends PlanTestNoneDBBase {
                 "json_length(j1, '$.a3.b3[1].c3') " +
                 "from js0;";
         String plan = getVerboseExplain(sql);
-        assertContains(plan, "ColumnAccessPath: [/j1/\"a.b.c\"/e(json), /j1/a/b(json), " +
-                "/j1/a1/b1(json), /j1/a2/b2(json), /j1/a3/b3(json)]");
+        // '$."a.b.c".e.f.g' quotes a key that contains dots. The flat-JSON writer splits such a key
+        // into a nested a -> b -> c path, so a typed subfield read cannot match it and would return
+        // NULL; SubfieldAccessPathNormalizer therefore declines to build an access path for that
+        // expression. An access path list is per column, and the scan either serves every reader of
+        // j1 from the pruned sub-columns or from the whole column -- so one unflattenable key forces
+        // j1 to be read whole, and none of the other four paths survive either.
+        assertNotContains(plan, "ColumnAccessPath");
 
         sql = "select " +
                 "JSON_EXISTS(j1, '$.a.b.c2'), " +
@@ -944,7 +949,10 @@ public class PruneComplexSubfieldTest extends PlanTestNoneDBBase {
                 "JSON_EXISTS(j1, '$.\"a.b[*]\".c2[2].a') " +
                 "from js0;";
         plan = getVerboseExplain(sql);
-        assertContains(plan, "ColumnAccessPath: [/j1/\"a.b[*]\"/c2(json), /j1/a/b(json)]");
+        // Same reason as in testJsonPruneNormal: '$."a.b[*]".c2' quotes a key holding a dot, which
+        // no typed flat-JSON read can serve, so j1 is read whole and the '$.a.b' paths that would
+        // otherwise be pruned are dropped along with it.
+        assertNotContains(plan, "ColumnAccessPath");
     }
 
     @Test
