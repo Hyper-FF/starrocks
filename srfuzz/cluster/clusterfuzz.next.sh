@@ -65,6 +65,8 @@ PHASE_SECONDS=45
 # Row ceiling for a shared benchmark table before writers stop growing it.
 BENCH_ROW_CAP=${BENCH_ROW_CAP:-12000000}
 QUERY_TIMEOUT=60
+# A result set is captured into a shell variable; bash cannot survive an unbounded one.
+DIFF_MAX_BYTES=${DIFF_MAX_BYTES:-4000000}
 # Beyond this a per-statement sweep costs more than the round it came from.
 MINIMIZE_MAX_STMTS=120
 # Rows per table for the boundary-biased generator. Enough to span several pipeline chunks and to
@@ -350,11 +352,41 @@ diff_run() {
     local db=$1 setup=$2 sql=$3
     printf '%s;\n%s\n' "$setup" "$sql" \
         | timeout 60 $MYSQL "$db" -N -B 2>/dev/null \
-        | LC_ALL=C sort
+        | LC_ALL=C sort \
+        | head -c "$DIFF_MAX_BYTES"
 }
 
 # True when a statement's answer is allowed to change between two runs, so a difference proves
 # nothing about the plan.
+# True when some LIMIT sits in a query block that has no ORDER BY of its own. Parenthesis
+# depth stands in for query block: good enough for the corpus, and it errs toward skipping,
+# which costs coverage rather than manufacturing findings.
+limit_unordered_in_its_block() {
+    python3 - "$1" <<'PYEOF'
+import re, sys
+sql = sys.argv[1].lower()
+sql = re.sub(r"'(?:[^'\\]|\\.)*'", "''", sql)
+depth = 0
+ordered = [False]
+for m in re.finditer(r"\(|\)|\border\s+by\b|\blimit\b", sql):
+    tok = m.group(0)
+    if tok == "(":
+        depth += 1
+        if len(ordered) <= depth:
+            ordered.append(False)
+        else:
+            ordered[depth] = False
+    elif tok == ")":
+        depth = max(0, depth - 1)
+    elif tok.startswith("order"):
+        ordered[depth] = True
+    else:
+        if not ordered[depth]:
+            sys.exit(0)
+sys.exit(1)
+PYEOF
+}
+
 diff_skippable() {
     if grep -qiE '\b(rand|random|now|current_timestamp|current_date|curdate|curtime|uuid|last_query_id|connection_id|current_user)\b' <<< "$1"; then
         return 0
@@ -372,7 +404,9 @@ diff_skippable() {
     # in either order, so a LIMIT over one can still differ legitimately. That residual is accepted
     # rather than skipped: excluding every LIMIT would drop a large part of the corpus, and ties are a
     # far narrower hole than no ordering at all.
-    if grep -qiE '\blimit\b' <<< "$1" && ! grep -qiE '\border[[:space:]]+by\b' <<< "$1"; then
+    # Asked per query block, not per statement: an outer ORDER BY cannot order rows a LIMIT
+    # below it already threw away. 7 of the first 8 reported mismatches were that shape.
+    if limit_unordered_in_its_block "$1"; then
         return 0
     fi
     return 1
@@ -522,6 +556,13 @@ differential_phase() {
         # generating queries that select nothing and the oracle is running on air.
         if [ -z "$base" ]; then
             emptybase=$((emptybase + 1))
+            continue
+        fi
+        # At the cap the capture is truncated, and two truncated streams differ for reasons
+        # that have nothing to do with the knob. Skip it -- and count the skip, so a corpus
+        # full of huge result sets shows up as lost coverage instead of as agreement.
+        if [ "${#base}" -ge "$DIFF_MAX_BYTES" ]; then
+            skipped=$((skipped + 1))
             continue
         fi
         checked=$((checked + 1))
@@ -735,7 +776,9 @@ tlp_phase() {
 
 crash_signatures() {
     awk '
-      /stack trace:/ { inc=1; n=0; next }
+      # A deliberate stop is not a crash: SIGTERM prints the same banner and would
+      # otherwise be filed as starrocks::sigterm_handler.
+      /stack trace:/ { if ($0 ~ /SIGTERM/) { inc=0; next } inc=1; n=0; next }
       inc {
         if ($0 ~ /starrocks::/ && $0 !~ /FailureSignalHandler|failure_function|ThreadPool::dispatch|Thread::supervise/) {
           s=$0
@@ -779,7 +822,12 @@ record_crash_detail() {
     # the FE audit log names the exact SQL, so there is nothing left to bisect -- the harness used to
     # minimize by halving the query file while the answer sat one grep away.
     local qid stmt=""
-    qid=$(sed -n "${start},\$p" "$BELOG" 2>/dev/null | grep -oE 'query_id:[0-9a-f-]+' | head -1 | cut -d: -f2)
+    # Both spellings: the banner writes "query_id:<uuid>", glog's FATAL line "query_id=<uuid>".
+    # The banner's is all zeros when the aborting thread had no query runtime state, so reject the
+    # zero uuid and take the first real one in the window -- the FATAL line sits inside it already.
+    qid=$(sed -n "${start},\$p" "$BELOG" 2>/dev/null \
+          | grep -oE 'query_id[:=][0-9a-f-]+' | sed 's/^query_id[:=]//' \
+          | grep -vE '^[0-]+$' | head -1)
     if [ -n "$qid" ]; then
         stmt=$(grep -h "$qid" "$FEDIR"/fe.audit.log* 2>/dev/null | head -1 \
                | grep -oE 'Stmt=.*' | sed 's/|Digest=.*//' | cut -c1-2000)
@@ -792,7 +840,7 @@ record_crash_detail() {
         elif [ -n "$qid" ]; then
             printf 'query_id %s -- not found in the FE audit log\n\n' "$qid"
         else
-            printf 'no query_id in the crash banner\n\n'
+            printf 'no usable query_id near the crash (banner and FATAL line both absent or zero)\n\n'
         fi
         printf 'stack:\n\n```\n'
         sed -n "${start},$(( start + 45 ))p" "$BELOG" 2>/dev/null
