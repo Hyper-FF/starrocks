@@ -227,6 +227,17 @@ restart_be_locked() {
     # instance or from the watchdog -- blocks in flock forever. That does not look like a deadlock
     # from outside: the instance process is alive, it just never finishes another round, which reads
     # as "slow" rather than "stuck". Close the fd for the child.
+    # A crashed BE leaves a zombie -- this container's PID 1 is `sleep infinity`, which never reaps --
+    # and a pid file still naming it. start_be.sh sees a pid that "exists" and refuses, so the BE never
+    # comes back and the harness spins against a dead backend. That cost 5.5 hours of empty rounds the
+    # first time it happened, while the watchdog correctly logged "BE is not registered Alive" and
+    # nothing acted on it. Drop the pid file when it names nothing runnable.
+    _bepid=$(cat "$W/output/be/bin/be.pid" 2>/dev/null)
+    if [ -n "$_bepid" ]; then
+        case "$(ps -o stat= -p "$_bepid" 2>/dev/null | tr -d " ")" in
+            ""|Z*) rm -f "$W/output/be/bin/be.pid" ;;
+        esac
+    fi
     setsid nohup "$W/output/be/bin/start_be.sh" --daemon >/dev/null 2>&1 9>&-
     for _ in $(seq 1 30); do
         sleep 5
