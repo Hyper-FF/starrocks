@@ -180,7 +180,11 @@ public class RecursiveCTETest extends PlanTestBase {
                 + "select v1 + 1, v5 + 1, v6 + v3 from cte1, cte2 where v2 = v6 and v1 < 10)" +
                 "select * from cte1, cte2 where v1 > 5";
         String plan = explainRecursiveCte(sql);
-        assertContains(plan, "Start Statement: WITH `cte2` (`v4`, `v5`, `v6`)");
+        // cte2 is written without a column list, so the deparser no longer prints the one the analyzer
+        // derives from the inner query: a written list is lower-cased by the parser while a derived one
+        // keeps the SELECT alias case, so printing the derived names made the statement serialize
+        // differently on the next round trip. Re-analysing the inner query reproduces them.
+        assertContains(plan, "Start Statement: WITH `cte2` AS (SELECT");
         assertContains(plan, "Recursive Statement: SELECT `cte1`.`v1` + 1 AS `v1 + 1`, `cte2`.`v5` + 1");
         assertContains(plan, "Outer Statement After Rewriting:\n"
                 + "WITH RECURSIVE `cte2`");
