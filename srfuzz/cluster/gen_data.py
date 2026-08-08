@@ -388,7 +388,12 @@ def _owned(d):
 
 
 if DB:
-    targets = [d for d in targets if d == DB]
+    # An explicit name is an instruction, not a filter. Intersecting it with the
+    # srfuzz_mut_ list selected nothing for any other name and still exited 0.
+    if DB not in dbs.split():
+        sys.stderr.write("gen_data: database %s does not exist\n" % DB)
+        sys.exit(1)
+    targets = [DB]
 elif NINST > 1:
     targets = [d for d in targets if _owned(d)]
 print("databases: %d (instance %s of %s) seed=%s" % (len(targets), INST, NINST, GEN_SEED), flush=True)
