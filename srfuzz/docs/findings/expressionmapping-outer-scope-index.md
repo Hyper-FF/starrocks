@@ -1,6 +1,7 @@
-# A field index from an outer scope is used to index the inner mapping
+# A join's ON clause can address a column it cannot reach
 
-**Status:** open, mechanism located from the stack, not yet minimised, fix deferred.
+**Status:** open. Root cause located and minimised; one fix attempted and reverted, see below.
+Do not re-try that approach.
 
 **Found by:** the FE soak arm (`astfb`, round 114, seed 630365758), signature
 `PLAN_INTERNAL_ERROR — plan:StarRocksPlannerException@ExpressionMapping#getColumnRefWithIndex`,
@@ -8,56 +9,98 @@ detail `Get columnRef with index 1202 out fieldMappings length`.
 
 **Base:** reproduced on `06d540917ef`.
 
-## Reproduction
+## Minimal reproduction
 
-Exact, and it does reproduce:
+160 characters, down from the 18kB mutant:
 
+```sql
+create table wide (k1 int, c1 int, ..., c300 int) duplicate key(k1)
+    distributed by hash(k1) buckets 1 properties('replication_num'='1');
+create table n1 (k1 int, k2 int) ...;   -- deliberately narrow
+create table n2 (k1 int, k2 int) ...;
+
+select * from wide where exists (
+    select a.k1 from n1 a left join n2 b on a.k1 = b.k1 and c290 = 2);
 ```
-mvn -pl fe-core surefire:test -Dtest=ExactMutantReplayProbe \
-    -Dsrfuzz.replay.setup=<corpus>/cluster_b_adhoc_p000.sql \
-    -Dsrfuzz.replay.sql=srfuzz/docs/findings/repro/expressionmapping-index-1202.sql
-```
 
-The statement is kept verbatim beside this file. It is 18kB because the seed was
-`SELECT * FROM tbl_04 WHERE col_020=2 LIMIT 3` over a table with hundreds of columns and the star
-is expanded; the mutation was a single `M10-splice exists` that spliced in an EXISTS carrying a
-`WITH` clause.
+→ `StarRocksPlannerException: Get columnRef with index 294 out fieldMappings length`
 
-**Not yet minimised.** Seven hand-written shapes around "EXISTS containing a CTE" all plan cleanly,
-and the correlated ones are cleanly rejected with `Not support exists correlated...` from
-`ExistentialApply2JoinRule`. Whatever the remaining ingredient is, it is not the shape alone -- the
-width of the outer table looks load-bearing, see below.
+`OuterScopeIndexMinimiseProbe` builds this and the variants below.
+
+## Four ingredients, each necessary
+
+| variant | outcome |
+| --- | --- |
+| unqualified outer column in a join's ON clause, inside EXISTS | **throws** |
+| the same with a CTE wrapped around the join | throws (the CTE is incidental) |
+| the same column **qualified** (`wide.c290`) | fine |
+| the same column in the subquery's **WHERE** instead of the ON clause | fine |
+| an **early** outer column (`c1`) instead of a late one | fine — see below |
+| outer query projecting narrowly instead of `select *` | fine |
+| no subquery at all | fine |
+
+So: the reference must be **unqualified**, it must sit in a **join's ON clause**, the outer relation
+must be **wide**, and the column must be **late** in it.
+
+## The half without a crash
+
+The `c1` row above is the dangerous one. The same mistake is made -- an index from the outer scope
+is used to address the inner mapping -- but a small index lands *inside* the array, so nothing
+throws and the ON clause binds to whichever column happens to occupy that slot. The crash is the
+visible half of this defect; a wrong column silently substituted into a join condition is the other.
 
 ## Mechanism
 
-```java
-// SqlToScalarOperatorTranslator$Visitor#visitSlot:345-348
-ResolvedField resolvedField =
-        expressionMapping.getScope().resolveField(node, expressionMapping.getOuterScopeRelationId());
-ColumnRefOperator columnRefOperator =
-        expressionMapping.getColumnRefWithIndex(resolvedField.getRelationFieldIndex());
-```
-
-`resolveField` may resolve the slot in an **outer** scope -- the next three lines exist precisely to
-notice that and record a correlation:
+`RelationTransformer#visitJoin`, around line 1049:
 
 ```java
-if (!expressionMapping.getScope().isLambdaScope() &&
-        resolvedField.getScope().getRelationId().equals(expressionMapping.getOuterScopeRelationId())) {
-    correlation.add(columnRefOperator);
-}
+Scope joinScope = new Scope(RelationId.of(node),
+        node.getLeft().getRelationFields().joinWith(node.getRight().getRelationFields()));
+joinScope.setParent(node.getScope().getParent());                    // a parent IS set
+ExpressionMapping expressionMapping = new ExpressionMapping(joinScope, Streams.concat(
+                leftOpt.getFieldMappings().stream(),
+                rightOpt.getFieldMappings().stream())
+        .collect(Collectors.toList()), generateNewConstMap(...));    // outer fields are NOT appended
 ```
 
-But `getRelationFieldIndex()` is an index into the scope the field resolved in, and it is handed
-straight to `getColumnRefWithIndex`, which indexes **this** mapping's `fieldMappings`. Two index
-spaces, no translation between them. With a wide outer relation the outer index runs past the inner
-mapping's length and the guard fires; 1202 is a column count, not an off-by-one.
+`ExpressionMapping` addresses fields in one combined space, as its own class comment says: this
+relation's fields first, then the enclosing scope's, so "if a child scope has n fields, the first
+parent scope field will have index n". Only the constructor that takes an outer `ExpressionMapping`
+appends those parent fields.
 
-The dangerous corollary: when the outer index happens to be **within** the inner mapping's length,
-nothing fires and a silently wrong ColumnRefOperator is returned. A crash is the visible half of
-this defect.
+Here the scope gets a parent but the mapping does not get the parent's fields. The result resolves
+outward and cannot address outward: `Scope#resolveField` walks the chain and returns a combined-space
+index, `SqlToScalarOperatorTranslator$Visitor#visitSlot:348` hands it to
+`ExpressionMapping#getColumnRefWithIndex`, and the array only ever held left + right.
 
-## A separate, smaller defect in the same method
+An unqualified name is required because a qualified one binds to a child relation; the ON clause is
+required because the WHERE of the subquery is translated against a mapping that does carry the outer
+fields.
+
+## Attempted fix, reverted — do not repeat
+
+Passing `outer` so the four-argument constructor appends the parent's fields:
+
+```java
+new ExpressionMapping(joinScope, ..., outer, generateNewConstMap(...));
+```
+
+It does not work, and it fails in a way worth recording. That constructor also does
+`this.scope.setParent(outer.getScope())`, which overwrites the parent set two lines earlier. The
+result is not a fix but a different failure: `Column '...tbl_04.col_020' cannot be resolved`, which
+proves `outer.getScope()` is **not** `node.getScope().getParent()`.
+
+So `RelationTransformer.outer` is a different level from the parent `visitJoin` installs. That rules
+out both halves of the obvious fix: `outer`'s field mappings are the wrong fields to append, and its
+scope is the wrong parent to set.
+
+The real fix needs the mapping that corresponds to the parent scope actually installed, which
+`visitJoin` does not currently hold -- or an `ExpressionMapping` path that appends fields without
+re-parenting, which is only correct once it is established which mapping owns that parent. That is
+a question for someone who knows the scope model; guessing a third time in transformer code that
+can silently bind the wrong column is not worth it.
+
+## A separate, smaller defect in the same area
 
 ```java
 public ColumnRefOperator getColumnRefWithIndex(int fieldIndex) {
@@ -68,23 +111,13 @@ public ColumnRefOperator getColumnRefWithIndex(int fieldIndex) {
 }
 ```
 
-Off by one: at exactly `length` the guard passes and the array access throws
-`ArrayIndexOutOfBoundsException`, discarding the informative message the guard was written to give.
-A negative index is not guarded at all. Worth fixing on its own -- it costs nothing and it is what
-makes the next occurrence of this family diagnosable.
+At exactly `length` the guard passes and the array access throws `ArrayIndexOutOfBoundsException`,
+discarding the message the guard exists to produce. A negative index is not checked at all.
+Independent of the above, safe, and it is what keeps the next occurrence diagnosable.
 
-## Next steps
+## Files
 
-1. Fix the off-by-one (and the missing negative check). Independent, safe, improves diagnostics.
-2. Minimise. The width of the outer relation looks required, so a synthetic wide table is probably
-   the missing ingredient rather than a cleverer shape.
-3. The real fix -- translating the index between scopes, or refusing to -- needs someone who knows
-   the scope model. Until then note that the same path can return a wrong column silently.
-
-## Recording gap this exposed
-
-The soak's signature is `getStackTrace()[0]`, which is where the check FIRED. The frame that
-matters, `visitSlot`, is one below and is not recorded anywhere; reports and logs are pruned after
-about forty rounds, so a finding older than that has no stack left to read. `ExactMutantReplayProbe`
-exists because of that: it replays a recorded statement against its corpus file and prints the first
-twelve StarRocks frames.
+- `fe/fe-core/src/main/java/com/starrocks/sql/optimizer/transformer/RelationTransformer.java:1049-1055` — where the mapping is built
+- `fe/fe-core/src/main/java/com/starrocks/sql/optimizer/transformer/ExpressionMapping.java:40-92` — the combined index space, and the constructor that appends
+- `fe/fe-core/src/main/java/com/starrocks/sql/optimizer/transformer/SqlToScalarOperatorTranslator.java:343-348` — where it surfaces
+- `srfuzz/docs/findings/repro/expressionmapping-index-1202.sql` — the original mutant, replayable with `ExactMutantReplayProbe`
