@@ -1,0 +1,76 @@
+-- name: test_asof_join_predicate_sides
+
+-- JoinHelper.isValidAsofTemporalPredicate requires each operand of the temporal inequality
+-- to resolve entirely to one side of the join, and the two operands to opposite sides. The
+-- analyzer used to check only the operand types, so a predicate it accepted could still
+-- leave the optimizer with zero temporal candidates -- and that escaped as
+--   IllegalStateException: ASOF JOIN requires exactly one temporal inequality condition. found: 0
+-- from JoinHelper.extractAndValidateAsofTemporalPredicate, which is an internal error for
+-- what is really a rejected query.
+--
+-- These cases pin down which shapes are accepted and which are refused, so a predicate that
+-- passes analysis but not the optimizer cannot go unnoticed again.
+--
+-- Recorded against fuzz-base-planner (main c14abd5508d + 51). The two mixed-operand cases
+-- still surface "found: 0" -- the analyzer-side check that would turn them into a
+-- SemanticException is not in this branch. Contrast the same-side case just below them,
+-- which already says what the user did wrong.
+
+DROP DATABASE IF EXISTS test_asof_join_predicate_sides;
+-- result:
+-- !result
+CREATE DATABASE test_asof_join_predicate_sides;
+-- result:
+-- !result
+use test_asof_join_predicate_sides;
+-- result:
+-- !result
+CREATE TABLE l (
+  `k` int(11) NOT NULL,
+  `t` datetime NOT NULL,
+  `n` int(11) NOT NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`k`)
+DISTRIBUTED BY HASH(`k`) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+CREATE TABLE r (
+  `k` int(11) NOT NULL,
+  `t` datetime NOT NULL,
+  `v` int(11) NOT NULL
+) ENGINE=OLAP
+DUPLICATE KEY(`k`)
+DISTRIBUTED BY HASH(`k`) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO l VALUES (1, '2026-01-01 10:00:00', 1), (2, '2026-01-02 10:00:00', 2);
+-- result:
+-- !result
+INSERT INTO r VALUES (1, '2026-01-01 09:00:00', 100), (1, '2026-01-01 11:00:00', 200),
+                     (2, '2026-01-02 09:00:00', 300);
+-- result:
+-- !result
+SELECT l.k, l.t, r.v FROM l ASOF INNER JOIN r ON l.k = r.k AND l.t >= r.t ORDER BY l.k;
+-- result:
+1	2026-01-01 10:00:00	100
+2	2026-01-02 10:00:00	300
+-- !result
+SELECT l.k, r.v FROM l ASOF INNER JOIN r ON l.k = r.k AND l.t >= date_add(r.t, INTERVAL l.n DAY) ORDER BY l.k;
+-- result:
+E: (1064, 'ASOF JOIN requires exactly one temporal inequality condition. found: 0')
+-- !result
+SELECT l.k, r.v FROM l ASOF INNER JOIN r ON l.k = r.k AND date_add(l.t, INTERVAL r.v SECOND) >= r.t ORDER BY l.k;
+-- result:
+E: (1064, 'ASOF JOIN requires exactly one temporal inequality condition. found: 0')
+-- !result
+SELECT l.k, r.v FROM l ASOF INNER JOIN r ON l.k = r.k AND l.t >= date_add(l.t, INTERVAL 1 DAY) ORDER BY l.k;
+-- result:
+E: (1064, 'Getting analyzing error. Detail message: ASOF JOIN temporal condition must reference both sides of the join in join ON clause, found: `test_asof_join_predicate_sides`.`l`.`t` >= date_add(`test_asof_join_predicate_sides`.`l`.`t`, INTERVAL 1 DAY).')
+-- !result
+SELECT l.k, r.v FROM l ASOF INNER JOIN r ON l.k = r.k AND date_add(l.t, INTERVAL 1 DAY) >= date_add(r.t, INTERVAL 2 HOUR) ORDER BY l.k;
+-- result:
+1	200
+2	300
+-- !result
