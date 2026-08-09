@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.starrocks.fuzz;
+package com.starrocks.sql.analyzer;
 
 import com.starrocks.qe.ConnectContext;
-import com.starrocks.sql.analyzer.Analyzer;
 import com.starrocks.sql.ast.StatementBase;
 import com.starrocks.sql.parser.SqlParser;
 import com.starrocks.utframe.StarRocksAssert;
