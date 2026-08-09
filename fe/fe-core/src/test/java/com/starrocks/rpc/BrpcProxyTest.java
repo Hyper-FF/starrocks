@@ -144,6 +144,45 @@ public class BrpcProxyTest {
     }
 
     @Test
+    public void testInvalidateEndpointDropsCachedStubs(@Mocked FrontendOptions options) {
+        new Expectations(options) {
+            {
+                FrontendOptions.isUseFqdn();
+                result = false;
+            }
+        };
+
+        TNetworkAddress address = new TNetworkAddress("127.0.0.1", 8099);
+
+        PBackendService backendBefore = BrpcProxy.getBackendService(address);
+        LakeService lakeBefore = getLakeServiceNoException(address);
+        Assertions.assertSame(backendBefore, BrpcProxy.getBackendService(address));
+        Assertions.assertSame(lakeBefore, getLakeServiceNoException(address));
+
+        BrpcProxy.invalidateEndpoint(address);
+
+        // A pooled connection that has stopped carrying traffic is invisible to the pool's own health
+        // check, so the endpoint is rebuilt from scratch: new stubs over a new connection pool.
+        Assertions.assertNotSame(backendBefore, BrpcProxy.getBackendService(address));
+        Assertions.assertNotSame(lakeBefore, getLakeServiceNoException(address));
+    }
+
+    @Test
+    public void testInvalidateEndpointNeverContacted(@Mocked FrontendOptions options) {
+        new Expectations(options) {
+            {
+                FrontendOptions.isUseFqdn();
+                result = false;
+            }
+        };
+
+        // Nothing is cached for this endpoint. Invalidating it still has to be safe, because the
+        // blocklist can name a node we have never sent an RPC to.
+        TNetworkAddress address = new TNetworkAddress("127.0.0.1", 8098);
+        Assertions.assertDoesNotThrow(() -> BrpcProxy.invalidateEndpoint(address));
+    }
+
+    @Test
     public void testNonFQDNBrpcResolvesToTheSameService(@Mocked FrontendOptions options, @Mocked DnsCache dnsCache) {
         TNetworkAddress address = new TNetworkAddress("test-123.testdomain", 8090);
 

@@ -350,20 +350,22 @@ public class SimpleSchedulerTest {
         computeNode1.setBrpcPort(10003);
         computeNode1.setHttpPort(10013);
 
+        // On top of the lookups refresh() does, each addToBlocklist() below looks its node up once
+        // more, to drop the brpc connections pooled for it.
         new Expectations() {
             {
                 GlobalStateMgr.getCurrentState().getNodeMgr().getClusterInfo();
                 result = systemInfoService;
-                times = 2;
+                times = 5;
 
                 // backend 10001 will be removed
                 systemInfoService.getBackendOrComputeNode(10001L);
                 result = null;
-                times = 1;
+                times = 2;
 
                 systemInfoService.getBackendOrComputeNode(10002L);
                 result = backend1;
-                times = 1;
+                times = 2;
 
                 systemInfoService.checkNodeAvailable(backend1);
                 result = true;
@@ -376,7 +378,7 @@ public class SimpleSchedulerTest {
                 // backend 10003, which is not available, will not be removed
                 systemInfoService.getBackendOrComputeNode(10003L);
                 result = computeNode1;
-                times = 2;
+                times = 3;
 
                 systemInfoService.checkNodeAvailable(computeNode1);
                 result = false;
