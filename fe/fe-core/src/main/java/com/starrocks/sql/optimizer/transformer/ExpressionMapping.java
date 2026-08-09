@@ -118,9 +118,18 @@ public class ExpressionMapping {
     }
 
     public ColumnRefOperator getColumnRefWithIndex(int fieldIndex) {
-        if (fieldIndex > fieldMappings.length) {
+        // Off by one, and it mattered: at exactly fieldMappings.length the check passed and the
+        // array access below threw ArrayIndexOutOfBoundsException instead, discarding the message
+        // this guard exists to produce. A negative index was not covered at all. The boundary case
+        // reaches real queries -- it turned up as "Index 2 out of bounds for length 2", which says
+        // nothing about which mapping or which index was involved.
+        //
+        // The length is part of the message now. Without it a caller is told the index is out of
+        // range but not what the range was, which is the first thing anyone needs.
+        if (fieldIndex < 0 || fieldIndex >= fieldMappings.length) {
             throw new StarRocksPlannerException(
-                    String.format("Get columnRef with index %d out fieldMappings length", fieldIndex),
+                    String.format("Get columnRef with index %d out fieldMappings length %d",
+                            fieldIndex, fieldMappings.length),
                     ErrorType.INTERNAL_ERROR);
         }
         return fieldMappings[fieldIndex];
