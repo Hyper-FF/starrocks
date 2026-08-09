@@ -38,6 +38,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starrocks.common.Reference;
+import com.starrocks.rpc.BrpcProxy;
+import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.RunMode;
 import com.starrocks.system.ComputeNode;
 import com.starrocks.thrift.TNetworkAddress;
@@ -171,6 +173,29 @@ public class SimpleScheduler {
 
     public static void addToBlocklist(Long backendID) {
         HOST_BLACKLIST.add(backendID);
+        dropBrpcConnections(backendID);
+    }
+
+    /**
+     * A node lands on the blocklist because an RPC to it failed, so the brpc connections we have
+     * pooled for that node are suspect: dead, or still open but no longer carrying traffic. jprotobuf
+     * never retires such a connection by itself, so drop them here and let the next RPC reconnect.
+     */
+    private static void dropBrpcConnections(Long backendID) {
+        if (backendID == null) {
+            return;
+        }
+        try {
+            ComputeNode node = GlobalStateMgr.getCurrentState().getNodeMgr().getClusterInfo()
+                    .getBackendOrComputeNode(backendID);
+            if (node != null && node.getBrpcPort() > 0) {
+                BrpcProxy.invalidateEndpoint(new TNetworkAddress(node.getHost(), node.getBrpcPort()));
+            }
+        } catch (Exception e) {
+            // Best effort. The node is already on the blocklist; failing to drop its connections
+            // must not turn into an error on the caller's failure path.
+            LOG.warn("failed to drop brpc connections to node {}", backendID, e);
+        }
     }
 
     public static boolean isInBlocklist(long backendId) {
