@@ -174,7 +174,9 @@ restart_fe() {
 restart_fe_locked() {
     say "restarting FE"
     export JAVA_HOME=${JAVA_HOME:-/lib/jvm/java-21-openjdk}
-    "$W/output/fe/bin/stop_fe.sh" >/dev/null 2>&1
+    # Same as the backend stop below: close the lock fd for the child and bound the wait, or a stop
+    # that never returns holds the restart lock for the life of the run.
+    timeout 120 "$W/output/fe/bin/stop_fe.sh" >/dev/null 2>&1 9>&-
     sleep 5
     # 9>&- : the lock this block holds lives on fd 9, and a daemon started here INHERITS it. The
     # backend then holds the restart lock for as long as it runs, so the next restart -- from any
@@ -215,7 +217,12 @@ restart_be() {
 
 restart_be_locked() {
     say "restarting BE"
-    "$W/output/be/bin/stop_be.sh"  >/dev/null 2>&1
+    # 9>&- and a timeout for the STOP too, not just the start below. stop_be.sh inherits the fd the
+    # lock lives on, so for as long as it runs it holds the restart lock -- and it runs forever when
+    # the backend it is waiting for will not die. The cluster then looks alive from outside (the FE
+    # answers, the instances are up) while every later restart blocks in flock and the BE never comes
+    # back. Seen on two boxes at once, both stuck on a stop_be.sh holding fd 9.
+    timeout 120 "$W/output/be/bin/stop_be.sh" >/dev/null 2>&1 9>&-
     sleep 3
     # setsid, not just nohup. Without its own session the backend stays in this harness's process
     # group, so stopping the harness the obvious way -- kill the process group -- takes the BE down
