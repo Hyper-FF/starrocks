@@ -234,15 +234,18 @@ open('$RUN_DIR/clusterfuzz.run.sh','w').write(src)
 PYEOF
 chmod +x '$RUN_DIR/clusterfuzz.run.sh'"
 # gen_data.py 的连接端点也写死过一次（-P9030）。副本必须跟着这次运行的 FE 走，
+# 判据是模式有没有匹配到（subn 的次数），不是文本有没有变：当这次运行的端点恰好等于
+# gen_data.py 里写死的那个（本机 FE + 默认端口，最常见的情形），改写后的文件与原文
+# 完全相同，按文本比较就会被误判成「模式没匹配上」而拒绝启动。
 # 否则数据灌进另一套集群，而 harness 在本集群上看到「空表」，preflight 会去怪 schema。
 sh_run "python3 - <<'PYEOF'
 import re, sys
 src = open('$GEN_DATA').read()
-new = re.sub(r'(?m)^MYSQL = \\[.*\\]$',
+new, n = re.subn(r'(?m)^MYSQL = \\[.*\\]$',
              'MYSQL = [\"mysql\", \"-h$FE_HOST\", \"-P$FE_PORT\", \"-u$FE_USER\", \"-N\", \"-B\"]',
              src, count=1)
-if new == src:
-    sys.exit('gen_data.py: MYSQL endpoint not rewritten -- refusing to run against the wrong cluster')
+if n != 1:
+    sys.exit('gen_data.py: MYSQL endpoint line not found -- refusing to run against the wrong cluster')
 open('$RUN_DIR/gen_data.py','w').write(new)
 PYEOF" || die "gen_data.py 的连接端点改写失败"
 sh_run "grep -q -- '-P$FE_PORT' '$RUN_DIR/gen_data.py'" || die "gen_data.py 副本没指向 $FE_HOST:$FE_PORT"
