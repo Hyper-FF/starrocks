@@ -100,7 +100,7 @@ claim_signature() {
     } 9>>"$file.lock"
     return $rc
 }
-STATE_HEADER=$'round\tgroup\ttables\tsetup_fail\tgen_rows\tqueries\terrors\tdiff_checked\tdiff_bad\tdiff_empty\tdiff_void\tdiff_skipped\ttlp_checked\ttlp_bad\ttlp_skipped\tfatal_delta\tbe_restarts\tnew_fe_sigs\tsecs'
+STATE_HEADER=$'round\tgroup\ttables\tsetup_fail\tgen_rows\tqueries\terrors\tdiff_checked\tdiff_bad\tdiff_empty\tdiff_void\tdiff_skipped\ttlp_checked\ttlp_bad\ttlp_skipped\tfatal_delta\tbe_restarts\tnew_fe_sigs\tsecs\tqc_checked\tqc_bad\tqc_void\tqc_skipped\tqc_unstable'
 # Appending wider rows to a file written under the old header produces a ragged TSV: every awk that
 # reads it by column index silently reports the wrong field, and a harness that lies about its own
 # numbers is what nine of this campaign's incidents were made of. Rotate instead, loudly.
@@ -688,6 +688,135 @@ tlp_numeric() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------
+# Query cache oracle: a statement's answer must not depend on what ran before it.
+#
+# The differential above compares ONE statement under two session settings. That cannot see the
+# query cache's characteristic failure, because a single statement with the cache on is consistent
+# with itself -- the damage is cross-statement. The cache stores a per-tablet partial aggregate
+# under a digest of the plan, and when the digest omits something the plan depends on, two DIFFERENT
+# statements share an entry and whichever runs first decides the other's answer.
+#
+# Six such omissions were found by hand before this oracle existed (join predicate CSEs, the ASOF
+# temporal condition, the ANN search spec, the columns a late-materialization FetchNode defers,
+# AggregationNode.localLimit, and the scan's schema after a fast schema evolution). Each needed a
+# specific plan shape, and each was found by guessing that shape. A mutation fuzzer already produces
+# the pairs this oracle needs for free: a seed and its mutant are two statements that are almost the
+# same plan, which is exactly the population where digests collide.
+#
+# Oracle, per adjacent pair (A, B) drawn from the corpus:
+#     truth_A = A with the cache off,  truth_B = B with the cache off
+#     both must repeat -- an unstable statement has no truth to compare against
+#     if truth_A == truth_B: skip, the pair proves nothing
+#     run A with the cache on, then B with the cache on
+#     B != truth_B  =>  B inherited A's entries
+#
+# No cold-cache reset between pairs. Entries surviving from earlier pairs can only make B wrong,
+# and a B that is wrong for that reason is the same defect. Skipping the reset also keeps the phase
+# affordable: invalidating the cache means bumping every partition version, which costs more than
+# the whole phase.
+#
+# A TIMEOUT is reported rather than skipped. The first cache defect found in this area was a hang,
+# not a wrong answer: MultilaneOperator deadlocked when a lane's join had an empty build side, and
+# the query ran to its timeout with every operator idle. Treating a timeout as "nothing to compare"
+# would have hidden it.
+QC_MAX_PAIRS=${QC_MAX_PAIRS:-12}
+QC_SESSION=${QC_SESSION:-'set enable_query_cache = true, query_cache_hot_partition_num = 100'}
+
+# Returns the sorted rows, the empty string for a query that legitimately matched nothing, or
+# QC_ERR for an error or a timeout. The differential above collapses the last two into "" and skips
+# both, which is right for it -- an error leaves nothing to compare. Here it would throw away the
+# most discriminating pairs there are: a statement whose correct answer is no rows is exactly the
+# one that exposes the cache handing it somebody else's.
+qc_run() {
+    local db=$1 cache=$2 sql=$3 out rc
+    local setup="set enable_profile = false"
+    [ "$cache" = on ] && setup="$setup; $QC_SESSION"
+    out=$(printf '%s;\n%s\n' "$setup" "$sql" | timeout 60 $MYSQL "$db" -N -B 2>&1)
+    rc=$?
+    if [ "$rc" -ne 0 ] || grep -qE '^ERROR [0-9]+' <<< "$out"; then
+        printf 'QC_ERR'
+        return
+    fi
+    [ -z "$out" ] && return
+    LC_ALL=C sort <<< "$out" | head -c "$DIFF_MAX_BYTES"
+}
+
+query_cache_phase() {
+    local g=$1 gname=$2 db=$3 round=$4
+    local checked=0 bad=0 skipped=0 unstable=0 hangs=0
+    local prev="" prev_truth="" stmt truth truth2 got sig
+    QC_CHECKED=0; QC_BAD=0; QC_SKIPPED=0; QC_UNSTABLE=0; QC_HANGS=0
+
+    while IFS= read -r -d ';' stmt; do
+        [ "$checked" -ge "$QC_MAX_PAIRS" ] && break
+        stmt=${stmt%;}
+        [ -z "$stmt" ] && continue
+        grep -qiE '^[[:space:]]*(select|with)\b' <<< "$stmt" || continue
+        # Same exclusions as the differential: a statement whose answer is allowed to move cannot
+        # accuse the cache of moving it.
+        if diff_skippable "$stmt"; then
+            skipped=$((skipped + 1))
+            continue
+        fi
+
+        truth=$(qc_run "$db" off "$stmt")
+        if [ "$truth" = QC_ERR ]; then
+            skipped=$((skipped + 1))
+            continue
+        fi
+        truth2=$(qc_run "$db" off "$stmt")
+        if [ "$truth2" != "$truth" ]; then
+            unstable=$((unstable + 1))
+            prev=""; prev_truth=""
+            continue
+        fi
+
+        if [ -n "$prev" ] && [ "$prev_truth" != "$truth" ]; then
+            checked=$((checked + 1))
+            qc_run "$db" on "$prev" > /dev/null
+            got=$(qc_run "$db" on "$stmt")
+            if [ "$got" = QC_ERR ]; then
+                # The statement answered cleanly with the cache off and errored or timed out with it
+                # on. A hang lands here, which is why it is a finding and not a skip.
+                hangs=$((hangs + 1))
+                sig="qc-void"
+                if claim_signature "$DIFFSIG" 1 "$sig" "$sig"; then
+                    {
+                        printf '\n## QUERY CACHE: NO ROWS WITH THE CACHE ON  round %s  group %s  %s\n\n' \
+                            "$round" "$gname" "$(date '+%F %T')"
+                        printf 'ran after:\n```sql\n%s\n```\n\n' "$(cut -c1-400 <<< "$prev")"
+                        printf 'this errored or timed out (cache off gives %s rows):\n```sql\n%s\n```\n' \
+                            "$(printf '%s' "$truth" | grep -c .)" "$(cut -c1-400 <<< "$stmt")"
+                    } >> "$FINDINGS"
+                fi
+            elif [ "$got" != "$truth" ]; then
+                bad=$((bad + 1))
+                sig="qc-poison"
+                if ! claim_signature "$DIFFSIG" 1 "$sig" "$sig"; then
+                    printf -- '- repeat %s  round %s  group %s  `%s`\n' \
+                        "$sig" "$round" "$gname" "$(cut -c1-160 <<< "$stmt")" >> "$FINDINGS"
+                else
+                    {
+                        printf '\n## QUERY CACHE SERVES ANOTHER STATEMENT ANSWER  round %s  group %s  %s\n\n' \
+                            "$round" "$gname" "$(date '+%F %T')"
+                        printf 'populated by:\n```sql\n%s\n```\n\n' "$prev"
+                        printf 'then this returned the wrong rows:\n```sql\n%s\n```\n\n' "$stmt"
+                        printf 'cache off: %s rows, cache on after the above: %s rows\n\n' \
+                            "$(printf '%s' "$truth" | grep -c .)" "$(printf '%s' "$got" | grep -c .)"
+                        printf 'first differing lines:\n```\n%s\n```\n' \
+                            "$(diff <(printf '%s\n' "$truth") <(printf '%s\n' "$got") | head -6)"
+                    } >> "$FINDINGS"
+                fi
+            fi
+        fi
+        prev=$stmt; prev_truth=$truth
+    done < <(cat "$g.query.sql"; printf ';')
+
+    QC_CHECKED=$checked; QC_BAD=$bad; QC_SKIPPED=$skipped
+    QC_UNSTABLE=$unstable; QC_HANGS=$hangs
+}
+
 # Like differential_phase, this reports through globals rather than stdout, so that a say() from
 # inside it can never be read back as a counter.
 tlp_phase() {
@@ -1166,6 +1295,12 @@ while true; do
     tlp_phase "$gname" "$db" "$round"
     ntlp=$TLP_CHECKED; ntlpbad=$TLP_BAD; ntlpskip=$TLP_SKIPPED
 
+    # Same quiet window as the two above, and for the same reason: once the writers start, a
+    # statement legitimately answers differently between the cache-off truth and the cache-on run,
+    # and every pair would be a false accusation.
+    query_cache_phase "$g" "$gname" "$db" "$round"
+    nqc=$QC_CHECKED; nqcbad=$QC_BAD; nqcskip=$QC_SKIPPED; nqcunst=$QC_UNSTABLE; nqcvoid=$QC_HANGS
+
     # One error file per worker. Several processes appending to one file interleave mid-line and
     # manufacture signatures like "ERROR N (N)ERROR at line N" that match no real error.
     rm -f "$RUN"/w.*.err
@@ -1284,11 +1419,12 @@ while true; do
     fi
 
     elapsed=$(( $(date +%s) - started ))
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$round" "$gname" "${ntables:-0}" "${nsetup:-0}" "${genrows:-0}" "$nq" "$nerr" "${ndiff:-0}" "${nmiss:-0}" \
         "${ndempty:-0}" "${ndvoid:-0}" "${ndskip:-0}" "${ntlp:-0}" "${ntlpbad:-0}" "${ntlpskip:-0}" \
-        "$((after - before))" "$restarts" "${nfe:-0}" "$elapsed" >> "$STATE"
-    say "round $round done in ${elapsed}s: group=$gname tables=${ntables:-0} setupfail=${nsetup:-0} queryruns=$nq errors=$nerr diff=${ndiff:-0}/${nmiss:-0} empty=${ndempty:-0} void=${ndvoid:-0} skip=${ndskip:-0} tlp=${ntlp:-0}/${ntlpbad:-0} tlpskip=${ntlpskip:-0} fatal_delta=$((after - before)) restarts=$restarts fe_sigs=${nfe:-0}"
+        "$((after - before))" "$restarts" "${nfe:-0}" "$elapsed" \
+        "${nqc:-0}" "${nqcbad:-0}" "${nqcvoid:-0}" "${nqcskip:-0}" "${nqcunst:-0}" >> "$STATE"
+    say "round $round done in ${elapsed}s: group=$gname tables=${ntables:-0} setupfail=${nsetup:-0} queryruns=$nq errors=$nerr diff=${ndiff:-0}/${nmiss:-0} empty=${ndempty:-0} void=${ndvoid:-0} skip=${ndskip:-0} tlp=${ntlp:-0}/${ntlpbad:-0} tlpskip=${ntlpskip:-0} qc=${nqc:-0}/${nqcbad:-0} qcvoid=${nqcvoid:-0} qcskip=${nqcskip:-0} qcunstable=${nqcunst:-0} fatal_delta=$((after - before)) restarts=$restarts fe_sigs=${nfe:-0}"
     # A knob that produced nothing where the baseline had rows did not agree -- it did not run. One
     # or two is a timeout; a run of them is incident 8 happening again, so it gets said out loud
     # rather than left in a column nobody reads.
