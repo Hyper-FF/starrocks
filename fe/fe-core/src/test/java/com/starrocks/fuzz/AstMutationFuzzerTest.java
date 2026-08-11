@@ -713,6 +713,18 @@ public class AstMutationFuzzerTest {
                     if (!seedSet.contains(sql)) {
                         continue;
                     }
+                    // [_META_] makes the scan read per-segment metadata instead of rows, so only the
+                    // handful of shapes StarRocks itself emits are meaningful there -- min/max for
+                    // ColumnMinMaxMgr, dict_merge for the low-cardinality dictionary, count(*).
+                    // Mutating on top of that builds queries nobody writes: a WHERE over a column the
+                    // rewrite has already replaced with a meta pseudo-column, or a count turned into
+                    // count(distinct). They report every round and none of them is reachable.
+                    // The seed itself is still evaluated unmutated above, so the statistics- and
+                    // dictionary-collection path keeps its coverage; only the derived mutants go.
+                    if (sql.contains("[_META_]")) {
+                        noteDrop(drops, "meta-scan-seed:not-mutated", sql);
+                        continue;
+                    }
                     String seed = sql;
                     // A seed that no longer analyzes cannot produce a usable mutant, so mutating it
                     // mutationsPerSeed times only manufactures rejections that look like ordinary noise.
