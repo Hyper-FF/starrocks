@@ -91,6 +91,14 @@ public class GlobalLateMaterializationRewriter {
         // stage A split projection
         root = root.getOp().accept(new SplitProjectionRewriter(), root, null);
 
+        // Splitting a projection off an operator changes what that operator outputs, and
+        // RowOutputInfo is derived bottom-up, so every ancestor's cached LogicalProperty is stale
+        // afterwards -- splitProjection only refreshes the operator it split. A Repeat then reached
+        // the passes below declaring {k1, k2, grouping ids} while it actually passes its child's
+        // columns through, and a fetch decision made against that declaration dropped a column the
+        // aggregate above still read.
+        root.clearAndInitOutputInfo();
+
         CollectorContext collectorContext = new CollectorContext(context.getColumnRefFactory());
 
         ColumnCollector columnCollector = new ColumnCollector(context);
@@ -820,6 +828,19 @@ public class GlobalLateMaterializationRewriter {
 
     private static class FetchMerger extends OptExpressionVisitor<Void, FetchMergerContext> {
 
+        /**
+         * The columns this operator hands to its parent, the ones it merely forwards included.
+         * <p>
+         * Not OptExpression#getOutputColumns(): that reads the logical property, which does not list
+         * forwarded columns, so an operator such as a repeat -- what grouping sets, rollup and cube are
+         * built from -- would be read as not carrying the column an aggregation above it consumes.
+         */
+        private static ColumnRefSet rowOutputColumns(OptExpression input) {
+            final ColumnRefSet columns = new ColumnRefSet();
+            input.getRowOutputInfo().getOutputColRefs().forEach(columns::union);
+            return columns;
+        }
+
         private Void processChild(OptExpression opt, FetchMergerContext context) {
             for (OptExpression input : opt.getInputs()) {
                 input.getOp().accept(this, input, context);
@@ -846,6 +867,7 @@ public class GlobalLateMaterializationRewriter {
                 if (op instanceof PhysicalCTEAnchorOperator) {
                     begin = 1;
                 }
+                final ColumnRefSet pushedColumns = new ColumnRefSet();
                 for (int i = begin; i < optExpression.getInputs().size(); i++) {
                     OptExpression input = optExpression.inputAt(i);
                     final IdentifyOperator cIdx = new IdentifyOperator((PhysicalOperator) input.getOp());
@@ -853,11 +875,36 @@ public class GlobalLateMaterializationRewriter {
                     if (dependency == null || !dependency.contains(scanId)) {
                         continue;
                     }
-                    if (tryPushDownFetch(input, scanId, value, context)) {
-                        pushedScanFetch.add(scanId);
+                    // Depending on the scan is not the same as carrying the column. A CTE consumed on
+                    // both sides of a join makes both children depend on the producer's scan, and a
+                    // join condition column lives in exactly one of them. Pushing the fetch into the
+                    // side that does not output the column materialized it in the wrong branch and,
+                    // because the position was then dropped from this operator, left the column
+                    // unmaterialized for the branch whose predicate reads it -- an invalid plan.
+                    final ColumnRefSet childColumns = value.clone();
+                    childColumns.intersect(rowOutputColumns(input));
+                    if (childColumns.isEmpty()) {
+                        continue;
+                    }
+                    if (tryPushDownFetch(input, scanId, childColumns, context)) {
+                        pushedColumns.union(childColumns);
                     }
                 }
 
+                // Drop the position from this operator only when every column found a home in a
+                // child. If any is left over -- a child refused the push down because it carries a
+                // small limit, say -- the position stays, so a fetch is still introduced here.
+                //
+                // Decide that on a copy. `value` is the ColumnRefSet the collector stored in
+                // fetchPositions, and that table is shared across collector contexts; removing
+                // columns from it in place tells every later reader they are already taken care of,
+                // and no fetch gets emitted for them anywhere. That produced plans whose aggregate
+                // required a column its input never materialized.
+                final ColumnRefSet remaining = value.clone();
+                remaining.except(pushedColumns);
+                if (remaining.isEmpty()) {
+                    pushedScanFetch.add(scanId);
+                }
             }
             for (IdentifyOperator pushDownedFetchPo : pushedScanFetch) {
                 context.collectorContext.fetchPositions.remove(id, pushDownedFetchPo);
