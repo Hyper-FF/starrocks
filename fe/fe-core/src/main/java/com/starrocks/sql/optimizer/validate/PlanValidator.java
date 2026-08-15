@@ -59,7 +59,8 @@ public final class PlanValidator {
                 ConditionalTypeChecker.getInstance(),
                 CTEUniqueChecker.getInstance(),
                 InputDependenciesChecker.getInstance(),
-                ColumnReuseChecker.getInstance());
+                ColumnReuseChecker.getInstance(),
+                PrunedComplexTypeChecker.getInstance());
     }
 
     public void validatePlan(OptExpression optExpression, TaskContext taskContext) {
