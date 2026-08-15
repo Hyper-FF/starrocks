@@ -210,7 +210,7 @@ PROPERTIES (
 "replication_num" = "1"
 );
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_invalid_json.json -XPUT -H label:stream_load_test_invalid_json_1 -H "format: json" ${url}/api/test_invalid_json/t_invalid_json/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_invalid_json.json -XPUT -H label:stream_load_test_invalid_json_1 -H "format: json" ${url}/api/test_invalid_json/t_invalid_json/_stream_load
 sync;
 
 SELECT v10, v11 FROM t_invalid_json;

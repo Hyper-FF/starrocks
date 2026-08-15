@@ -13,7 +13,7 @@ CREATE TABLE `t1` (
 );
 -- result:
 -- !result
-shell: curl --location-trusted -u root: -X PUT -H "format: json" -T ${root_path}/sql/test_stream_load/data/non_utf8.json ${url}/api/db_${uuid0}/t1/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -X PUT -H "format: json" -T ${root_path}/sql/test_stream_load/data/non_utf8.json ${url}/api/db_${uuid0}/t1/_stream_load
 -- result:
 0
 {

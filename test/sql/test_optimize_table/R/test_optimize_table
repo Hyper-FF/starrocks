@@ -378,7 +378,7 @@ PROPERTIES (
 alter table t distributed by hash(k);
 -- result:
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -390,7 +390,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -402,7 +402,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -414,7 +414,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -426,7 +426,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -438,7 +438,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -450,7 +450,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -462,7 +462,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -474,7 +474,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -486,7 +486,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -498,7 +498,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -510,7 +510,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -522,7 +522,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -534,7 +534,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -546,7 +546,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -558,7 +558,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -570,7 +570,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -582,7 +582,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -594,7 +594,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -606,7 +606,7 @@ select sleep(1);
 -- result:
 1
 -- !result
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_8486.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {

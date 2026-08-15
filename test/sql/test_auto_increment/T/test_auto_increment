@@ -237,7 +237,7 @@ PROPERTIES (
 INSERT INTO t_auto_increment_incorrect_col_id VALUES (1, DEFAULT, DEFAULT, DEFAULT);
 SELECT * FROM t_auto_increment_incorrect_col_id;
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_incorrect_col_id.csv -XPUT -H partial_update:true -H label:test_auto_increment_incorrect_col_id_1 -H column_separator:, -H columns:"k1, k4" ${url}/api/test_auto_increment_incorrect_col_id/t_auto_increment_incorrect_col_id/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_incorrect_col_id.csv -XPUT -H partial_update:true -H label:test_auto_increment_incorrect_col_id_1 -H column_separator:, -H columns:"k1, k4" ${url}/api/test_auto_increment_incorrect_col_id/t_auto_increment_incorrect_col_id/_stream_load
 sync;
 
 SELECT * FROM t_auto_increment_incorrect_col_id;
@@ -264,15 +264,15 @@ PROPERTIES (
 INSERT INTO t_auto_increment_partial_update_only VALUES (1, 2, 3, DEFAULT);
 SELECT * FROM t_auto_increment_partial_update_only;
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true -H label:test_auto_increment_partial_update_only_1 -H column_separator:, -H columns:"k1,k2,k3" ${url}/api/test_auto_increment_partial_update_only/t_auto_increment_partial_update_only/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true -H label:test_auto_increment_partial_update_only_1 -H column_separator:, -H columns:"k1,k2,k3" ${url}/api/test_auto_increment_partial_update_only/t_auto_increment_partial_update_only/_stream_load
 sync;
 SELECT * FROM t_auto_increment_partial_update_only;
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true -H label:test_auto_increment_partial_update_only_2 -H column_separator:, -H columns:"k1,k2,k3" ${url}/api/test_auto_increment_partial_update_only/t_auto_increment_partial_update_only/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true -H label:test_auto_increment_partial_update_only_2 -H column_separator:, -H columns:"k1,k2,k3" ${url}/api/test_auto_increment_partial_update_only/t_auto_increment_partial_update_only/_stream_load
 sync;
 SELECT * FROM t_auto_increment_partial_update_only;
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true -H label:test_auto_increment_partial_update_only_3 -H column_separator:, -H columns:"k1,k2,k3" ${url}/api/test_auto_increment_partial_update_only/t_auto_increment_partial_update_only/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true -H label:test_auto_increment_partial_update_only_3 -H column_separator:, -H columns:"k1,k2,k3" ${url}/api/test_auto_increment_partial_update_only/t_auto_increment_partial_update_only/_stream_load
 sync;
 SELECT * FROM t_auto_increment_partial_update_only;
 
@@ -347,7 +347,7 @@ PROPERTIES (
 INSERT INTO t_auto_increment_partial_update_column_upsert VALUES (1, DEFAULT, 3, 4);
 SELECT * FROM t_auto_increment_partial_update_column_upsert;
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true  -H partial_update_mode:column -H label:test_auto_increment_partial_update_column_upsert_12345 -H column_separator:, -H columns:k,v2,xx ${url}/api/test_auto_increment_partial_update_column_upsert/t_auto_increment_partial_update_column_upsert/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true  -H partial_update_mode:column -H label:test_auto_increment_partial_update_column_upsert_12345 -H column_separator:, -H columns:k,v2,xx ${url}/api/test_auto_increment_partial_update_column_upsert/t_auto_increment_partial_update_column_upsert/_stream_load
 sync;
 
 SELECT * FROM t_auto_increment_partial_update_column_upsert;
@@ -396,7 +396,7 @@ PROPERTIES (
 INSERT INTO t_auto_increment_partial_update_column_upsert_2 VALUES (1, 2, 3, DEFAULT, 4);
 SELECT * FROM t_auto_increment_partial_update_column_upsert_2;
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true  -H partial_update_mode:column -H label:test_auto_increment_partial_update_column_upsert_12345 -H column_separator:, -H columns:k,v2,xx ${url}/api/test_auto_increment_partial_update_column_upsert_2/t_auto_increment_partial_update_column_upsert_2/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_auto_increment_partial_update_only.csv -XPUT -H partial_update:true  -H partial_update_mode:column -H label:test_auto_increment_partial_update_column_upsert_12345 -H column_separator:, -H columns:k,v2,xx ${url}/api/test_auto_increment_partial_update_column_upsert_2/t_auto_increment_partial_update_column_upsert_2/_stream_load
 sync;
 
 SELECT * FROM t_auto_increment_partial_update_column_upsert_2;

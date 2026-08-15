@@ -10,12 +10,12 @@ CREATE TABLE `t1` (
  "replication_num" = "1"
 );
 
-shell: curl --location-trusted -u root: -X PUT -H "format: json" -H "strip_outer_array: true" -T ${root_path}/sql/test_stream_load/data/json_map_partial_append.json ${url}/api/db_${uuid0}/t1/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -X PUT -H "format: json" -H "strip_outer_array: true" -T ${root_path}/sql/test_stream_load/data/json_map_partial_append.json ${url}/api/db_${uuid0}/t1/_stream_load
 sync;
 
 select id, m from db_${uuid0}.t1 order by id;
 
-shell: curl --location-trusted -u root: -X PUT -H "format: json" -H "strip_outer_array: true" -T ${root_path}/sql/test_stream_load/data/json_map_numeric_overflow.json ${url}/api/db_${uuid0}/t1/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -X PUT -H "format: json" -H "strip_outer_array: true" -T ${root_path}/sql/test_stream_load/data/json_map_numeric_overflow.json ${url}/api/db_${uuid0}/t1/_stream_load
 sync;
 
 select id, m from db_${uuid0}.t1 order by id;

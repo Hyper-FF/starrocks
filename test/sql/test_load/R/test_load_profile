@@ -42,7 +42,7 @@ PROPERTIES (
 "replication_num" = "3"
 );
 -- !result
-shell: curl --location-trusted -u root: -H label:${uuid0}_1 -T ${root_path}/lib/../common/data/stream_load/kv.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -H label:${uuid0}_1 -T ${root_path}/lib/../common/data/stream_load/kv.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {
@@ -73,7 +73,7 @@ PROPERTIES (
 "replication_num" = "3"
 );
 -- !result
-shell: curl --location-trusted -u root: -H label:${uuid0}_2 -T ${root_path}/lib/../common/data/stream_load/kv.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -H label:${uuid0}_2 -T ${root_path}/lib/../common/data/stream_load/kv.csv -XPUT ${url}/api/db_${uuid0}/t/_stream_load
 -- result:
 0
 {

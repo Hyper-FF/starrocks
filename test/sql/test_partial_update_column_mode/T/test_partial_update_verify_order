@@ -25,7 +25,7 @@ CREATE table IF NOT EXISTS tab1 (
 INSERT INTO `tab1` (`k1`, `k2`, `k3`, `v1`, `v2`, `v3`, `v4`) VALUES (1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2), (3, 3, 3, 3, 3, 3, 3), (4, 4, 4, 4, 4, 4, 4), (5, 5, 5, 5, 5, 5, 5), (6, 6, 6, 6, 6, 6, 6), (7, 7, 7, 7, 7, 7, 7), (8, 8, 8, 8, 8, 8, 8), (9, 9, 9, 9, 9, 9, 9), (10, 10, 10, 10, 10, 10, 10);
 select * from tab1 order by k1;
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_partial_update_6.csv -XPUT -H partial_update:true -H partial_update_mode:column -H label:test_partial_update_upsert1 -H column_separator:, -H columns:k1,k2,v3 ${url}/api/test_partial_update_verify_order/tab1/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_partial_update_6.csv -XPUT -H partial_update:true -H partial_update_mode:column -H label:test_partial_update_upsert1 -H column_separator:, -H columns:k1,k2,v3 ${url}/api/test_partial_update_verify_order/tab1/_stream_load
 sync;
 select * from tab1 order by k1;
 
@@ -49,6 +49,6 @@ CREATE table IF NOT EXISTS tab2 (
 INSERT INTO `tab2` (`k1`, `k2`, `k3`, `v1`, `v2`, `v3`, `v4`) VALUES (1, 10, 1, 1, 1, 1, 1), (2, 9, 2, 2, 2, 2, 2), (3, 8, 3, 3, 3, 3, 3), (4, 7, 4, 4, 4, 4, 4), (5, 6, 5, 5, 5, 5, 5), (6, 5, 6, 6, 6, 6, 6), (7, 4, 7, 7, 7, 7, 7), (8, 3, 8, 8, 8, 8, 8), (9, 2, 9, 9, 9, 9, 9), (10, 1, 10, 10, 10, 10, 10);
 select * from tab2 order by k1;
 
-shell: curl --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_partial_update_7.csv -XPUT -H partial_update:true -H partial_update_mode:column -H label:test_partial_update_upsert2 -H column_separator:, -H columns:k1,k2,v3 ${url}/api/test_partial_update_verify_order/tab2/_stream_load
+shell: curl -H "Expect: 100-continue" --location-trusted -u root: -T ${root_path}/lib/../common/data/stream_load/sr_partial_update_7.csv -XPUT -H partial_update:true -H partial_update_mode:column -H label:test_partial_update_upsert2 -H column_separator:, -H columns:k1,k2,v3 ${url}/api/test_partial_update_verify_order/tab2/_stream_load
 sync;
 select * from tab2 order by k1;
