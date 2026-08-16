@@ -16,6 +16,7 @@ package com.starrocks.sql.optimizer.validate;
 
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.ColumnAccessPath;
+import com.starrocks.qe.ConnectContext;
 import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.OptExpressionVisitor;
 import com.starrocks.sql.optimizer.operator.OperatorType;
@@ -62,6 +63,13 @@ public class PrunedComplexTypeChecker implements PlanValidator.Checker {
 
     @Override
     public void validate(OptExpression physicalPlan, TaskContext taskContext) {
+        // Controlled on its own rather than only through enable_plan_validation: this is a
+        // contract between the declared plan and what the storage layer materializes, so it is
+        // useful to keep it on (or turn just it off) independently of the other checkers.
+        ConnectContext context = ConnectContext.get();
+        if (context != null && !context.getSessionVariable().isEnablePrunedComplexTypeCheck()) {
+            return;
+        }
         physicalPlan.getOp().accept(new Visitor(), physicalPlan, null);
     }
 

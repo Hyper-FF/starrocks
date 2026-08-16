@@ -20,6 +20,7 @@ import com.google.common.collect.Maps;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.ColumnAccessPath;
 import com.starrocks.catalog.OlapTable;
+import com.starrocks.qe.ConnectContext;
 import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.operator.physical.PhysicalOlapScanOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
@@ -96,6 +97,24 @@ public class PrunedComplexTypeCheckerTest {
         // BE skips predicate-only paths when pruning the scan schema, so this is still unsafe.
         Assertions.assertThrows(IllegalArgumentException.class,
                 () -> PrunedComplexTypeChecker.getInstance().validate(plan, null));
+    }
+
+    @Test
+    public void testSwitchDisablesTheCheck() {
+        OptExpression plan = scanOf(arrayOfStruct("f1"), arrayOfStruct("f1", "f2"), ImmutableList.of());
+        ConnectContext context = new ConnectContext();
+        context.setThreadLocalInfo();
+        try {
+            context.getSessionVariable().setEnablePrunedComplexTypeCheck(false);
+            PrunedComplexTypeChecker.getInstance().validate(plan, null);
+
+            // and back on, the same plan is rejected again
+            context.getSessionVariable().setEnablePrunedComplexTypeCheck(true);
+            Assertions.assertThrows(IllegalArgumentException.class,
+                    () -> PrunedComplexTypeChecker.getInstance().validate(plan, null));
+        } finally {
+            ConnectContext.remove();
+        }
     }
 
     @Test

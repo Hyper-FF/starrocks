@@ -1002,6 +1002,7 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
     public static final String SQL_QUOTE_SHOW_CREATE = "sql_quote_show_create";
 
     public static final String ENABLE_PLAN_VALIDATION = "enable_plan_validation";
+    public static final String ENABLE_PRUNED_COMPLEX_TYPE_CHECK = "enable_pruned_complex_type_check";
 
     public static final String ENABLE_OPTIMIZER_RULE_DEBUG = "enable_optimizer_rule_debug";
 
@@ -3152,6 +3153,12 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     @VarAttr(name = ENABLE_PLAN_VALIDATION, flag = VariableMgr.INVISIBLE)
     private boolean enablePlanValidation = true;
+
+    // Rejects a plan that declares a narrower complex type for an OLAP scan column than the
+    // backend will materialize for it. Separate from ENABLE_PLAN_VALIDATION so this specific
+    // contract check can be turned off (or kept on) on its own.
+    @VarAttr(name = ENABLE_PRUNED_COMPLEX_TYPE_CHECK)
+    private boolean enablePrunedComplexTypeCheck = true;
 
     @VarAttr(name = ENABLE_OPTIMIZER_RULE_DEBUG)
     private boolean enableOptimizerRuleDebug = false;
@@ -5821,6 +5828,14 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     public boolean getEnablePlanValidation() {
         return this.enablePlanValidation;
+    }
+
+    public boolean isEnablePrunedComplexTypeCheck() {
+        return this.enablePrunedComplexTypeCheck;
+    }
+
+    public void setEnablePrunedComplexTypeCheck(boolean enablePrunedComplexTypeCheck) {
+        this.enablePrunedComplexTypeCheck = enablePrunedComplexTypeCheck;
     }
 
     public void setEnablePlanValidation(boolean val) {
