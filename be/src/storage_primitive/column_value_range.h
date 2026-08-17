@@ -21,6 +21,7 @@
 #include <variant>
 #include <vector>
 
+#include "base/decimal_types.h"
 #include "base/string/slice.h"
 #include "column/runtime_type_traits.h"
 #include "common/status.h"
@@ -32,6 +33,36 @@
 #include "types/timestamp_value.h"
 
 namespace starrocks {
+
+// The bounds a ColumnValueRange has to be seeded with for |ltype|: what the column can physically
+// hold, which for every type but decimal is also what the schema promises.
+//
+// A decimal is declared with a precision but stored as the underlying integer, and an AGG_KEYS SUM
+// column accumulates into that integer with no overflow check, so a merged decimal(38,2) value can
+// end up above get_max_decimal<int128_t>() and still be a perfectly readable int128 -- INSERT
+// rejects such a value, aggregation produces it anyway. Seeding the range with the precision-derived
+// limit makes two of the rewrites below unsound at once: `col >= <declared max>` becomes the point
+// range [max, max] and is emitted as an equality, so the larger rows match neither `p` nor `NOT p`
+// nor `p IS NULL`; and `col <= <declared max>` looks like a tautology and is dropped, so the same
+// rows come back where they should have been filtered out. Seeding with the storage limit keeps both
+// correct and is identical to the old behaviour for every non-decimal type.
+template <LogicalType ltype>
+inline auto column_range_storage_min() {
+    if constexpr (lt_is_decimal<ltype>) {
+        return get_min<RunTimeCppType<ltype>>();
+    } else {
+        return RunTimeTypeLimits<ltype>::min_value();
+    }
+}
+
+template <LogicalType ltype>
+inline auto column_range_storage_max() {
+    if constexpr (lt_is_decimal<ltype>) {
+        return get_max<RunTimeCppType<ltype>>();
+    } else {
+        return RunTimeTypeLimits<ltype>::max_value();
+    }
+}
 
 // There are two types of value range: Fixed Value Range and Range Value Range
 // I know "Range Value Range" sounds bad, but it's hard to turn over the de facto.

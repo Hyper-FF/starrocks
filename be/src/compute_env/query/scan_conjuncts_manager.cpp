@@ -1114,8 +1114,7 @@ struct ColumnRangeBuilder {
             using RangeType = ColumnValueRange<value_type>;
 
             const auto col_name = std::string(slot->col_name());
-            RangeType full_range(col_name, ltype, RunTimeTypeLimits<ltype>::min_value(),
-                                 RunTimeTypeLimits<ltype>::max_value());
+            RangeType full_range(col_name, ltype, column_range_storage_min<ltype>(), column_range_storage_max<ltype>());
             if constexpr (lt_is_decimal<limit_type>) {
                 full_range.set_precision(slot->type().precision);
                 full_range.set_scale(slot->type().scale);

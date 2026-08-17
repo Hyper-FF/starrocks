@@ -58,6 +58,62 @@ TEST_F(ColumnValueRangeTest, add_range_ge_min) {
               "TCondition(column_name=c_int32, condition_op=<=, condition_values=[100], is_index_filter_only=0)");
 }
 
+// An AGG_KEYS SUM column overflows its declared decimal precision without a check, so the scan does
+// see decimal(38,2) values above get_max_decimal<int128_t>() -- they still fit the int128 the column
+// is stored in. Seeded the way ColumnRangeBuilder seeds it (storage limits, not precision limits),
+// a bound that lands exactly on the declared maximum must stay a range bound. It used to collapse:
+// `>= declared_max` was emitted as an equality and dropped every larger row from `p`, `NOT p` and
+// `p IS NULL` alike, while `<= declared_max` was dropped as a tautology and let them all through.
+TEST_F(ColumnValueRangeTest, decimal_bound_on_declared_max_is_not_collapsed) {
+    const int128_t declared_max = get_max_decimal<int128_t>();
+
+    {
+        ColumnValueRange<int128_t> range("c_dec", TYPE_DECIMAL128, column_range_storage_min<TYPE_DECIMAL128>(),
+                                         column_range_storage_max<TYPE_DECIMAL128>(),
+                                         column_range_storage_min<TYPE_DECIMAL128>(),
+                                         column_range_storage_max<TYPE_DECIMAL128>());
+        range.set_precision(38);
+        range.set_scale(2);
+
+        ASSERT_OK(range.add_range(SQLFilterOp::FILTER_LARGER_OR_EQUAL, declared_max));
+        ASSERT_FALSE(range.is_fixed_value_range());
+
+        std::vector<OlapCondition> filters;
+        range.to_olap_filter<OlapCondition, false>(filters);
+        ASSERT_EQ(filters.size(), 1);
+        ASSERT_EQ(filters[0].condition_op, ">=");
+    }
+    {
+        // Mirror case: the upper bound is not a no-op just because it equals the declared maximum.
+        ColumnValueRange<int128_t> range("c_dec", TYPE_DECIMAL128, column_range_storage_min<TYPE_DECIMAL128>(),
+                                         column_range_storage_max<TYPE_DECIMAL128>(),
+                                         column_range_storage_min<TYPE_DECIMAL128>(),
+                                         column_range_storage_max<TYPE_DECIMAL128>());
+        range.set_precision(38);
+        range.set_scale(2);
+
+        ASSERT_OK(range.add_range(SQLFilterOp::FILTER_LESS_OR_EQUAL, declared_max));
+
+        std::vector<OlapCondition> filters;
+        range.to_olap_filter<OlapCondition, false>(filters);
+        ASSERT_EQ(filters.size(), 1);
+        ASSERT_EQ(filters[0].condition_op, "<=");
+    }
+}
+
+// The seeding helper must be a no-op for every type whose declared domain is its storage domain,
+// and must widen only for decimals.
+TEST_F(ColumnValueRangeTest, storage_bounds_widen_decimals_only) {
+    ASSERT_EQ(column_range_storage_min<TYPE_INT>(), RunTimeTypeLimits<TYPE_INT>::min_value());
+    ASSERT_EQ(column_range_storage_max<TYPE_INT>(), RunTimeTypeLimits<TYPE_INT>::max_value());
+    ASSERT_EQ(column_range_storage_max<TYPE_BIGINT>(), RunTimeTypeLimits<TYPE_BIGINT>::max_value());
+
+    ASSERT_GT(column_range_storage_max<TYPE_DECIMAL128>(), get_max_decimal<int128_t>());
+    ASSERT_LT(column_range_storage_min<TYPE_DECIMAL128>(), get_min_decimal<int128_t>());
+    ASSERT_GT(column_range_storage_max<TYPE_DECIMAL32>(), get_max_decimal<int32_t>());
+    ASSERT_GT(column_range_storage_max<TYPE_DECIMAL64>(), get_max_decimal<int64_t>());
+}
+
 TEST(NormalizeRangeTest, RangeTest) {
     const constexpr LogicalType Type = TYPE_INT;
     using CppType = RunTimeCppType<Type>;
