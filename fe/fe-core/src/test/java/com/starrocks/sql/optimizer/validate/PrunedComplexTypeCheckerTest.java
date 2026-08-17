@@ -53,8 +53,18 @@ public class PrunedComplexTypeCheckerTest {
     }
 
     private static OptExpression scanOf(Type declaredType, Type storedType, List<ColumnAccessPath> paths) {
+        return scanOf(declaredType, storedType, paths, null);
+    }
+
+    private static OptExpression scanOf(Type declaredType, Type storedType, List<ColumnAccessPath> paths,
+                                       String renamedTo) {
         ColumnRefOperator ref = new ColumnRefOperator(1, declaredType, "c_arr", true);
         Column column = new Column("c_arr", storedType);
+        if (renamedTo != null) {
+            // A rename updates the name and leaves the column id - the storage-side name every access
+            // path is rooted at - unchanged.
+            column.setName(renamedTo);
+        }
         Map<ColumnRefOperator, Column> colRefToColumnMetaMap = Maps.newHashMap();
         colRefToColumnMetaMap.put(ref, column);
 
@@ -115,6 +125,16 @@ public class PrunedComplexTypeCheckerTest {
         } finally {
             ConnectContext.remove();
         }
+    }
+
+    @Test
+    public void testAcceptsPathOfRenamedColumn() {
+        // The path is rooted at the column id "c_arr" while the column now answers to "c_arr_new".
+        // Deciding by the name would make this perfectly executable plan look like an unbacked
+        // narrowing and get it rejected.
+        OptExpression plan = scanOf(arrayOfStruct("f1"), arrayOfStruct("f1", "f2"),
+                ImmutableList.of(prunablePathFor("c_arr")), "c_arr_new");
+        PrunedComplexTypeChecker.getInstance().validate(plan, null);
     }
 
     @Test

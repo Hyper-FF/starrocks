@@ -119,7 +119,9 @@ public class PrunedComplexTypeChecker implements PlanValidator.Checker {
                 if (path.isFromPredicate() || !path.hasChildPath()) {
                     continue;
                 }
-                if (path.getPath().equalsIgnoreCase(column.getName())) {
+                // Match on the column id, not the name: a path is rooted at the storage-side id, and
+                // a renamed column keeps that id while its name changes.
+                if (path.getPath().equalsIgnoreCase(column.getColumnId().getId())) {
                     return true;
                 }
             }
