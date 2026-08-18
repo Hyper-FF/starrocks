@@ -1365,7 +1365,13 @@ while true; do
         genrows=-1
     elif [ -f "$GEN_DATA" ]; then
         rows_before=$(db_row_total "$db")
-        if timeout 600 python3 "$GEN_DATA" "$GEN_ROWS" >/dev/null 2>&1; then
+        # Name the database, exactly as preflight has to. Without argv[2] the generator walks every
+        # database this instance owns and fills all of them -- 2782 databases at the current corpus
+        # size -- while the round only ever measures, and only ever queries, this one. The round then
+        # pays for the whole shard every time, exceeds the 600s budget, and reports the amplification
+        # it did not get to do as a failure. It also re-loads databases a sibling instance is
+        # mid-differential on, which is a row-count change underneath a comparison that assumes none.
+        if timeout 600 python3 "$GEN_DATA" "$GEN_ROWS" "$db" >/dev/null 2>&1; then
             genrows=$(( $(db_row_total "$db") - rows_before ))
             # Exit code 0 with nothing loaded is the failure mode that hid for hundreds of rounds.
             if [ "$genrows" -le 0 ] && [ "${ntables:-0}" -gt 0 ]; then
