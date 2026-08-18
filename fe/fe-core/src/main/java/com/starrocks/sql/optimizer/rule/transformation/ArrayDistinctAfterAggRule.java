@@ -31,6 +31,7 @@ import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperatorVisitor;
 import com.starrocks.sql.optimizer.rule.RuleType;
+import com.starrocks.type.Type;
 
 import java.util.HashMap;
 import java.util.List;
@@ -159,7 +160,20 @@ public class ArrayDistinctAfterAggRule extends TransformationRule {
             if (entry.getValue().getFnName().equals(FunctionSet.ARRAY_AGG) &&
                     checkAllUseOfArrayAggResultHasDistinct(entry.getKey(), project, aggregate)) {
                 Function oldFn = entry.getValue().getFunction();
-                Function newFn = ExprUtils.getBuiltinFunction(FunctionSet.ARRAY_AGG_DISTINCT, oldFn.getArgs(),
+                // DISTINCT is only meaningful for a type that can be grouped, which is why the
+                // analyzer refuses array_agg(DISTINCT <json/complex>) outright. Resolution below is
+                // non-strict, so a JSON argument does not fail to match -- it matches the BOOLEAN
+                // overload through an implicit cast and silently turns an ARRAY<JSON> aggregate into
+                // an ARRAY<BOOLEAN> one. Nothing rejects that until the plan validator reports a type
+                // mismatch as "Invalid plan", with a TopN tree in the message and no mention of the
+                // rewrite that caused it. Refuse the same types the analyzer refuses.
+                Type[] oldArgs = oldFn.getArgs();
+                if (oldArgs.length > 0 && (oldArgs[0].isJsonType() || oldArgs[0].isComplexType())
+                        && !oldArgs[0].canGroupBy()) {
+                    replaceMap.put(entry.getKey(), entry.getValue());
+                    continue;
+                }
+                Function newFn = ExprUtils.getBuiltinFunction(FunctionSet.ARRAY_AGG_DISTINCT, oldArgs,
                         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
                 if (newFn == null) {
                     // array_agg_distinct not support this args.
