@@ -473,9 +473,22 @@ diff_skippable() {
 #     query with no rows, so a third of the coverage never ran (see validate_knobs).
 # Total rows across a database's base tables. Used to tell "the generator ran" from "the generator
 # loaded something", which are not the same thing and were conflated for hundreds of rounds.
+# COUNTED, not read off information_schema.tables.table_rows. That column is a STATISTIC refreshed
+# asynchronously by TabletStatMgr, and every round drops and recreates its database -- so its tables
+# are always younger than the statistic, both reads return 0, gen_rows is ALWAYS 0, and the harness
+# cries "data generator exited 0 but loaded no rows" every round. Measured before this fix: 1081 of
+# 1104 rounds on dev1 instance 0, ~900 alarms per instance, while count(*) on the round's own table
+# returned 823200 rows. The data was fine; the column meant to tell a broken round from a quiet one
+# was the broken thing.
 db_row_total() {
-    timeout 60 $MYSQL -N -e "select ifnull(sum(table_rows),0) from information_schema.tables
-        where table_schema='$1' and table_type='BASE TABLE'" 2>/dev/null | tr -dc '0-9' | sed 's/^$/0/'
+    local db=$1 t c total=0
+    while IFS= read -r t; do
+        [ -n "$t" ] || continue
+        c=$(timeout 30 $MYSQL "$db" -N -B -e "select count(*) from \`$t\`" 2>/dev/null | tr -dc '0-9')
+        total=$((total + ${c:-0}))
+    done < <(timeout 30 $MYSQL -N -B -e "select TABLE_NAME from information_schema.tables
+        where table_schema='$db' and table_type='BASE TABLE'" 2>/dev/null)
+    printf '%s' "$total"
 }
 
 preflight() {
@@ -518,7 +531,12 @@ preflight() {
         # Integer columns only. The generator deliberately emits oversized strings, so a varchar(20)
         # probe would reject its own INSERT and this check would blame the generator for working.
         timeout 30 $MYSQL "$probe" -e "create table p(k int, v bigint) duplicate key(k) distributed by hash(k) buckets 1" >/dev/null 2>&1
-        if ! timeout 120 python3 "$GEN_DATA" 50 >/dev/null 2>&1; then
+        # Name the probe database. Without argv[2] the generator walks every database this instance
+        # owns, so "can the generator load a row" turns into a full pass over the shard: minutes once
+        # the corpus is real, and the 120s budget below expires before it reaches the probe. Every
+        # start then fails preflight for a generator that works. It also stopped each start from
+        # re-loading databases another instance was mid-differential on.
+        if ! timeout 120 python3 "$GEN_DATA" 50 "$probe" >/dev/null 2>&1; then
             say "PREFLIGHT FAILED: $GEN_DATA ran but exited non-zero -- rows would never be loaded"
             bad=1
         else
