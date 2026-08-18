@@ -988,8 +988,27 @@ tlp_phase() {
     TLP_SKIPPED=$skipped
 }
 
+# Where this run started reading be.out. The log is append-only and outlives the campaign that
+# wrote it: restarting on a new baseline re-reads every crash the previous months produced and files
+# all of them as findings of the first round. Measured on the 2026-08-19 restart: 7 signatures on
+# dev1 and 11 on dev2 within twenty minutes, every one of them a report from a PID that had not
+# existed for days -- including the EXCEPT/INTERSECT overallocation that the new baseline fixes.
+# A campaign whose first act is to re-file its own history cannot be read at all.
+BELOG_BASE=0
+belog_base_init() {
+    BELOG_BASE=$(wc -c < "$BELOG" 2>/dev/null | tr -dc '0-9')
+    BELOG_BASE=${BELOG_BASE:-0}
+    say "crash oracle reads be.out from byte $BELOG_BASE (everything before it belongs to an earlier run)"
+}
+
 crash_signatures() {
-    awk '
+    local size
+    size=$(wc -c < "$BELOG" 2>/dev/null | tr -dc '0-9')
+    size=${size:-0}
+    # Shrunk means rotated or truncated, and then the old offset would start mid-record; the only
+    # safe reading of a log that went backwards is to read all of what is there now.
+    [ "$size" -lt "$BELOG_BASE" ] && BELOG_BASE=0
+    tail -c "+$((BELOG_BASE + 1))" "$BELOG" 2>/dev/null | awk '
       # A deliberate stop is not a crash: SIGTERM prints the same banner and would
       # otherwise be filed as starrocks::sigterm_handler.
       /stack trace:/ { if ($0 ~ /SIGTERM/) { inc=0; next } inc=1; n=0; next }
@@ -1013,7 +1032,7 @@ crash_signatures() {
         }
         if (++n > 24) inc=0
       }
-    ' "$BELOG" 2>/dev/null | sort -u
+    ' 2>/dev/null | sort -u
 }
 
 # Record any crash signature this run has not reported yet, each with the statement that produced it.
@@ -1213,6 +1232,7 @@ fi
 
 validate_knobs
 preflight
+belog_base_init
 say "corpus: ${#groups[@]} groups, readers=$READERS writers=$WRITERS phase=${PHASE_SECONDS}s"
 
 while true; do
