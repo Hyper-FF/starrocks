@@ -913,17 +913,42 @@ tlp_phase() {
         [ "$lhs" = "$rhs" ] && continue
 
         bad=$((bad + 1))
+        # Same row count is a different finding from a row loss, and conflating them cost three hours
+        # of triage on one report. The law this oracle checks is about the MULTISET: rows appearing or
+        # disappearing is the violation. When the counts agree and only the content differs, the usual
+        # cause is a column whose value has no stable order -- array_agg_distinct and the agg_state
+        # columns finalize through a hash set, so two plans can read the same stored row and emit its
+        # elements in a different order while holding exactly the same elements. Report both, but
+        # never under the same heading, and dedup them separately so one does not bury the other.
+        local nlhs nrhs kind
+        nlhs=$(printf '%s' "$lhs" | grep -c .)
+        nrhs=$(printf '%s' "$rhs" | grep -c .)
+        if [ "$nlhs" -eq "$nrhs" ]; then kind=content; else kind=rows; fi
         # Dedup on the shape, not the table: a defect in DATE range extraction and one in VARCHAR
         # comparison are different bugs, while the same defect seen on forty tables is one.
-        sig="tlp:${ctype}:${op}"
+        sig="tlp:${kind}:${ctype}:${op}"
         if ! claim_signature "$DIFFSIG" 1 "$sig" "$sig"; then
             printf -- '- repeat %s  round %s  group %s  table %s\n' "$sig" "$round" "$gname" "$t" >> "$FINDINGS"
         else
             {
-                printf '\n## TLP PARTITION MISMATCH  round %s  group %s  %s\n\n' \
-                    "$round" "$gname" "$(date '+%F %T')"
-                printf 'A row of `%s` satisfies exactly one of `p`, `NOT p`, `p IS NULL`, so these must\n' "$t"
-                printf 'return the same multiset. They do not.\n\n'
+                if [ "$kind" = rows ]; then
+                    printf '\n## TLP PARTITION MISMATCH  round %s  group %s  %s\n\n' \
+                        "$round" "$gname" "$(date '+%F %T')"
+                    printf 'A row of `%s` satisfies exactly one of `p`, `NOT p`, `p IS NULL`, so these must\n' "$t"
+                    printf 'return the same multiset. They do not: the two sides return a different NUMBER\n'
+                    printf 'of rows, so rows were lost or duplicated by the partitioning.\n\n'
+                else
+                    printf '\n## TLP CONTENT DIFFERS  round %s  group %s  %s\n\n' \
+                        "$round" "$gname" "$(date '+%F %T')"
+                    printf 'Both sides of the `p` / `NOT p` / `p IS NULL` split return the SAME number of rows\n'
+                    printf 'from `%s`, and some row differs in content. This is not a row loss.\n\n' "$t"
+                    printf 'Check the unordered-container explanation before treating it as a defect: a column\n'
+                    printf 'built by an unordered aggregate (array_agg_distinct, the agg_state columns) finalizes\n'
+                    printf 'through a hash set, so two plans can read the same stored row and emit its elements in\n'
+                    printf 'a different order while holding exactly the same elements. Compare element MULTISETS,\n'
+                    printf 'not positions, and run `show create table` -- the aggregate shows up there and not in\n'
+                    printf '`desc`. Only if the multisets differ is this a defect.\n\n'
+                fi
                 printf 'predicate: `%s`   column type: `%s`   table rows: %s\n\n' "$p" "$ctype" "$nrows"
                 printf '```sql\n-- baseline\n%s;\n\n-- partitioned\n%s;\n```\n\n' "$base" "$part"
                 printf 'baseline rows: %s, partitioned rows: %s\n\n' \
@@ -931,7 +956,11 @@ tlp_phase() {
                 printf 'first differing lines:\n```\n%s\n```\n' \
                     "$(diff <(printf '%s\n' "$lhs") <(printf '%s\n' "$rhs") | head -8)"
             } >> "$FINDINGS"
-            say "TLP MISMATCH round=$round group=$gname table=$t predicate=$p"
+            if [ "$kind" = rows ]; then
+                say "TLP MISMATCH round=$round group=$gname table=$t predicate=$p (rows $nlhs vs $nrhs)"
+            else
+                say "TLP content differs (same row count) round=$round group=$gname table=$t predicate=$p"
+            fi
         fi
     done <<< "$(timeout 30 $MYSQL -N -B -e "select TABLE_NAME from information_schema.tables
                     where TABLE_SCHEMA='$db' and TABLE_TYPE='BASE TABLE'" 2>/dev/null | shuf -n "$TLP_MAX_TABLES")"
@@ -946,13 +975,25 @@ crash_signatures() {
       # A deliberate stop is not a crash: SIGTERM prints the same banner and would
       # otherwise be filed as starrocks::sigterm_handler.
       /stack trace:/ { if ($0 ~ /SIGTERM/) { inc=0; next } inc=1; n=0; next }
+      # A sanitizer report is a crash and has to be recorded like one. ASan writes its own banner and
+      # its own frame format ("#7 0x... in starrocks::X") and never the glog "stack trace:" line, so
+      # on an ASAN build -- which is what this campaign runs -- every one of them was invisible to
+      # this function. Eight triage passes in a row had to find them by hand with
+      # `grep -a "ERROR: AddressSanitizer" be.out`, and the EXCEPT/INTERSECT 512GB overallocation was
+      # only ever seen that way.
+      /ERROR: AddressSanitizer/ { inc=1; n=0; next }
       inc {
-        if ($0 ~ /starrocks::/ && $0 !~ /FailureSignalHandler|failure_function|ThreadPool::dispatch|Thread::supervise/) {
+        # The allocator frames are not the identity of the bug. An OOM report starts inside
+        # SystemAllocator/MemPool no matter what asked for the memory, so keying on the first
+        # starrocks frame would file every distinct overallocation under one signature -- the same
+        # "one signature swallows many bugs" failure this function was written to avoid. Skip down to
+        # the first frame that belongs to the query.
+        if ($0 ~ /starrocks::/ && $0 !~ /FailureSignalHandler|failure_function|ThreadPool::dispatch|Thread::supervise|SystemAllocator|MemChunkAllocator|MemPool::|MemTracker|allocate_via_malloc/) {
           s=$0
           match(s, /starrocks::[A-Za-z_:~<>]+/)
           if (RSTART>0) { print substr(s, RSTART, RLENGTH); inc=0 }
         }
-        if (++n > 14) inc=0
+        if (++n > 24) inc=0
       }
     ' "$BELOG" 2>/dev/null | sort -u
 }
