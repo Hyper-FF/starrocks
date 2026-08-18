@@ -92,7 +92,10 @@ touch "$FINDINGS" "$ERRSIG" "$FESIG" "$SETUPSIG" "$CRASHSIG" "$DIFFSIG"
 claim_signature() {
     local file=$1 spec=$2 key=$3 line=$4 rc=1
     {
-        flock 9
+        # -w, and carry on when it expires. An unbounded flock here turns any stuck holder into a
+        # stuck campaign, and the worst case of proceeding without the lock is that one finding gets
+        # written twice -- far better than losing it, and far better than the round loop stopping.
+        flock -w 30 9 || say "claim_signature: lock on $(basename "$file") timed out; proceeding unlocked"
         if ! cut -f"$spec" "$file" 2>/dev/null | grep -Fxq "$key"; then
             printf '%s\n' "$line" >> "$file"
             rc=0
@@ -159,7 +162,12 @@ fe_alive() { timeout 15 $MYSQL -N -e 'select 1' >/dev/null 2>&1; }
 restart_fe() {
     local rc
     {
-        flock 9
+        # -w rather than an unbounded wait. A normal restart under this lock takes minutes (stop 120s
+        # + start + up to 150s waiting for the service), so 15 minutes only expires when the holder
+        # is itself stuck -- and then blocking forever behind it is the worse failure: it is how one
+        # wedged instance took its sibling down with it for 38 hours. On expiry, fall through and
+        # re-check liveness; if the service came back anyway there is nothing to do.
+        flock -w 900 9 || say "restart_fe: waited 900s for $(basename "$FELOCK"); the holder is stuck, proceeding"
         if fe_alive; then
             say "FE already back (restarted by another instance)"
             rc=0
@@ -203,7 +211,12 @@ restart_fe_locked() {
 restart_be() {
     local rc
     {
-        flock 9
+        # -w rather than an unbounded wait. A normal restart under this lock takes minutes (stop 120s
+        # + start + up to 150s waiting for the service), so 15 minutes only expires when the holder
+        # is itself stuck -- and then blocking forever behind it is the worse failure: it is how one
+        # wedged instance took its sibling down with it for 38 hours. On expiry, fall through and
+        # re-check liveness; if the service came back anyway there is nothing to do.
+        flock -w 900 9 || say "restart_be: waited 900s for $(basename "$BELOCK"); the holder is stuck, proceeding"
         if be_alive; then
             say "BE already back (restarted by another instance)"
             rc=0
@@ -246,9 +259,16 @@ restart_be_locked() {
         esac
     fi
     setsid nohup "$W/output/be/bin/start_be.sh" --daemon >/dev/null 2>&1 9>&-
+    # be_alive, not a bare client. Every other probe in this file is wrapped in `timeout` and this
+    # one was not, which is how one box lost 38 hours: the frontend's acceptor thread had been killed
+    # by a heap OOM, so the JVM stayed up, kept its BDBJE leadership and kept writing fe.log while
+    # accepting no connection ever again. The client here inherited that -- connected, never
+    # answered, never returned -- and since this loop runs while holding the BE restart lock on fd 9,
+    # the sibling instance blocked in flock behind it. Neither process died, so both looked healthy;
+    # rounds.tsv simply stopped growing. Bound every wait against the cluster.
     for _ in $(seq 1 30); do
         sleep 5
-        if $MYSQL -e 'show backends\G' 2>/dev/null | grep -qE '^ *Alive: true'; then
+        if be_alive; then
             say "BE back up"
             return 0
         fi
@@ -1191,7 +1211,7 @@ while true; do
     fe_before=$(fe_log_size)
 
     if [ -z "$benchdb" ]; then
-        $MYSQL -e "drop database if exists $db; create database $db" >/dev/null 2>&1
+        timeout 120 $MYSQL -e "drop database if exists $db; create database $db" >/dev/null 2>&1
     fi
     # The emitted setup is the corpus file's whole DDL history flattened, so it ends in the file's
     # FINAL schema -- and a third of the corpus drops a table after its first query. mut_001 creates
@@ -1435,5 +1455,5 @@ while true; do
         "$round" "$(date '+%F %T')" "$elapsed" "$gname" "$nerr" "$((after - before))" > "$STATUS"
 
     # Never drop a benchmark database: it is shared across rounds and took minutes to materialise.
-    [ -z "$benchdb" ] && $MYSQL -e "drop database if exists $db" >/dev/null 2>&1
+    [ -z "$benchdb" ] && timeout 120 $MYSQL -e "drop database if exists $db" >/dev/null 2>&1
 done

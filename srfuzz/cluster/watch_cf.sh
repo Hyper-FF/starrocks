@@ -29,6 +29,10 @@ WANT_MEM_LIMIT=${WANT_MEM_LIMIT:-60G}
 # A round is 45s of load plus setup, generation and the oracles; a minimize pass over a group can add
 # minutes. Well past that, an instance is stuck rather than slow.
 STALE_SECONDS=${STALE_SECONDS:-1500}
+# The point at which a stall stops being a slow round and becomes a wedge worth breaking. The
+# longest legitimate round measured on this corpus is about 1300s, so 6000s is four times the
+# worst case and cannot fire on a round that is merely slow.
+STALE_KILL_SECONDS=${STALE_KILL_SECONDS:-6000}
 
 say() { printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
 
@@ -85,6 +89,48 @@ confirm_missing() {
     ! grep -qx "$k" <<< "$(running_instances)"
 }
 
+# The top-level pid of an instance, by the same rule running_instances uses to count them.
+instance_pid() {
+    local want=$1 p ppid
+    for p in $(pgrep -f '[c]lusterfuzz.next.sh' 2>/dev/null); do
+        ppid=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)
+        grep -q 'clusterfuzz.next.sh' "/proc/$ppid/cmdline" 2>/dev/null && continue
+        [ "$(instance_of "$p")" = "$want" ] && { printf '%s\n' "$p"; return 0; }
+    done
+    return 1
+}
+
+# Every descendant of a pid, deepest last. pkill -P only reaches direct children, and the process
+# that actually hangs is a grandchild: the round loop forks a subshell which forks the client.
+descendants() {
+    local p=$1 kids k
+    kids=$(pgrep -P "$p" 2>/dev/null) || return 0
+    for k in $kids; do
+        printf '%s\n' "$k"
+        descendants "$k"
+    done
+}
+
+# Detecting a stall and only writing a line about it is what let one box sit for 38 hours: this
+# watchdog logged "has not finished a round" 681 times, correctly, and nothing ever acted on it.
+# The instance was blocked in a mysql client that could not return -- the frontend's acceptor thread
+# had died of a heap OOM, so the JVM held the connection open forever -- and because that client was
+# running under the BE restart lock on fd 9, the sibling instance was blocked in flock behind it.
+# Killing the stuck tree releases the lock, so the sibling recovers on its own. This watchdog still
+# does not relaunch anything (see launch_instance); the next tick reports the instance as missing and
+# the host-side launcher restarts it.
+unwedge_instance() {
+    local k=$1 age=$2 p pids
+    p=$(instance_pid "$k") || { say "ALERT: instance $k stalled ${age}s and no process found -- start it from the host: /tmp/launch_cf.sh $k $N"; return 0; }
+    pids=$(descendants "$p"; printf '%s\n' "$p")
+    say "ALERT: instance $k stalled ${age}s (> ${STALE_KILL_SECONDS}s) -- killing its process tree to release any lock it holds: $(printf '%s' "$pids" | tr '\n' ' ')"
+    # shellcheck disable=SC2086
+    kill -TERM $pids 2>/dev/null
+    sleep 5
+    for p in $pids; do kill -0 "$p" 2>/dev/null && kill -KILL "$p" 2>/dev/null; done
+    say "instance $k killed; expecting the host launcher to bring it back"
+}
+
 # Relaunching from in here does not work and is worse than not trying: an instance started with
 # setsid from inside a docker exec belongs to that exec's tree, so it is SIGTERMed when the exec
 # churns -- 72 relaunches, each killed mid-round, rounds.tsv frozen while the log showed the
@@ -127,7 +173,11 @@ while true; do
         f=$CF/inst$k/rounds.tsv
         [ -f "$f" ] || continue
         age=$(( $(date +%s) - $(stat -c %Y "$f") ))
-        [ "$age" -gt "$STALE_SECONDS" ] && say "ALERT: instance $k has not finished a round in ${age}s"
+        if [ "$age" -gt "$STALE_KILL_SECONDS" ]; then
+            unwedge_instance "$k" "$age"
+        elif [ "$age" -gt "$STALE_SECONDS" ]; then
+            say "ALERT: instance $k has not finished a round in ${age}s"
+        fi
     done
 
     fe=down; be=down
