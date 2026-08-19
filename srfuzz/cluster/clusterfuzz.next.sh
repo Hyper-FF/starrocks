@@ -386,12 +386,29 @@ DIFF_KNOB_SAMPLE=${DIFF_KNOB_SAMPLE:-4}
 
 # Rows, normalised. A query without ORDER BY may return them in any order, and comparing raw output
 # would report every such query as a mismatch.
+# The client's exit status, for the caller. diff_run is used inside a command substitution, so it
+# cannot set a variable the caller can see; a file is the only channel out of the subshell.
+DIFF_RC=$RUN/diff.rc
+
 diff_run() {
     local db=$1 setup=$2 sql=$3
     printf '%s;\n%s\n' "$setup" "$sql" \
-        | timeout 60 $MYSQL "$db" -N -B 2>/dev/null \
+        | { timeout "$QUERY_TIMEOUT" $MYSQL "$db" -N -B 2>/dev/null; printf '%s' "$?" > "$DIFF_RC"; } \
         | LC_ALL=C sort \
         | head -c "$DIFF_MAX_BYTES"
+}
+
+# A killed client leaves the rows it had already written, and those rows look exactly like a complete
+# result -- non-empty, under the size cap, perfectly sortable. Two runs of the same slow query then
+# stop at different points and the comparison reports a difference that belongs entirely to the
+# clock. Both low-cardinality "row loss" findings of 2026-08-19 were this: one query delivers
+# 3012861 rows in 65s (0 rows inside the 60s budget), the other 995802 rows in 29s, and what the
+# oracle compared was 90972 against 113028, and 2503 against 57033. Neither had anything to do with
+# the knob. The existing guards do not cover it: the result is not empty, and it is under
+# DIFF_MAX_BYTES precisely because it was cut short.
+diff_run_incomplete() {
+    local rc; rc=$(cat "$DIFF_RC" 2>/dev/null)
+    [ -n "$rc" ] && [ "$rc" != 0 ]
 }
 
 # True when a statement's answer is allowed to change between two runs, so a difference proves
@@ -602,6 +619,11 @@ differential_phase() {
         fi
 
         base=$(diff_run "$db" "set enable_profile = false" "$stmt")
+        # A timed-out baseline is a partial result, not a baseline. Skip before anything is compared.
+        if diff_run_incomplete; then
+            skipped=$((skipped + 1))
+            continue
+        fi
         # An error, an empty result or a timeout leaves nothing to compare; the error oracle owns those.
         #
         # Counted, not just skipped. This branch is the differential's blind spot: a statement whose
@@ -628,6 +650,12 @@ differential_phase() {
         while IFS= read -r knob; do
             [ -z "$knob" ] && continue
             var=$(diff_run "$db" "$knob" "$stmt")
+            # Same for the knob run: a partial result differs from a complete baseline for reasons
+            # the knob had no part in.
+            if diff_run_incomplete; then
+                voidknob=$((voidknob + 1))
+                continue
+            fi
             # The baseline had rows and this run did not. That is not "no difference": it is the
             # statement erroring, timing out, or the knob being rejected -- exactly the shape of
             # incident 8, where a knob the server did not know returned nothing and the emptiness was
@@ -918,8 +946,16 @@ tlp_phase() {
 
         local lhs rhs
         lhs=$(diff_run "$db" "set enable_profile = false" "$base")
-        [ -z "$lhs" ] && { skipped=$((skipped + 1)); continue; }
+        if [ -z "$lhs" ] || diff_run_incomplete; then skipped=$((skipped + 1)); continue; fi
         rhs=$(diff_run "$db" "set enable_profile = false" "$part")
+        # The partitioned form runs three scans where the baseline runs one, so it is the side that
+        # times out first -- and a partial rhs against a complete lhs is a manufactured row loss,
+        # which is the single most expensive kind of false finding this oracle can produce.
+        if diff_run_incomplete; then
+            skipped=$((skipped + 1))
+            say "  TLP skipped on $t.$col ($ctype $op): partitioned form did not finish in ${QUERY_TIMEOUT}s"
+            continue
+        fi
         # Empty here is the partitioned form failing, not agreeing. Same trap as the differential's
         # void counter: silence is not a pass.
         if [ -z "$rhs" ]; then
