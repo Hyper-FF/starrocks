@@ -83,13 +83,40 @@ public class AstToSQLBuilderTest {
     public void testSelectStarExcludeToSQL() throws Exception {
         String sql = "SELECT * EXCLUDE (name, email) FROM test_exclude;";
         StatementBase stmt = SqlParser.parseSingleStatement(sql, SqlModeHelper.MODE_DEFAULT);
-        Assertions.assertEquals("SELECT * EXCLUDE ( \"name\",\"email\" ) \nFROM `test_exclude`",
+        Assertions.assertEquals("SELECT * EXCLUDE ( `name`,`email` ) \nFROM `test_exclude`",
                 AstToSQLBuilder.toSQL(stmt));
-        
+
         sql = "SELECT test_exclude.* EXCLUDE (name) FROM test_exclude";
         stmt = SqlParser.parseSingleStatement(sql, SqlModeHelper.MODE_DEFAULT);
-        Assertions.assertEquals("SELECT test_exclude.* EXCLUDE ( \"name\" ) \nFROM `test_exclude`",
+        Assertions.assertEquals("SELECT test_exclude.* EXCLUDE ( `name` ) \nFROM `test_exclude`",
                 AstToSQLBuilder.toSQL(stmt));
+    }
+
+    @Test
+    public void testSelectStarExcludeRoundTrips() throws Exception {
+        // The point of this deparser is that its output parses again. Quoting the excluded columns
+        // the way the grammar does not accept -- with double quotes -- made that false, and an
+        // assertion that only compares the printed text cannot see it.
+        for (String sql : new String[] {
+                "SELECT * EXCLUDE (name, email) FROM test_exclude",
+                "SELECT test_exclude.* EXCLUDE (name) FROM test_exclude",
+                "SELECT * EXCLUDE (`odd name`) FROM test_exclude",
+                // a back quote inside the name is printed doubled, so reading it back has to collapse
+                // the pair -- dropping it would quietly exclude oddname instead
+                "SELECT * EXCLUDE (`odd``name`) FROM test_exclude"}) {
+            StatementBase stmt = SqlParser.parseSingleStatement(sql, SqlModeHelper.MODE_DEFAULT);
+            String printed = AstToSQLBuilder.toSQL(stmt);
+            StatementBase reparsed = SqlParser.parseSingleStatement(printed, SqlModeHelper.MODE_DEFAULT);
+            // printing the reparsed statement has to reach the same text: checking only that it parses
+            // would also accept a name the parser rewrote on the way in
+            Assertions.assertEquals(printed, AstToSQLBuilder.toSQL(reparsed), sql);
+        }
+
+        // The escaped name also has to survive the very first parse. A fixed point alone would not
+        // notice a name mangled on the way in, because the mangled form then reprints unchanged.
+        String printed = AstToSQLBuilder.toSQL(SqlParser.parseSingleStatement(
+                "SELECT * EXCLUDE (`odd``name`) FROM test_exclude", SqlModeHelper.MODE_DEFAULT));
+        Assertions.assertTrue(printed.contains("`odd``name`"), printed);
     }
 
     @Test
