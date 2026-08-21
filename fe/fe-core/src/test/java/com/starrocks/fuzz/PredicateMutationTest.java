@@ -332,4 +332,43 @@ public class PredicateMutationTest {
     private static String squash(String sql) {
         return sql.replace("(", "").replace(")", "").replaceAll("\\s+", "");
     }
+
+    /**
+     * The operator produces LIKE and REGEXP, not just the comparison family. {@code F:like} sat in this
+     * operator's coverage targets from the beginning while nothing here could build one, so the map
+     * carried a hole credited to an operator that could not close it -- and the power schedule kept
+     * spending budget trying.
+     *
+     * <p>The CAST is asserted too, not incidental: the tree is unanalyzed when the predicate is built,
+     * so there is no way to know the column is a string, and a bare {@code int_col LIKE '%'} is a
+     * semantic error rather than a mutant.
+     */
+    @Test
+    public void testPredicateReachesLikeAndRegexp() {
+        Random rnd = new Random(3L);
+        Set<String> engines = new LinkedHashSet<>();
+        int matched = 0;
+        for (int i = 0; i < 400 && engines.size() < 2; i++) {
+            StatementBase stmt = parse("select k, v from a");
+            String description = new PredicateMutation().apply((QueryStatement) stmt, pool(), rnd);
+            if (description == null) {
+                continue;
+            }
+            String sql = deparse(stmt);
+            assertRoundTrips(sql);
+            if (sql.contains(" LIKE ") || sql.contains(" NOT LIKE ")) {
+                engines.add("LIKE");
+            } else if (sql.contains(" REGEXP ")) {
+                engines.add("REGEXP");
+            } else {
+                continue;
+            }
+            matched++;
+            Assertions.assertTrue(sql.contains("CAST("),
+                    () -> "a pattern match on an unanalyzed column must be cast: " + sql);
+        }
+        Assertions.assertTrue(matched > 0, "the operator never produced a pattern match");
+        Assertions.assertEquals(Set.of("LIKE", "REGEXP"), engines,
+                "both engines must be reachable, saw: " + engines);
+    }
 }

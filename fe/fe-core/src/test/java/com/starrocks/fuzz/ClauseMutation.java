@@ -97,6 +97,51 @@ public class ClauseMutation implements Mutation {
     private static final String[] WINDOW_AGGREGATES = {"sum", "count", "max", "min", "avg"};
     private static final String[] WINDOW_RANKERS = {"row_number", "rank", "dense_rank"};
 
+    /**
+     * Window frames. Until these existed the operator emitted {@code OVER (PARTITION BY p ORDER BY x)}
+     * and nothing else, so every frame-dependent path -- the sliding-window buffer, the removable
+     * aggregate machinery, the UNBOUNDED short-cuts -- was reachable only from a seed that happened to
+     * be written with a frame. Measured on the emit corpus that is 1.8% of groups against 48% carrying
+     * an OVER at all, and three of the analytic-operator defects this project has fixed were frame
+     * defects.
+     *
+     * <p>Every entry is legal by {@code AnalyticAnalyzer.verifyWindowFrame}, which is stricter than the
+     * grammar:
+     * <ul>
+     *   <li>a frame requires an ORDER BY inside the OVER, so {@link #buildWindowText} adds one;</li>
+     *   <li>a frame is rejected outright on a ranking, cume, offset or hll function, so frames are only
+     *       ever attached to the aggregate branch;</li>
+     *   <li>UNBOUNDED FOLLOWING may not be a lower bound and UNBOUNDED PRECEDING may not be an upper
+     *       one, and a lower bound of {@code n FOLLOWING} forces the upper bound to be FOLLOWING too
+     *       (with the larger offset for ROWS);</li>
+     *   <li>RANGE with an offset boundary additionally demands a single ORDER BY key of a type the
+     *       offset can be added to -- unknowable on an unanalyzed tree -- so RANGE is offered only with
+     *       UNBOUNDED / CURRENT ROW bounds.</li>
+     * </ul>
+     * A frame that violates any of these is not a finding, it is a mutant the analyzer throws away.
+     */
+    private static final String[] WINDOW_FRAMES = {
+            "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+            "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING",
+            "ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING",
+            "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW",
+            "ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING",
+            "ROWS BETWEEN 1 FOLLOWING AND 3 FOLLOWING",
+            "ROWS 3 PRECEDING",
+            "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+            "RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING",
+            "RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING",
+    };
+
+    /**
+     * How often an added GROUP BY is a plain one, as a percentage. The rest is split evenly between
+     * ROLLUP, CUBE and GROUPING SETS -- shapes that expand into several aggregation branches and make
+     * the grouping keys nullable, which is a different optimizer path and not a spelling of the same
+     * one. The corpus carries them in 1.1% of groups, and two of the Invalid-plan defects on record
+     * need one of them together with a distinct aggregate.
+     */
+    private static final int PLAIN_GROUP_BY_PERCENT = 55;
+
     private static final int MAX_GROUP_BY_KEYS = 3;
     private static final int MAX_TARGETS = 64;
     private static final int MAX_DEPTH = 32;
@@ -131,7 +176,12 @@ public class ClauseMutation implements Mutation {
     }
 
     private static final Set<String> TARGETS = Set.of(
-            "F:groupby", "F:having", "F:orderby", "F:limit", "F:distinct", "F:window");
+            "F:groupby", "F:having", "F:orderby", "F:limit", "F:distinct", "F:window",
+            // Only claimed because the operator can now actually build them; a target nothing produces
+            // is a permanent hole in the coverage map and it mis-steers the power schedule towards an
+            // operator that cannot close it.
+            "F:groupby:ROLLUP", "F:groupby:CUBE", "F:groupby:GROUPING_SETS",
+            "F:window:frame:ROWS", "F:window:frame:RANGE");
 
     @Override
     public String apply(QueryStatement stmt, AstMutationFuzzerTest.Pool pool, Random rnd) {
@@ -351,8 +401,42 @@ public class ClauseMutation implements Mutation {
             if (exprs.isEmpty()) {
                 return null;
             }
-            select.setGroupByClause(new GroupByClause(exprs, GroupByClause.GroupingType.GROUP_BY));
-            return at + ": add GROUP BY " + String.join(", ", kept);
+            String joined = String.join(", ", kept);
+            int roll = rnd.nextInt(100);
+            if (roll < PLAIN_GROUP_BY_PERCENT) {
+                select.setGroupByClause(new GroupByClause(exprs, GroupByClause.GroupingType.GROUP_BY));
+                return at + ": add GROUP BY " + joined;
+            }
+            if (roll < PLAIN_GROUP_BY_PERCENT + 15) {
+                select.setGroupByClause(new GroupByClause(exprs, GroupByClause.GroupingType.ROLLUP));
+                return at + ": add GROUP BY ROLLUP (" + joined + ")";
+            }
+            if (roll < PLAIN_GROUP_BY_PERCENT + 30) {
+                select.setGroupByClause(new GroupByClause(exprs, GroupByClause.GroupingType.CUBE));
+                return at + ": add GROUP BY CUBE (" + joined + ")";
+            }
+            // Three sets: everything, the first key alone, and the empty set. The empty set is the
+            // point -- it is the grand total branch, the one that makes every key nullable and the one
+            // the Invalid-plan defects on record need.
+            //
+            // Each set gets its OWN parse of the key texts. Putting one Expr instance into two sets
+            // would alias a node into two positions of one tree, which is the hazard M6 documents at
+            // length: the analyzer writes resolution state into the node at the first position and
+            // overwrites it at the second, and nothing about that looks like a mutator bug afterwards.
+            List<ArrayList<Expr>> sets = new ArrayList<>();
+            ArrayList<Expr> all = reparseAll(kept);
+            if (all == null) {
+                return null;
+            }
+            sets.add(all);
+            ArrayList<Expr> first = reparseAll(kept.subList(0, 1));
+            if (first == null) {
+                return null;
+            }
+            sets.add(first);
+            sets.add(new ArrayList<>());
+            select.setGroupByClause(new GroupByClause(sets, GroupByClause.GroupingType.GROUPING_SETS));
+            return at + ": add GROUP BY GROUPING SETS ((" + joined + "), (" + kept.get(0) + "), ())";
         });
     }
 
@@ -526,12 +610,35 @@ public class ClauseMutation implements Mutation {
             if (partition != null) {
                 sb.append("PARTITION BY ").append(partition);
             }
+            // Half of them carry a frame, which drags an ORDER BY in with it: a frame without one is
+            // rejected by verifyWindowFrame. The unframed half is kept because "no frame" is its own
+            // execution path -- the whole partition at once -- not a degenerate case of a framed one.
+            if (rnd.nextBoolean()) {
+                if (partition != null) {
+                    sb.append(" ");
+                }
+                sb.append("ORDER BY ").append(argument).append(" ")
+                        .append(WINDOW_FRAMES[rnd.nextInt(WINDOW_FRAMES.length)]);
+            }
             sb.append(")");
         }
         return sb.toString();
     }
 
     // --------------------------------------------------------------- helpers
+
+    /** A fresh Expr per text, or null if any of them fails to parse. Never reuses a parsed node. */
+    private static ArrayList<Expr> reparseAll(List<String> texts) {
+        ArrayList<Expr> out = new ArrayList<>();
+        for (String text : texts) {
+            Expr parsed = parseExpr(text);
+            if (parsed == null) {
+                return null;
+            }
+            out.add(parsed);
+        }
+        return out;
+    }
 
     /** Grouping keys taken from the block's own non-aggregate select items, so the mutant can analyze. */
     private static List<String> groupableTexts(SelectList selectList, AstMutationFuzzerTest.Pool pool) {

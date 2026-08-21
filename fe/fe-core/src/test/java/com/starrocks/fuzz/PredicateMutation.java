@@ -115,6 +115,23 @@ public class PredicateMutation implements Mutation {
      */
     private static final String[] FALLBACK_SCALARS = {"0", "1", "2", "100", "'a'", "''"};
 
+    /**
+     * Pattern-match forms, weighted like everything else here towards keeping rows: {@code LIKE '%'}
+     * and a NOT LIKE of an unlikely prefix both match nearly everything, so the differential still has
+     * a non-empty baseline to compare. {@code $c} is the column.
+     *
+     * <p>REGEXP is included because it is the same AST node reaching a different engine, and the regex
+     * side has produced defects of its own (a zero-length match in regexp_extract_all, among others).
+     */
+    private static final String[] LIKE_FORMS = {
+            "CAST($c AS VARCHAR) LIKE '%'",
+            "CAST($c AS VARCHAR) NOT LIKE 'zzzzz%'",
+            "CAST($c AS VARCHAR) LIKE '%1%'",
+            "CAST($c AS VARCHAR) LIKE '_%'",
+            "CAST($c AS VARCHAR) REGEXP '.*'",
+            "CAST($c AS VARCHAR) REGEXP '^[0-9a-zA-Z]*$'",
+    };
+
     /** Aggregate conditions for HAVING. All are legal wherever an aggregation exists, whatever the types. */
     private static final String[] HAVING_FORMS = {
             "count(*) > 0", "count(*) >= 1", "count(*) < 1000000000", "count(*) <> -1",
@@ -150,7 +167,7 @@ public class PredicateMutation implements Mutation {
 
     private static final Set<String> TARGETS = Set.of(
             "F:where", "F:having", "F:compound:AND", "F:compound:OR", "F:compound:NOT",
-            "F:isnull", "F:between", "F:like", "F:in");
+            "F:isnull", "F:between", "F:like", "F:like:LIKE", "F:like:REGEXP", "F:in", "F:cast");
 
     @Override
     public String apply(QueryStatement stmt, AstMutationFuzzerTest.Pool pool, Random rnd) {
@@ -429,13 +446,24 @@ public class PredicateMutation implements Mutation {
             // True for every row of every type, so the answer may not change -- only the plan.
             return "(" + column + " IS NULL OR " + column + " IS NOT NULL)";
         }
-        if (roll < 75) {
+        if (roll < 72) {
             return column + " " + COMPARISONS[rnd.nextInt(COMPARISONS.length)] + " " + scalar(pool, rnd);
         }
-        if (roll < 85) {
+        if (roll < 82) {
             return column + " IN (" + scalar(pool, rnd) + ", " + scalar(pool, rnd) + ")";
         }
-        if (roll < 95) {
+        if (roll < 90) {
+            // `F:like` was listed as a coverage target of this operator from the day it was written,
+            // and nothing here ever produced a LIKE -- so the map carried a hole this operator was
+            // credited with being able to close, and the power schedule kept sending budget at it.
+            //
+            // The CAST is what makes the form type-blind. The tree is unanalyzed, so there is no way
+            // to know whether the chosen column is a string; a bare `int_col LIKE '%'` is a semantic
+            // error and a wasted mutant, while the CAST is legal for every scalar type. It also puts a
+            // cast under a predicate, which is its own pushdown question.
+            return LIKE_FORMS[rnd.nextInt(LIKE_FORMS.length)].replace("$c", column);
+        }
+        if (roll < 97) {
             // Two independently drawn bounds, so this is frequently an empty range and frequently a
             // wide one. Ordering them would need types the unanalyzed tree does not carry.
             return column + " BETWEEN " + scalar(pool, rnd) + " AND " + scalar(pool, rnd);

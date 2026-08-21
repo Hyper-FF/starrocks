@@ -15,6 +15,7 @@
 package com.starrocks.fuzz;
 
 import com.starrocks.qe.ConnectContext;
+import com.starrocks.sql.analyzer.Analyzer;
 import com.starrocks.sql.analyzer.AstToSQLBuilder;
 import com.starrocks.sql.ast.QueryStatement;
 import com.starrocks.sql.ast.StatementBase;
@@ -430,5 +431,80 @@ public class ClauseMutationTest {
         int at = description.indexOf(marker);
         Assertions.assertTrue(at >= 0, "'" + marker + "' not in description: " + description);
         return description.substring(at + marker.length()).trim();
+    }
+
+    /**
+     * The added window sometimes carries a frame, and a framed window always brings an ORDER BY with
+     * it -- {@code AnalyticAnalyzer.verifyWindowFrame} rejects a frame without one, and rejects any
+     * frame at all on a ranking function. Checked on the DEPARSED text and then analyzed, because a
+     * frame the deparser dropped would look like coverage and be none -- the same way a LIMIT put on a
+     * bare set-operation branch used to.
+     */
+    @Test
+    public void testAddedWindowSometimesCarriesAFrameAndAlwaysAnalyzes() {
+        Random rnd = new Random(5L);
+        int windows = 0;
+        int framed = 0;
+        for (int i = 0; i < 300; i++) {
+            StatementBase stmt = parse("select k, v from a");
+            String description = new ClauseMutation().apply((QueryStatement) stmt, pool(), rnd);
+            if (description == null || !description.contains("add window")) {
+                continue;
+            }
+            windows++;
+            String sql = deparse(stmt);
+            assertRoundTrips(sql);
+            if (sql.contains(" ROWS ") || sql.contains(" RANGE ")) {
+                framed++;
+                Assertions.assertTrue(sql.contains("ORDER BY"),
+                        () -> "a frame without an ORDER BY is rejected by the analyzer: " + sql);
+                Assertions.assertFalse(sql.contains("row_number(") || sql.contains("rank("),
+                        () -> "a frame on a ranking function is rejected by the analyzer: " + sql);
+            }
+            Analyzer.analyze(parse(sql), ctx);
+        }
+        Assertions.assertTrue(windows > 0, "the operator never added a window at all");
+        Assertions.assertTrue(framed > 0, "no frame in " + windows + " added windows");
+        Assertions.assertTrue(framed < windows,
+                "every one of " + windows + " windows was framed; the unframed path is coverage too");
+    }
+
+    /**
+     * ROLLUP, CUBE and GROUPING SETS all get built, survive the deparser and analyze. A plain GROUP BY
+     * must still be the common case: the three expanding forms multiply the aggregation branches, and
+     * making every added GROUP BY one of them would trade away the shape most rules are written for.
+     */
+    @Test
+    public void testAddedGroupByReachesRollupCubeAndGroupingSets() {
+        Random rnd = new Random(9L);
+        Set<String> forms = new LinkedHashSet<>();
+        int plain = 0;
+        int total = 0;
+        for (int i = 0; i < 400; i++) {
+            StatementBase stmt = parse("select k, v from a");
+            String description = new ClauseMutation().apply((QueryStatement) stmt, pool(), rnd);
+            if (description == null || !description.contains("add GROUP BY")) {
+                continue;
+            }
+            total++;
+            String sql = deparse(stmt);
+            assertRoundTrips(sql);
+            if (sql.contains("GROUPING SETS")) {
+                forms.add("GROUPING SETS");
+            } else if (sql.contains("ROLLUP")) {
+                forms.add("ROLLUP");
+            } else if (sql.contains("CUBE")) {
+                forms.add("CUBE");
+            } else {
+                forms.add("PLAIN");
+                plain++;
+            }
+            Analyzer.analyze(parse(sql), ctx);
+        }
+        Assertions.assertTrue(total > 0, "the operator never added a GROUP BY at all");
+        Assertions.assertEquals(Set.of("PLAIN", "ROLLUP", "CUBE", "GROUPING SETS"), forms,
+                "forms produced: " + forms);
+        Assertions.assertTrue(plain * 2 > total, "plain GROUP BY should stay the common case: "
+                + plain + " of " + total);
     }
 }

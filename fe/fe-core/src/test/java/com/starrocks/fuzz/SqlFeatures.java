@@ -30,6 +30,7 @@ import com.starrocks.sql.ast.TableFunctionRelation;
 import com.starrocks.sql.ast.ValuesRelation;
 import com.starrocks.sql.ast.ViewRelation;
 import com.starrocks.sql.ast.expression.AnalyticExpr;
+import com.starrocks.sql.ast.expression.AnalyticWindow;
 import com.starrocks.sql.ast.expression.ArrowExpr;
 import com.starrocks.sql.ast.expression.BetweenPredicate;
 import com.starrocks.sql.ast.expression.CaseExpr;
@@ -277,6 +278,14 @@ public final class SqlFeatures {
         } else if (expr instanceof AnalyticExpr) {
             add(out, "window");
             add(out, "windowfn:" + lower(((AnalyticExpr) expr).getFnCall().getFunctionName()));
+            // Framed and unframed windows are different executions, not different spellings: without a
+            // frame the operator sees the whole partition, with one it maintains a sliding buffer and
+            // (for the removable aggregates) subtracts rows as they leave. ROWS and RANGE differ again,
+            // by whether peers of the current row are inside the frame.
+            AnalyticWindow frame = ((AnalyticExpr) expr).getWindow();
+            if (frame != null && frame.getType() != null) {
+                add(out, "window:frame:" + frame.getType().name());
+            }
         } else if (expr instanceof FunctionCallExpr) {
             FunctionCallExpr call = (FunctionCallExpr) expr;
             // Matched by NAME against a fixed list, not by isAggregateFunction(): that method asserts
@@ -297,6 +306,11 @@ public final class SqlFeatures {
             add(out, "cast");
         } else if (expr instanceof LikePredicate) {
             add(out, "like");
+            // LIKE and REGEXP are one AST class and two engines -- a pattern matcher against a regex
+            // library -- so collapsing them would hide whichever of the two the corpus never reaches.
+            if (((LikePredicate) expr).getOp() != null) {
+                add(out, "like:" + ((LikePredicate) expr).getOp().name());
+            }
         } else if (expr instanceof BetweenPredicate) {
             add(out, "between");
         } else if (expr instanceof IsNullPredicate) {
