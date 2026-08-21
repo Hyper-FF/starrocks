@@ -382,6 +382,51 @@ DIFF_MAX_STMTS=${DIFF_MAX_STMTS:-40}
 # later rather than never, and the campaign runs continuously.
 #
 # The knob that fired is recorded in the finding, so a sampled hit is exactly as reproducible.
+# Session settings applied to the MAIN query path -- the readers -- rather than to the differential.
+#
+# Every oracle above compares two runs of the same statement. This one does not compare anything: it
+# changes the plan the ordinary reader phase executes, so that shapes the corpus cannot express are
+# still reached, and it is the ERROR and CRASH oracles that judge the result. That is the right home
+# for a setting whose failure mode is "the query errors": the differential SKIPS those on both sides
+# (an errored baseline is counted as diff_empty, an errored knob run as diff_void), so a plan that
+# only ever fails is structurally invisible to it and visible here.
+#
+# The CTE reuse rate is the first entry, and it was chosen from a measured gap rather than a guess.
+# Every CTE this corpus contains has exactly ONE consumer -- measured on emit/, 518 of 760 groups
+# declare a WITH and not one of them references a CTE twice, because the mutator's CTE shape is
+# `WITH c AS (...) SELECT * FROM c` by construction. PhysicalCTEProduce / PhysicalCTEConsume, the
+# multicast sink and the dictification of consume columns were therefore unreachable from this
+# campaign, and an FE defect that lives there (upstream #78006: a dict expr dropped from the fragment
+# when a projection hides a column the predicate still uses, so the BE fails with "couldn't found
+# dict cid") could not have been found here no matter how long it ran.
+#
+# Both halves of the repair are necessary and neither is sufficient -- measured on the plan, not
+# assumed:
+#   - a one-consumer CTE is force-inlined no matter what the rate says, so this pool alone changes
+#     nothing about the existing corpus;
+#   - a two-consumer CTE (the M6 CTE_REUSE shape) is NOT materialised at the default rate of 1.15
+#     either, so the shape alone changes nothing;
+#   - shape + `cbo_cte_reuse_rate = 0` together produce the multicast plan, and on an FE without the
+#     #78006 fix that plan is missing exactly the two dict exprs the fix adds.
+# -1 is the opposite direction (force inline) for the same two-consumer shapes.
+#
+# cbo_cte_reuse is set alongside it because the rate is inert while reuse is off, and it is off in
+# more places than one would expect. The visible alias `cbo_cte_reuse_rate` is used rather than
+# cbo_cte_reuse_rate_v2, which is INVISIBLE.
+#
+# One value is drawn per ROUND, not per statement, and half the rounds run with none at all. Per
+# round because a finding has to be reproducible: the value is printed with every error this round
+# reports and prepended to the minimiser's replay, so the SQL in findings.md is the SQL that failed.
+# Half with none because the default is not a value to be traded away -- it is what the campaign has
+# always run, and a regression that only shows up without a var must still be reachable.
+EXEC_VARS=${EXEC_VARS:-"\
+set cbo_cte_reuse = true; set cbo_cte_reuse_rate = 0|\
+set cbo_cte_reuse = true; set cbo_cte_reuse_rate = -1|\
+"}
+# The value chosen for the current round, or empty. Read by the reader phase, the minimiser and the
+# error reporter, so it is a global rather than a parameter threaded through all three.
+ROUND_EXEC_VAR=""
+
 DIFF_KNOB_SAMPLE=${DIFF_KNOB_SAMPLE:-4}
 
 # Rows, normalised. A query without ORDER BY may return them in any order, and comparing raw output
@@ -585,8 +630,19 @@ validate_knobs() {
             bad=1
         fi
     done <<< "$(tr '|' '\n' <<< "$DIFF_KNOBS")"
-    [ "$bad" -eq 0 ] || { say "Fix DIFF_KNOBS before running: a knob that errors is silently skipped."; exit 1; }
-    say "differential knobs validated: $(tr '|' '\n' <<< "$DIFF_KNOBS" | grep -c .)"
+    # Same check for the exec-var pool, and for a sharper reason: an unknown DIFF knob returns an
+    # empty result that the oracle reads as agreement, but an unknown EXEC var is a `set` statement
+    # prepended to every reader iteration, so it would manufacture one ERROR per run -- a signature
+    # of our own making, reported as a finding on the first round.
+    while IFS= read -r knob; do
+        [ -z "$knob" ] && continue
+        if ! timeout 20 $MYSQL -N -e "$knob" >/dev/null 2>&1; then
+            say "FATAL: exec var rejected by the server: $knob"
+            bad=1
+        fi
+    done <<< "$(tr '|' '\n' <<< "$EXEC_VARS")"
+    [ "$bad" -eq 0 ] || { say "Fix DIFF_KNOBS/EXEC_VARS before running: a setting that errors is worse than none."; exit 1; }
+    say "differential knobs validated: $(tr '|' '\n' <<< "$DIFF_KNOBS" | grep -c .), exec vars: $(tr '|' '\n' <<< "$EXEC_VARS" | grep -c .)"
 }
 
 # Results come back in globals, NOT on stdout.
@@ -1188,7 +1244,10 @@ minimize_group() {
     while IFS= read -r line; do
         i=$((i + 1))
         [ -z "${line// }" ] && continue
-        printf '%s\n' "$line" > "$RUN/min.sql"
+        # Under the same setting the round ran, or the minimiser is replaying a different query
+        # than the one that failed and will report "not reducible to one statement" for every
+        # finding a session setting produced.
+        { [ -n "$ROUND_EXEC_VAR" ] && printf '%s;\n' "$ROUND_EXEC_VAR"; printf '%s\n' "$line"; } > "$RUN/min.sql"
         local fb; fb=$(fatal_count)
         local fe_b; fe_b=$(fe_log_size)
         timeout "$QUERY_TIMEOUT" $MYSQL "$db" -f < "$RUN/min.sql" >/dev/null 2>&1
@@ -1196,8 +1255,9 @@ minimize_group() {
             local fa; fa=$(fatal_count)
             if [ "$fa" -gt "$fb" ] || ! be_alive; then
                 say "  MINIMIZED $gname to statement $i/$total"
-                { printf '\n### minimized to one statement (line %s of %s)\n\n```sql\n%s\n```\n' \
-                    "$i" "$total" "$(cut -c1-1200 <<< "$line")"; } >> "$FINDINGS"
+                { printf '\n### minimized to one statement (line %s of %s)%s\n\n```sql\n%s\n```\n' \
+                    "$i" "$total" "${ROUND_EXEC_VAR:+, under \`$ROUND_EXEC_VAR\`}" \
+                    "$(cut -c1-1200 <<< "$line")"; } >> "$FINDINGS"
                 restart_be
                 return 0
             fi
@@ -1207,8 +1267,9 @@ minimize_group() {
             tail -c +$((fe_b + 1)) "$FELOG" 2>/dev/null > "$RUN/min.felog"
             if fe_log_signatures "$RUN/min.felog" | grep -Fq "$want"; then
                 say "  MINIMIZED $gname to statement $i/$total for: $want"
-                { printf '\n### minimized to one statement (line %s of %s)\n\n```sql\n%s\n```\n' \
-                    "$i" "$total" "$(cut -c1-1200 <<< "$line")"; } >> "$FINDINGS"
+                { printf '\n### minimized to one statement (line %s of %s)%s\n\n```sql\n%s\n```\n' \
+                    "$i" "$total" "${ROUND_EXEC_VAR:+, under \`$ROUND_EXEC_VAR\`}" \
+                    "$(cut -c1-1200 <<< "$line")"; } >> "$FINDINGS"
                 return 0
             fi
         fi
@@ -1300,6 +1361,13 @@ while true; do
     fi
     started=$(date +%s)
     restarts=0
+    # Half the rounds run with the server defaults, half with one setting from EXEC_VARS. Drawn here,
+    # once, so every error this round reports can name the setting it ran under.
+    if [ $((RANDOM % 2)) -eq 0 ]; then
+        ROUND_EXEC_VAR=$(tr '|' '\n' <<< "$EXEC_VARS" | grep . | shuf -n 1)
+    else
+        ROUND_EXEC_VAR=""
+    fi
 
     printf 'round %s RUNNING since %s\n  group %s  db %s\n  live: tail -f %s\n' \
         "$round" "$(date '+%F %T')" "$gname" "$db" "$LOG" > "$STATUS"
@@ -1454,7 +1522,12 @@ while true; do
             fails=0
             while [ "$(date +%s)" -lt "$end" ]; do
                 started_at=$(date +%s)
-                timeout "$QUERY_TIMEOUT" $MYSQL "$db" -f < "$g.query.sql" >/dev/null 2>>"$RUN/w.r$r.err"
+                # Piped rather than redirected so the round's session setting can be prepended.
+                # It is a `set` on the same connection as the statements, which is the only way to
+                # reach a plan the corpus cannot express -- there is no per-statement hint to inject
+                # into a corpus file that was deparsed from someone else's SQL.
+                { [ -n "$ROUND_EXEC_VAR" ] && printf '%s;\n' "$ROUND_EXEC_VAR"; cat "$g.query.sql"; } |
+                    timeout "$QUERY_TIMEOUT" $MYSQL "$db" -f >/dev/null 2>>"$RUN/w.r$r.err"
                 rc=$?
                 [ $rc -eq 124 ] && echo "ERROR TIMEOUT after ${QUERY_TIMEOUT}s in $gname" >> "$RUN/w.r$r.err"
                 n=$((n + 1))
@@ -1551,6 +1624,10 @@ while true; do
             if claim_signature "$ERRSIG" 1 "$sig" "$(printf '%s\t%s\t%s' "$sig" "$round" "$gname")"; then
                 {
                     printf '\n## NEW ERROR  round %s  group %s  %s\n\n' "$round" "$gname" "$(date '+%F %T')"
+                    # The session setting the readers ran under, when there was one. Without it a
+                    # finding produced by a non-default plan cannot be reproduced from findings.md,
+                    # and the first person to try would conclude the harness invented it.
+                    [ -n "$ROUND_EXEC_VAR" ] && printf 'session: `%s`\n\n' "$ROUND_EXEC_VAR"
                     printf '```\n%s\n```\n\nfirst raw instance:\n```\n%s\n```\n' "$sig" \
                         "$(grep -m1 '^ERROR' "$errfile" | cut -c1-500)"
                 } >> "$FINDINGS"
@@ -1565,7 +1642,7 @@ while true; do
         "${ndempty:-0}" "${ndvoid:-0}" "${ndskip:-0}" "${ntlp:-0}" "${ntlpbad:-0}" "${ntlpskip:-0}" \
         "$((after - before))" "$restarts" "${nfe:-0}" "$elapsed" \
         "${nqc:-0}" "${nqcbad:-0}" "${nqcvoid:-0}" "${nqcskip:-0}" "${nqcunst:-0}" >> "$STATE"
-    say "round $round done in ${elapsed}s: group=$gname tables=${ntables:-0} setupfail=${nsetup:-0} queryruns=$nq errors=$nerr diff=${ndiff:-0}/${nmiss:-0} empty=${ndempty:-0} void=${ndvoid:-0} skip=${ndskip:-0} tlp=${ntlp:-0}/${ntlpbad:-0} tlpskip=${ntlpskip:-0} qc=${nqc:-0}/${nqcbad:-0} qcvoid=${nqcvoid:-0} qcskip=${nqcskip:-0} qcunstable=${nqcunst:-0} fatal_delta=$((after - before)) restarts=$restarts fe_sigs=${nfe:-0}"
+    say "round $round done in ${elapsed}s: group=$gname${ROUND_EXEC_VAR:+ [$ROUND_EXEC_VAR]} tables=${ntables:-0} setupfail=${nsetup:-0} queryruns=$nq errors=$nerr diff=${ndiff:-0}/${nmiss:-0} empty=${ndempty:-0} void=${ndvoid:-0} skip=${ndskip:-0} tlp=${ntlp:-0}/${ntlpbad:-0} tlpskip=${ntlpskip:-0} qc=${nqc:-0}/${nqcbad:-0} qcvoid=${nqcvoid:-0} qcskip=${nqcskip:-0} qcunstable=${nqcunst:-0} fatal_delta=$((after - before)) restarts=$restarts fe_sigs=${nfe:-0}"
     # A knob that produced nothing where the baseline had rows did not agree -- it did not run. One
     # or two is a timeout; a run of them is incident 8 happening again, so it gets said out loud
     # rather than left in a column nobody reads.

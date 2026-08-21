@@ -140,6 +140,20 @@ public final class SessionFlagPerturbation {
                 SessionVariable::isEnableStructLowCardinalityOptimize,
                 (sv, v) -> sv.setEnableStructLowCardinalityOptimize((Boolean) v),
                 false, true));
+        // CTE materialisation. Plan-only like the family above, and added for a reachability reason
+        // rather than a correctness one: whether a CTE becomes PhysicalCTEProduce/Consume or is
+        // inlined is a COST decision, and at the product default (1.15, cost-based) a CTE with one
+        // consumer is always inlined. Every CTE this fuzzer generates has one consumer -- measured
+        // on the emit corpus, 518 of 760 groups declare a WITH and none reference it twice -- so the
+        // whole CTE operator family, and everything gated on it, was unreachable from the FE arm.
+        //
+        // 0 forces materialisation and -1 forces inlining; the default is neither, so both values
+        // are a real perturbation. Named by the visible alias rather than cbo_cte_reuse_rate_v2,
+        // which is INVISIBLE -- the same name the cluster arm's EXEC_VARS pool uses.
+        knobs.add(new Knob("cbo_cte_reuse_rate",
+                SessionVariable::getCboCTERuseRatio,
+                (sv, v) -> sv.setCboCTERuseRatio((Double) v),
+                0.0d, -1.0d));
         return knobs;
     }
 

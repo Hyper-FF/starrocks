@@ -298,7 +298,16 @@ public class NestingMutationTest {
             Assertions.assertTrue(description.contains(" at "), description);
             reparseThroughGrammar(stmt);
         }
-        Assertions.assertEquals(40, fired, "the operator should apply to every one of these seeds");
+        // Not "all 40": joinCondition() deliberately returns null for about one draw in ten (the
+        // cross-join branch), and ASOF_JOIN and MULTI_JOIN both decline without a key -- ASOF because
+        // the analyzer demands an equality plus exactly one temporal inequality, MULTI_JOIN because a
+        // three-way cross join reaches none of the reorder rules it exists for. So a draw that pairs
+        // one of those shapes with a null condition at every slot is a documented decline, not a
+        // regression. Asserting 40 made this test a lottery on the RNG sequence: it passed only as
+        // long as no such pair came up, and adding a shape -- which re-rolls every draw -- was enough
+        // to land one (i=33, ASOF_JOIN, null condition at both slots).
+        Assertions.assertTrue(fired >= 38,
+                "the operator should apply to nearly every one of these seeds, fired " + fired + "/40");
         Assertions.assertEquals("M6-nesting", op.name());
     }
 
@@ -436,4 +445,59 @@ public class NestingMutationTest {
         Assertions.assertTrue(cross > 0, "the cross join shape disappeared entirely");
     }
 
+
+    /**
+     * The reuse shape: the CTE it declares must be referenced TWICE, in both of its forms. One
+     * consumer is what {@link NestingMutation.Shape#CTE} already builds, and one consumer is always
+     * inlined -- so a mutant that declares a CTE and reads it once leaves the whole CTE operator
+     * family unreachable, which is exactly the gap this shape exists to close.
+     */
+    @Test
+    public void testCteReuseReferencesTheGeneratedCteTwice() {
+        // Set-operation form: no join key available, so both consumes sit under a UNION ALL.
+        QueryStatement union = parse("select k, v from a where v > 1");
+        NestingMutation.Slot unionSlot = slotNamed(union, "SelectRelation.from");
+        Assertions.assertNotNull(op.applyAt(union, unionSlot, NestingMutation.Shape.CTE_REUSE));
+        String unionText = reparseThroughGrammar(union);
+        assertReferencedTwice(unionText);
+        Assertions.assertTrue(flat(unionText).contains("UNION ALL "), () -> "no union in: " + unionText);
+        Analyzer.analyze(parse(unionText), ctx);
+
+        // Join form. The name decides which form is built, so drive it off seeds until each has been
+        // seen rather than asserting a particular one -- the alternative is pinning a hash value.
+        String joinText = null;
+        for (String seed : SEEDS) {
+            int slotCount = NestingMutation.slotsOf(parse(seed)).size();
+            for (int i = 0; i < slotCount && joinText == null; i++) {
+                // A fresh tree per attempt: applyAt mutates in place, so reusing one would stack
+                // wrappers and the second attempt would no longer be the shape under test.
+                QueryStatement stmt = parse(seed);
+                NestingMutation.Slot slot = NestingMutation.slotsOf(stmt).get(i);
+                if (op.applyAt(stmt, slot, NestingMutation.Shape.CTE_REUSE, "=v1;v2") == null) {
+                    continue;
+                }
+                String text = reparseThroughGrammar(stmt);
+                if (flat(text).contains("INNER JOIN ")) {
+                    joinText = text;
+                }
+            }
+            if (joinText != null) {
+                break;
+            }
+        }
+        Assertions.assertNotNull(joinText, "the join form of CTE_REUSE was never built");
+        assertReferencedTwice(joinText);
+    }
+
+    /** The generated CTE name appears three times: the declaration and two consumes. */
+    private static void assertReferencedTwice(String text) {
+        String flat = flat(text);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("srfuzz_n\\d+").matcher(flat);
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        while (m.find()) {
+            counts.merge(m.group(), 1, Integer::sum);
+        }
+        Assertions.assertTrue(counts.values().stream().anyMatch(c -> c >= 3),
+                () -> "no generated name is declared and consumed twice in: " + text);
+    }
 }

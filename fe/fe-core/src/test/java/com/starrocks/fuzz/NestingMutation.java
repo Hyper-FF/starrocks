@@ -44,8 +44,8 @@ import java.util.regex.Pattern;
 
 /**
  * M6 -- nesting wrap. Re-shapes one relation of the tree into a deeper relational form: a derived
- * table, a WITH clause, a UNION of two copies, or a self join. Target: the CTE and subquery rewrite
- * paths, which a flat seed corpus barely touches.
+ * table, a WITH clause (with one consumer or two), a UNION of two copies, or a self join. Target: the
+ * CTE and subquery rewrite paths, which a flat seed corpus barely touches.
  *
  * <p><b>Copying is the whole problem.</b> Three of the four shapes need the chosen relation twice, and
  * handing the same {@code Relation} instance to both sides aliases it into two positions of one tree:
@@ -85,6 +85,25 @@ public class NestingMutation implements Mutation {
         SUBQUERY,
         /** {@code WITH cte AS (SELECT * FROM R) ... FROM cte}, statement level where the slot allows it. */
         CTE,
+        /**
+         * {@code (WITH c AS (SELECT * FROM R) SELECT * FROM c UNION ALL SELECT * FROM c) alias} --
+         * the same CTE referenced <b>twice</b>.
+         *
+         * <p>{@link #CTE} builds exactly one consumer, and a CTE with one consumer is always inlined:
+         * no CTE operator survives into the plan, so PhysicalCTEProduce / PhysicalCTEConsume and
+         * everything gated on them -- the multicast sink, the dictification of consume columns, the
+         * CTE cost model -- were unreachable from anything this fuzzer produced. Measured on the
+         * 760-group emit corpus: 518 groups contain a WITH and <b>none</b> reference a CTE twice.
+         *
+         * <p>Two consumers is only half of what the reuse path needs: whether the optimizer
+         * materialises them or inlines them anyway is a cost decision, which is why the cluster
+         * harness pins {@code cbo_cte_reuse_rate} rather than trusting the default to pick either.
+         *
+         * <p>The join form is used when a key is available because it puts the consumes under a join
+         * -- a different set of rules from the set-operation form -- and it projects {@code x.*} so
+         * the wrapper still exposes exactly R's columns and qualified references outside it resolve.
+         */
+        CTE_REUSE,
         /** {@code (SELECT * FROM R UNION ALL SELECT * FROM R) alias} */
         UNION_ALL,
         /** {@code (SELECT * FROM R UNION SELECT * FROM R) alias} */
@@ -132,9 +151,9 @@ public class NestingMutation implements Mutation {
     }
 
     /**
-     * One entry per {@link Shape}: derived table, CTE, the four set operations, self join, ASOF
-     * join and table function. This is the only operator that can introduce a set operation or a
-     * CTE at all, so a deficit in those has nowhere else to go.
+     * One entry per {@link Shape}: derived table, CTE (one consumer and two), the four set
+     * operations, self join, ASOF join and table function. This is the only operator that can
+     * introduce a set operation or a CTE at all, so a deficit in those has nowhere else to go.
      */
     @Override
     public Set<String> coverageTargets() {
@@ -387,6 +406,34 @@ public class NestingMutation implements Mutation {
             case CTE: {
                 String cte = names.next();
                 wrapper = "(WITH `" + cte + "` AS (" + inner + ") SELECT * FROM `" + cte + "`) `" + aliasA + "`";
+                break;
+            }
+            case CTE_REUSE: {
+                String cte = names.next();
+                String col = joinCond != null ? joinCond.substring(1, joinCond.indexOf(';')) : null;
+                String consumers;
+                // Both forms are worth producing and neither is a superset of the other: the set
+                // operation puts the two consumes under a UNION ALL, the join puts them under a hash
+                // join. Keyed off a hash rather than a Random, because applyAt is also the entry
+                // point the tests pin a shape through and it is not handed an RNG -- and off the
+                // TARGET text, not the generated name alone: the generated name is `srfuzz_n1` for
+                // almost every statement, so hashing it would pick the same form every time.
+                if (col != null && Math.abs((cte + targetText).hashCode()) % 2 == 0) {
+                    String left = names.next();
+                    String right = names.next();
+                    String key = right + "_k";
+                    // Projected and renamed on the right, and `left`.* on the outside: an unprojected
+                    // self join of the CTE puts two copies of every column into the outer scope and
+                    // the enclosing query becomes ambiguous -- the 5514-rejection lesson SELF_JOIN
+                    // already carries.
+                    consumers = "SELECT `" + left + "`.* FROM `" + cte + "` `" + left
+                            + "` INNER JOIN (SELECT `" + col + "` AS `" + key + "` FROM `" + cte
+                            + "`) `" + right + "` ON `" + left + "`.`" + col + "` = `" + right
+                            + "`.`" + key + "`";
+                } else {
+                    consumers = "SELECT * FROM `" + cte + "` UNION ALL SELECT * FROM `" + cte + "`";
+                }
+                wrapper = "(WITH `" + cte + "` AS (" + inner + ") " + consumers + ") `" + aliasA + "`";
                 break;
             }
             case UNION_ALL:
