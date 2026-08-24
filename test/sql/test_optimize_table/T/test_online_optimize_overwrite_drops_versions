@@ -1,0 +1,125 @@
+-- name: test_online_optimize_overwrite_drops_versions @sequential
+-- Tablet::overwrite_rowset() must not drop rowsets that extend past the overwrite version.
+--
+-- ALTER TABLE ... DISTRIBUTED BY runs OnlineOptimizeJobV2, which rewrites the partition with an
+-- INSERT OVERWRITE whose published version V is pinned to the version its SELECT scanned
+-- (StmtExecutor -> InsertTxnCommitAttachment -> DatabaseTransactionMgr, which also skips the usual
+-- version continuity check). Loads running during the job are double-written into the temporary
+-- partition carrying the source partition's version numbers, so that partition holds versions both
+-- below and above V, and compaction can merge across V.
+--
+-- overwrite_rowset() used to pick the rowsets to replace by start_version <= V but only put back a
+-- rowset covering [0, V]. A rowset with start <= V < end was deleted whole and everything after V
+-- was lost. The version graph kept the deleted rowset's edges and
+-- VersionGraph::_max_continuous_version never moves backward, so the tracker kept reporting the
+-- old max:
+--     Check failed: v == _max_continuous_version_from_beginning_unlocked().second
+--     Tablet::max_continuous_version() <- run_publish_version_task()
+--
+-- The fix has two layers, and this case exercises both end to end:
+--   1. prevention: while double-writes are flowing, compaction on the tablet is suspended,
+--      so no rowset straddling V can form — the forced compactions below must leave the
+--      double-written rowsets alone;
+--   2. guard: overwrite_rowset() refuses to publish while a rowset straddles V, so a straddling
+--      rowset that slipped through (e.g. formed while the backend restarted mid-job) can no
+--      longer corrupt the tablet.
+-- On a fixed build the compactions are no-ops on the double-written versions, the parked publish
+-- succeeds when released, no rows are lost, and the optimize job finishes. On an unfixed backend
+-- this case fails: one with DCHECKs enabled ABORTS when the parked publish is released; a RELEASE
+-- backend survives and the row-count check catches the silent data loss.
+--
+-- Needs a backend built with -DENABLE_FAULT_INJECTION=ON.
+shell: ${mysql_cmd} -e "show backends\G" | grep -w "IP" | head -1 | awk -F': ' '{print $2}' | xargs > ovw_be_ip.txt
+shell: ${mysql_cmd} -e "show backends\G" | grep -w "HttpPort" | head -1 | awk -F': ' '{print $2}' | xargs > ovw_be_port.txt
+
+create database db_${uuid0};
+use db_${uuid0};
+
+CREATE TABLE t (
+    k int,
+    v int
+) DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+insert into t values (1, 1);
+
+[UC]table_id=select TABLE_ID from information_schema.tables_config where TABLE_SCHEMA='db_${uuid0}' and TABLE_NAME='t';
+
+ADMIN ENABLE FAILPOINT 'publish_overwrite_txn_stall';
+
+-- Asynchronous: returns before the rewrite SQL is planned.
+alter table t distributed by hash(k) buckets 2;
+
+-- These have to straddle the moment the rewrite SQL is planned. V must be a version that was
+-- already double-written into the temporary partition, otherwise V is a hole there and compaction
+-- cannot merge across it.
+insert into t values (11, 1);
+insert into t values (12, 2);
+insert into t values (13, 3);
+insert into t values (14, 4);
+insert into t values (15, 5);
+insert into t values (16, 6);
+insert into t values (17, 7);
+insert into t values (18, 8);
+insert into t values (19, 9);
+insert into t values (20, 10);
+
+LOOP {
+  PROPERTY: {"timeout": 300, "interval": 2, "desc": "wait for the overwrite publish to park"}
+  stalled=select VALUE from information_schema.be_bvars where NAME='publish_overwrite_txn_stalled';
+  CHECK: len(to_array(${stalled})) > 0 and int(to_array(${stalled})[0][0]) > 0
+} END LOOP
+
+[UC]pinned_version=select VALUE from information_schema.be_bvars where NAME='publish_overwrite_txn_stall_version';
+[UC]shell: echo "pinned overwrite version V=${pinned_version}"
+
+-- More versions above V while the publish is parked.
+insert into t values (21, 11);
+insert into t values (22, 12);
+insert into t values (23, 13);
+insert into t values (24, 14);
+insert into t values (25, 15);
+insert into t values (26, 16);
+insert into t values (27, 17);
+insert into t values (28, 18);
+insert into t values (29, 19);
+insert into t values (30, 20);
+
+rows_before=select count(*) from t;
+[UC]tablets=select group_concat(TABLET_ID) from information_schema.be_tablets where TABLE_ID=${table_id};
+-- Only the TEMPORARY partition's tablets matter for the straddle probe: they are what the pinned
+-- overwrite publishes to. The source partition (the earliest-created partition, so the smallest
+-- PARTITION_ID) is free to compact across any version.
+[UC]temp_tablets=select group_concat(TABLET_ID) from information_schema.be_tablets where TABLE_ID=${table_id} and PARTITION_ID <> (select min(PARTITION_ID) from information_schema.be_tablets where TABLE_ID=${table_id});
+
+-- Try hard to merge a rowset that spans V, exactly the way the unfixed backend could: cumulative
+-- first to push the cumulative point past V, then base to merge the base rowset with everything
+-- above it. On a fixed backend the double-write compaction restriction must keep every one of
+-- these a no-op on the double-written versions. ALTER TABLE ... COMPACT is no use here,
+-- CompactionHandler iterates olapTable.getPartitions() and never sees a temp partition.
+[UC]shell: for t in $(echo "${tablets}" | tr -cd '0-9,' | tr ',' ' '); do for ct in cumulative base; do curl -s -XPOST "http://$(cat ovw_be_ip.txt):$(cat ovw_be_port.txt)/api/compact?tablet_id=$t&compaction_type=$ct" > /dev/null; done; done; echo compacted
+
+-- Layer 1 (prevention): no rowset may span V despite the forced compactions above. On the unfixed
+-- backend this same probe reported the straddling rowset that the release below then destroyed.
+shell: n=0; for t in $(echo "${temp_tablets}" | tr -cd '0-9,' | tr ',' ' '); do n=$((n+$(curl -s "http://$(cat ovw_be_ip.txt):$(cat ovw_be_port.txt)/api/compaction/show?tablet_id=$t" | python3 -c "import sys,json;print(sum(1 for r in json.load(sys.stdin)['rowset_details'] for a,b in [map(int,r['version'].split('-'))] if a <= ${pinned_version} < b))"))); done; [ "$n" -eq 0 ] && echo "no straddling rowset" || echo "PREVENTION FAILED - $n rowsets span V=${pinned_version}"
+
+ADMIN DISABLE FAILPOINT 'publish_overwrite_txn_stall';
+
+LOOP {
+  PROPERTY: {"timeout": 300, "interval": 2, "desc": "wait for the parked publish to drain"}
+  stalled=select VALUE from information_schema.be_bvars where NAME='publish_overwrite_txn_stalled';
+  CHECK: len(to_array(${stalled})) > 0 and int(to_array(${stalled})[0][0]) == 0
+} END LOOP
+
+-- With no straddling rowset the released publish succeeds and the job completes normally.
+function: wait_optimize_table_finish()
+
+-- The overwrite replaced [0, V]; every version after V has to survive it.
+rows_after=select count(*) from t;
+shell: [ "${rows_before}" = "${rows_after}" ] && echo "no rows lost" || echo "LOST ROWS ${rows_before} -> ${rows_after}"
+
+CLEANUP {
+    ADMIN DISABLE FAILPOINT 'publish_overwrite_txn_stall';
+    shell: rm -f ovw_be_ip.txt ovw_be_port.txt
+} END CLEANUP

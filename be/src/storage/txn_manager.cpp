@@ -41,6 +41,10 @@
 #include <queue>
 #include <set>
 
+#include <bvar/bvar.h>
+
+#include "base/failpoint/fail_point.h"
+#include "base/utility/defer_op.h"
 #include "base/time/time.h"
 #include "base/utility/scoped_cleanup.h"
 #include "common/config_storage_fwd.h"
@@ -337,9 +341,38 @@ Status TxnManager::commit_txn(const TabletSharedPtr& tablet, TPartitionId partit
     return Status::OK();
 }
 
+DEFINE_FAIL_POINT(publish_overwrite_txn_stall);
+
+#ifdef FIU_ENABLE
+// Fault injection only. Lets a test observe, through information_schema.be_bvars, that a
+// version-overwrite publish is currently parked in publish_overwrite_txn_stall and which version
+// it was pinned to, without needing to read the backend log.
+bvar::Adder<int64_t> g_publish_overwrite_txn_stalled("publish_overwrite_txn_stalled");
+bvar::Status<int64_t> g_publish_overwrite_txn_stall_version("publish_overwrite_txn_stall_version", -1);
+#endif
+
 Status TxnManager::publish_overwrite_txn(TPartitionId partition_id, const TabletSharedPtr& tablet,
                                          TTransactionId transaction_id, int64_t version, const RowsetSharedPtr& rowset,
                                          uint32_t wait_time) {
+    // Parks the publish of a version-overwrite transaction so a test can deterministically build
+    // the tablet state that has to be in place before Tablet::overwrite_rowset() runs.
+    FAIL_POINT_TRIGGER_EXECUTE(publish_overwrite_txn_stall, {
+        LOG(INFO) << "failpoint publish_overwrite_txn_stall: parking publish, txn_id: " << transaction_id
+                  << ", partition_id: " << partition_id << ", tablet_id: " << tablet->tablet_id()
+                  << ", version: " << version;
+        g_publish_overwrite_txn_stall_version.set_value(version);
+        g_publish_overwrite_txn_stalled << 1;
+        DeferOp untrack([&] { g_publish_overwrite_txn_stalled << -1; });
+        // Park until the failpoint is disabled, so a test can release the publish at an exact
+        // point. Capped at 5 minutes so a forgotten failpoint cannot wedge the publish thread.
+        constexpr int kMaxStallRounds = 3000;
+        int rounds = 0;
+        while (rounds++ < kMaxStallRounds && fp_publish_overwrite_txn_stall.shouldFail()) {
+            SleepFor(MonoDelta::FromMilliseconds(100));
+        }
+        LOG(INFO) << "failpoint publish_overwrite_txn_stall: resuming publish after " << rounds
+                  << " rounds, txn_id: " << transaction_id << ", tablet_id: " << tablet->tablet_id();
+    });
     if (tablet->updates() != nullptr) {
         StorageMetrics::instance()->update_rowset_commit_request_total.increment(1);
         auto st = tablet->rowset_commit(version, rowset, wait_time, true, false);

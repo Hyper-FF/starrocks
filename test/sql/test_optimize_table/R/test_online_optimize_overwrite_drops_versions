@@ -1,0 +1,141 @@
+-- name: test_online_optimize_overwrite_drops_versions @sequential
+shell: ${mysql_cmd} -e "show backends\G" | grep -w "IP" | head -1 | awk -F': ' '{print $2}' | xargs > ovw_be_ip.txt
+-- result:
+0
+
+-- !result
+shell: ${mysql_cmd} -e "show backends\G" | grep -w "HttpPort" | head -1 | awk -F': ' '{print $2}' | xargs > ovw_be_port.txt
+-- result:
+0
+
+-- !result
+create database db_${uuid0};
+-- result:
+-- !result
+use db_${uuid0};
+-- result:
+-- !result
+CREATE TABLE t (
+    k int,
+    v int
+) DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+insert into t values (1, 1);
+-- result:
+-- !result
+[UC]table_id=select TABLE_ID from information_schema.tables_config where TABLE_SCHEMA='db_${uuid0}' and TABLE_NAME='t';
+ADMIN ENABLE FAILPOINT 'publish_overwrite_txn_stall';
+-- result:
+-- !result
+alter table t distributed by hash(k) buckets 2;
+-- result:
+-- !result
+insert into t values (11, 1);
+-- result:
+-- !result
+insert into t values (12, 2);
+-- result:
+-- !result
+insert into t values (13, 3);
+-- result:
+-- !result
+insert into t values (14, 4);
+-- result:
+-- !result
+insert into t values (15, 5);
+-- result:
+-- !result
+insert into t values (16, 6);
+-- result:
+-- !result
+insert into t values (17, 7);
+-- result:
+-- !result
+insert into t values (18, 8);
+-- result:
+-- !result
+insert into t values (19, 9);
+-- result:
+-- !result
+insert into t values (20, 10);
+-- result:
+-- !result
+LOOP {
+  PROPERTY: {"timeout": 300, "interval": 2, "desc": "wait for the overwrite publish to park"}
+  stalled=select VALUE from information_schema.be_bvars where NAME='publish_overwrite_txn_stalled';
+  CHECK: len(to_array(${stalled})) > 0 and int(to_array(${stalled})[0][0]) > 0
+} END LOOP
+
+[UC]pinned_version=select VALUE from information_schema.be_bvars where NAME='publish_overwrite_txn_stall_version';
+[UC]shell: echo "pinned overwrite version V=${pinned_version}"
+insert into t values (21, 11);
+-- result:
+-- !result
+insert into t values (22, 12);
+-- result:
+-- !result
+insert into t values (23, 13);
+-- result:
+-- !result
+insert into t values (24, 14);
+-- result:
+-- !result
+insert into t values (25, 15);
+-- result:
+-- !result
+insert into t values (26, 16);
+-- result:
+-- !result
+insert into t values (27, 17);
+-- result:
+-- !result
+insert into t values (28, 18);
+-- result:
+-- !result
+insert into t values (29, 19);
+-- result:
+-- !result
+insert into t values (30, 20);
+-- result:
+-- !result
+rows_before=select count(*) from t;
+-- result:
+21
+-- !result
+[UC]tablets=select group_concat(TABLET_ID) from information_schema.be_tablets where TABLE_ID=${table_id};
+[UC]temp_tablets=select group_concat(TABLET_ID) from information_schema.be_tablets where TABLE_ID=${table_id} and PARTITION_ID <> (select min(PARTITION_ID) from information_schema.be_tablets where TABLE_ID=${table_id});
+[UC]shell: for t in $(echo "${tablets}" | tr -cd '0-9,' | tr ',' ' '); do for ct in cumulative base; do curl -s -XPOST "http://$(cat ovw_be_ip.txt):$(cat ovw_be_port.txt)/api/compact?tablet_id=$t&compaction_type=$ct" > /dev/null; done; done; echo compacted
+shell: n=0; for t in $(echo "${temp_tablets}" | tr -cd '0-9,' | tr ',' ' '); do n=$((n+$(curl -s "http://$(cat ovw_be_ip.txt):$(cat ovw_be_port.txt)/api/compaction/show?tablet_id=$t" | python3 -c "import sys,json;print(sum(1 for r in json.load(sys.stdin)['rowset_details'] for a,b in [map(int,r['version'].split('-'))] if a <= ${pinned_version} < b))"))); done; [ "$n" -eq 0 ] && echo "no straddling rowset" || echo "PREVENTION FAILED - $n rowsets span V=${pinned_version}"
+-- result:
+0
+no straddling rowset
+-- !result
+ADMIN DISABLE FAILPOINT 'publish_overwrite_txn_stall';
+-- result:
+-- !result
+LOOP {
+  PROPERTY: {"timeout": 300, "interval": 2, "desc": "wait for the parked publish to drain"}
+  stalled=select VALUE from information_schema.be_bvars where NAME='publish_overwrite_txn_stalled';
+  CHECK: len(to_array(${stalled})) > 0 and int(to_array(${stalled})[0][0]) == 0
+} END LOOP
+
+function: wait_optimize_table_finish()
+-- result:
+None
+-- !result
+rows_after=select count(*) from t;
+-- result:
+21
+-- !result
+shell: [ "${rows_before}" = "${rows_after}" ] && echo "no rows lost" || echo "LOST ROWS ${rows_before} -> ${rows_after}"
+-- result:
+0
+no rows lost
+-- !result
+CLEANUP {
+    ADMIN DISABLE FAILPOINT 'publish_overwrite_txn_stall';
+    shell: rm -f ovw_be_ip.txt ovw_be_port.txt
+} END CLEANUP
