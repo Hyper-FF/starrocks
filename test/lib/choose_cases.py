@@ -491,7 +491,10 @@ class ChooseCase(object):
                 tools.assert_greater(len(tmp_loop_stat), 0, "LOOP FORMAT ERROR(EMPTY)!")
                 tmp_sql.append({
                     "type": LOOP_FLAG,
-                    "stat": tmp_loop_stat,
+                    # copy: tmp_loop_stat is cleared and refilled by the next LOOP block, and the
+                    # case-level deepcopy happens only after the whole case is parsed — storing the
+                    # list itself would leave every LOOP of a case sharing the LAST loop's statements
+                    "stat": list(tmp_loop_stat),
                     "prop": tmp_loop_prop,
                     "ori": f_lines[l_loop_line: r_loop_line + 1]
                 })
