@@ -727,10 +727,27 @@ void Tablet::note_double_write_publish() {
     _double_write_phase.store(kDoubleWriteActive, std::memory_order_release);
 }
 
-void Tablet::overwrite_rowset(const RowsetSharedPtr& rowset, int64_t version) {
+Status Tablet::overwrite_rowset(const RowsetSharedPtr& rowset, int64_t version) {
     std::unique_lock wrlock(_meta_lock);
+    // The incoming rowset replaces everything up to `version`, so every rowset it replaces must
+    // lie entirely within [0, version]. A rowset that straddles `version` (compaction can merge
+    // across it while the overwrite transaction is in flight) can neither be deleted, which would
+    // silently drop the versions after `version`, nor kept, which would duplicate the versions
+    // before it. Fail the publish instead; the caller may retry once the straddling rowset is
+    // gone, and an optimize/overwrite job that ultimately fails does not touch the source data.
     vector<RowsetSharedPtr> origin_rowsets;
-    _pick_candicate_rowset_before_specify_version(&origin_rowsets, version);
+    for (auto& it : _rs_version_map) {
+        if (it.first.first > version) {
+            continue;
+        }
+        if (it.first.second > version) {
+            return Status::InternalError(fmt::format(
+                    "cannot overwrite tablet {} at version {}: rowset [{}-{}] straddles the overwrite version, "
+                    "deleting it would lose versions ({}, {}]",
+                    tablet_id(), version, it.first.first, it.first.second, version, it.first.second));
+        }
+        origin_rowsets.push_back(it.second);
+    }
     if (VLOG_IS_ON(2)) {
         for (auto& rs : origin_rowsets) {
             VLOG(2) << "delete rowset, tablet_id: " << tablet_id() << ", schema_hash: " << schema_hash()
@@ -750,6 +767,7 @@ void Tablet::overwrite_rowset(const RowsetSharedPtr& rowset, int64_t version) {
 #ifndef BE_TEST
     save_meta();
 #endif
+    return Status::OK();
 }
 
 void Tablet::_delete_inc_rowset_by_version(const Version& version) {
@@ -1334,15 +1352,6 @@ void Tablet::pick_candicate_rowsets_to_base_compaction(vector<RowsetSharedPtr>* 
     for (auto& it : _rs_version_map) {
         if (it.first.first < _cumulative_point) {
             candidate_rowsets->push_back(it.second);
-        }
-    }
-}
-
-void Tablet::_pick_candicate_rowset_before_specify_version(vector<RowsetSharedPtr>* candidcate_rowsets,
-                                                           int64_t version) {
-    for (auto& it : _rs_version_map) {
-        if (it.first.first <= version) {
-            candidcate_rowsets->push_back(it.second);
         }
     }
 }

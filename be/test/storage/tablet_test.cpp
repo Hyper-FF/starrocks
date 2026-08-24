@@ -161,26 +161,30 @@ TEST_F(TabletTest, test_update_flat_json_config_version_gate) {
 }
 
 // ---------------------------------------------------------------------------
-// Regression: compaction must not create a rowset that straddles the version an
-// online optimize job's pinned overwrite will publish at.
+// Regression: Tablet::overwrite_rowset() must not drop rowsets that extend past
+// the overwrite version.
 //
-// ALTER TABLE ... DISTRIBUTED BY (OnlineOptimizeJobV2) rewrites the partition
-// with an INSERT OVERWRITE pinned to the version V its SELECT scanned, while
-// concurrent loads keep double-writing into the temporary partition with the
-// source partition's version numbers. Compaction there could merge
-// double-written versions across V; overwrite_rowset() then picks that rowset
-// for deletion (start_version <= V) but only puts back [0, V], silently losing
-// every version after V, and the version tracker / tablet meta divergence
-// aborts DCHECK builds:
+// overwrite_rowset() used to select rowsets by start_version <= V but only put
+// back a rowset covering [0, V]. A rowset that straddles V (start <= V < end)
+// was therefore deleted without a replacement, and versions (V, end] were lost.
+//
+// The version graph keeps the edges of deleted-but-not-yet-swept rowsets and
+// VersionGraph::_max_continuous_version never moves backward, so the tracker
+// kept reporting the old max while the tablet meta no longer had it. That
+// divergence is what fired
 //     Check failed: v == _max_continuous_version_from_beginning_unlocked().second (53 vs. 41)
+// in Tablet::max_continuous_version(), reached from run_publish_version_task().
 //
-// The fix: while a tablet is receiving double-writes and its pinned overwrite
-// has not been applied yet, compaction on it is suspended, so no rowset
-// straddling the (not yet known) overwrite version can form. The phase is
-// persisted in the tablet meta so a restart cannot forget it in either
-// direction. Confirmed end to end against a fault-injection build by parking
-// the overwrite publish, forcing compaction across the pinned version, and
-// releasing the publish.
+// Reached in production by ALTER TABLE ... DISTRIBUTED BY: OnlineOptimizeJobV2
+// rewrites the partition with an INSERT OVERWRITE pinned to the version its
+// SELECT scanned, while concurrent loads keep double-writing into the temporary
+// partition and compaction merges across that version. Confirmed end to end
+// against a fault-injection build by parking the overwrite publish, forcing
+// compaction across the pinned version, and releasing the publish.
+//
+// The fix makes overwrite_rowset() refuse the whole operation when any picked
+// rowset straddles the overwrite version, so the publish fails instead of
+// silently losing data.
 // ---------------------------------------------------------------------------
 
 class OverwriteRowsetTest : public testing::Test {
@@ -310,6 +314,27 @@ protected:
     bool _saved_event_based_compaction = true;
 };
 
+TEST_F(OverwriteRowsetTest, test_overwrite_rejects_rowset_straddling_overwrite_version) {
+    build_tablet_with_rowset_spanning_overwrite_version();
+
+    // TxnManager::publish_overwrite_txn() -> Tablet::overwrite_rowset().
+    // [40-53] starts at 40 <= 41 but ends past 41: deleting it would lose
+    // versions 42..53, so the overwrite must be refused.
+    auto st = _tablet->overwrite_rowset(create_rowset(0, 0), kOverwriteVersion);
+    ASSERT_FALSE(st.ok()) << "overwrite at version " << kOverwriteVersion
+                          << " must fail while a rowset straddles that version";
+
+    // The refused overwrite must leave the tablet untouched.
+    EXPECT_EQ(kMaxVersion, _tablet->max_version().second)
+            << "overwrite at version " << kOverwriteVersion << " dropped the rowsets after it";
+    EXPECT_EQ(2, _tablet->tablet_meta()->all_rs_metas().size());
+
+    // Both bookkeeping paths of max_continuous_version() still agree. Before
+    // the fix this call aborted the process through
+    //     Check failed: v == _max_continuous_version_from_beginning_unlocked().second (53 vs. 41)
+    EXPECT_EQ(max_continuous_version_from_meta(), _tablet->max_continuous_version());
+}
+
 TEST_F(OverwriteRowsetTest, test_double_write_suspends_compaction) {
     // Prevention for the same defect: while double-writes are flowing, compaction on the tablet is
     // suspended, so it can never create a rowset straddling the (not yet known) overwrite version
@@ -332,7 +357,7 @@ TEST_F(OverwriteRowsetTest, test_double_write_suspends_compaction) {
     EXPECT_TRUE(candidates.empty());
 
     // The pinned version-overwrite ends the double-write phase: everything is compactable again.
-    _tablet->overwrite_rowset(create_rowset(0, 0), kOverwriteVersion);
+    ASSERT_OK(_tablet->overwrite_rowset(create_rowset(0, 0), kOverwriteVersion));
     ASSERT_FALSE(_tablet->compaction_suspended_for_double_write());
     _tablet->pick_all_candicate_rowsets(&candidates);
     EXPECT_EQ(1 + (kMaxVersion - kOverwriteVersion), candidates.size());
@@ -373,7 +398,7 @@ TEST_F(OverwriteRowsetTest, test_double_write_phase_survives_reload) {
     // The terminal phase must survive a reload as well: a double-write publish arriving between
     // the overwrite and the partition swap must not re-suspend the reloaded tablet, or nothing
     // would ever lift the suspension after the swap.
-    _tablet->overwrite_rowset(create_rowset(0, 0), kOverwriteVersion);
+    ASSERT_OK(_tablet->overwrite_rowset(create_rowset(0, 0), kOverwriteVersion));
     EXPECT_EQ(2, _tablet->tablet_meta()->double_write_phase());
     auto reloaded_after_overwrite = Tablet::create_tablet_from_meta(_tablet->tablet_meta(), _data_dir.get());
     EXPECT_FALSE(reloaded_after_overwrite->compaction_suspended_for_double_write());
@@ -419,7 +444,7 @@ TEST_F(OverwriteRowsetTest, test_overwrite_replaces_fully_covered_rowsets) {
         ASSERT_OK(_tablet->add_rowset(create_rowset(v, v), false));
     }
 
-    _tablet->overwrite_rowset(create_rowset(0, 0), kOverwriteVersion);
+    ASSERT_OK(_tablet->overwrite_rowset(create_rowset(0, 0), kOverwriteVersion));
 
     // [0-1] and [40-41] are replaced by [0-41]; the versions after the
     // overwrite point survive.

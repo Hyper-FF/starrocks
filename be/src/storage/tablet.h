@@ -150,7 +150,7 @@ public:
     RowsetSharedPtr rowset_with_max_version() const;
 
     Status add_inc_rowset(const RowsetSharedPtr& rowset, int64_t version);
-    void overwrite_rowset(const RowsetSharedPtr& rowset, int64_t version);
+    Status overwrite_rowset(const RowsetSharedPtr& rowset, int64_t version);
     void delete_expired_inc_rowsets();
 
     /// Delete stale rowset by timing. This delete policy uses now() munis
@@ -251,8 +251,7 @@ public:
 
     // Compaction on this tablet is suspended between its first double-write publish and the
     // publish of the online optimize job's pinned version-overwrite, so that no rowset can be
-    // created that straddles the (not yet known) overwrite version, which overwrite_rowset()
-    // would then delete whole, losing every version past the overwrite point.
+    // created that straddles the (not yet known) overwrite version; see overwrite_rowset().
     // Once the overwrite has been applied no further overwrite can arrive for this tablet, so
     // the double-writes that keep flowing until the partition swap must NOT re-suspend it —
     // the swap itself is invisible to the backend and nothing would ever lift the suspension.
@@ -268,6 +267,8 @@ public:
     // replica could never lift itself (it missed the overwrite publish, which is never re-sent).
     // The first publish arms the phase under _meta_lock and saves the meta before it stores
     // the atomic, so no publisher can persist a double-written rowset ahead of the phase.
+    // overwrite_rowset()'s straddle check stays as the backstop for whatever slips through
+    // (e.g. a job spanning an upgrade from an unfixed backend).
     void note_double_write_publish();
     bool compaction_suspended_for_double_write() const {
         return _double_write_phase.load(std::memory_order_acquire) == kDoubleWriteActive;
@@ -420,7 +421,6 @@ private:
     // check whether there is useless binlog, and update the in-memory TabletMeta to the state after
     // those binlog is deleted. Return true the meta has been changed, and needs to be persisted
     bool _check_useless_binlog_and_update_meta(int64_t current_second);
-    void _pick_candicate_rowset_before_specify_version(vector<RowsetSharedPtr>* candidcate_rowsets, int64_t version);
     void _get_rewrite_meta_rs(std::vector<RowsetSharedPtr>& rewrite_meta_rs);
 
     friend class TabletUpdates;
