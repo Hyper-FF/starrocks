@@ -31,10 +31,11 @@ import com.starrocks.sql.optimizer.operator.scalar.CollectionElementOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ConstantOperator;
 import com.starrocks.sql.optimizer.operator.scalar.DictMappingOperator;
-import com.starrocks.sql.optimizer.operator.scalar.IsNullPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.sql.optimizer.operator.scalar.SubfieldOperator;
 import com.starrocks.sql.optimizer.rewrite.BaseScalarOperatorShuttle;
+import com.starrocks.sql.optimizer.rewrite.ReplaceColumnRefRewriter;
+import com.starrocks.sql.optimizer.rewrite.ScalarOperatorRewriter;
 import com.starrocks.sql.optimizer.statistics.ColumnDict;
 import com.starrocks.thrift.TFunctionBinaryType;
 import com.starrocks.type.ArrayType;
@@ -184,26 +185,33 @@ class DecodeContext {
         }
     }
 
+    // An expression is "null-sensitive" to refId if it can evaluate to a NON-NULL value when refId is
+    // NULL -- i.e. it is non-strict / null-absorbing w.r.t. refId. A derived dict always carries a
+    // synthetic NULL slot, so flattening such a define expr onto the base column (which has no such slot)
+    // makes the producer and consumer build mismatched dictionaries ("Dict Decode failed, can't cover all
+    // key"). Rather than enumerate null-absorbing functions -- which misses IF/CASE/AND/OR/<=>/nvl/... --
+    // substitute refId with NULL, constant-fold, and check whether the result is forced to NULL. This is
+    // the same null-rejection technique Utils.canEliminateNull uses for outer-join elimination.
     private boolean isNullSensitiveToRef(ScalarOperator op, int refId) {
         if (!op.getUsedColumns().contains(refId)) {
             return false;
         }
-        if (op instanceof IsNullPredicateOperator) {
-            return true;
+        try {
+            ColumnRefOperator ref = factory.getColumnRef(refId);
+            Map<ColumnRefOperator, ScalarOperator> nullMap =
+                    Map.of(ref, ConstantOperator.createNull(ref.getType()));
+            ScalarOperator nullEval = new ReplaceColumnRefRewriter(nullMap).rewrite(op);
+            nullEval = new ScalarOperatorRewriter().rewrite(nullEval, ScalarOperatorRewriter.DEFAULT_REWRITE_RULES);
+            // Null-sensitive only when refId being NULL folds the expression to a NON-NULL constant (the
+            // derived dict's synthetic NULL slot would map to a value the flattened base cannot cover).
+            // If it folds to NULL, the expression is strict and safe to flatten. If it does not fold to a
+            // constant at all (e.g. a null-ignoring aggregate like min/max), treat it as strict -- those
+            // never carry the synthetic-NULL value across the flatten.
+            return nullEval.isConstantRef() && !((ConstantOperator) nullEval).isNull();
+        } catch (Throwable e) {
+            // Cannot evaluate -> assume strict (flatten), matching the non-constant case.
+            return false;
         }
-        if (op instanceof CallOperator) {
-            String fn = ((CallOperator) op).getFnName();
-            if (FunctionSet.IFNULL.equalsIgnoreCase(fn) || FunctionSet.COALESCE.equalsIgnoreCase(fn)
-                    || FunctionSet.NULLIF.equalsIgnoreCase(fn) || FunctionSet.CONCAT_WS.equalsIgnoreCase(fn)) {
-                return true;
-            }
-        }
-        for (ScalarOperator child : op.getChildren()) {
-            if (isNullSensitiveToRef(child, refId)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void rewriteGlobalDict() {
