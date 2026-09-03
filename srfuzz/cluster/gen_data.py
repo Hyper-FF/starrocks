@@ -18,6 +18,17 @@ import sys
 
 MYSQL = ["mysql", "-h127.0.0.1", "-P9030", "-uroot", "-N", "-B"]
 ROWS = int(sys.argv[1]) if len(sys.argv) > 1 else 200
+# How many INSERT statements a table's rows are split across. One statement is one transaction is
+# one rowset, and a rowset this size is also a single chunk -- so with everything in one INSERT the
+# whole "second batch" side of the BE never runs: chunk-boundary accumulators, multi-rowset merge
+# reads, segment iterators that switch context between rowsets. The ChunkAccumulator crash the
+# cluster arm missed needed nothing more exotic than two small rowsets in one tablet; this generator
+# structurally could not produce that state. Segments are contiguous slices, not interleaved, so a
+# sorted key column still lands mostly sorted and DUPLICATE/AGG tables get overlapping key ranges --
+# both layouts occur, which is the point. Compaction merges small rowsets back together after a few
+# minutes, so the layout is freshest right after generation; rounds that query immediately (which is
+# what the harness does) see it, delayed replays may not.
+INSERT_SEGMENTS = max(1, int(os.environ.get("SRFUZZ_INSERT_SEGMENTS", "8")))
 # The seed is fixed so a round can be replayed, but it must be CHANGEABLE: with one hard-coded value
 # every round of every day draws the same NULL positions, the same boundary values and the same
 # strings, so the corpus keeps re-walking one slice of the value space. Change it to move the slice;
@@ -68,7 +79,51 @@ def esc(s):
     return s.replace("\\", "\\\\").replace("'", "\\'")
 
 
-def value(t, allow_null=True, pool=None):
+# Shaped wide-string columns.
+#
+# Uniform random strings produce degenerate expression results: regexp_extract over them matches
+# NOTHING, str_to_date parses NOTHING, cast to int converts NOTHING -- so every such expression is
+# all-NULL for the whole batch and takes the const-NULL fast path. The heavy-expr ChunkAccumulator
+# crash needed a batch where the result was MIXED (some rows match, some do not), and no amount of
+# SQL mutation can manufacture that out of data that never matches. So some wide string columns get
+# a shape: most values are well-formed for a common pattern family, a minority are near-misses, and
+# a few stay fully random -- which makes "mixed within one chunk" the normal case instead of an
+# unreachable one. Low-cardinality pooled columns are exempt: their pool IS their value set, and
+# widening it would permanently disqualify the dictionary (see low_card_pool).
+SHAPE_SHARE = float(os.environ.get("SRFUZZ_SHAPE_SHARE", "0.4"))
+
+_SHAPES = ("date", "number")
+
+
+def str_shape(coltype):
+    """A shape for one wide string column, or None to keep drawing uniform random strings."""
+    t = (coltype or "").lower().strip()
+    if not t.startswith(("varchar", "char", "string", "text")):
+        return None
+    if random.random() >= SHAPE_SHARE:
+        return None
+    return random.choice(_SHAPES)
+
+
+def shaped_str(shape, maxlen):
+    r = random.random()
+    if r < 0.10:
+        # The floor: a slice of the old uniform behaviour, so a shaped column still carries values
+        # no pattern accepts.
+        return rnd_str(maxlen)
+    if shape == "date":
+        if r < 0.85:
+            return "%04d-%02d-%02d" % (random.randint(1970, 2030), random.randint(1, 12), random.randint(1, 28))
+        # Near-misses: right length, wrong content -- the values a regex half-accepts and a cast
+        # rejects at row granularity rather than for the whole batch.
+        return random.choice(["2021-13-45", "2021/07/15", "2021-07-15x", "0000-00-00", "21-7-5"])
+    if r < 0.85:
+        return random.choice([str(rnd_int(-2147483648, 2147483647)),
+                              str(round(random.uniform(-1e4, 1e4), 3))])
+    return random.choice(["12a45", "--5", "1e999", " 42", "0x1F", "1,000"])
+
+
+def value(t, allow_null=True, pool=None, shape=None):
     # NULL only where the schema allows one. A single NULL anywhere in a 4000-row INSERT ... VALUES
     # rejects the WHOLE statement ("Insert has filtered data"), so drawing NULL at 12% per value made
     # every table with a NOT NULL column -- which is most of them, since key columns usually are --
@@ -120,6 +175,8 @@ def value(t, allow_null=True, pool=None):
             # values, and one over-long value fails the whole INSERT ... VALUES and leaves the table
             # empty. Same trap rnd_str carries, and a character slice walks straight into it.
             return "'" + esc(_fit(pool[random.randrange(len(pool))], maxlen)) + "'"
+        if shape is not None:
+            return "'" + esc(_fit(shaped_str(shape, maxlen), maxlen)) + "'"
         return "'" + esc(rnd_str(maxlen)) + "'"
     if t.startswith("json"):
         return random.choice(["'{}'", "'[]'", "'null'", "'{\"a\":1}'", "'[1,[2,[3,[4]]]]'",
@@ -401,7 +458,8 @@ _log("RUN inst=%s/%s seed=%s rows=%s targets=%s" % (INST, NINST, GEN_SEED, ROWS,
 filled = skipped = 0
 # Counted and printed: a low-cardinality mode nobody can see the effect of is indistinguishable from
 # one that silently never fired, which is how the whole subsystem stayed unreachable in the first place.
-lowcard_cols = analyze_failed = 0
+# The same goes for the shaped columns and the segment splits added later: each gets a counter here.
+lowcard_cols = analyze_failed = shaped_cols = segments_failed = 0
 for db in targets:
     # SHOW TABLES lists views and materialised views alongside real tables, and inserting into either
     # is rejected -- "the data of a materialized view must be consistent with the base table". Every
@@ -433,18 +491,38 @@ for db in targets:
         has_rows = rc == 0 and cnt.strip().isdigit() and int(cnt.strip()) > 0
         pools = {c[0]: low_card_pool(db, tbl, c[0], c[1], has_rows) for c in cols}
         lowcard = sum(1 for p in pools.values() if p is not None)
+        # A pooled column never gets a shape: the pool is the value set that keeps it a dictionary
+        # candidate, and shaped values outside it would widen the column permanently.
+        shapes = {c[0]: (None if pools.get(c[0]) is not None else str_shape(c[1])) for c in cols}
+        shaped = sum(1 for s in shapes.values() if s is not None)
         rows = []
         for _ in range(ROWS):
             vals = []
             for c in cols:
                 pv = _partition_value(db, tbl, c[0], c[1])
-                vals.append(pv if pv is not None else value(c[1], c[2], pools.get(c[0])))
+                vals.append(pv if pv is not None else value(c[1], c[2], pools.get(c[0]), shapes.get(c[0])))
             rows.append("(" + ",".join(vals) + ")")
-        sql = "INSERT INTO `%s` VALUES %s" % (tbl, ",".join(rows))
-        rc, _, err = q(sql, db)
-        if rc == 0:
+        # One INSERT per segment, each its own transaction and so its own rowset (see INSERT_SEGMENTS
+        # at the top). A rejected segment costs its slice, not the table.
+        seg = max(1, min(INSERT_SEGMENTS, len(rows)))
+        landed = 0
+        for i in range(seg):
+            part = rows[i * len(rows) // seg:(i + 1) * len(rows) // seg]
+            if not part:
+                continue
+            rc, _, err = q("INSERT INTO `%s` VALUES %s" % (tbl, ",".join(part)), db)
+            if rc == 0:
+                landed += 1
+            else:
+                segments_failed += 1
+                _log("REJECT %s.%s segment=%d/%d rc=%s cols=%s :: %s" % (
+                    db, tbl, i, seg, rc,
+                    ",".join("%s:%s" % (c[0], c[1]) for c in cols)[:200],
+                    _errmsg(err)))
+        if landed > 0:
             filled += 1
             lowcard_cols += lowcard
+            shaped_cols += shaped
             # Statistics, so the cost model has something to work with. Without them the optimizer
             # has no reason to choose among the plans a dictionary makes available, and half the
             # low-cardinality rewrites are cost-gated. Failure is logged, not fatal: a table with no
@@ -455,10 +533,7 @@ for db in targets:
                 _log("ANALYZE-FAIL %s.%s :: %s" % (db, tbl, _errmsg(err2)))
         else:
             skipped += 1
-            _log("REJECT %s.%s rc=%s cols=%s :: %s" % (
-                db, tbl, rc, ",".join("%s:%s" % (c[0], c[1]) for c in cols)[:200],
-                _errmsg(err)))
-print("filled=%d skipped=%d lowcard_cols=%d analyze_failed=%d"
-      % (filled, skipped, lowcard_cols, analyze_failed), flush=True)
-_log("DONE filled=%d skipped=%d lowcard_cols=%d analyze_failed=%d"
-     % (filled, skipped, lowcard_cols, analyze_failed))
+print("filled=%d skipped=%d lowcard_cols=%d shaped_cols=%d segments_failed=%d analyze_failed=%d"
+      % (filled, skipped, lowcard_cols, shaped_cols, segments_failed, analyze_failed), flush=True)
+_log("DONE filled=%d skipped=%d lowcard_cols=%d shaped_cols=%d segments_failed=%d analyze_failed=%d"
+     % (filled, skipped, lowcard_cols, shaped_cols, segments_failed, analyze_failed))
