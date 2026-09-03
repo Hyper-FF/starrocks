@@ -182,6 +182,9 @@ public class AstMutationFuzzerTest {
      */
     private int unbindableSeeds;
 
+    /** Why seeds failed to bind, keyed coarsely enough to cluster. See {@link #unbindableReason}. */
+    private Map<String, Integer> unbindableReasons;
+
     /**
      * Union of the optimizer rules every planned mutant applied, and how many mutants contributed a
      * rule no earlier mutant had.
@@ -481,6 +484,7 @@ public class AstMutationFuzzerTest {
         }
 
         unbindableSeeds = 0;
+        unbindableReasons = new LinkedHashMap<>();
         firedRules = new BitSet(RuleCoverage.NUM_RULES + 1);
         coverageSampled = 0;
         coverageFailed = 0;
@@ -656,6 +660,11 @@ public class AstMutationFuzzerTest {
                         // seed count nobody reads as a percentage. A harvested production corpus
                         // arrived binding at 1.9% and its run looked perfectly healthy.
                         unbindableSeeds++;
+                        // WHY it did not bind, not just how many. A bind rate is a number nobody
+                        // can act on: 63% could be one missing table, or a function the corpus
+                        // scrubber mangled, or half the schema. The reasons cluster hard, so a
+                        // histogram turns "raise the bind rate" from a wish into a work item.
+                        unbindableReasons.merge(unbindableReason(t), 1, Integer::sum);
                         continue;
                     }
                     seeds.add(sql);
@@ -1020,6 +1029,14 @@ public class AstMutationFuzzerTest {
                         coverageFailed, coverageSampled, coverageFirstError);
             }
         }
+        if (!unbindableReasons.isEmpty()) {
+            System.out.printf("--- why %d seeds did not bind (top causes) ---%n", unbindableSeeds);
+            unbindableReasons.entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                    .limit(12)
+                    .forEach(e -> System.out.printf("  %5d  %s%n", e.getValue(), e.getKey()));
+            System.out.printf("  (%d distinct causes in all)%n", unbindableReasons.size());
+        }
         System.out.println("corpus origins: " + originMix
                 + (originMix.containsKey("unstamped")
                 ? "  (unstamped = origin never recorded, NOT a claim that it is production)" : ""));
@@ -1197,6 +1214,36 @@ public class AstMutationFuzzerTest {
             sb.append(i < filled ? '#' : '.');
         }
         return sb.append(']').toString();
+    }
+
+
+    /**
+     * A coarse, stable reason for a seed failing to bind.
+     *
+     * <p>Coarse on purpose. The messages carry table and column names, so keying on the raw text
+     * would produce one bucket per seed and say nothing. What decides whether a class of failure is
+     * worth fixing is its shape -- an unknown table is a corpus packaging problem, an unknown
+     * function is a scrubber problem, a type error is a seed that was never valid -- so the names
+     * are stripped out and the shape is kept.
+     */
+    private static String unbindableReason(Throwable t) {
+        String message = t.getMessage() == null ? "" : t.getMessage().replace('\n', ' ');
+        // The analyzer prefixes almost everything with this; it separates nothing.
+        int detail = message.indexOf("Detail message: ");
+        if (detail >= 0) {
+            message = message.substring(detail + "Detail message: ".length());
+        }
+        // Identifiers, literals and numbers are what make two instances of one cause look like two
+        // causes. Replace rather than truncate: the tail of these messages is often the shape.
+        String shape = message
+                .replaceAll("'[^']*'", "'?'")
+                .replaceAll("`[^`]*`", "`?`")
+                .replaceAll("\\b\\d+\\b", "N")
+                .trim();
+        if (shape.length() > 90) {
+            shape = shape.substring(0, 90);
+        }
+        return t.getClass().getSimpleName() + ": " + shape;
     }
 
     /** Feature extraction that cannot take the run down with it; failures are counted, not thrown. */
