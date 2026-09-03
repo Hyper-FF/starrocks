@@ -237,6 +237,13 @@ public class TypeStressMutationTest {
         for (String json : TypeStressMutation.JSON_PATHS) {
             assertParses(String.format(json, inner));
         }
+        for (String form : TypeStressMutation.CONDITIONAL_FORMS) {
+            for (String pred : TypeStressMutation.FALLBACK_PREDICATES) {
+                for (String branch : TypeStressMutation.FALLBACK_BRANCHES) {
+                    assertParses(String.format(form, inner, pred, branch));
+                }
+            }
+        }
     }
 
     private static void assertParses(String exprText) {
@@ -311,6 +318,49 @@ public class TypeStressMutationTest {
                 mutate("select c_arr[1] from t", TypeStressMutation.Shape.COLLECTION_FN, 7L, poolWith())
                         != null,
                 "operator did not fire on an already-subscripted array");
+    }
+
+    /**
+     * The dictionary-define miss, kept closed: PR #78488's BE crash needed a conditional whose branch
+     * produces ARRAY&lt;VARCHAR&gt; -- the only element type {@code DecodeCollector.supportLowCardinality}
+     * accepts for defining a new dictionary. FALLBACK_BRANCHES carried {@code ARRAY<INT>} and nothing
+     * else array-shaped, so the family sat one element type away from that crash for its whole life.
+     * This pins both new entries: each must actually be emitted by CONDITIONAL and survive the round
+     * trip, and the literal form must analyze cleanly at least once when the branches agree -- a
+     * mutant the analyzer always rejects never reaches a BE.
+     */
+    @Test
+    public void testConditionalEmitsArrayVarcharBranches() {
+        // Not a bare array literal: an unanalyzed ArrayExpr has no type and the whole SEED then fails
+        // AstToSQLBuilder at the gate, making every mutant unreachable. The CAST form carries its type
+        // in the AST, deparses unanalyzed, and unifies with the ARRAY<VARCHAR> branches.
+        String seed = "select cast(null as array<varchar(8)>) from t where k > 1";
+        boolean sawLiteral = false;
+        boolean sawCast = false;
+        boolean literalAnalyzed = false;
+        for (long rng = 0; rng < 200 && !(sawLiteral && sawCast && literalAnalyzed); rng++) {
+            Mutant m = mutate(seed, TypeStressMutation.Shape.CONDITIONAL, rng, poolWith());
+            if (!reachable(m)) {
+                continue;
+            }
+            assertShapeSurvivesDeparse(m);
+            String text = norm(m.deparsed);
+            if (text.contains("fz_a")) {
+                sawLiteral = true;
+                if (analyzeExpectingNoInternalError(m.reparsed, m.deparsed) == null) {
+                    literalAnalyzed = true;
+                }
+            }
+            if (text.contains("ARRAY<VARCHAR")) {
+                sawCast = true;
+                analyzeExpectingNoInternalError(m.reparsed, m.deparsed);
+            }
+        }
+        Assertions.assertTrue(sawLiteral, "CONDITIONAL never emitted the ARRAY<VARCHAR(8)>['fz_a', 'fz_b'] branch");
+        Assertions.assertTrue(sawCast, "CONDITIONAL never emitted the CAST(NULL AS ARRAY<VARCHAR(8)>) branch");
+        Assertions.assertTrue(literalAnalyzed,
+                "no mutant carrying the ARRAY<VARCHAR> literal branch ever analyzed cleanly; "
+                        + "an always-rejected branch never reaches a BE");
     }
 
     /** MAP and STRUCT columns: key lookup and field access, on a tree with no types populated. */

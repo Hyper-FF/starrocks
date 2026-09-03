@@ -161,7 +161,7 @@ public class TypeStressMutation implements Mutation {
     };
 
     /** Used when the pool has no boolean fragment to serve as the condition. */
-    private static final String[] FALLBACK_PREDICATES = {
+    static final String[] FALLBACK_PREDICATES = {
             "TRUE", "FALSE", "NULL", "1 = 1", "NULL IS NULL",
     };
 
@@ -171,13 +171,23 @@ public class TypeStressMutation implements Mutation {
      * <p>Deliberately spread across types: a conditional whose branches agree is the case that already
      * works, and the unification is what this shape exists to reach.
      *
-     * <p>{@code []} is deliberately absent. An untyped empty array carries no type until analysis, and
-     * the deparser dereferences that type -- so the mutant dies at the gate's deparse with an NPE rather
-     * than reaching the oracle. M3 still injects {@code []} through BOUNDARY_LITERALS, so the shape is
-     * not lost; it just has no business being in a branch that has to render first.
+     * <p>{@code []} is deliberately absent, and every array literal here carries an explicit type
+     * prefix. An array literal has no type until analysis -- not just the empty one -- and
+     * {@code AST2SQLVisitor#visitArrayExpr} dereferences that type, so a bare {@code ['a']} dies at
+     * the gate's deparse with an NPE rather than reaching the oracle (measured: 5/40 CONDITIONAL
+     * attempts silently eaten). M3 still injects {@code []} through BOUNDARY_LITERALS, so the bare
+     * shape is not lost; it just has no business being in a branch that has to render first.
+     *
+     * <p>The two ARRAY&lt;VARCHAR&gt; entries are load-bearing, not variety. The low-cardinality
+     * planner treats ARRAY&lt;VARCHAR&gt; -- and only that element type -- as a dictionary-definable
+     * result ({@code DecodeCollector.supportLowCardinality}), so a conditional over a dict column
+     * whose branch produces one is what reaches the DictDefine path. {@code ARRAY<INT>} alone missed
+     * that entire family: the CASE-returning-array BE crash fixed by PR #78488 was reproducible with
+     * one line of SQL, and this table was one element type away from generating it.
      */
-    private static final String[] FALLBACK_BRANCHES = {
+    static final String[] FALLBACK_BRANCHES = {
             "NULL", "0", "''", "CAST(NULL AS JSON)", "CAST(NULL AS ARRAY<INT>)", "'1970-01-01'",
+            "CAST(NULL AS ARRAY<VARCHAR(8)>)", "ARRAY<VARCHAR(8)>['fz_a', 'fz_b']",
     };
 
     /** A pooled fragment long enough to dominate the mutant is not worth putting in a branch. */
