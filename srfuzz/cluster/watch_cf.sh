@@ -67,12 +67,24 @@ mem_sampler() {
 # every reader and writer, and counting those would report 20 instances where there are 3.
 instance_of() { tr '\0' '\n' < "/proc/$1/environ" 2>/dev/null | sed -n 's/^INSTANCE=//p' | head -1; }
 
+# The harness does not run under the name this file is developed against. srfuzz-launch.sh
+# MATERIALISES it into the run directory as clusterfuzz.run.sh, so a watchdog that greps for
+# clusterfuzz.next.sh matches nothing and reports every instance as dead on every tick -- 970 such
+# alerts on dev1 and 959 on dev2 between 2026-08-10 and 2026-08-12, almost all of them while the
+# instances were demonstrably producing rounds. A permanently-on alert is not a loud watchdog, it is
+# a blind one: when dev2's instances really did die, the line it logged was indistinguishable from
+# the 969 before it. Match either name, and let INSTANCE in the process's own environment do the
+# actual identification as before.
+HARNESS_RE=${HARNESS_RE:-clusterfuzz\.(run|next)\.sh}
+
 running_instances() {
     local p ppid k
     {
-        for p in $(pgrep -f '[c]lusterfuzz.next.sh' 2>/dev/null); do
+        for p in $(pgrep -f "$HARNESS_RE" 2>/dev/null); do
             ppid=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)
-            grep -q 'clusterfuzz.next.sh' "/proc/$ppid/cmdline" 2>/dev/null && continue
+            # /proc/<pid>/cmdline is NUL-separated; grep it as text or the parent test silently
+            # never matches and every reader/writer subshell counts as an instance.
+            tr '\0' ' ' < "/proc/$ppid/cmdline" 2>/dev/null | grep -qE "$HARNESS_RE" && continue
             k=$(instance_of "$p")
             [ -n "$k" ] && printf '%s\n' "$k"
         done
@@ -139,7 +151,9 @@ unwedge_instance() {
 launch_instance() {
     local k=$1
     if [ "${AUTO_RELAUNCH:-0}" != "1" ]; then
-        say "ALERT: instance $k is NOT running -- start it from the host: /tmp/launch_cf.sh $k $N"
+        # Name a remedy that exists. This used to point at /tmp/launch_cf.sh, which is on neither
+        # host -- an alert whose instruction fails is an alert nobody can act on.
+        say "ALERT: instance $k is NOT running -- from the HOST: docker exec -d <container> bash -lc $(dirname "$CF")/restart_instances.sh"
         return 0
     fi
     mkdir -p "$CF/inst$k"

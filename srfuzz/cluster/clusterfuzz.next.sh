@@ -103,7 +103,7 @@ claim_signature() {
     } 9>>"$file.lock"
     return $rc
 }
-STATE_HEADER=$'round\tgroup\ttables\tsetup_fail\tgen_rows\tqueries\terrors\tdiff_checked\tdiff_bad\tdiff_empty\tdiff_void\tdiff_skipped\ttlp_checked\ttlp_bad\ttlp_skipped\tfatal_delta\tbe_restarts\tnew_fe_sigs\tsecs\tqc_checked\tqc_bad\tqc_void\tqc_skipped\tqc_unstable'
+STATE_HEADER=$'round\tgroup\ttables\tsetup_fail\tgen_rows\tqueries\terrors\tdiff_checked\tdiff_bad\tdiff_empty\tdiff_void\tdiff_skipped\tdiff_unstable\ttlp_checked\ttlp_bad\ttlp_skipped\tfatal_delta\tbe_restarts\tnew_fe_sigs\tsecs\tqc_checked\tqc_bad\tqc_void\tqc_skipped\tqc_unstable'
 # Appending wider rows to a file written under the old header produces a ragged TSV: every awk that
 # reads it by column index silently reports the wrong field, and a harness that lies about its own
 # numbers is what nine of this campaign's incidents were made of. Rotate instead, loudly.
@@ -404,8 +404,8 @@ DIFF_MAX_STMTS=${DIFF_MAX_STMTS:-40}
 # assumed:
 #   - a one-consumer CTE is force-inlined no matter what the rate says, so this pool alone changes
 #     nothing about the existing corpus;
-#   - a two-consumer CTE (the M6 CTE_REUSE shape) is NOT materialised at the default rate of 1.15
-#     either, so the shape alone changes nothing;
+#   - a two-consumer CTE (the new M6 CTE_REUSE shape) is NOT materialised at the default rate of
+#     1.15 either, so the shape alone changes nothing;
 #   - shape + `cbo_cte_reuse_rate = 0` together produce the multicast plan, and on an FE without the
 #     #78006 fix that plan is missing exactly the two dict exprs the fix adds.
 # -1 is the opposite direction (force inline) for the same two-consumer shapes.
@@ -535,13 +535,18 @@ diff_skippable() {
 #     query with no rows, so a third of the coverage never ran (see validate_knobs).
 # Total rows across a database's base tables. Used to tell "the generator ran" from "the generator
 # loaded something", which are not the same thing and were conflated for hundreds of rounds.
+#
 # COUNTED, not read off information_schema.tables.table_rows. That column is a STATISTIC refreshed
 # asynchronously by TabletStatMgr, and every round drops and recreates its database -- so its tables
-# are always younger than the statistic, both reads return 0, gen_rows is ALWAYS 0, and the harness
-# cries "data generator exited 0 but loaded no rows" every round. Measured before this fix: 1081 of
-# 1104 rounds on dev1 instance 0, ~900 alarms per instance, while count(*) on the round's own table
-# returned 823200 rows. The data was fine; the column meant to tell a broken round from a quiet one
-# was the broken thing.
+# are always younger than the statistic, both the before-read and the after-read return 0, gen_rows
+# is ALWAYS 0, and the harness cries "data generator exited 0 but loaded no rows" every round.
+# Measured on the live campaign before this fix: 1081 of 1104 rounds on dev1 instance 0, ~900 alarms
+# per instance -- while a count(*) on the round's own table at that moment returned 823200 rows. The
+# data was fine; the column that exists to tell a broken round from a quiet one was the broken thing.
+# That is incident 6 wearing the opposite mask: there the generator failed silently, here it works
+# and the measurement claims it failed.
+#
+# Costs two count(*) per table per round, which is what a number that means what it says is worth.
 db_row_total() {
     local db=$1 t c total=0
     while IFS= read -r t; do
@@ -1637,12 +1642,12 @@ while true; do
     fi
 
     elapsed=$(( $(date +%s) - started ))
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$round" "$gname" "${ntables:-0}" "${nsetup:-0}" "${genrows:-0}" "$nq" "$nerr" "${ndiff:-0}" "${nmiss:-0}" \
-        "${ndempty:-0}" "${ndvoid:-0}" "${ndskip:-0}" "${ntlp:-0}" "${ntlpbad:-0}" "${ntlpskip:-0}" \
+        "${ndempty:-0}" "${ndvoid:-0}" "${ndskip:-0}" "${ndunst:-0}" "${ntlp:-0}" "${ntlpbad:-0}" "${ntlpskip:-0}" \
         "$((after - before))" "$restarts" "${nfe:-0}" "$elapsed" \
         "${nqc:-0}" "${nqcbad:-0}" "${nqcvoid:-0}" "${nqcskip:-0}" "${nqcunst:-0}" >> "$STATE"
-    say "round $round done in ${elapsed}s: group=$gname${ROUND_EXEC_VAR:+ [$ROUND_EXEC_VAR]} tables=${ntables:-0} setupfail=${nsetup:-0} queryruns=$nq errors=$nerr diff=${ndiff:-0}/${nmiss:-0} empty=${ndempty:-0} void=${ndvoid:-0} skip=${ndskip:-0} tlp=${ntlp:-0}/${ntlpbad:-0} tlpskip=${ntlpskip:-0} qc=${nqc:-0}/${nqcbad:-0} qcvoid=${nqcvoid:-0} qcskip=${nqcskip:-0} qcunstable=${nqcunst:-0} fatal_delta=$((after - before)) restarts=$restarts fe_sigs=${nfe:-0}"
+    say "round $round done in ${elapsed}s: group=$gname${ROUND_EXEC_VAR:+ [$ROUND_EXEC_VAR]} tables=${ntables:-0} setupfail=${nsetup:-0} queryruns=$nq errors=$nerr diff=${ndiff:-0}/${nmiss:-0} empty=${ndempty:-0} void=${ndvoid:-0} skip=${ndskip:-0} unstable=${ndunst:-0} tlp=${ntlp:-0}/${ntlpbad:-0} tlpskip=${ntlpskip:-0} qc=${nqc:-0}/${nqcbad:-0} qcvoid=${nqcvoid:-0} qcskip=${nqcskip:-0} qcunstable=${nqcunst:-0} fatal_delta=$((after - before)) restarts=$restarts fe_sigs=${nfe:-0}"
     # A knob that produced nothing where the baseline had rows did not agree -- it did not run. One
     # or two is a timeout; a run of them is incident 8 happening again, so it gets said out loud
     # rather than left in a column nobody reads.
