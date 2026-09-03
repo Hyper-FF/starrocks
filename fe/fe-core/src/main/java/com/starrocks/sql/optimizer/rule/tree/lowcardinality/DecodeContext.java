@@ -31,7 +31,6 @@ import com.starrocks.sql.optimizer.operator.scalar.CollectionElementOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ConstantOperator;
 import com.starrocks.sql.optimizer.operator.scalar.DictMappingOperator;
-import com.starrocks.sql.optimizer.operator.scalar.IsNullPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.sql.optimizer.operator.scalar.SubfieldOperator;
 import com.starrocks.sql.optimizer.rewrite.BaseScalarOperatorShuttle;
@@ -184,30 +183,7 @@ class DecodeContext {
         }
     }
 
-    private boolean isNullSensitiveToRef(ScalarOperator op, int refId) {
-        if (!op.getUsedColumns().contains(refId)) {
-            return false;
-        }
-        if (op instanceof IsNullPredicateOperator) {
-            return true;
-        }
-        if (op instanceof CallOperator) {
-            String fn = ((CallOperator) op).getFnName();
-            if (FunctionSet.IFNULL.equalsIgnoreCase(fn) || FunctionSet.COALESCE.equalsIgnoreCase(fn)
-                    || FunctionSet.NULLIF.equalsIgnoreCase(fn) || FunctionSet.CONCAT_WS.equalsIgnoreCase(fn)) {
-                return true;
-            }
-        }
-        for (ScalarOperator child : op.getChildren()) {
-            if (isNullSensitiveToRef(child, refId)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void rewriteGlobalDict() {
-        GlobalDictRewriter dictRewriter = new GlobalDictRewriter();
         for (Integer stringId : stringRefToDefineExprMap.keySet()) {
             if (stringRefToDicts.containsKey(stringId)) {
                 continue;
@@ -224,22 +200,24 @@ class DecodeContext {
             }
             ScalarOperator stringDefineExpr = stringRefToDefineExprMap.get(stringId);
 
-            // Check before flattening: if a NULL-sensitive expression is built on a DERIVED dict
-            // (one defined by another expression, not a base column), do NOT flatten it through the
-            // child define. Keep it referencing the intermediate dict directly, so producer and
-            // consumer build the dictionary the same way (a derived dict carries a synthetic NULL
-            // code that flattening would drop).
-            ColumnRefOperator keepUseRef = getUseStringRef(stringDefineExpr);
-            if (keepUseRef != null && !stringRefToDicts.containsKey(keepUseRef.getId())
-                    && stringRefToDefineExprMap.containsKey(keepUseRef.getId())
-                    && isNullSensitiveToRef(stringDefineExpr, keepUseRef.getId())) {
-                ColumnRefOperator keepDictRef = stringRefToDictRefMap.get(keepUseRef);
-                globalDictsExpr.put(dictRef.getId(),
-                        new DictMappingOperator(keepDictRef, stringDefineExpr.clone(), dictRef.getType()));
-                continue;
-            }
-
-            ScalarOperator defineExpr = stringDefineExpr.accept(dictRewriter, null);
+            // The global dict expr is the recipe BE uses to build this column's dictionary in every
+            // fragment that decodes it, while the fragment that computes the column builds the same
+            // dictionary from the projection's DictMapping, i.e. from the expression as written over
+            // its direct input column. The two recipes must produce the same value set, otherwise the
+            // codes assigned by the two fragments disagree and decoding fails ("Dict Decode failed")
+            // or returns wrong strings. BE builds a derived dictionary from every value of the input
+            // dictionary PLUS the NULL slot (expr(NULL)), so folding A: f(B), B: g(C) into f(g(C))
+            // over C changes the recipe: the NULL slot now contributes f(g(NULL)) instead of f(NULL),
+            // which differs whenever both f and g absorb NULL (e.g. CASE ... ELSE 'x' and
+            // if(b = b, b, '-')). Rather than reasoning about strictness, stop the fold at any column
+            // defined by a real expression and define A over that column's dictionary, which is
+            // exactly the projection's recipe. Columns whose define reduces to a plain column
+            // reference (aliases, min/max, array element, ...) share both the value set and the codes
+            // of their source, so folding through them keeps the recipe unchanged.
+            ColumnRefOperator useStringRef = getUseStringRef(stringDefineExpr);
+            int stopStringId = useStringRef != null && hasOwnDictCodes(useStringRef.getId())
+                    ? useStringRef.getId() : -1;
+            ScalarOperator defineExpr = stringDefineExpr.accept(new GlobalDictRewriter(stopStringId), null);
             List<ColumnRefOperator> defineUsedStringRef = defineExpr.getColumnRefs();
             Preconditions.checkState(!defineUsedStringRef.isEmpty());
 
@@ -247,6 +225,16 @@ class DecodeContext {
             ScalarOperator globalDictExpr = new DictMappingOperator(defineUsedDictRef, defineExpr, dictRef.getType());
             globalDictsExpr.put(dictRef.getId(), globalDictExpr);
         }
+    }
+
+    // Whether the string column's dictionary is its own (built by BE from a real define expression,
+    // NULL slot included) rather than a copy of the dictionary of the column it is derived from.
+    private boolean hasOwnDictCodes(int stringId) {
+        if (stringRefToDicts.containsKey(stringId) || !stringRefToDefineExprMap.containsKey(stringId)) {
+            return false;
+        }
+        ScalarOperator folded = stringRefToDefineExprMap.get(stringId).accept(new GlobalDictRewriter(-1), null);
+        return !folded.isColumnRef();
     }
 
     private void rewriteStringExpressions() {
@@ -643,11 +631,20 @@ class DecodeContext {
     }
 
     private class GlobalDictRewriter extends BaseScalarOperatorShuttle {
+        // string column at which folding stops: it is kept as the dict mapping's input column
+        // instead of being replaced by its own define expression (-1: fold down to the base column)
+        private final int stopStringId;
+
+        GlobalDictRewriter(int stopStringId) {
+            this.stopStringId = stopStringId;
+        }
+
         @Override
         public ScalarOperator visitVariableReference(ColumnRefOperator variable, Void ignore) {
             // string dict expression use origin string column
             ScalarOperator define = stringRefToDefineExprMap.get(variable.getId());
-            if (define.isColumnRef() && variable.getId() == ((ColumnRefOperator) define).getId()) {
+            if (variable.getId() == stopStringId
+                    || (define.isColumnRef() && variable.getId() == ((ColumnRefOperator) define).getId())) {
                 // mock to string column
                 return new ColumnRefOperator(variable.getId(), variable.getType(), variable.getName(),
                         variable.isNullable());
