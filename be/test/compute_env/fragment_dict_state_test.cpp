@@ -68,4 +68,23 @@ TEST(FragmentDictStateTest, InitQueryAndLoadGlobalDicts) {
     fragment_dict_state.close(&state);
 }
 
+TEST(FragmentDictStateTest, RejectsIdsTheCodeTablesCannotIndex) {
+    RuntimeState state;
+    state._obj_pool = std::make_shared<ObjectPool>();
+    state._instance_mem_pool = std::make_unique<MemPool>();
+
+    FragmentDictState fragment_dict_state;
+    // id 7 in a two-entry dictionary would index past every code table sized dict_sz + 1
+    EXPECT_FALSE(fragment_dict_state.init_query_global_dict(&state, {make_global_dict(3, 1, {1, 7}, {"a", "b"})}).ok());
+    // duplicated ids
+    EXPECT_FALSE(fragment_dict_state.init_query_global_dict(&state, {make_global_dict(4, 1, {1, 1}, {"a", "b"})}).ok());
+    // ids/strings length mismatch
+    TGlobalDict mismatched = make_global_dict(5, 1, {1, 2}, {"a"});
+    EXPECT_FALSE(fragment_dict_state.init_query_global_dict(&state, {mismatched}).ok());
+    // the regular 1..n dictionary and the legacy 0-based one are still accepted
+    ASSERT_OK(fragment_dict_state.init_query_global_dict(&state, {make_global_dict(6, 1, {1, 2}, {"a", "b"})}));
+    ASSERT_OK(fragment_dict_state.init_query_global_dict(&state, {make_global_dict(7, 1, {0, 1}, {"", "a"})}));
+    fragment_dict_state.close(&state);
+}
+
 } // namespace starrocks

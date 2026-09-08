@@ -269,4 +269,67 @@ TEST_F(DictMappingTest, test_expression_returns_null_for_some_values) {
     EXPECT_EQ(nullable_result->get(3).get_slice(), "ok");
 }
 
+TEST_F(DictMappingTest, test_const_code_whose_value_is_null) {
+    // The expression maps '1' to NULL and everything else to 'ok' (like nullif(v1, '1') would).
+    auto origin = pool.add(new ProvideExpr([](const ColumnPtr& column) {
+        ColumnViewer<TYPE_VARCHAR> viewer(column);
+        ColumnBuilder<TYPE_VARCHAR> builder(column->size());
+        size_t num_rows = column->size();
+        for (size_t i = 0; i < num_rows; ++i) {
+            if (!viewer.is_null(i) && viewer.value(i) == "1") {
+                builder.append_null();
+            } else {
+                builder.append("ok");
+            }
+        }
+        return builder.build(false);
+    }));
+    auto pl = pool.add(new PlaceHolderRef(node));
+    origin->add_child(pl);
+
+    auto slot = pool.add(new ColumnRef(TypeDescriptor(TYPE_INT), 1));
+    dict_expr = pool.add(new DictMappingExpr(node));
+    context = pool.add(new ExprContext(dict_expr));
+    dict_expr->add_child(slot);
+    dict_expr->add_child(origin);
+
+    ASSERT_OK(context->prepare(&state));
+    ASSERT_OK(context->open(&state));
+
+    {
+        // a constant column carrying the code of '1': the result must be NULL, not the data column's default
+        auto chunk = std::make_unique<Chunk>();
+        auto dict_column = Int32Column::create();
+        dict_column->get_data().emplace_back(1);
+        chunk->append_column(ConstColumn::create(dict_column, 3), 1);
+
+        auto result = context->evaluate(chunk.get());
+        ASSERT_OK(result.status());
+        EXPECT_TRUE(result.value()->only_null()) << result.value()->debug_string();
+        EXPECT_EQ(3, result.value()->size());
+    }
+    {
+        // the code of '2' still resolves to 'ok'
+        auto chunk = std::make_unique<Chunk>();
+        auto dict_column = Int32Column::create();
+        dict_column->get_data().emplace_back(2);
+        chunk->append_column(ConstColumn::create(dict_column, 2), 1);
+
+        auto result = context->evaluate(chunk.get());
+        ASSERT_OK(result.status());
+        EXPECT_FALSE(result.value()->only_null());
+        EXPECT_EQ(result.value()->get(0).get_slice(), "ok");
+    }
+    {
+        // a code the dictionary does not know is an error, not an out-of-bounds read
+        auto chunk = std::make_unique<Chunk>();
+        auto dict_column = Int32Column::create();
+        dict_column->get_data().emplace_back(42);
+        chunk->append_column(ConstColumn::create(dict_column, 1), 1);
+
+        auto result = context->evaluate(chunk.get());
+        EXPECT_FALSE(result.ok());
+    }
+}
+
 } // namespace starrocks

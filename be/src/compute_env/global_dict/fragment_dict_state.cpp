@@ -17,6 +17,7 @@
 #include <cstring>
 #include <memory>
 
+#include "base/format.h"
 #include "compute_env/global_dict/parser.h"
 #include "runtime/mem_pool.h"
 #include "runtime/runtime_state.h"
@@ -59,14 +60,30 @@ Status FragmentDictState::_build_global_dict(MemPool* mem_pool, const GlobalDict
         GlobalDictMap dict_map;
         RGlobalDictMap rdict_map;
         int dict_sz = global_dict.ids.size();
+        if (global_dict.strings.size() != global_dict.ids.size()) {
+            return Status::InternalError(fmt::format("global dict of column {} has {} ids but {} strings",
+                                                     global_dict.columnId, dict_sz, global_dict.strings.size()));
+        }
         for (int i = 0; i < dict_sz; ++i) {
+            // Every code table built from this dictionary (code_convert_map, code_mapping, ...) is sized
+            // dict_sz + 1 and indexed by the code, and code 0 is reserved for NULL. An id outside
+            // [0, dict_sz] or a duplicated id would turn into an out-of-bounds write there, so reject
+            // the dictionary here instead.
+            int32_t id = global_dict.ids[i];
+            if (id < 0 || id > dict_sz) {
+                return Status::InternalError(fmt::format("global dict of column {} has id {} out of range [0, {}]",
+                                                         global_dict.columnId, id, dict_sz));
+            }
             const std::string& dict_key = global_dict.strings[i];
             auto* data = mem_pool->allocate(dict_key.size());
             RETURN_IF_UNLIKELY_NULL(data, Status::MemoryAllocFailed("alloc mem for global dict failed"));
             memcpy(data, dict_key.data(), dict_key.size());
             Slice slice(data, dict_key.size());
-            dict_map.emplace(slice, global_dict.ids[i]);
-            rdict_map.emplace(global_dict.ids[i], slice);
+            if (!rdict_map.emplace(id, slice).second) {
+                return Status::InternalError(
+                        fmt::format("global dict of column {} has duplicated id {}", global_dict.columnId, id));
+            }
+            dict_map.emplace(slice, id);
         }
         result->emplace(uint32_t(global_dict.columnId), std::make_pair(std::move(dict_map), std::move(rdict_map)));
         if (column_id_to_version != nullptr) {

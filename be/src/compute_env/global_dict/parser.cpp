@@ -149,14 +149,22 @@ private:
 
         // is const column
         if (input->only_null() || input->is_constant()) {
-            if (input->only_null() && _null_column_ptr && _null_column_ptr.get()->is_null(0)) {
-                return ColumnHelper::create_const_null_column(num_rows);
-            } else {
-                auto idx = input->only_null() ? 0 : input->get(0).get_int32();
-                auto res = _data_column_ptr->clone_empty();
-                res->append_datum(_data_column_ptr->get(_dict_opt_ctx->code_convert_map[idx]));
-                return ConstColumn::create(std::move(res));
+            auto idx = input->only_null() ? 0 : input->get(0).get_int32();
+            if (idx < 0 || static_cast<size_t>(idx) >= _dict_opt_ctx->code_convert_map.size()) {
+                return Status::InternalError(fmt::format("dict code {} out of range, dict size {}", idx,
+                                                         _dict_opt_ctx->code_convert_map.size() - 1));
             }
+            auto pos = _dict_opt_ctx->code_convert_map[idx];
+            // the converted value of this code may itself be NULL (e.g. nullif(s, 'a') on the code of 'a');
+            // _data_column_ptr alone would hand out the data column's default instead of NULL. Ask the
+            // nullable convert column itself: _null_column_ptr is the raw NullColumn, whose is_null()
+            // is Column's default and always false.
+            if (_is_nullable_column && _dict_opt_ctx->convert_column->is_null(pos)) {
+                return ColumnHelper::create_const_null_column(num_rows);
+            }
+            auto res = _data_column_ptr->clone_empty();
+            res->append_datum(_data_column_ptr->get(pos));
+            return ConstColumn::create(std::move(res));
         } else if (input->is_nullable()) {
             // is nullable
             auto* null_column = down_cast<NullableColumn*>(input->as_mutable_raw_ptr());
