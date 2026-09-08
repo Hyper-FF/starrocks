@@ -31,6 +31,7 @@ import com.starrocks.sql.optimizer.statistics.ColumnDict;
 import com.starrocks.type.IntegerType;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -171,7 +172,9 @@ public class UnionDictionaryManager {
     void recordIfConstant(ColumnRefOperator key, ScalarOperator value) {
         if (value.isConstantRef() && (value.getType().isStringType() || value.getType().isNull())) {
             ConstantOperator constant = value.cast();
-            ByteBuffer buffer = constant.isConstantNull() ? null : ByteBuffer.wrap(constant.getVarchar().getBytes());
+            // dictionary keys are the raw UTF-8 bytes BE collected; never depend on the platform charset here
+            ByteBuffer buffer = constant.isConstantNull() ? null
+                    : ByteBuffer.wrap(constant.getVarchar().getBytes(StandardCharsets.UTF_8));
             constantColumns.put(key.getId(), buffer);
         } else if (value.isColumnRef()) {
             ColumnRefOperator c = value.cast();
