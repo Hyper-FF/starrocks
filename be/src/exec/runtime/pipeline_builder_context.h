@@ -55,6 +55,21 @@ public:
         return _pipelines[_pipelines.size() - 1].get();
     }
 
+    size_t num_pipelines() const { return _pipelines.size(); }
+
+    /// Make every pipeline added since `begin` wait for `dependency`, the way
+    /// push_dependent_pipeline() would have if `dependency` had already existed while they were
+    /// built. A node needs this when the shape of the pipeline others depend on is itself decided by
+    /// those others, so it can only be added afterwards -- how to partition a set operation's build
+    /// child, or a hash join's build side, depends on all the other children.
+    ///
+    /// `apply` is the caller's stand-in for the colocate-group half of the gate in
+    /// _subscribe_pipeline_event: that gate reads the current execution group as each dependent
+    /// pipeline is added, which cannot be recovered after the fact. This only decides event
+    /// scheduling -- the operators still gate themselves on the build being ready -- so approximating
+    /// it with the group the dependency itself lands in is safe.
+    void subscribe_pipelines_since(size_t begin, const Pipeline* dependency, bool apply);
+
     RuntimeState* runtime_state();
     FragmentContext* fragment_context() { return _fragment_context; }
     bool enable_group_execution() const { return _enable_group_execution; }

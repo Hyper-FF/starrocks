@@ -130,6 +130,20 @@ void PipelineBuilderContext::pop_dependent_pipeline() {
     _dependent_pipelines.pop_back();
 }
 
+void PipelineBuilderContext::subscribe_pipelines_since(size_t begin, const Pipeline* dependency, bool apply) {
+    if (!apply || !_fragment_context->runtime_state()->enable_wait_dependent_event()) {
+        return;
+    }
+    for (size_t i = begin; i < _pipelines.size(); ++i) {
+        Pipeline* pipeline = _pipelines[i].get();
+        if (pipeline == dependency) {
+            continue;
+        }
+        pipeline->pipeline_event()->set_need_wait_dependencies_finished(true);
+        pipeline->pipeline_event()->add_dependency(dependency->pipeline_event());
+    }
+}
+
 void PipelineBuilderContext::_subscribe_pipeline_event(Pipeline* pipeline) {
     bool enable_wait_event = _fragment_context->runtime_state()->enable_wait_dependent_event();
     enable_wait_event &= !_current_execution_group->is_colocate_exec_group();
