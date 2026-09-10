@@ -90,7 +90,11 @@ Status ExprContext::open(RuntimeState* state) {
     // fragment-local operation.
     try {
         return _root->open(state, this, FunctionContext::FRAGMENT_LOCAL);
-    } catch (std::runtime_error& e) {
+    } catch (std::bad_alloc&) {
+        // Memory-limit signalling: allocators throw bad_alloc so that the TRY_CATCH_ALLOC_SCOPE up the
+        // stack can report MemoryLimitExceeded with the tracker context. Let it through untouched.
+        throw;
+    } catch (std::exception& e) {
         return Status::RuntimeError(fmt::format("Expr evaluate meet error: {}", e.what()));
     }
 }
@@ -195,7 +199,14 @@ StatusOr<ColumnPtr> ExprContext::evaluate(Expr* e, Chunk* chunk, uint8_t* filter
             ptr->as_mutable_raw_ptr()->resize(chunk->num_rows());
         }
         return ptr;
-    } catch (std::runtime_error& e) {
+    } catch (std::bad_alloc&) {
+        // See open(): bad_alloc is the memory-limit signal and must reach TRY_CATCH_ALLOC_SCOPE.
+        throw;
+    } catch (std::exception& e) {
+        // Any other exception escaping an expression (library exceptions such as velocypack's, logic
+        // errors, ...) becomes a query error here. This is the last boundary before the operator: on a
+        // scan thread an escaped exception would either be swallowed by the thread pool and hang the
+        // query, or terminate the process.
         return Status::RuntimeError(fmt::format("Expr evaluate meet error: {}", e.what()));
     }
 }

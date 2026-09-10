@@ -14,6 +14,8 @@
 
 #include <gtest/gtest.h>
 
+#include <stdexcept>
+
 #include "column/chunk.h"
 #include "column/column_helper.h"
 #include "common/object_pool.h"
@@ -61,7 +63,67 @@ private:
     int _evaluate_calls = 0;
 };
 
+// Throws the given exception from evaluate_checked() to exercise the exception boundary of ExprContext.
+template <typename Exception>
+class ThrowingExpr final : public Expr {
+public:
+    explicit ThrowingExpr(std::string what) : Expr(TypeDescriptor(TYPE_INT)), _what(std::move(what)) {}
+
+    Expr* clone(ObjectPool* pool) const override { return pool->add(new ThrowingExpr(*this)); }
+
+    StatusOr<ColumnPtr> evaluate_checked(ExprContext*, Chunk*) override { throw Exception(_what); }
+
+private:
+    std::string _what;
+};
+
+class BadAllocExpr final : public Expr {
+public:
+    BadAllocExpr() : Expr(TypeDescriptor(TYPE_INT)) {}
+
+    Expr* clone(ObjectPool* pool) const override { return pool->add(new BadAllocExpr(*this)); }
+
+    StatusOr<ColumnPtr> evaluate_checked(ExprContext*, Chunk*) override { throw std::bad_alloc(); }
+};
+
 } // namespace
+
+TEST(ExprContextCoreTest, EvaluateTurnsEscapedExceptionsIntoStatus) {
+    // Exceptions that are not runtime_error (a library exception such as velocypack's, a logic_error from
+    // std::stoi, ...) used to escape ExprContext::evaluate. On a scan thread that either hangs the query
+    // or terminates the BE; they must come back as a failed Status instead.
+    {
+        ThrowingExpr<std::logic_error> expr("boom from logic_error");
+        RuntimeState state;
+        ExprContext context(&expr);
+        ASSERT_TRUE(context.prepare(&state).ok());
+        ASSERT_TRUE(context.open(&state).ok());
+        auto result = context.evaluate(nullptr);
+        ASSERT_FALSE(result.ok());
+        EXPECT_NE(result.status().message().find("boom from logic_error"), std::string::npos) << result.status();
+    }
+    {
+        ThrowingExpr<std::runtime_error> expr("boom from runtime_error");
+        RuntimeState state;
+        ExprContext context(&expr);
+        ASSERT_TRUE(context.prepare(&state).ok());
+        ASSERT_TRUE(context.open(&state).ok());
+        auto result = context.evaluate(nullptr);
+        ASSERT_FALSE(result.ok());
+        EXPECT_NE(result.status().message().find("boom from runtime_error"), std::string::npos) << result.status();
+    }
+}
+
+TEST(ExprContextCoreTest, EvaluateLetsBadAllocPropagate) {
+    // bad_alloc is how the allocators signal a memory-limit hit; the TRY_CATCH_ALLOC_SCOPE up the stack
+    // converts it into MemoryLimitExceeded, so ExprContext must not swallow it.
+    BadAllocExpr expr;
+    RuntimeState state;
+    ExprContext context(&expr);
+    ASSERT_TRUE(context.prepare(&state).ok());
+    ASSERT_TRUE(context.open(&state).ok());
+    EXPECT_THROW({ auto result = context.evaluate(nullptr); }, std::bad_alloc);
+}
 
 TEST(ExprContextCoreTest, EvaluateResizesConstToInputRows) {
     ExprContextTestExpr expr;
