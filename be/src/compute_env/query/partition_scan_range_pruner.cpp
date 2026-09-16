@@ -16,6 +16,7 @@
 
 #include "column/column_helper.h"
 #include "column/runtime_type_traits.h"
+#include "common/logging.h"
 #include "common/object_pool.h"
 #include "compute_env/runtime_range_pruner.hpp"
 #include "exprs/expr.h"
@@ -27,9 +28,24 @@
 
 namespace starrocks {
 
+namespace {
+// A partition column range is expanded one value at a time, so the width of the range decides how
+// much memory the expansion costs. FE caps what it sends with dynamic_partition_prune_values_limit
+// (4096 by default), but that is a tuning knob on the producer and not a bound this side can lean
+// on. The value list only ever feeds scan range pruning, which is an optimization, so a range that
+// cannot be expanded safely degrades to "this column prunes nothing" instead of failing the query.
+constexpr uint64_t kMaxPartitionColumnValues = 1024 * 1024;
+} // namespace
+
 StatusOr<ColumnPtr> build_partition_col_values(const SlotDescriptor* slot_desc, const TKeyRange& column_range,
                                                ObjectPool* obj_pool, RuntimeState* state) {
     if (column_range.__isset.list_values && !column_range.list_values.empty()) {
+        if (column_range.list_values.size() > kMaxPartitionColumnValues) {
+            LOG_EVERY_N(WARNING, 1000) << "partition column range has too many list values to expand, pruning "
+                                          "skipped for column: "
+                                       << column_range.column_name << ", values: " << column_range.list_values.size();
+            return nullptr;
+        }
         std::vector<ExprContext*> ctxs;
         for (const auto& obj : column_range.list_values) {
             RETURN_IF_ERROR(ExprFactory::create_expr_tree(obj_pool, obj, &ctxs.emplace_back(), state));
@@ -38,7 +54,10 @@ StatusOr<ColumnPtr> build_partition_col_values(const SlotDescriptor* slot_desc, 
         RETURN_IF_ERROR(ExprExecutor::prepare(ctxs, state));
         RETURN_IF_ERROR(ExprExecutor::open(ctxs, state));
 
-        auto col = ColumnHelper::create_column(slot_desc->type(), true, false, column_range.list_values.size(), false);
+        // The size argument resizes the column, it does not reserve: pass 0 and reserve separately,
+        // or every value appended below lands after a run of default-valued rows.
+        auto col = ColumnHelper::create_column(slot_desc->type(), true, false, 0, false);
+        col->reserve(column_range.list_values.size());
         for (auto* ctx : ctxs) {
             ASSIGN_OR_RETURN(ColumnPtr v, ctx->root()->evaluate_const(ctx));
             if (v->only_null()) {
@@ -54,24 +73,58 @@ StatusOr<ColumnPtr> build_partition_col_values(const SlotDescriptor* slot_desc, 
         if (slot_desc->type().is_date_type()) {
             auto lower_julian = date::from_date_literal(column_range.begin_key);
             auto upper_julian = date::from_date_literal(column_range.end_key);
+            if (upper_julian < lower_julian) {
+                return nullptr;
+            }
+            // Count the values instead of walking to the upper bound: JulianDate is an int32, and
+            // `date++` past its maximum is undefined, which the counted form cannot reach.
+            // JulianDate is an int32, so widen before subtracting: the difference of two extremes
+            // does not fit back into one.
+            const uint64_t count =
+                    static_cast<uint64_t>(static_cast<int64_t>(upper_julian) - static_cast<int64_t>(lower_julian)) + 1;
+            if (count > kMaxPartitionColumnValues) {
+                LOG_EVERY_N(WARNING, 1000)
+                        << "partition column range is too wide to expand, pruning skipped for column: "
+                        << column_range.column_name << ", values: " << count;
+                return nullptr;
+            }
 
-            auto col =
-                    ColumnHelper::create_column(slot_desc->type(), true, false, upper_julian - lower_julian + 1, false);
-            for (JulianDate date = lower_julian; date <= upper_julian; date++) {
-                col->append_datum(Datum(DateValue{date}));
+            auto col = ColumnHelper::create_column(slot_desc->type(), true, false, 0, false);
+            col->reserve(count + 1);
+            for (uint64_t i = 0; i < count; i++) {
+                col->append_datum(Datum(DateValue{static_cast<JulianDate>(lower_julian + static_cast<int64_t>(i))}));
             }
             if (column_range.__isset.has_null && column_range.has_null) {
                 col->append_nulls(1);
             }
             return col;
         } else if (slot_desc->type().is_integer_type()) {
-            size_t size = column_range.end_key - column_range.begin_key + 1;
-            auto col = ColumnHelper::create_column(slot_desc->type(), true, false, size, false);
-#define M(TYPE)                                                                    \
-    if (slot_desc->type().type == TYPE) {                                          \
-        for (int64_t v = column_range.begin_key; v <= column_range.end_key; v++) { \
-            col->append_datum(Datum((RunTimeTypeTraits<TYPE>::CppType)v));         \
-        }                                                                          \
+            if (column_range.end_key < column_range.begin_key) {
+                return nullptr;
+            }
+            // Count the values in unsigned arithmetic, and drive the loop by that count rather than
+            // by `v <= end_key`. `end_key - begin_key` overflows int64 for a range that spans the
+            // type, and a `v++` walk never terminates when end_key is the int64 maximum: the
+            // increment wraps to the minimum and the condition stays true forever.
+            const uint64_t width =
+                    static_cast<uint64_t>(column_range.end_key) - static_cast<uint64_t>(column_range.begin_key);
+            if (width >= kMaxPartitionColumnValues) {
+                LOG_EVERY_N(WARNING, 1000)
+                        << "partition column range is too wide to expand, pruning skipped for column: "
+                        << column_range.column_name << ", width: " << width;
+                return nullptr;
+            }
+            const uint64_t count = width + 1;
+            auto col = ColumnHelper::create_column(slot_desc->type(), true, false, 0, false);
+            col->reserve(count + 1);
+            // begin_key + i stays within [begin_key, end_key] for every i < count, so it cannot
+            // overflow even when end_key is the int64 maximum.
+#define M(TYPE)                                                                                                   \
+    if (slot_desc->type().type == TYPE) {                                                                         \
+        for (uint64_t i = 0; i < count; i++) {                                                                    \
+            col->append_datum(                                                                                    \
+                    Datum((RunTimeTypeTraits<TYPE>::CppType)(column_range.begin_key + static_cast<int64_t>(i)))); \
+        }                                                                                                         \
     }
             APPLY_FOR_ALL_INT_TYPE(M)
 #undef M
@@ -121,6 +174,10 @@ Status prune_scan_ranges_by_partition_conjuncts(RuntimeState* state, const Tuple
             }
             auto* slot = it->second;
             ASSIGN_OR_RETURN(auto col, build_partition_col_values(slot, partition_column_range, &obj_pool, state));
+            if (col == nullptr) {
+                // The range could not be expanded; it contributes no pruning.
+                continue;
+            }
 
             Chunk partition_cols_chunk;
             Filter filter(col->size(), 1);

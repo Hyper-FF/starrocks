@@ -16,6 +16,10 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <utility>
+#include <vector>
+
 #include "base/testutil/assert.h"
 #include "column/nullable_column.h"
 #include "common/object_pool.h"
@@ -108,12 +112,119 @@ TEST(PartitionScanRangePrunerTest, BuildsInclusiveIntegerRangeWithNull) {
     auto result = build_partition_col_values(&slot, range, &pool, &state);
     ASSERT_TRUE(result.ok()) << result.status();
     auto column = std::move(result).value();
-    ASSERT_GE(column->size(), 4);
-    const size_t offset = column->size() - 4;
+    ASSERT_EQ(4, column->size());
+    const size_t offset = 0;
     EXPECT_EQ(2, column->get(offset).get_int32());
     EXPECT_EQ(3, column->get(offset + 1).get_int32());
     EXPECT_EQ(4, column->get(offset + 2).get_int32());
     EXPECT_TRUE(column->get(offset + 3).is_null());
+}
+
+TEST(PartitionScanRangePrunerTest, BuildsIntegerRangeEndingAtTheInt64Maximum) {
+    // A range ending at the int64 maximum used to be expanded with `for (v = begin; v <= end; v++)`,
+    // where the final increment wraps to the minimum and the loop never terminates. A pinned
+    // multi-column BIGINT partition reaches this with a range as narrow as a single value.
+    RuntimeState state;
+    ObjectPool pool;
+    TSlotDescriptor thrift_slot = TSlotDescriptorBuilder()
+                                          .type(LogicalType::TYPE_BIGINT)
+                                          .column_name("p")
+                                          .column_pos(0)
+                                          .nullable(true)
+                                          .build();
+    SlotDescriptor slot(thrift_slot);
+
+    TKeyRange range;
+    range.__set_column_type(TPrimitiveType::BIGINT);
+    range.__set_column_name("p");
+    range.__set_begin_key(std::numeric_limits<int64_t>::max());
+    range.__set_end_key(std::numeric_limits<int64_t>::max());
+
+    auto result = build_partition_col_values(&slot, range, &pool, &state);
+    ASSERT_TRUE(result.ok()) << result.status();
+    auto column = std::move(result).value();
+    ASSERT_NE(nullptr, column);
+    ASSERT_EQ(1, column->size());
+    EXPECT_EQ(std::numeric_limits<int64_t>::max(), column->get(0).get_int64());
+}
+
+TEST(PartitionScanRangePrunerTest, BuildsIntegerRangeAtBothInt64Extremes) {
+    RuntimeState state;
+    ObjectPool pool;
+    TSlotDescriptor thrift_slot = TSlotDescriptorBuilder()
+                                          .type(LogicalType::TYPE_BIGINT)
+                                          .column_name("p")
+                                          .column_pos(0)
+                                          .nullable(true)
+                                          .build();
+    SlotDescriptor slot(thrift_slot);
+
+    const int64_t max = std::numeric_limits<int64_t>::max();
+    const int64_t min = std::numeric_limits<int64_t>::min();
+    for (const auto& [begin, end] : std::vector<std::pair<int64_t, int64_t>>{{max - 2, max}, {min, min + 2}}) {
+        TKeyRange range;
+        range.__set_column_type(TPrimitiveType::BIGINT);
+        range.__set_column_name("p");
+        range.__set_begin_key(begin);
+        range.__set_end_key(end);
+
+        auto result = build_partition_col_values(&slot, range, &pool, &state);
+        ASSERT_TRUE(result.ok()) << result.status();
+        auto column = std::move(result).value();
+        ASSERT_NE(nullptr, column);
+        ASSERT_EQ(3, column->size());
+        EXPECT_EQ(begin, column->get(0).get_int64());
+        EXPECT_EQ(begin + 1, column->get(1).get_int64());
+        EXPECT_EQ(end, column->get(2).get_int64());
+    }
+}
+
+TEST(PartitionScanRangePrunerTest, RefusesRangesItCannotExpand) {
+    // Expanding a range is an optimization, so anything unusable yields a null column - "this
+    // column prunes nothing" - rather than an error that would fail the query.
+    RuntimeState state;
+    ObjectPool pool;
+    TSlotDescriptor thrift_slot = TSlotDescriptorBuilder()
+                                          .type(LogicalType::TYPE_BIGINT)
+                                          .column_name("p")
+                                          .column_pos(0)
+                                          .nullable(true)
+                                          .build();
+    SlotDescriptor slot(thrift_slot);
+
+    // Inverted, and spanning the whole type: the latter also overflows `end - begin` in int64.
+    for (const auto& [begin, end] : std::vector<std::pair<int64_t, int64_t>>{
+                 {10, 5},
+                 {std::numeric_limits<int64_t>::min(), std::numeric_limits<int64_t>::max()},
+                 {0, 1024 * 1024}}) {
+        TKeyRange range;
+        range.__set_column_type(TPrimitiveType::BIGINT);
+        range.__set_column_name("p");
+        range.__set_begin_key(begin);
+        range.__set_end_key(end);
+
+        auto result = build_partition_col_values(&slot, range, &pool, &state);
+        ASSERT_TRUE(result.ok()) << result.status();
+        EXPECT_EQ(nullptr, std::move(result).value()) << "begin=" << begin << " end=" << end;
+    }
+}
+
+TEST(PartitionScanRangePrunerTest, RefusesInvertedDateRange) {
+    RuntimeState state;
+    ObjectPool pool;
+    TSlotDescriptor thrift_slot =
+            TSlotDescriptorBuilder().type(LogicalType::TYPE_DATE).column_name("p").column_pos(0).nullable(true).build();
+    SlotDescriptor slot(thrift_slot);
+
+    TKeyRange range;
+    range.__set_column_type(TPrimitiveType::DATE);
+    range.__set_column_name("p");
+    range.__set_begin_key(19880801);
+    range.__set_end_key(19880730);
+
+    auto result = build_partition_col_values(&slot, range, &pool, &state);
+    ASSERT_TRUE(result.ok()) << result.status();
+    EXPECT_EQ(nullptr, std::move(result).value());
 }
 
 TEST(PartitionScanRangePrunerTest, BuildsInclusiveDateRange) {
@@ -136,8 +247,8 @@ TEST(PartitionScanRangePrunerTest, BuildsInclusiveDateRange) {
     auto result = build_partition_col_values(&slot, range, &pool, &state);
     ASSERT_TRUE(result.ok()) << result.status();
     auto column = std::move(result).value();
-    ASSERT_GE(column->size(), 3);
-    const size_t offset = column->size() - 3;
+    ASSERT_EQ(3, column->size());
+    const size_t offset = 0;
     EXPECT_EQ(date::from_date(1988, 7, 30), column->get(offset).get_date().julian());
     EXPECT_EQ(date::from_date(1988, 7, 31), column->get(offset + 1).get_date().julian());
     EXPECT_EQ(date::from_date(1988, 8, 1), column->get(offset + 2).get_date().julian());
@@ -158,8 +269,8 @@ TEST(PartitionScanRangePrunerTest, BuildsLiteralList) {
     auto result = build_partition_col_values(&slot, range, &pool, &state);
     ASSERT_TRUE(result.ok()) << result.status();
     auto column = std::move(result).value();
-    ASSERT_GE(column->size(), 3);
-    const size_t offset = column->size() - 3;
+    ASSERT_EQ(3, column->size());
+    const size_t offset = 0;
     EXPECT_EQ(2, column->get(offset).get_int32());
     EXPECT_TRUE(column->get(offset + 1).is_null());
     EXPECT_EQ(5, column->get(offset + 2).get_int32());

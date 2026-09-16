@@ -29,6 +29,13 @@ class RuntimeState;
 // Supports either a list of literal `list_values` or an inclusive integer/date `[begin_key, end_key]` range.
 // Used by the backend-side dynamic partition pruning path in both the shared-nothing OlapScanNode and
 // the shared-data LakeDataSourceProvider.
+// Expands a partition column range into the column of values it covers, for evaluating partition
+// conjuncts over a whole scan range at once.
+//
+// Returns a null ColumnPtr - not an error - when the range cannot be expanded: it is inverted, it
+// is wider than this side is willing to materialize, or its type has no int64 key representation.
+// The caller must treat that as "this column prunes nothing", because the ranges arrive from FE
+// over thrift and pruning is an optimization that must never fail or hang a query.
 StatusOr<ColumnPtr> build_partition_col_values(const SlotDescriptor* slot_desc, const TKeyRange& column_range,
                                                ObjectPool* obj_pool, RuntimeState* state);
 
