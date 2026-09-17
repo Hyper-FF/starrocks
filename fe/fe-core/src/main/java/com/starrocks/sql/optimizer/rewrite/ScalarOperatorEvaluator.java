@@ -271,6 +271,18 @@ public enum ScalarOperatorEvaluator {
         return null;
     }
 
+    /**
+     * Whether folding this call may be used to reason about order, which is a per-SIGNATURE question
+     * and therefore stays on the annotation rather than moving to the interval registry.
+     * <p>
+     * The registry in IntervalPropagators is keyed by function NAME, which is all the pruning
+     * consumers need -- they hold the column and ask about the argument it sits in. Here there is no
+     * column left (folding runs once every argument is constant), and name alone is the wrong
+     * granularity: add() and subtract() are declared monotonic for the integer types and deliberately
+     * not for DOUBLE or any DECIMAL, and unix_timestamp() is monotonic over a DATETIME while its
+     * zero-argument form returns the current time and is not a function of anything. Keying this
+     * check by name would quietly admit all three.
+     */
     private boolean isMonotonicFunc(FunctionInvoker invoker, CallOperator operator) {
         if (!invoker.isMonotonic) {
             return false;
