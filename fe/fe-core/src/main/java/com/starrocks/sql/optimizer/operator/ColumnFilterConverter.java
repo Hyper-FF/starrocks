@@ -16,8 +16,10 @@
 package com.starrocks.sql.optimizer.operator;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.BoundType;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Range;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.ExpressionRangePartitionInfo;
@@ -60,6 +62,8 @@ import com.starrocks.sql.optimizer.operator.scalar.OperatorFunctionChecker;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperatorVisitor;
 import com.starrocks.sql.optimizer.rewrite.ScalarOperatorEvaluator;
+import com.starrocks.sql.optimizer.rewrite.interval.ExpressionIntervalAnalyzer;
+import com.starrocks.sql.optimizer.rewrite.interval.IntervalMapping;
 import com.starrocks.sql.optimizer.transformer.SqlToScalarOperatorTranslator;
 import com.starrocks.sql.spm.SPMFunctions;
 import com.starrocks.type.IntegerType;
@@ -68,7 +72,6 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.math.BigInteger;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -424,6 +427,28 @@ public class ColumnFilterConverter {
     }
 
     /**
+     * The partition expression as a function of its column, so the interval analysis can be asked
+     * about it. Unlike evaluatePartitionExpr() this keeps the column in place: the analysis needs to
+     * know which argument varies before it can say anything about the argument's interval.
+     * <p>
+     * Empty when the expression cannot be translated, which leaves every caller with the conservative
+     * answer it had before: the strict bound is kept and the filter keeps whatever standing it had.
+     */
+    private static Optional<IntervalMapping> partitionExprInterval(Expr partitionExpr, ColumnRefOperator columnRef,
+                                                                   Range<ConstantOperator> in) {
+        try {
+            ScalarOperator translated = SqlToScalarOperatorTranslator.translateWithSlotRef(
+                    partitionExpr.clone(), slot -> columnRef);
+            if (translated == null) {
+                return Optional.empty();
+            }
+            return Optional.of(ExpressionIntervalAnalyzer.analyze(translated, in));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
      * Substitutes the constant into the partition expression and folds it, giving the partition value
      * the row carrying that source value lands on. Empty when the expression cannot take the constant,
      * is not foldable on the FE, or -- when requireMonotonic is set -- does not preserve the order.
@@ -499,12 +524,15 @@ public class ColumnFilterConverter {
         if (binaryType != BinaryType.LT) {
             return binaryType;
         }
-        Optional<ConstantOperator> neighbour = adjacentConstant(constant, -1)
-                .flatMap(n -> evaluatePartitionExpr(partitionExpr, columnRef, n, false));
-        if (neighbour.isEmpty() || !neighbour.get().equals(mapped)) {
-            return binaryType;
-        }
-        return BinaryType.LE;
+        // `col < c` maps to the image of (-inf, c). Its top is attained -- and the bound therefore has
+        // to close -- exactly when something just inside the interval already renders the same
+        // partition value, which is what the image's bound type reports.
+        boolean closed = partitionExprInterval(partitionExpr, columnRef, Range.lessThan(constant))
+                .flatMap(IntervalMapping::outRange)
+                .filter(Range::hasUpperBound)
+                .map(range -> range.upperBoundType() == BoundType.CLOSED)
+                .orElse(false);
+        return closed ? BinaryType.LE : binaryType;
     }
 
     /**
@@ -630,53 +658,11 @@ public class ColumnFilterConverter {
      * that has always applied.
      */
     private static boolean plateausAt(Expr partitionExpr, ColumnRefOperator columnRef, ConstantOperator constant) {
-        Optional<ConstantOperator> here = evaluatePartitionExpr(partitionExpr, columnRef, constant, false);
-        if (here.isEmpty()) {
-            return false;
-        }
-        for (long delta : new long[] {-1, 1}) {
-            Optional<ConstantOperator> neighbour = adjacentConstant(constant, delta)
-                    .flatMap(n -> evaluatePartitionExpr(partitionExpr, columnRef, n, false));
-            if (neighbour.isPresent() && neighbour.get().equals(here.get())) {
-                return true;
-            }
-        }
-        return false;
+        return partitionExprInterval(partitionExpr, columnRef, Range.singleton(constant))
+                .map(IntervalMapping::plateau)
+                .orElse(false);
     }
 
-    /**
-     * The integer one step from the constant, or empty when there is none to name -- a non-integer
-     * constant, or one already at the end of its type's range.
-     */
-    private static Optional<ConstantOperator> adjacentConstant(ConstantOperator constant, long delta) {
-        if (constant.isNull()) {
-            return Optional.empty();
-        }
-        Type type = constant.getType();
-        try {
-            if (type.isTinyint()) {
-                long value = Math.addExact(constant.getTinyInt(), delta);
-                return value < Byte.MIN_VALUE || value > Byte.MAX_VALUE
-                        ? Optional.empty() : Optional.of(ConstantOperator.createTinyInt((byte) value));
-            } else if (type.isSmallint()) {
-                long value = Math.addExact(constant.getSmallint(), delta);
-                return value < Short.MIN_VALUE || value > Short.MAX_VALUE
-                        ? Optional.empty() : Optional.of(ConstantOperator.createSmallInt((short) value));
-            } else if (type.isInt()) {
-                long value = Math.addExact(constant.getInt(), delta);
-                return value < Integer.MIN_VALUE || value > Integer.MAX_VALUE
-                        ? Optional.empty() : Optional.of(ConstantOperator.createInt((int) value));
-            } else if (type.isBigint()) {
-                return Optional.of(ConstantOperator.createBigint(Math.addExact(constant.getBigint(), delta)));
-            } else if (type.isLargeIntType()) {
-                return Optional.of(
-                        ConstantOperator.createLargeInt(constant.getLargeInt().add(BigInteger.valueOf(delta))));
-            }
-        } catch (ArithmeticException e) {
-            return Optional.empty();
-        }
-        return Optional.empty();
-    }
 
     private static boolean checkColumnRefCanPartition(ScalarOperator right, Table table) {
         if (OperatorType.VARIABLE.equals(right.getOpType())) {

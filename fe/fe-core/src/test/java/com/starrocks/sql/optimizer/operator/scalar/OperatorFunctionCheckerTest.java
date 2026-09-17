@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -200,7 +201,83 @@ public class OperatorFunctionCheckerTest {
         // adding grows with both sides, so a column in either argument is fine
         ColumnRefOperator n = new ColumnRefOperator(5, IntegerType.INT, "n", true);
         assertTrue(OperatorFunctionChecker.onlyContainIncreasingFunctions(
+                new CallOperator(FunctionSet.ADD, IntegerType.INT,
+                        ImmutableList.of(ConstantOperator.createInt(7), n))).first);
+
+        // two columns in one expression is not a function of one interval: the rewrite substitutes a
+        // constant for a single column and leaves the other varying, so there is nothing to deduce
+        assertFalse(OperatorFunctionChecker.onlyContainIncreasingFunctions(
                 new CallOperator(FunctionSet.DAYS_ADD, DateType.DATETIME, ImmutableList.of(c1, n))).first);
+    }
+
+    /**
+     * The two entry points are deliberately NOT the same check, and these are the shapes where they
+     * part company.
+     * <p>
+     * onlyContainIncreasingFunctions() asks whether the whole expression is a function of one
+     * interval that grows with it, so it declines a CASE WHEN -- which can pick a different branch on
+     * either side of a bound and is not monotone at all -- and an expression reading two columns,
+     * where substituting a constant for one leaves the other varying and there is nothing to deduce.
+     * <p>
+     * onlyContainMonotonicFunctions() asks only whether every function in the tree preserves order,
+     * and stays the more permissive tree walk. It validates user-supplied retention conditions as well
+     * as driving pruning, so tightening it to the stronger question would turn expressions that create
+     * a table today into a SemanticException tomorrow.
+     */
+    @Test
+    public void testIncreasingCheckDeclinesShapesTheMonotonicCheckAccepts() {
+        ColumnRefOperator dt = new ColumnRefOperator(1, DateType.DATETIME, "dt", true);
+        ColumnRefOperator other = new ColumnRefOperator(2, DateType.DATETIME, "dt2", true);
+        CallOperator trunc = new CallOperator(FunctionSet.DATE_TRUNC, DateType.DATETIME,
+                ImmutableList.of(ConstantOperator.createVarchar("day"), dt));
+
+        CaseWhenOperator caseWhen = new CaseWhenOperator(DateType.DATETIME, null, dt,
+                ImmutableList.of(trunc, dt));
+        assertTrue(OperatorFunctionChecker.onlyContainMonotonicFunctions(caseWhen).first);
+        assertFalse(OperatorFunctionChecker.onlyContainIncreasingFunctions(caseWhen).first);
+
+        CallOperator twoColumns = new CallOperator(FunctionSet.DATEDIFF, IntegerType.INT,
+                ImmutableList.of(dt, other));
+        assertTrue(OperatorFunctionChecker.onlyContainMonotonicFunctions(twoColumns).first);
+        assertFalse(OperatorFunctionChecker.onlyContainIncreasingFunctions(twoColumns).first);
+
+        // where they agree: an ordinary single-column expression passes both
+        assertTrue(OperatorFunctionChecker.onlyContainMonotonicFunctions(trunc).first);
+        assertTrue(OperatorFunctionChecker.onlyContainIncreasingFunctions(trunc).first);
+    }
+
+    /**
+     * The cast rules live in two places and must agree.
+     * <p>
+     * onlyContainMonotonicFunctions() reaches them through isOrderPreservingCast(); the interval
+     * analysis behind onlyContainIncreasingFunctions() carries its own copy, because it has to map
+     * the interval through the cast rather than only judge the type pair. Two copies of one rule
+     * drift: #79688 taught the original that a DATE renders as ordered text and the copy did not
+     * learn it, so a str2date() partition over a DATE column kept validating while it stopped
+     * pruning. This sweeps the type pairs that matter and fails when the two disagree, which is the
+     * signal to mirror the change rather than discover it from a lost optimization.
+     */
+    @Test
+    public void testBothCastRulesAgreeOnTheTypePairs() {
+        Type[][] pairs = {
+            {IntegerType.INT, IntegerType.BIGINT},      // widening integer
+            {IntegerType.BIGINT, IntegerType.INT},      // narrowing integer
+            {DateType.DATE, DateType.DATETIME},         // date -> datetime
+            {DateType.DATETIME, DateType.DATE},         // datetime -> date, truncating
+            {DateType.DATE, VarcharType.VARCHAR},       // date rendered as text (#79688)
+            {DateType.DATETIME, VarcharType.VARCHAR},   // datetime rendered as text (#79688)
+            {VarcharType.VARCHAR, IntegerType.BIGINT},  // text parsed as a number: reorders
+            {IntegerType.BIGINT, VarcharType.VARCHAR},  // number rendered as text: reorders
+        };
+        for (Type[] pair : pairs) {
+            CastOperator cast = cast(pair[0], pair[1]);
+            boolean viaTreeWalk = OperatorFunctionChecker.onlyContainMonotonicFunctions(cast).first;
+            boolean viaInterval = OperatorFunctionChecker.onlyContainIncreasingFunctions(cast).first;
+            assertEquals(viaTreeWalk, viaInterval,
+                    "the two cast rules disagree on " + pair[0] + " -> " + pair[1]
+                            + "; mirror the change between OperatorFunctionChecker.isOrderPreservingCast()"
+                            + " and ExpressionIntervalAnalyzer.visitCast()");
+        }
     }
 
     /**
