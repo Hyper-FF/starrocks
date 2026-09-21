@@ -317,6 +317,30 @@ restart_be_locked() {
 #
 # A knob is only a valid oracle if it is meant to change the PLAN and not the ANSWER. Anything added
 # here has to satisfy that, or it manufactures false findings faster than it finds real ones.
+#
+# The last seven are a different KIND of knob, added 2026-09-21 after auditing five weeks of upstream
+# [BugFix] commits for what this campaign could never have found. Every knob above changes the plan;
+# none of them changes how the plan is EXECUTED -- the batch size, the parallelism, whether an
+# operator spills. A defect that is wrong only at a chunk boundary, only at dop > 1, or only on the
+# spill path produces identical rows under all fifty-odd of them, and was structurally invisible:
+#   set chunk_size = 255        batch boundaries. #78722 (substr returning the neighbouring row's
+#                               bytes), #79007 (dict page decoder not advanced when a filter rejects
+#                               the whole page), #78685, and our own late-materialisation null-flag
+#                               desync -- all of them are one chunk's state leaking into the next.
+#   set pipeline_dop = 1        parallelism. EXCEPT/INTERSECT driver-partition misalignment, the
+#                               skew-join hint replicating a preserved side, array_sort sharing one
+#                               error Status across drivers: all wrong only when dop > 1, so the
+#                               single-driver run is the reference the oracle never had.
+#   enable_spill + spill_mode   the spill path is a second implementation of join/agg/sort that the
+#                               campaign has never once entered. #79085 lives there.
+#   tablet_internal_parallel    two ways to split one tablet's scan; force_split takes the other.
+#   global_late_materialization on by default, so the campaign only ever ran the GLM plan.
+#   pipeline_level_shuffle      on by default, likewise.
+# These are SAFER than the plan knobs, not riskier: they do not rewrite the query at all, so any
+# difference is by construction a defect. They are also SLOWER (chunk_size = 255 multiplies the
+# per-chunk overhead), which is why diff_run_incomplete and the knob-side size cap matter more now
+# than they did -- a knob that pushes a query past QUERY_TIMEOUT must be read as "did not finish",
+# never as "returned fewer rows".
 DIFF_KNOBS=${DIFF_KNOBS:-"\
 set cbo_enable_low_cardinality_optimize = false|\
 set low_cardinality_optimize_v2 = false|\
@@ -370,7 +394,14 @@ set enable_local_shuffle_agg = false|\
 set enable_group_by_compressed_key = false|\
 set push_down_heavy_exprs = false|\
 set enable_lambda_pushdown = false|\
-set enable_materialized_view_rewrite = false"}
+set enable_materialized_view_rewrite = false|\
+set chunk_size = 255|\
+set pipeline_dop = 1|\
+set enable_spill = true; set spill_mode = 'force'|\
+set enable_tablet_internal_parallel = false|\
+set tablet_internal_parallel_mode = 'force_split'|\
+set enable_global_late_materialization = false|\
+set enable_pipeline_level_shuffle = false"}
 DIFF_MAX_STMTS=${DIFF_MAX_STMTS:-40}
 
 # How many knobs each statement is checked against, drawn at random from the pool above.
@@ -428,6 +459,53 @@ set cbo_cte_reuse = true; set cbo_cte_reuse_rate = -1|\
 ROUND_EXEC_VAR=""
 
 DIFF_KNOB_SAMPLE=${DIFF_KNOB_SAMPLE:-4}
+
+# Which knobs a statement is checked against, when the statement itself says which ones matter.
+#
+# The sample above is uniform: 4 knobs drawn from 60 gives any one knob a 6.7% chance of being asked
+# about any one statement. For a knob whose defect family only EXISTS in a statement that uses the
+# feature -- push_down_heavy_exprs needs a heavy expression, enable_lambda_pushdown needs a lambda,
+# cbo_prune_json_subfield needs JSON -- that 6.5% is spent mostly on statements where the knob
+# cannot possibly matter, and the few statements where it can are the ones that get skipped.
+# [[fuzzer-blind-to-data-layout]] measured the cost on a real defect: the knob that would have caught
+# the heavy-expr crash was in the pool the whole time, at an 8% chance per statement.
+#
+# So: entries are <ERE>::<knob>, one per line, matched case-insensitively against the statement. Up
+# to DIFF_KNOB_FORCED of the matching knobs are drawn first and the rest of the sample is filled
+# uniformly, which keeps the per-statement cost exactly where it was. The cap is what stops a
+# statement that matches five patterns from spending its whole budget on them and never testing
+# anything else.
+#
+# A knob named here MUST also appear in DIFF_KNOBS -- validate_knobs enforces it, because a biased
+# knob that never went through startup validation is incident 8 with extra steps.
+DIFF_KNOB_BIAS=${DIFF_KNOB_BIAS:-"
+(substr|substring|concat|lpad|rpad|repeat|reverse|instr|locate|split|regexp_extract)[[:space:]]*\(::set chunk_size = 255
+regexp::set push_down_heavy_exprs = false
+(array_map|array_filter|array_sort|array_sortby)[[:space:]]*\(::set enable_lambda_pushdown = false
+(except|intersect)[[:space:]]::set pipeline_dop = 1
+(get_json|json_query|json_exists|->)::set cbo_prune_json_subfield = false
+count[[:space:]]*\([[:space:]]*distinct::set new_planner_agg_stage = 2
+over[[:space:]]*\(::set chunk_size = 255
+group[[:space:]]+by::set enable_spill = true; set spill_mode = 'force'
+(left|right|full)[[:space:]]+(outer[[:space:]]+)?join::set pipeline_dop = 1
+order[[:space:]]+by::set enable_global_late_materialization = false
+"}
+DIFF_KNOB_FORCED=${DIFF_KNOB_FORCED:-2}
+
+# The knobs one statement is checked against: the biased ones it matched, then uniform fill.
+select_knobs() {
+    local stmt=$1 forced rest nforced nfill
+    forced=$(while IFS= read -r entry; do
+                 [ -z "$entry" ] && continue
+                 case "$entry" in *::*) ;; *) continue ;; esac
+                 if grep -qiE "${entry%%::*}" <<< "$stmt"; then printf '%s\n' "${entry#*::}"; fi
+             done <<< "$DIFF_KNOB_BIAS" | sort -u | shuf -n "$DIFF_KNOB_FORCED")
+    nforced=$(grep -c . <<< "$forced")
+    nfill=$((DIFF_KNOB_SAMPLE - nforced))
+    [ "$nfill" -lt 0 ] && nfill=0
+    rest=$(tr '|' '\n' <<< "$DIFF_KNOBS" | grep . | grep -vxF "$forced" | shuf -n "$nfill")
+    printf '%s\n%s\n' "$forced" "$rest" | grep .
+}
 
 # Rows, normalised. A query without ORDER BY may return them in any order, and comparing raw output
 # would report every such query as a mismatch.
@@ -487,8 +565,45 @@ sys.exit(1)
 PYEOF
 }
 
+# True when some OVER() in the statement has no ORDER BY of its own, so which row the window
+# function reads is undefined and two plans may legitimately read different ones.
+window_unordered() {
+    python3 - "$1" <<'PYEOF'
+import re, sys
+sql = re.sub(r"'(?:[^'\\]|\\.)*'", "''", sys.argv[1].lower())
+for m in re.finditer(r"\bover\s*\(", sql):
+    i, depth = m.end(), 1
+    while i < len(sql) and depth:
+        if sql[i] == "(":
+            depth += 1
+        elif sql[i] == ")":
+            depth -= 1
+        i += 1
+    if not re.search(r"\border\s+by\b", sql[m.end():i]):
+        sys.exit(0)
+sys.exit(1)
+PYEOF
+}
+
 diff_skippable() {
     if grep -qiE '\b(rand|random|now|current_timestamp|current_date|curdate|curtime|uuid|last_query_id|connection_id|current_user)\b' <<< "$1"; then
+        return 0
+    fi
+    # Aggregates whose VALUE, not merely whose row order, is free to change with the plan. diff_run's
+    # sort normalises the order of rows; it cannot normalise the order of elements inside one cell,
+    # and it cannot make a tie-break repeatable. Nor does the re-run confirmation gate below help:
+    # these are deterministic for a GIVEN plan and differ BETWEEN plans, which is precisely the shape
+    # the oracle is built to report. Measured on ns0911: about half of 106 knob differences across
+    # two instances were this, and noise at that rate is what makes a findings file unreadable.
+    #   approx_top_k   approximate, ties at the tail come back in whatever order the sketch holds
+    #   any_value      documented as "any"
+    #   min_by/max_by  ties resolved by whichever row arrived first
+    #   array_agg / group_concat   element order inside the cell follows the input order
+    if grep -qiE '\b(approx_top_k|any_value|min_by|max_by|min_by_if|max_by_if|array_agg|array_agg_distinct|group_concat)[[:space:]]*\(' <<< "$1"; then
+        return 0
+    fi
+    # A window with no ORDER BY inside its OVER(): same argument one level down.
+    if window_unordered "$1"; then
         return 0
     fi
     # LIMIT without ORDER BY. WHICH rows come back is undefined, so two plans returning different
@@ -635,6 +750,17 @@ validate_knobs() {
             bad=1
         fi
     done <<< "$(tr '|' '\n' <<< "$DIFF_KNOBS")"
+    # Every biased knob has to be one of the knobs just validated. A name that is only in the bias
+    # map never went through the loop above, so the server's opinion of it is unknown -- and a knob
+    # the server rejects returns nothing, which this oracle reads as agreement. That is incident 8.
+    while IFS= read -r entry; do
+        [ -z "$entry" ] && continue
+        case "$entry" in *::*) ;; *) continue ;; esac
+        if ! grep -qxF "${entry#*::}" <<< "$(tr '|' '\n' <<< "$DIFF_KNOBS")"; then
+            say "FATAL: DIFF_KNOB_BIAS names a knob that is not in DIFF_KNOBS: ${entry#*::}"
+            bad=1
+        fi
+    done <<< "$DIFF_KNOB_BIAS"
     # Same check for the exec-var pool, and for a sharper reason: an unknown DIFF knob returns an
     # empty result that the oracle reads as agreement, but an unknown EXEC var is a `set` statement
     # prepended to every reader iteration, so it would manufacture one ERROR per run -- a signature
@@ -706,8 +832,9 @@ differential_phase() {
         fi
         checked=$((checked + 1))
 
-        # A random sample of the pool rather than all of it -- see DIFF_KNOB_SAMPLE.
-        knobs=$(tr '|' '\n' <<< "$DIFF_KNOBS" | grep . | shuf -n "$DIFF_KNOB_SAMPLE")
+        # A sample of the pool rather than all of it, biased toward the knobs this statement's own
+        # text says are relevant -- see DIFF_KNOB_SAMPLE and DIFF_KNOB_BIAS.
+        knobs=$(select_knobs "$stmt")
         while IFS= read -r knob; do
             [ -z "$knob" ] && continue
             var=$(diff_run "$db" "$knob" "$stmt")
@@ -724,6 +851,15 @@ differential_phase() {
             # same silence arising at run time, when only a counter can show it.
             if [ -z "$var" ]; then
                 voidknob=$((voidknob + 1))
+                continue
+            fi
+            # The same size cap the baseline gets. It was on one side only until 2026-09-21, and the
+            # asymmetry has its own false finding: base < DIFF_MAX_BYTES <= var (a concurrent writer
+            # grew the table between the two runs) passes every other guard and reports as "the knob
+            # returned FEWER rows" -- ch_mut_50948, disproved after the fact by showing the knob did
+            # not even change the plan. A truncated comparison proves nothing in either direction.
+            if [ "${#var}" -ge "$DIFF_MAX_BYTES" ]; then
+                skipped=$((skipped + 1))
                 continue
             fi
             [ "$base" = "$var" ] && continue
