@@ -260,7 +260,19 @@ if [ "$KNOB_SPLIT" = 1 ] && [ "${NKNOB:-0}" -gt "$INSTANCES" ]; then
     sh_run "for k in \$(seq 0 \$(( $INSTANCES - 1 ))); do
         awk -v k=\$k -v n=$INSTANCES 'NR%n==k' '$RUN_DIR/allknobs.txt' | paste -sd'|' - > \"$RUN_DIR/knobs_\$k.txt\"
     done"
-    ok "差分 knob $NKNOB 个，按 $INSTANCES 个实例劈分（每轮成本降到 1/$INSTANCES，机队覆盖不变）"
+    # 偏置 knob 不参与劈分：每个实例都要有。劈分是把成本摊到机队上，而偏置是「这条语句就该问这个
+    # knob」——被劈掉的实例遇到匹配的语句时，select_knobs 只能把它丢掉，退回成均匀抽样。这两件事
+    # 的目的相反，所以偏置表里点名的 knob 追加进每一份 knobs_$k.txt（去重后）。
+    sh_run "sed -n '/^DIFF_KNOB_BIAS=/,/^\"}\$/p' '$RUN_DIR/clusterfuzz.run.sh' \
+            | sed -n 's/^.*:://p' | grep . | sort -u > '$RUN_DIR/biasknobs.txt'
+        for k in \$(seq 0 \$(( $INSTANCES - 1 ))); do
+            { tr '|' '\n' < \"$RUN_DIR/knobs_\$k.txt\"; cat '$RUN_DIR/biasknobs.txt'; } \
+                | grep . | awk '!seen[\$0]++' | paste -sd'|' - > \"$RUN_DIR/knobs_\$k.txt.new\"
+            mv \"$RUN_DIR/knobs_\$k.txt.new\" \"$RUN_DIR/knobs_\$k.txt\"
+        done"
+    NBIAS=$(sh_run "grep -c . '$RUN_DIR/biasknobs.txt'" | tr -dc '0-9')
+    [ "${NBIAS:-0}" -gt 0 ] || die "自检失败：偏置 knob 一个都没抽出来，DIFF_KNOB_BIAS 的格式变了？"
+    ok "差分 knob $NKNOB 个，按 $INSTANCES 个实例劈分（每轮成本降到 1/$INSTANCES，机队覆盖不变）；另有 $NBIAS 个偏置 knob 每实例都带"
 else
     sh_run "for k in \$(seq 0 \$(( $INSTANCES - 1 ))); do paste -sd'|' - < '$RUN_DIR/allknobs.txt' > \"$RUN_DIR/knobs_\$k.txt\"; done"
     ok "差分 knob $NKNOB 个，每个实例都跑全部"

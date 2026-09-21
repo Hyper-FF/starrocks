@@ -499,7 +499,8 @@ select_knobs() {
                  [ -z "$entry" ] && continue
                  case "$entry" in *::*) ;; *) continue ;; esac
                  if grep -qiE "${entry%%::*}" <<< "$stmt"; then printf '%s\n' "${entry#*::}"; fi
-             done <<< "$DIFF_KNOB_BIAS" | sort -u | shuf -n "$DIFF_KNOB_FORCED")
+             done <<< "$DIFF_KNOB_BIAS" | sort -u \
+             | grep -xF -f <(tr '|' '\n' <<< "$DIFF_KNOBS" | grep .) | shuf -n "$DIFF_KNOB_FORCED")
     nforced=$(grep -c . <<< "$forced")
     nfill=$((DIFF_KNOB_SAMPLE - nforced))
     [ "$nfill" -lt 0 ] && nfill=0
@@ -753,14 +754,23 @@ validate_knobs() {
     # Every biased knob has to be one of the knobs just validated. A name that is only in the bias
     # map never went through the loop above, so the server's opinion of it is unknown -- and a knob
     # the server rejects returns nothing, which this oracle reads as agreement. That is incident 8.
+    local orphans=0
     while IFS= read -r entry; do
         [ -z "$entry" ] && continue
         case "$entry" in *::*) ;; *) continue ;; esac
-        if ! grep -qxF "${entry#*::}" <<< "$(tr '|' '\n' <<< "$DIFF_KNOBS")"; then
-            say "FATAL: DIFF_KNOB_BIAS names a knob that is not in DIFF_KNOBS: ${entry#*::}"
-            bad=1
-        fi
+        grep -qxF "${entry#*::}" <<< "$(tr '|' '\n' <<< "$DIFF_KNOBS")" || {
+            orphans=$((orphans + 1))
+            say "NOTE: DIFF_KNOB_BIAS names a knob this instance does not hold: ${entry#*::}"
+        }
     done <<< "$DIFF_KNOB_BIAS"
+    # Said, not fatal, and not silent either. srfuzz-launch.sh splits the pool across instances, so
+    # an instance legitimately holds only part of it and select_knobs drops the rest -- but a bias
+    # map where EVERY entry is absent is a typo'd knob name, not a split, and that is worth stopping
+    # for: the biased knobs would silently never be drawn and the sampling would be uniform again.
+    if [ "$orphans" -gt 0 ] && [ "$orphans" -eq "$(grep -c '::' <<< "$DIFF_KNOB_BIAS")" ]; then
+        say "FATAL: not one knob named in DIFF_KNOB_BIAS is in this instance's DIFF_KNOBS"
+        bad=1
+    fi
     # Same check for the exec-var pool, and for a sharper reason: an unknown DIFF knob returns an
     # empty result that the oracle reads as agreement, but an unknown EXEC var is a `set` statement
     # prepended to every reader iteration, so it would manufacture one ERROR per run -- a signature
