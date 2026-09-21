@@ -310,6 +310,20 @@ AUTO_RESTART=$([ "$RESTART" = 1 ] && echo on || echo OFF)
 EOF"
 ok "run.conf 已写入"
 
+# 每个运行目录自带一个重启脚本，理由和 run.conf 一样：事后要能把实例按「当时那套环境」拉起来。
+# 手工敲不行——启动一个实例要带 INSTANCE/NINSTANCES/SRFUZZ_GEN_SEED/DIFF_MAX_STMTS 和该实例
+# 自己的 knobs_$k.txt，少一个就是一次「看起来重启了」的运行：knob 池退回默认全池、seed 变成另一
+# 个语料顺序，而 rounds.tsv 照常增长。写成文件而不是命令，是因为这行要穿过两跳 ssh 和一次
+# docker exec，引号在路上会丢（dev2 上真丢过一次）。
+#
+# 复制一份静态脚本、不做任何模板替换：它自己从所在目录和 run.conf 读参数。上一版想把四个值
+# 插进模板里，那串引号要同时活过 sh_run 的双引号、heredoc 和 python 三层，写对了也没人敢改。
+RESTART=$(dirname "$HARNESS")/restart_instances.sh
+have "$RESTART" || die "找不到 $RESTART"
+sh_run "cp '$RESTART' '$RUN_DIR/restart.sh' && chmod +x '$RUN_DIR/restart.sh'"
+sh_run "bash -n '$RUN_DIR/restart.sh'" || die "restart.sh 语法不通过"
+ok "restart.sh 已生成（容器内：docker exec -d <container> bash -lc $RUN_DIR/restart.sh）"
+
 if [ "$DRY_RUN" = 1 ]; then
     echo
     echo "== dry-run：物化完成，未启动实例 =="

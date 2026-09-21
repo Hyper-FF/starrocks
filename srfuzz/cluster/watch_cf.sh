@@ -152,12 +152,23 @@ launch_instance() {
     local k=$1
     if [ "${AUTO_RELAUNCH:-0}" != "1" ]; then
         # Name a remedy that exists. This used to point at /tmp/launch_cf.sh, which is on neither
-        # host -- an alert whose instruction fails is an alert nobody can act on.
-        say "ALERT: instance $k is NOT running -- from the HOST: docker exec -d <container> bash -lc $(dirname "$CF")/restart_instances.sh"
+        # host, and then at a restart_instances.sh whose run directory was hardcoded to a different
+        # run -- an alert whose instruction fails is an alert nobody can act on. $CF/restart.sh is
+        # written by srfuzz-launch.sh into THIS run directory and takes no arguments.
+        say "ALERT: instance $k is NOT running -- from the HOST: docker exec -d <container> bash -lc $CF/restart.sh"
         return 0
     fi
     mkdir -p "$CF/inst$k"
-    setsid bash -lc "cd $CF && NINSTANCES=$N INSTANCE=$k SRFUZZ_GEN_SEED=${SRFUZZ_GEN_SEED:-20260731} exec ./clusterfuzz.next.sh >> inst$k/run.stdout 2>> inst$k/run.stderr" \
+    # Two things this used to get wrong, both silent. It exec'd ./clusterfuzz.next.sh, which does not
+    # exist in a run directory -- srfuzz-launch.sh materialises the harness as clusterfuzz.run.sh,
+    # the same blindness the comment above running_instances describes, fixed there for the grep and
+    # left here for the relaunch. And it passed no DIFF_KNOBS, so a relaunched instance silently ran
+    # the harness's full built-in pool instead of the knobs_$k.txt slice this instance is meant to
+    # own: three times the per-round cost, a different oracle than its siblings, and nothing in
+    # rounds.tsv to say which instances had been relaunched.
+    setsid bash -lc "cd $CF && NINSTANCES=$N INSTANCE=$k SRFUZZ_GEN_SEED=${SRFUZZ_GEN_SEED:-20260731} \
+        DIFF_MAX_STMTS=${DIFF_MAX_STMTS:-8} DIFF_KNOBS=\"\$(cat '$CF/knobs_$k.txt')\" \
+        exec ./clusterfuzz.run.sh >> inst$k/run.stdout 2>> inst$k/run.stderr" \
         >/dev/null 2>&1 &
     say "ALERT: instance $k was not running -- relaunched"
 }
