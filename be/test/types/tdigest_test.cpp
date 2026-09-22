@@ -37,8 +37,10 @@
 #include <gtest/gtest.h>
 
 #include <random>
+#include <vector>
 
 #include "common/logging.h"
+#include "types/percentile_value.h"
 
 namespace starrocks {
 
@@ -252,6 +254,119 @@ TEST_F(TDigestTest, Montonicity) {
         EXPECT_GE(q, lastQuantile);
         lastQuantile = q;
     }
+}
+
+// serialize() used to leave part of the buffer its own serialize_size() had reserved untouched:
+// the three element counts are written as uint32_t while 3 * sizeof(size_t) was reserved for them,
+// so the last 12 bytes of every digest were never written. That mattered because every caller sizes
+// its buffer with serialize_size() and then ships the whole buffer -- percentile_approx's
+// serialize_to_column declares an uninitialized stack array and appends it as a Slice -- so those
+// bytes carried stack contents into query results and into stored rowsets, and the same stored row
+// came back with different bytes on every read.
+//
+// Serialized into two buffers with different fills: a byte serialize() never touches keeps its
+// fill and so differs between them. Checking for one sentinel value instead would flag any written
+// byte that happens to equal it, which over ~1500 bytes of float data is near certain.
+TEST_F(TDigestTest, SerializeWritesEveryByteItReserves) {
+    TDigest digest(100);
+    for (int i = 0; i < 1000; i++) {
+        digest.add(i * 1.5, 2);
+    }
+    digest.compress();
+
+    const uint64_t reserved = digest.serialize_size();
+    std::vector<uint8_t> lo(reserved + 64, 0x00);
+    std::vector<uint8_t> hi(reserved + 64, 0xFF);
+    const size_t written = digest.serialize(lo.data());
+    digest.serialize(hi.data());
+
+    EXPECT_EQ(reserved, written) << "serialize() must report the bytes it wrote, not what it reserved";
+    for (uint64_t i = 0; i < reserved; i++) {
+        ASSERT_EQ(lo[i], hi[i]) << "byte " << i << " of " << reserved << " was never written";
+    }
+    // Past the reservation nothing may be touched, or the caller's buffer is too small.
+    for (uint64_t i = reserved; i < lo.size(); i++) {
+        ASSERT_EQ(0x00, lo[i]) << "serialize() wrote past serialize_size() at byte " << i;
+        ASSERT_EQ(0xFF, hi[i]) << "serialize() wrote past serialize_size() at byte " << i;
+    }
+}
+
+// The defect's user-visible face: two serializations of the same digest have to agree. They did not
+// when the tail was uninitialized, because the stack differed between the two calls.
+TEST_F(TDigestTest, SerializeIsDeterministicForTheSameDigest) {
+    TDigest digest(100);
+    for (int i = 0; i < 500; i++) {
+        digest.add(i, 1);
+    }
+    digest.compress();
+
+    std::vector<uint8_t> first(digest.serialize_size(), 0x00);
+    std::vector<uint8_t> second(digest.serialize_size(), 0xFF);
+    digest.serialize(first.data());
+    digest.serialize(second.data());
+    EXPECT_EQ(first, second);
+}
+
+// A merged digest is the shape the storage layer re-serializes, and the one the fuzzer's TLP oracle
+// kept reporting: read the same row twice, get two different byte strings.
+TEST_F(TDigestTest, SerializeIsDeterministicAfterMerge) {
+    TDigest left(100);
+    TDigest right(100);
+    for (int i = 0; i < 300; i++) {
+        left.add(i, 1);
+        right.add(i + 300, 2);
+    }
+    left.merge(&right);
+    left.compress();
+
+    std::vector<uint8_t> first(left.serialize_size(), 0x00);
+    std::vector<uint8_t> second(left.serialize_size(), 0xFF);
+    left.serialize(first.data());
+    left.serialize(second.data());
+    EXPECT_EQ(first, second);
+}
+
+// Reading back what an older BE wrote. Its digests are 12 bytes longer, and those bytes hold
+// whatever its stack held; deserialize() takes every length from the counts in the stream and never
+// from the total size, so the trailing bytes must simply go unread.
+TEST_F(TDigestTest, DeserializeAcceptsTheLongerLegacyLayout) {
+    TDigest digest(100);
+    for (int i = 0; i < 200; i++) {
+        digest.add(i * 0.25, 1);
+    }
+    digest.compress();
+
+    std::vector<uint8_t> legacy(digest.serialize_size() + 12, 0xCD); // 12 = 3 * (sizeof(size_t) - sizeof(uint32_t))
+    digest.serialize(legacy.data());
+
+    TDigest restored(100);
+    restored.deserialize(reinterpret_cast<const char*>(legacy.data()));
+    EXPECT_EQ(digest.quantile(0.5), restored.quantile(0.5));
+    EXPECT_EQ(digest.quantile(0.9), restored.quantile(0.9));
+    EXPECT_EQ(digest.totalWeight(), restored.totalWeight());
+}
+
+// PercentileValue is what the aggregate functions actually hold, and it adds a type byte in front.
+// Its serialize_size() counts that byte, so its serialize() has to as well.
+TEST_F(TDigestTest, PercentileValueSerializesEveryByteItReserves) {
+    PercentileValue percentile;
+    for (int i = 0; i < 400; i++) {
+        percentile.add(static_cast<float>(i), 3);
+    }
+
+    const uint64_t reserved = percentile.serialize_size();
+    std::vector<uint8_t> lo(reserved + 32, 0x00);
+    std::vector<uint8_t> hi(reserved + 32, 0xFF);
+    const size_t written = percentile.serialize(lo.data());
+    percentile.serialize(hi.data());
+
+    EXPECT_EQ(reserved, written);
+    for (uint64_t i = 0; i < reserved; i++) {
+        ASSERT_EQ(lo[i], hi[i]) << "byte " << i << " of " << reserved << " was never written";
+    }
+
+    PercentileValue restored(Slice(reinterpret_cast<const char*>(lo.data()), reserved));
+    EXPECT_EQ(percentile.quantile(0.5), restored.quantile(0.5));
 }
 
 } // namespace starrocks

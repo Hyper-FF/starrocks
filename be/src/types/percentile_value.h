@@ -49,7 +49,9 @@ public:
 
     size_t serialize(uint8_t* writer) const {
         *(writer) = _type;
-        return _tdigest.serialize(writer + 1);
+        // Including the type byte, so this matches serialize_size() rather than under-reporting by
+        // one. Nothing reads the return value today, which is why the mismatch went unnoticed.
+        return 1 + _tdigest.serialize(writer + 1);
     }
     void deserialize(const char* type_reader) {
         switch (*type_reader) {

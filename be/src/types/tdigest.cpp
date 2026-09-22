@@ -394,11 +394,25 @@ void TDigest::add(std::vector<Centroid>::const_iterator iter, std::vector<Centro
 }
 
 uint64_t TDigest::serialize_size() const {
-    return sizeof(Value) * 5 + sizeof(Index) * 2 + sizeof(size_t) * 3 + _processed.size() * sizeof(Centroid) +
+    // The three counts below are written by serialize() as uint32_t, so that is what has to be
+    // reserved for them. Reserving sizeof(size_t) instead left 12 bytes of every serialized digest
+    // never written to, and callers size their buffer with this function and then hand the WHOLE
+    // buffer on: percentile_approx's serialize_to_column declares an uninitialized stack array of
+    // this size and appends it as a Slice, so those 12 bytes carried whatever was on the stack --
+    // x86-64 heap pointers, in practice -- into query results and into persisted rowsets. The same
+    // stored row then serialized differently on every read, which is how the TLP oracle kept
+    // reporting "same row count, different agg_state bytes" on percentile_approx_weighted tables.
+    //
+    // Shrinking this is safe to read back: deserialize() walks the buffer strictly in order and
+    // takes each length from the count that precedes it, never from the total size, so a digest
+    // written by an older BE (12 trailing bytes longer) still deserializes -- the extra bytes are
+    // simply never read.
+    return sizeof(Value) * 5 + sizeof(Index) * 2 + sizeof(uint32_t) * 3 + _processed.size() * sizeof(Centroid) +
            _unprocessed.size() * sizeof(Centroid) + _cumulative.size() * sizeof(Weight);
 }
 
 size_t TDigest::serialize(uint8_t* writer) const {
+    const uint8_t* const start = writer;
     memcpy(writer, &_compression, sizeof(Value));
     writer += sizeof(Value);
     memcpy(writer, &_min, sizeof(Value));
@@ -438,7 +452,9 @@ size_t TDigest::serialize(uint8_t* writer) const {
         writer += sizeof(Weight);
     }
 
-    return serialize_size();
+    // What was written, not what was reserved. These agreed only by accident before, and when they
+    // disagreed the caller had no way to tell which bytes of its buffer were meaningful.
+    return writer - start;
 }
 
 void TDigest::deserialize(const char* type_reader) {
