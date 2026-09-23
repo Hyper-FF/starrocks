@@ -750,4 +750,67 @@ PARALLEL_TEST(BinaryColumnTest, test_append_cross_type_large_to_binary_unsupport
     ASSERT_DEATH_IF_SUPPORTED(dst->append(*src, 0, 1), "incompatible column type");
 }
 
+
+// `Aggregator::convert_hash_set_to_chunk()` resizes the hash set's result vector to the chunk size,
+// fills only as many entries as the iterator yielded, and then hands the WHOLE vector to
+// `deserialize_and_append_batch*()` together with that count. When the hash set is empty the count
+// is 0 and every element of the vector is still a default-constructed Slice, whose data() points at
+// the one-byte "" string literal.
+//
+// Both batch entry points used to size their buffer from srcs[0] before looking at the count, so an
+// empty batch read a 4-byte length out of that one-byte global:
+//
+//   ERROR: AddressSanitizer: global-buffer-overflow ... READ of size 4
+//     BinaryColumnBase<unsigned int>::deserialize_and_append_batch_nullable() binary_column.cpp:1216
+//     NullableColumn::deserialize_and_append_batch()                          nullable_column.cpp:340
+//     AggHashSetOfSerializedKey<...>::insert_keys_to_columns()                agg_hash_set.h:651
+//   0x... is located 0 bytes after global variable '*.LC7' ... of size 1
+//   '*.LC7' is ascii string ''
+//
+// This needs a sanitizer to fail loudly: without one the read merely returns whatever follows that
+// literal and the wrong value is quietly handed to reserve().
+// NOLINTNEXTLINE
+PARALLEL_TEST(BinaryColumnTest, test_deserialize_and_append_batch_empty_count_over_full_vector) {
+    // Sized like the aggregator's result vector, with nothing written into it.
+    constexpr size_t kChunkSize = 4096;
+    Buffer<Slice> keys(kChunkSize);
+    ASSERT_EQ(0u, keys[0].size);
+
+    // The nullable key column, as `SELECT DISTINCT <varchar>, <varchar>` builds it.
+    auto nullable = NullableColumn::create(BinaryColumn::create(), NullColumn::create());
+    nullable->deserialize_and_append_batch(keys, 0);
+    ASSERT_EQ(0u, nullable->size());
+
+    // The non-nullable path has the same shape and had the same read.
+    auto plain = BinaryColumn::create();
+    plain->deserialize_and_append_batch(keys, 0);
+    ASSERT_EQ(0u, plain->size());
+
+    // Negative control: skipping the size hint must not have cost the batch its rows. Deserialize a
+    // real batch through the same two entry points and check the values come back.
+    auto src = BinaryColumn::create();
+    src->append_string("hello");
+    src->append_string("");
+    src->append_string("a longer value than the first one");
+    const size_t num_rows = src->size();
+
+    const uint32_t row_size = src->max_one_element_serialize_size() + sizeof(bool);
+    std::vector<uint8_t> buffer(row_size * num_rows, 0);
+    Buffer<uint32_t> slice_sizes(num_rows, 0);
+    src->serialize_batch_with_null_masks(buffer.data(), slice_sizes, num_rows, row_size, nullptr, false);
+
+    Buffer<Slice> filled(kChunkSize);
+    for (size_t i = 0; i < num_rows; ++i) {
+        filled[i] = Slice(reinterpret_cast<char*>(buffer.data()) + i * row_size, slice_sizes[i]);
+    }
+
+    auto dst = NullableColumn::create(BinaryColumn::create(), NullColumn::create());
+    dst->deserialize_and_append_batch(filled, num_rows);
+    ASSERT_EQ(num_rows, dst->size());
+    for (size_t i = 0; i < num_rows; ++i) {
+        ASSERT_FALSE(dst->is_null(i));
+        ASSERT_EQ(src->get_slice(i).to_string(), dst->get(i).get_slice().to_string());
+    }
+}
+
 } // namespace starrocks

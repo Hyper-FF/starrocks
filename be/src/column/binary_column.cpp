@@ -1148,9 +1148,16 @@ const uint8_t* BinaryColumnBase<T>::deserialize_and_append(const uint8_t* pos) {
 
 template <typename T>
 void BinaryColumnBase<T>::deserialize_and_append_batch(Buffer<Slice>& srcs, size_t chunk_size) {
-    // max size of one string is 2^32, so use uint32_t not T
-    uint32_t string_size = *((uint32_t*)srcs[0].data);
-    get_bytes().reserve(chunk_size * string_size * 2);
+    // Sizing the buffer off the first row is only meaningful when there is a first row. srcs may be
+    // longer than chunk_size and its tail is not required to hold serialized data: the serialized-key
+    // aggregator hands us its whole result vector and tells us through chunk_size how much of it was
+    // filled. With chunk_size == 0 every element is a default-constructed Slice, whose data points at
+    // a one-byte empty string literal, and reading a length out of it runs off the end of a global.
+    if (chunk_size > 0) {
+        // max size of one string is 2^32, so use uint32_t not T
+        uint32_t string_size = *((uint32_t*)srcs[0].data);
+        get_bytes().reserve(chunk_size * string_size * 2);
+    }
     for (size_t i = 0; i < chunk_size; ++i) {
         srcs[i].data = (char*)deserialize_and_append((uint8_t*)srcs[i].data);
     }
@@ -1212,10 +1219,14 @@ void BinaryColumnBase<T>::serialize_batch_with_null_masks(uint8_t* dst, Buffer<u
 template <typename T>
 void BinaryColumnBase<T>::deserialize_and_append_batch_nullable(Buffer<Slice>& srcs, size_t chunk_size,
                                                                 Buffer<uint8_t>& is_nulls, bool& has_null) {
-    const uint32_t string_size = *((bool*)srcs[0].data) // is null
-                                         ? 4
-                                         : *((uint32_t*)(srcs[0].data + sizeof(bool))); // first string size
-    get_bytes().reserve(chunk_size * string_size * 2);
+    // See deserialize_and_append_batch: with nothing to deserialize there is no first row to size the
+    // buffer from, and srcs[0] is then a default-constructed Slice over a one-byte global.
+    if (chunk_size > 0) {
+        const uint32_t string_size = *((bool*)srcs[0].data) // is null
+                                             ? 4
+                                             : *((uint32_t*)(srcs[0].data + sizeof(bool))); // first string size
+        get_bytes().reserve(chunk_size * string_size * 2);
+    }
     ColumnFactory<Column, BinaryColumnBase<T> >::deserialize_and_append_batch_nullable(srcs, chunk_size, is_nulls,
                                                                                        has_null);
 }
