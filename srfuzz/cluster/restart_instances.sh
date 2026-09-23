@@ -67,12 +67,15 @@ sleep 8
 # Count what is actually running, and count only THIS run's instances -- several runs share a host.
 # Top-level only: the harness re-execs itself for readers and writers, and those children carry the
 # same cmdline.
-running=0
-for p in $(pgrep -f "$R/clusterfuzz.run.sh" 2>/dev/null); do
-    ppid=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)
-    tr '\0' ' ' < "/proc/$ppid/cmdline" 2>/dev/null | grep -qF "$R/clusterfuzz.run.sh" && continue
-    running=$((running + 1))
-done
+# Count distinct INSTANCE values, not processes. Excluding a process whose parent's cmdline also
+# matches is not enough on its own: the harness re-execs itself for readers and writers, and right
+# after a launch some of those have already been reparented to init, so they look top-level and the
+# count comes out several times too high. Their INSTANCE is inherited, so counting the distinct
+# values is right whatever the tree looks like at the moment we look -- the same rule watch_cf.sh's
+# running_instances() uses.
+running=$(for p in $(pgrep -f "$R/clusterfuzz.run.sh" 2>/dev/null); do
+    tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | sed -n 's/^INSTANCE=//p' | head -1
+done | sort -u | grep -c .)
 printf 'instances now running in %s: %s (wanted %s)\n' "$R" "$running" "$N"
 # A wrong count is how this goes wrong: a 0 that meant "my pattern does not match" rather than
 # "nothing is running" is what produced a doubled campaign. Say so rather than exiting 0 on it.
