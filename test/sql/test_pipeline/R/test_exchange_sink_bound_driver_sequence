@@ -1,0 +1,57 @@
+-- name: test_exchange_sink_bound_driver_sequence
+CREATE TABLE ja (
+    id BIGINT,
+    g BIGINT
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 32
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+CREATE TABLE jb (
+    id BIGINT,
+    g BIGINT
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 32
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO ja SELECT generate_series, generate_series % 7 FROM TABLE(generate_series(1, 2000));
+-- result:
+-- !result
+INSERT INTO jb SELECT generate_series, generate_series % 5 FROM TABLE(generate_series(1, 2000));
+-- result:
+-- !result
+SET enable_pipeline_level_shuffle = false;
+-- result:
+-- !result
+SELECT count(*) FROM jb WHERE jb.id IN (SELECT z.id FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z);
+-- result:
+2000
+-- !result
+SELECT count(*) FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z LEFT ANTI JOIN jb ON z.id = jb.id;
+-- result:
+0
+-- !result
+SELECT count(*) FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z LEFT SEMI JOIN jb ON z.id = jb.id;
+-- result:
+2000
+-- !result
+SET pipeline_dop = 1;
+-- result:
+-- !result
+SELECT count(*) FROM jb WHERE jb.id IN (SELECT z.id FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z);
+-- result:
+2000
+-- !result
+SET pipeline_dop = 0;
+-- result:
+-- !result
+SET enable_pipeline_level_shuffle = true;
+-- result:
+-- !result
+SELECT count(*) FROM jb WHERE jb.id IN (SELECT z.id FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z);
+-- result:
+2000
+-- !result

@@ -16,6 +16,7 @@
 
 #include <arpa/inet.h>
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <random>
@@ -354,6 +355,23 @@ ExchangeSinkOperator::ExchangeSinkOperator(
     PassThroughChunkBuffer* pass_through_chunk_buffer =
             state->query_execution_services()->runtime->stream_mgr->get_pass_through_chunk_buffer(state->query_id());
 
+    // Channel::_chunks is indexed by the driver sequence add_rows_selective is called with, and for a
+    // channel bound to a specific driver sequence -- the right exchange of a local bucket shuffle
+    // join -- that is the destination's own pipeline_driver_sequence, which runs up to the
+    // destination pipeline's dop. _num_shuffles_per_channel does not bound it:
+    // _create_exchange_sink_operator leaves it at 1 unless pipeline-level shuffle is on, so with
+    // `enable_pipeline_level_shuffle = false` and dop > 1 every row destined for driver sequence 1
+    // or above indexed past the end of a one-element vector.
+    //
+    // Size the vector for whichever is larger. Only the allocation changes: _num_shuffles_per_channel
+    // keeps its own meaning below, for the shuffler and for _num_shuffles.
+    int32_t num_chunks_per_channel = _num_shuffles_per_channel;
+    for (const auto& destination : destinations) {
+        if (destination.__isset.pipeline_driver_sequence) {
+            num_chunks_per_channel = std::max(num_chunks_per_channel, destination.pipeline_driver_sequence + 1);
+        }
+    }
+
     _channels.reserve(destinations.size());
     std::vector<int> driver_sequence_per_channel(destinations.size(), 0);
     for (int i = 0; i < destinations.size(); ++i) {
@@ -365,7 +383,7 @@ ExchangeSinkOperator::ExchangeSinkOperator(
             _channels.emplace_back(it->second.get());
         } else {
             std::unique_ptr<Channel> channel = std::make_unique<Channel>(
-                    this, destination.brpc_server, fragment_instance_id, dest_node_id, _num_shuffles_per_channel,
+                    this, destination.brpc_server, fragment_instance_id, dest_node_id, num_chunks_per_channel,
                     enable_exchange_pass_through, enable_exchange_perf, pass_through_chunk_buffer);
             _channels.emplace_back(channel.get());
             _instance_id2channel.emplace(fragment_instance_id.lo, std::move(channel));

@@ -1,0 +1,40 @@
+-- name: test_exchange_sink_bound_driver_sequence
+-- ExchangeSinkOperator::Channel::_chunks is indexed by the driver sequence add_rows_selective is
+-- handed. For the right exchange of a local bucket shuffle join every channel is bound to one
+-- driver sequence, and that sequence runs up to the destination pipeline's dop -- but the vector
+-- was sized with _num_shuffles_per_channel, which _create_exchange_sink_operator leaves at 1 unless
+-- pipeline-level shuffle is on. With the shuffle off and dop above 1, every row bound for driver
+-- sequence 1 or above read past the end of a one-element vector and the BE aborted under ASan.
+CREATE TABLE ja (
+    id BIGINT,
+    g BIGINT
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 32
+PROPERTIES ("replication_num" = "1");
+CREATE TABLE jb (
+    id BIGINT,
+    g BIGINT
+)
+DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 32
+PROPERTIES ("replication_num" = "1");
+INSERT INTO ja SELECT generate_series, generate_series % 7 FROM TABLE(generate_series(1, 2000));
+INSERT INTO jb SELECT generate_series, generate_series % 5 FROM TABLE(generate_series(1, 2000));
+
+-- The knob is what makes the sizing wrong: it leaves dest_dop at 1 while the bound driver sequences
+-- still run to dop - 1. The answer is pinned too, not just survival.
+SET enable_pipeline_level_shuffle = false;
+SELECT count(*) FROM jb WHERE jb.id IN (SELECT z.id FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z);
+SELECT count(*) FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z LEFT ANTI JOIN jb ON z.id = jb.id;
+SELECT count(*) FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z LEFT SEMI JOIN jb ON z.id = jb.id;
+
+-- dop 1 leaves only driver sequence 0, which always fit; kept so a regression that only shows above
+-- one driver is not mistaken for the whole feature being broken.
+SET pipeline_dop = 1;
+SELECT count(*) FROM jb WHERE jb.id IN (SELECT z.id FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z);
+
+-- and the default configuration, which sizes the vector from the real dop
+SET pipeline_dop = 0;
+SET enable_pipeline_level_shuffle = true;
+SELECT count(*) FROM jb WHERE jb.id IN (SELECT z.id FROM (SELECT ja.id FROM ja UNION SELECT ja.id FROM ja) z);
