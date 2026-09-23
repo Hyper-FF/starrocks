@@ -51,14 +51,29 @@ cd "$R" || exit 1
 k=0
 while [ "$k" -lt "$N" ]; do
     mkdir -p "$R/inst$k"
+    # Absolute path, not ./clusterfuzz.run.sh. The pkill above and the count below both match on
+    # "$R/clusterfuzz.run.sh", and a relative argv[1] puts the run directory nowhere in the cmdline:
+    # the kill quietly matched nothing, the count printed 0 with two instances running, and a second
+    # restart on the strength of that 0 left two copies of every instance walking the same corpus
+    # shard, creating and dropping each other's databases. cwd is unchanged, so the harness is not.
     NINSTANCES=$N INSTANCE=$k SRFUZZ_GEN_SEED=$SEED DIFF_MAX_STMTS=$DMS \
         DIFF_KNOBS="$(cat "$R/knobs_$k.txt")" \
-        setsid ./clusterfuzz.run.sh >> "$R/inst$k/run.stdout" 2>> "$R/inst$k/run.stderr" &
+        setsid "$R/clusterfuzz.run.sh" >> "$R/inst$k/run.stdout" 2>> "$R/inst$k/run.stderr" &
     k=$((k + 1))
     sleep 2
 done
 
 sleep 8
 # Count what is actually running, and count only THIS run's instances -- several runs share a host.
-printf 'instances now running in %s: %s (wanted %s)\n' \
-    "$R" "$(pgrep -fc "$R/clusterfuzz.run.sh" || echo 0)" "$N"
+# Top-level only: the harness re-execs itself for readers and writers, and those children carry the
+# same cmdline.
+running=0
+for p in $(pgrep -f "$R/clusterfuzz.run.sh" 2>/dev/null); do
+    ppid=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)
+    tr '\0' ' ' < "/proc/$ppid/cmdline" 2>/dev/null | grep -qF "$R/clusterfuzz.run.sh" && continue
+    running=$((running + 1))
+done
+printf 'instances now running in %s: %s (wanted %s)\n' "$R" "$running" "$N"
+# A wrong count is how this goes wrong: a 0 that meant "my pattern does not match" rather than
+# "nothing is running" is what produced a doubled campaign. Say so rather than exiting 0 on it.
+[ "$running" = "$N" ] || { echo "instance count does not match -- do NOT re-run this blindly, look at inst*/run.stderr first" >&2; exit 1; }

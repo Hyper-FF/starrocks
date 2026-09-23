@@ -104,9 +104,11 @@ confirm_missing() {
 # The top-level pid of an instance, by the same rule running_instances uses to count them.
 instance_pid() {
     local want=$1 p ppid
-    for p in $(pgrep -f '[c]lusterfuzz.next.sh' 2>/dev/null); do
+    for p in $(pgrep -f "$HARNESS_RE" 2>/dev/null); do
         ppid=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)
-        grep -q 'clusterfuzz.next.sh' "/proc/$ppid/cmdline" 2>/dev/null && continue
+        # Same two mistakes running_instances documents, left behind here: the name the harness does
+        # not run under, and a NUL-separated cmdline grepped as text.
+        tr '\0' ' ' < "/proc/$ppid/cmdline" 2>/dev/null | grep -qE "$HARNESS_RE" && continue
         [ "$(instance_of "$p")" = "$want" ] && { printf '%s\n' "$p"; return 0; }
     done
     return 1
@@ -168,7 +170,7 @@ launch_instance() {
     # rounds.tsv to say which instances had been relaunched.
     setsid bash -lc "cd $CF && NINSTANCES=$N INSTANCE=$k SRFUZZ_GEN_SEED=${SRFUZZ_GEN_SEED:-20260731} \
         DIFF_MAX_STMTS=${DIFF_MAX_STMTS:-8} DIFF_KNOBS=\"\$(cat '$CF/knobs_$k.txt')\" \
-        exec ./clusterfuzz.run.sh >> inst$k/run.stdout 2>> inst$k/run.stderr" \
+        exec '$CF/clusterfuzz.run.sh' >> inst$k/run.stdout 2>> inst$k/run.stderr" \
         >/dev/null 2>&1 &
     say "ALERT: instance $k was not running -- relaunched"
 }

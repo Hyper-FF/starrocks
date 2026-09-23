@@ -340,7 +340,7 @@ k=0
 while [ "$k" -lt "$INSTANCES" ]; do
     sh_run_d "cd '$RUN_DIR' && NINSTANCES=$INSTANCES INSTANCE=$k SRFUZZ_GEN_SEED=$SEED \
         DIFF_MAX_STMTS=$DIFF_MAX_STMTS DIFF_KNOBS=\"\$(cat '$RUN_DIR/knobs_$k.txt')\" \
-        exec ./clusterfuzz.run.sh >> inst$k/run.stdout 2>> inst$k/run.stderr"
+        exec '$RUN_DIR/clusterfuzz.run.sh' >> inst$k/run.stdout 2>> inst$k/run.stderr"
     echo "  实例 $k 已启动"
     k=$((k + 1))
     sleep 2
