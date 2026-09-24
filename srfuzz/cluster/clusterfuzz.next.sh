@@ -1449,6 +1449,24 @@ group_db() {
         printf '%s' "$bench"
         return
     fi
+    # The corpus states the database it creates in a `-- database:` header. Believe it. The group
+    # name is a FILE name, and deriving the database from it only worked while the emitter happened
+    # to number them the same way.
+    #
+    # corpus-0922 emits `srfuzz_mut_2NNN` while this derivation yields `srfuzz_mut_NNN`, and nothing
+    # noticed: the setup file creates and populates the real database, the queries are fully
+    # qualified so they still hit it, and everything the harness does by NAME -- counting tables,
+    # generating rows, dropping between rounds -- went to a different database that never had
+    # anything in it. Every round of every campaign from 2026-09-22 on recorded tables=0 and
+    # gen_rows=0, so two days of fuzzing ran against nothing but the handful of rows a setup file
+    # inserts, with the data generator contributing zero. Sharding hashes this name too, so reading
+    # the real one also stops two groups that share a database from landing on different instances.
+    local declared
+    declared=$(sed -n 's/^-- database:[[:space:]]*//p' "$g.setup.sql" 2>/dev/null | head -1)
+    if [ -n "$declared" ]; then
+        printf '%s' "$declared"
+        return
+    fi
     local db="srfuzz_mut_$(sed -E 's/^([a-z0-9]+_)?mut_0*//' <<< "$gname")"
     [ "$db" = "srfuzz_mut_" ] && db="srfuzz_mut_0"
     printf '%s' "$db"
@@ -1595,6 +1613,15 @@ while true; do
     nsetup=$(grep -c '^ERROR' "$RUN/setup.err" 2>/dev/null | head -1 | tr -dc '0-9' | sed 's/^$/0/')
     ntables=$(timeout 60 $MYSQL "$db" -N -e 'show tables' 2>/dev/null | grep -c . | head -1 | tr -dc '0-9')
     ntables=${ntables:-0}
+    # A round against a database with no tables cannot test anything, and it is not visible in any
+    # other number the round prints: queries still run (they are fully qualified), the oracles still
+    # report "no difference", and rounds.tsv fills up with rounds that look ordinary. The table count
+    # used to be printed only when setup also failed, so a group whose setup succeeded into a
+    # DIFFERENT database than the one this harness tracks said nothing at all -- that is how every
+    # campaign from 2026-09-22 on ran two days with tables=0 and gen_rows=0 in every single round.
+    if [ "$ntables" -eq 0 ]; then
+        say "  EMPTY ROUND: $gname has no tables in $db -- nothing this round measures means anything"
+    fi
     if [ "${nsetup:-0}" -gt 0 ]; then
         say "  setup: $nsetup statement(s) failed for $gname, $ntables table(s) exist"
         # Distinct setup failures are worth seeing once each; they are harness or environment

@@ -101,6 +101,21 @@ confirm_missing() {
     ! grep -qx "$k" <<< "$(running_instances)"
 }
 
+# How long this instance's own process has been alive, in seconds. Empty when it is not running --
+# the caller then has nothing to soften the rounds.tsv age with, which is the right answer for a
+# missing instance.
+instance_start_age() {
+    local p
+    p=$(instance_pid "$1") || return 1
+    local ticks boot start_s now
+    ticks=$(getconf CLK_TCK 2>/dev/null) || ticks=100
+    start_s=$(awk '{print $22}' "/proc/$p/stat" 2>/dev/null) || return 1
+    [ -n "$start_s" ] || return 1
+    boot=$(awk '/^btime/{print $2}' /proc/stat 2>/dev/null) || return 1
+    now=$(date +%s)
+    printf '%s\n' "$(( now - (boot + start_s / ticks) ))"
+}
+
 # The top-level pid of an instance, by the same rule running_instances uses to count them.
 instance_pid() {
     local want=$1 p ppid
@@ -196,10 +211,23 @@ while true; do
     done
 
     # Running but not advancing is its own failure, and it does not show up in a process count.
+    #
+    # Age it from whichever is more recent, the last finished round or the moment this instance
+    # started. rounds.tsv alone describes the RUN, not the PROCESS: a freshly restarted instance has
+    # not written a round yet, so it inherits the whole stall that made someone restart it and is
+    # born older than STALE_KILL_SECONDS. That is not theoretical -- two instances restarted at
+    # 02:18:54 were killed at 02:22:33 and 02:22:40 for being "stalled 51214s", and every restart
+    # after that died the same way inside one tick, so the box sat idle for fourteen hours while the
+    # log dutifully reported it missing every five minutes. An instance can only be judged on the
+    # time it has actually been given.
     for k in $(seq 0 $((N - 1))); do
         f=$CF/inst$k/rounds.tsv
         [ -f "$f" ] || continue
         age=$(( $(date +%s) - $(stat -c %Y "$f") ))
+        started=$(instance_start_age "$k") || started=""
+        if [ -n "$started" ] && [ "$started" -lt "$age" ]; then
+            age=$started
+        fi
         if [ "$age" -gt "$STALE_KILL_SECONDS" ]; then
             unwedge_instance "$k" "$age"
         elif [ "$age" -gt "$STALE_SECONDS" ]; then
