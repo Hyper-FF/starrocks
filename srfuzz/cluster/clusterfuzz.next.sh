@@ -1522,8 +1522,14 @@ while true; do
     # the data is real: predicates get meaningful selectivity instead of matching everything or nothing,
     # and the scan goes through OlapChunkSource rather than the handful of rows a corpus file creates.
     benchdb=$(sed -n 's/^-- benchmark-db: *//p' "$g.setup.sql" 2>/dev/null | head -1)
+    declareddb=$(sed -n 's/^-- database:[[:space:]]*//p' "$g.setup.sql" 2>/dev/null | head -1)
     if [ -n "$benchdb" ]; then
         db="$benchdb"
+    elif [ -n "$declareddb" ]; then
+        # The corpus states the database its setup creates. Believe it rather than re-deriving it
+        # from the file name -- see group_db(), which must agree with this and now reads the same
+        # header. corpus-0922 emits srfuzz_mut_2NNN while the derivation yields srfuzz_mut_NNN.
+        db="$declareddb"
     else
         db="srfuzz_mut_$(sed -E 's/^([a-z0-9]+_)?mut_0*//' <<< "$gname")"
         [ "$db" = "srfuzz_mut_" ] && db="srfuzz_mut_0"
