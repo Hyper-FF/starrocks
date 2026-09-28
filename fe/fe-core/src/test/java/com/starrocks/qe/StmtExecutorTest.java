@@ -60,6 +60,7 @@ import com.starrocks.sql.StatementPlanner;
 import com.starrocks.sql.analyzer.Analyzer;
 import com.starrocks.sql.analyzer.AnalyzerUtils;
 import com.starrocks.sql.analyzer.Authorizer;
+import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.ast.DeleteStmt;
 import com.starrocks.sql.ast.InsertStmt;
 import com.starrocks.sql.ast.OriginStatement;
@@ -93,6 +94,10 @@ import mockit.Expectations;
 import mockit.Mock;
 import mockit.MockUp;
 import mockit.Mocked;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -2469,6 +2474,83 @@ public class StmtExecutorTest {
             }
         } finally {
             Config.max_query_retry_time = oldRetryTime;
+        }
+    }
+
+    /**
+     * A statement the planner correctly refused is not a planner failure. Every mistyped column and
+     * every construct this version does not implement used to write a WARN plus a whole
+     * RuntimeProfile into fe.log, at the same level and in the same shape as a genuine internal
+     * planner failure -- the noise that buries the real ones, and a lot of it: one frontend reached
+     * 143 GB of fe.log across 228 rotated files.
+     */
+    @Test
+    public void testPlanFailureLogLevelFollowsWhoseFaultItIs() {
+        ConnectContext ctx = new ConnectContext();
+        ctx.setQueryId(UUIDUtil.genUUID());
+        LevelCountingAppender appender = new LevelCountingAppender();
+        org.apache.logging.log4j.core.Logger logger =
+                (org.apache.logging.log4j.core.Logger) LogManager.getLogger(StmtExecutor.class);
+        // The test configuration leaves this logger above INFO, so without raising it the "still
+        // reported" half of the assertion would pass vacuously by never seeing the record at all.
+        Level previous = logger.getLevel();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.INFO);
+        try {
+            StmtExecutor executor = new StmtExecutor(ctx, new ShowFrontendsStmt());
+
+            // The statement's own fault: rejected, reported, not warned about.
+            Deencapsulation.invoke(executor, "logOptimizerTraceOnGenerateExecPlanFailure",
+                    new SemanticException("no such column"));
+            Deencapsulation.invoke(executor, "logOptimizerTraceOnGenerateExecPlanFailure",
+                    (Throwable) new StarRocksPlannerException("not implemented", ErrorType.UNSUPPORTED));
+            Assertions.assertEquals(0, appender.warns(),
+                    "a statement the planner refused must not be logged as a planner failure");
+            Assertions.assertEquals(2, appender.infos(),
+                    "it still has to be reported, or a rejected statement leaves no trace at all");
+
+            // Ours: still a warning, still with the profile that makes it diagnosable.
+            Deencapsulation.invoke(executor, "logOptimizerTraceOnGenerateExecPlanFailure",
+                    (Throwable) new StarRocksPlannerException("internal", ErrorType.INTERNAL_ERROR));
+            Assertions.assertEquals(1, appender.warns(),
+                    "a genuine planner failure must keep its warning");
+
+            // Anything that is not a planner exception at all is ours by default.
+            Deencapsulation.invoke(executor, "logOptimizerTraceOnGenerateExecPlanFailure",
+                    (Throwable) new NullPointerException("npe"));
+            Assertions.assertEquals(2, appender.warns(),
+                    "an unclassified throwable is not the statement's fault to prove");
+        } finally {
+            logger.setLevel(previous);
+            logger.removeAppender(appender);
+            appender.stop();
+        }
+    }
+
+    private static class LevelCountingAppender extends AbstractAppender {
+        private final AtomicInteger warnCount = new AtomicInteger();
+        private final AtomicInteger infoCount = new AtomicInteger();
+
+        LevelCountingAppender() {
+            super("stmt-executor-plan-failure-levels", null, null);
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            if (event.getLevel() == Level.WARN) {
+                warnCount.incrementAndGet();
+            } else if (event.getLevel() == Level.INFO) {
+                infoCount.incrementAndGet();
+            }
+        }
+
+        int warns() {
+            return warnCount.get();
+        }
+
+        int infos() {
+            return infoCount.get();
         }
     }
 }

@@ -927,10 +927,36 @@ public class StmtExecutor {
         return execPlan;
     }
 
+    /**
+     * Whether the statement failed to plan because of the STATEMENT rather than because of the
+     * planner. The planner already classifies this -- SemanticException carries USER_ERROR,
+     * UnsupportedException carries UNSUPPORTED -- and the caller below uses that classification to
+     * decide whether to log "Planner error". This reads the same answer.
+     */
+    private static boolean isStatementsOwnFault(Throwable e) {
+        if (!(e instanceof StarRocksPlannerException)) {
+            return false;
+        }
+        ErrorType type = ((StarRocksPlannerException) e).getType();
+        return type == ErrorType.USER_ERROR || type == ErrorType.UNSUPPORTED;
+    }
+
     private void logOptimizerTraceOnGenerateExecPlanFailure(Throwable e) {
         String qid = DebugUtil.printId(context.getQueryId());
         String sql = originStmt == null ? "" : SqlCredentialRedactor.redact(originStmt.originStmt);
         String err = e == null ? "" : (e.getClass().getSimpleName() + ": " + StringUtils.defaultString(e.getMessage()));
+
+        // A statement the planner correctly refused is not a planner failure, and an optimizer trace
+        // of it describes nothing worth reading. Every mistyped column and every construct this
+        // version does not implement was writing a WARN plus a whole RuntimeProfile into fe.log, at
+        // the same level and in the same shape as a genuine internal planner failure -- which is
+        // both the noise that buries the real ones and, on a busy cluster, a large amount of log:
+        // one of our own frontends reached 143 GB of fe.log across 228 rotated files. Report it at
+        // INFO, without the profile, and leave WARN for the failures that are actually ours.
+        if (isStatementsOwnFault(e)) {
+            LOG.info("Statement rejected while planning. query_id={}, sql={}, err={}", qid, sql, err);
+            return;
+        }
 
         if (Config.enable_dump_optimizer_trace_on_error) {
             String trace = Tracers.printScopeTimer();
