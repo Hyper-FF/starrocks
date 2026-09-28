@@ -46,9 +46,27 @@ def q(sql, db=None):
     return r.returncode, r.stdout, r.stderr
 
 
+# How often a numeric, date or time value is drawn from the boundary set rather than at random.
+#
+# The edges are where overflow and sign handling break, so they have to appear -- but they were
+# appearing five times out of six, and a column of 4000 rows then held about 670 copies each of
+# lo, hi, 0, -1 and 1. That is not a value distribution, it is five constants, and it made whole
+# families of results ambiguous rather than wrong: ASOF INNER JOIN has no defined answer when many
+# rows tie on (key, timestamp), a window ORDER BY over ties has no defined order, and ORDER BY ... 
+# LIMIT over ties returns any of them. Ten of the differential findings in one campaign were that
+# and nothing else -- every plan change reshuffled which duplicate won, the row counts matched, and
+# each one took a triage pass to dismiss.
+#
+# At this rate 4000 rows still carry hundreds of boundary values, which is all the boundary coverage
+# ever needed, while the rest are distinct enough that a differing result means a differing ANSWER.
+EDGE_RATE = 0.2
+
+
 def rnd_int(lo, hi):
     # weight the edges: overflow and sign-boundary handling is where the bugs are
-    return random.choice([lo, hi, 0, -1, 1, random.randint(lo, hi)])
+    if random.random() < EDGE_RATE:
+        return random.choice([lo, hi, 0, -1, 1])
+    return random.randint(lo, hi)
 
 
 def _fit(s, maxlen):
@@ -148,20 +166,27 @@ def value(t, allow_null=True, pool=None, shape=None):
     if t.startswith("boolean"):
         return random.choice(["true", "false"])
     if t.startswith(("float", "double")):
-        return random.choice(["0", "-0.0", "1e308", "-1e308", "3.4e38", str(random.uniform(-1e6, 1e6))])
+        if random.random() < EDGE_RATE:
+            return random.choice(["0", "-0.0", "1e308", "-1e308", "3.4e38"])
+        return str(random.uniform(-1e6, 1e6))
     if t.startswith("decimal"):
         m = re.search(r"\((\d+)\s*,\s*(\d+)\)", t)
         p, sc = (int(m.group(1)), int(m.group(2))) if m else (10, 2)
         intpart = "9" * max(1, p - sc)
-        return random.choice(["0", "-0", intpart + ("." + "9" * sc if sc else ""), str(round(random.uniform(-100, 100), min(sc, 6)))])
+        if random.random() < EDGE_RATE:
+            return random.choice(["0", "-0", intpart + ("." + "9" * sc if sc else "")])
+        return str(round(random.uniform(-100, 100), min(sc, 6)))
     if t.startswith("datetime"):
-        return random.choice(["'1970-01-01 00:00:00'", "'9999-12-31 23:59:59'", "'2020-02-29 12:00:00'",
-                              "'%04d-%02d-%02d %02d:%02d:%02d'" % (random.randint(1970, 2030), random.randint(1, 12),
-                                                                   random.randint(1, 28), random.randint(0, 23),
-                                                                   random.randint(0, 59), random.randint(0, 59))])
+        # Timestamps carry the tie problem worst: they are what ASOF joins match on.
+        if random.random() < EDGE_RATE:
+            return random.choice(["'1970-01-01 00:00:00'", "'9999-12-31 23:59:59'", "'2020-02-29 12:00:00'"])
+        return "'%04d-%02d-%02d %02d:%02d:%02d'" % (random.randint(1970, 2030), random.randint(1, 12),
+                                                    random.randint(1, 28), random.randint(0, 23),
+                                                    random.randint(0, 59), random.randint(0, 59))
     if t.startswith("date"):
-        return random.choice(["'1970-01-01'", "'9999-12-31'", "'2020-02-29'",
-                              "'%04d-%02d-%02d'" % (random.randint(1970, 2030), random.randint(1, 12), random.randint(1, 28))])
+        if random.random() < EDGE_RATE:
+            return random.choice(["'1970-01-01'", "'9999-12-31'", "'2020-02-29'"])
+        return "'%04d-%02d-%02d'" % (random.randint(1970, 2030), random.randint(1, 12), random.randint(1, 28))
     if t.startswith(("varchar", "char", "string", "text")):
         m = re.search(r"\((\d+)\)", t)
         maxlen = min(int(m.group(1)), 200) if m else 40
@@ -459,7 +484,37 @@ filled = skipped = 0
 # Counted and printed: a low-cardinality mode nobody can see the effect of is indistinguishable from
 # one that silently never fired, which is how the whole subsystem stayed unreachable in the first place.
 # The same goes for the shaped columns and the segment splits added later: each gets a counter here.
-lowcard_cols = analyze_failed = shaped_cols = segments_failed = 0
+lowcard_cols = analyze_failed = shaped_cols = segments_failed = constrained_skipped = 0
+
+# Tables whose declared constraints the optimizer is entitled to trust, and which this generator
+# would otherwise quietly falsify.
+#
+# StarRocks does not ENFORCE `unique_constraints` / `foreign_key_constraints`; it believes them.
+# enable_rbo_table_prune removes a join to a unique key behind a foreign key precisely because the
+# declaration says the join cannot change cardinality. Amplifying such a table with 4000 rows drawn
+# from rnd_int makes k1 wildly non-unique, so the premise stops holding and the rewrite drops 99% of
+# the rows -- a differential mismatch that looks exactly like a table-prune correctness bug and is
+# entirely our own doing. One such group cost a full triage pass (410488 rows vs 4002).
+#
+# The parent side of someone else's foreign key matters as much as the declaring side, so the scan
+# collects both. Skipping is the honest answer: generating rows that satisfy a declared uniqueness
+# (and a referential target for every child) is a different job than this generator does, and a
+# table left at its corpus size is merely small, whereas one filled with contradictions poisons every
+# constraint-based rewrite for the whole round.
+def constrained_tables(db, tbls):
+    names = set()
+    for t in tbls:
+        rc, out, _ = q("SHOW CREATE TABLE `%s`" % t, db)
+        if rc != 0:
+            continue
+        low = out.lower()
+        if "unique_constraints" in low or "foreign_key_constraints" in low:
+            names.add(t)
+        for m in re.finditer(r"references\s+([`\w.]+)\s*\(", low):
+            names.add(m.group(1).strip("`").split(".")[-1])
+    return names
+
+
 for db in targets:
     # SHOW TABLES lists views and materialised views alongside real tables, and inserting into either
     # is rejected -- "the data of a materialized view must be consistent with the base table". Every
@@ -467,7 +522,13 @@ for db in targets:
     # report from an engine defect. Ask for base tables only.
     rc, tbls, _ = q("SELECT TABLE_NAME FROM information_schema.tables "
                     "WHERE TABLE_SCHEMA = '%s' AND TABLE_TYPE = 'BASE TABLE'" % db, db)
-    for tbl in tbls.split():
+    tbl_list = tbls.split()
+    constrained = constrained_tables(db, tbl_list)
+    for tbl in tbl_list:
+        if tbl in constrained:
+            constrained_skipped += 1
+            skipped += 1
+            continue
         rc, desc, err = q("DESC `%s`" % tbl, db)
         if rc != 0:
             continue
@@ -533,7 +594,7 @@ for db in targets:
                 _log("ANALYZE-FAIL %s.%s :: %s" % (db, tbl, _errmsg(err2)))
         else:
             skipped += 1
-print("filled=%d skipped=%d lowcard_cols=%d shaped_cols=%d segments_failed=%d analyze_failed=%d"
-      % (filled, skipped, lowcard_cols, shaped_cols, segments_failed, analyze_failed), flush=True)
-_log("DONE filled=%d skipped=%d lowcard_cols=%d shaped_cols=%d segments_failed=%d analyze_failed=%d"
-     % (filled, skipped, lowcard_cols, shaped_cols, segments_failed, analyze_failed))
+print("filled=%d skipped=%d constrained_skipped=%d lowcard_cols=%d shaped_cols=%d segments_failed=%d analyze_failed=%d"
+      % (filled, skipped, constrained_skipped, lowcard_cols, shaped_cols, segments_failed, analyze_failed), flush=True)
+_log("DONE filled=%d skipped=%d constrained_skipped=%d lowcard_cols=%d shaped_cols=%d segments_failed=%d analyze_failed=%d"
+     % (filled, skipped, constrained_skipped, lowcard_cols, shaped_cols, segments_failed, analyze_failed))
