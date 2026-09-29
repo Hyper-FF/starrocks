@@ -535,6 +535,33 @@ diff_run_incomplete() {
     [ -n "$rc" ] && [ "$rc" != 0 ]
 }
 
+# True when N further runs of the same statement, under the same settings, all reproduce $expected.
+#
+# The count is 3 because one repeat is demonstrably not enough and because the obvious arithmetic for
+# how many are enough is wrong. The statement that prompted this gate returns one of two values, so
+# independent runs would agree by chance about half the time and three repeats per side would leave
+# escapes in the low single digits. Measured against that statement on ns0924b25 (2026-09-29):
+#   2 repeats per side   caught 4/5      0/5  false unstable on a deterministic statement
+#   3 repeats per side   caught 8/10     0/10 false unstable
+# Three repeats are no better than two, which says consecutive runs are correlated rather than
+# independent -- whatever fixes the summation order holds across a few seconds. So this gate removes
+# about four fifths of the class, not all of it, and the remaining fifth still has to be triaged by
+# hand. 3 is kept only because the runs are paid after a mismatch is already in hand -- 40 of them in
+# 2500 rounds -- and at that rate the extra queries cost nothing measurable.
+#
+# The zero false positives matter more than the catch rate: a gate that suppressed real knob
+# differences would be worse than the noise it removes.
+stable_repeat() {
+    local db=$1 setup=$2 expected=$3 sql=$4 n=$5 i again
+    for ((i = 0; i < n; i++)); do
+        again=$(diff_run "$db" "$setup" "$sql")
+        diff_run_incomplete && return 1
+        [ -z "$again" ] && return 1
+        [ "$again" = "$expected" ] || return 1
+    done
+    return 0
+}
+
 # True when a statement's answer is allowed to change between two runs, so a difference proves
 # nothing about the plan.
 # True when some LIMIT sits in a query block that has no ORDER BY of its own. Parenthesis
@@ -592,10 +619,14 @@ diff_skippable() {
     fi
     # Aggregates whose VALUE, not merely whose row order, is free to change with the plan. diff_run's
     # sort normalises the order of rows; it cannot normalise the order of elements inside one cell,
-    # and it cannot make a tie-break repeatable. Nor does the re-run confirmation gate below help:
-    # these are deterministic for a GIVEN plan and differ BETWEEN plans, which is precisely the shape
-    # the oracle is built to report. Measured on ns0911: about half of 106 knob differences across
-    # two instances were this, and noise at that rate is what makes a findings file unreadable.
+    # and it cannot make a tie-break repeatable. Measured on ns0911: about half of 106 knob differences
+    # across two instances were this, and noise at that rate is what makes a findings file unreadable.
+    #
+    # These are listed by name because they are cheap to recognise before running anything. The
+    # self-rerun gate in differential_phase catches the rest -- including float-valued aggregates,
+    # which this list deliberately does not name: they are too common to drop wholesale, and one extra
+    # baseline run tells the truth about a particular statement over a particular table, where a name
+    # can only guess.
     #   approx_top_k   approximate, ties at the tail come back in whatever order the sketch holds
     #   any_value      documented as "any"
     #   min_by/max_by  ties resolved by whichever row arrived first
@@ -796,7 +827,7 @@ validate_knobs() {
 # captured by accident, and the function now has to run in this shell rather than a subshell.
 differential_phase() {
     local g=$1 gname=$2 db=$3 round=$4
-    local checked=0 mismatched=0 emptybase=0 voidknob=0 skipped=0
+    local checked=0 mismatched=0 emptybase=0 voidknob=0 skipped=0 unstable=0
     local knob stmt base var sig knobs
 
     # Split on the statement terminator, not on newlines. The mutant corpus writes one statement per
@@ -873,6 +904,38 @@ differential_phase() {
                 continue
             fi
             [ "$base" = "$var" ] && continue
+            # Before blaming the knob: does the statement agree with ITSELF?
+            #
+            # diff_skippable above carries the claim that value-unstable aggregates are
+            # "deterministic for a GIVEN plan and differ BETWEEN plans, which is precisely the shape
+            # the oracle is built to report", and that "the re-run confirmation gate below" cannot
+            # help. Both halves were wrong: there was no such gate -- the round line has printed
+            # unstable= from a variable nothing ever assigned -- and the premise does not hold.
+            # Eight baseline runs of
+            #     select avg(distinct c_bigint), avg(distinct c_double) from t
+            # over eight fixed rows, no knob set, returned -1.7635714285714286e+34 five times and 0.5
+            # three times (2026-09-29). Summation order across parallel instances is not fixed by the
+            # plan, so any float-valued aggregate over values of unlike magnitude is free to move, and
+            # the knob named in such a finding is a bystander. Four of the five RESULT DIFFERS blocks
+            # of 2026-09-28/29 were this -- corr, stddev_samp, avg(distinct double) -- and in each the
+            # knob (enable_inner_join_to_semi on a single-table aggregate) could not touch the plan.
+            #
+            # Re-running both sides decides it, and it is paid only once a mismatch is already in
+            # hand, so the cost is proportional to findings rather than to statements. A statement
+            # that disagrees with itself proves nothing about the knob in either direction, which is why
+            # this counts as its own outcome rather than as a skip: skip means "not looked at", and
+            # this one was looked at and came back unusable.
+            #
+            # break, not continue: a statement that will not repeat itself will mismatch under every
+            # knob in its sample, and continuing would pay a second baseline run for each one to learn
+            # the same thing again. The counter therefore counts statements, which is also the unit
+            # that means anything -- instability is a property of the statement, not of the knob it
+            # happened to be paired with when it showed.
+            if ! stable_repeat "$db" "set enable_profile = false" "$base" "$stmt" 3 ||
+               ! stable_repeat "$db" "$knob" "$var" "$stmt" 3; then
+                unstable=$((unstable + 1))
+                break
+            fi
             mismatched=$((mismatched + 1))
             sig="diff:${knob}"
             # Full detail the first time a knob differs, a one-liner after that. With a four-knob pool
@@ -904,6 +967,7 @@ differential_phase() {
     DIFF_EMPTY=$emptybase
     DIFF_VOID=$voidknob
     DIFF_SKIPPED=$skipped
+    DIFF_UNSTABLE=$unstable
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -1680,7 +1744,7 @@ while true; do
     # Called directly, not through a command substitution: the counters come back in globals so that
     # a say() from inside cannot be captured as one. See differential_phase.
     differential_phase "$g" "$gname" "$db" "$round"
-    ndiff=$DIFF_CHECKED; nmiss=$DIFF_BAD; ndempty=$DIFF_EMPTY; ndvoid=$DIFF_VOID; ndskip=$DIFF_SKIPPED
+    ndiff=$DIFF_CHECKED; nmiss=$DIFF_BAD; ndempty=$DIFF_EMPTY; ndvoid=$DIFF_VOID; ndskip=$DIFF_SKIPPED; ndunst=$DIFF_UNSTABLE
 
     # Same window, and for the same reason: the partition law holds over a table that is not being
     # written to. Once the writers start, the three branches and the baseline see different data and
