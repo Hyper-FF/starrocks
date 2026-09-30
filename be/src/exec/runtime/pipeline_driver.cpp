@@ -25,6 +25,7 @@
 #include "base/utility/defer_op.h"
 #include "column/chunk.h"
 #include "common/config_exec_flow_fwd.h"
+#include "common/process_exit.h"
 #include "common/runtime_profile.h"
 #include "common/status.h"
 #include "common/statusor.h"
@@ -114,6 +115,19 @@ PipelineDriver::~PipelineDriver() noexcept {
 
 void PipelineDriver::check_operator_close_states(const std::string& func_name) {
     if (_driver_id == -1) { // in test cases
+        return;
+    }
+    // Once the process is tearing down there is nothing left to leak into, and the shutdown path
+    // deliberately breaks the invariant this checks: the destructor's own comment above records that
+    // queued or blocked drivers abandoned when the driver executor is closed are destroyed without
+    // going through finalize(), which is exactly an operator left past PREPARED and not CLOSED.
+    //
+    // The DCHECK therefore aborts a debug or sanitizer build on an ordinary SIGTERM. Seen on the fuzz
+    // cluster twice (2026-09-25 and 2026-09-29): earlyoom sent SIGTERM, the BE began a graceful
+    // shutdown, and six seconds later this fired on an exchange_source of a query that had already
+    // been cancelled. The crash oracle filed it as a BE crash and minimised it, and there was no
+    // defect to find -- the only thing that had happened was the process being asked to stop.
+    if (process_exit_in_progress()) {
         return;
     }
     for (auto& op : _operators) {
