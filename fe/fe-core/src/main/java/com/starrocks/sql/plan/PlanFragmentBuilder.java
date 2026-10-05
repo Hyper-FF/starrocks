@@ -266,6 +266,7 @@ import java.util.stream.Stream;
 
 import static com.starrocks.catalog.Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF;
 import static com.starrocks.sql.common.ErrorType.INTERNAL_ERROR;
+import static com.starrocks.sql.common.ErrorType.UNSUPPORTED;
 import static com.starrocks.sql.common.UnsupportedException.unsupportedException;
 import static com.starrocks.sql.optimizer.operator.scalar.ScalarOperator.isColumnEqualConstant;
 import static com.starrocks.thrift.PlanNodesConstants.ROW_ID_COLUMN_NAME;
@@ -2763,6 +2764,40 @@ public class PlanFragmentBuilder {
                     intermediateAggrExprs, removeDistinctFlags);
         }
 
+        /**
+         * The aggregates that only exist inside a meta scan, rejected here rather than in the backend.
+         *
+         * <p>column_size, column_compressed_size and flat_json_meta read a column's stored metadata, so
+         * the only plan that can evaluate them is the one PushDownAggToMetaScanRule builds: a META_SCAN
+         * that reads the per-tablet value, with a plain sum() on top. In that plan the call is gone by
+         * the time this runs -- the aggregate is {@code sum(column_size_v)}, not {@code column_size(v)}
+         * -- so a surviving call means the rewrite did not apply and nothing downstream can evaluate it.
+         *
+         * <p>Today that reaches the backend and comes back as
+         * {@code Invalid agg function plan: column_size with (arg type INT, serde type BIGINT, ...)},
+         * which names a backend id and an internal serde type and tells the reader nothing about what
+         * to write instead. The rewrite declines for ordinary reasons -- no {@code [_META_]} hint at
+         * all, or a GROUP BY, which the meta scan has no way to honour -- and both are the statement's
+         * shape, not a defect, so this is UNSUPPORTED rather than INTERNAL_ERROR and is logged as the
+         * statement's own fault.
+         *
+         * <p>Found by the cluster fuzzer on 2026-10-05 against a corpus that calls these functions by
+         * name. The mirror case is worth knowing about: the OVER() form of the same functions is
+         * already rejected cleanly by AnalyticAnalyzer, so only the plain aggregate shape was missing.
+         */
+        private void rejectMetaOnlyAggregates(Map<ColumnRefOperator, CallOperator> aggregations) {
+            for (CallOperator call : aggregations.values()) {
+                String name = call.getFnName();
+                if (FunctionSet.COLUMN_SIZE.equalsIgnoreCase(name)
+                        || FunctionSet.COLUMN_COMPRESSED_SIZE.equalsIgnoreCase(name)
+                        || FunctionSet.FLAT_JSON_META.equalsIgnoreCase(name)) {
+                    throw new StarRocksPlannerException(UNSUPPORTED,
+                            "%s reads column metadata and is only available in a meta scan: write it as "
+                                    + "`SELECT %s(col) FROM tbl [_META_]`, with no GROUP BY", name, name);
+                }
+            }
+        }
+
         @Override
         public PlanFragment visitPhysicalHashAggregate(OptExpression optExpr, ExecPlan context) {
             PhysicalHashAggregateOperator node = (PhysicalHashAggregateOperator) optExpr.getOp();
@@ -2779,6 +2814,7 @@ public class PlanFragmentBuilder {
                 throw new StarRocksPlannerException(INTERNAL_ERROR, "invalid agg operator " +
                         "without any group by key or agg function. OptExpression:\n%s", optExpr.debugString(5));
             }
+            rejectMetaOnlyAggregates(aggregations);
             List<ColumnRefOperator> partitionBys = node.getPartitionByColumns();
             boolean hasRemovedDistinct = node.hasRemovedDistinctFunc();
 
