@@ -39,3 +39,40 @@ SELECT ndv_merge(ndv_state(s)) FROM t0;
 -- result:
 100
 -- !result
+
+-- name: test_agg_state_const_first_arg
+CREATE TABLE t0 (
+    k INT NULL
+)
+DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+-- result:
+-- !result
+INSERT INTO t0 SELECT generate_series FROM TABLE(generate_series(1, 4096));
+-- result:
+-- !result
+SELECT sum_merge(sum_state(7)) FROM t0;
+-- result:
+28672
+-- !result
+SELECT avg_merge(avg_state(3)) = 3 FROM t0;
+-- result:
+1
+-- !result
+SELECT max_merge(max_state('x')) FROM t0;
+-- result:
+x
+-- !result
+SELECT ndv_merge(ndv_state(CAST('1970-01-01' AS INT))) FROM t0;
+-- result:
+None
+-- !result
+SELECT sum_merge(sum_state(CAST('1970-01-01' AS INT))) FROM t0;
+-- result:
+None
+-- !result
+SELECT ndv_merge(ndv_state(CAST('1970-01-01' AS INT)));
+-- result:
+None
+-- !result

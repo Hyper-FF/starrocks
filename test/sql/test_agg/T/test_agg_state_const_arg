@@ -29,3 +29,23 @@ SELECT ds_hll_count_distinct_merge(ds_hll_count_distinct_state(CAST(1 AS INT))) 
 SELECT ds_hll_count_distinct_merge(ds_hll_count_distinct_state(s)) FROM t0;
 SELECT ndv_merge(ndv_state(CAST(1 AS INT))) FROM t0;
 SELECT ndv_merge(ndv_state(s)) FROM t0;
+
+-- name: test_agg_state_const_first_arg
+-- The _state combinator passed a constant first argument through to the aggregate function, which,
+-- like every aggregate function driven by Aggregator, reads its first argument as a column of the
+-- argument's concrete type (or as a NullableColumn when it is nullable). sum_state(7) and a constant
+-- NULL computed in BE, such as CAST('1970-01-01' AS INT), both crashed a release BE.
+CREATE TABLE t0 (
+    k INT NULL
+)
+DUPLICATE KEY(k)
+DISTRIBUTED BY HASH(k) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+INSERT INTO t0 SELECT generate_series FROM TABLE(generate_series(1, 4096));
+
+SELECT sum_merge(sum_state(7)) FROM t0;
+SELECT avg_merge(avg_state(3)) = 3 FROM t0;
+SELECT max_merge(max_state('x')) FROM t0;
+SELECT ndv_merge(ndv_state(CAST('1970-01-01' AS INT))) FROM t0;
+SELECT sum_merge(sum_state(CAST('1970-01-01' AS INT))) FROM t0;
+SELECT ndv_merge(ndv_state(CAST('1970-01-01' AS INT)));

@@ -829,6 +829,55 @@ TEST_F(AggStateFunctionsTest, test_state_function_avg) {
     }
 }
 
+// StateFunction used to pass a constant first argument through to the aggregate function, which reads it as a
+// column of its concrete type: sum_state(7) and ndv_state(CAST('1970-01-01' AS INT)), whose cast evaluates to a
+// constant NULL in BE, both aborted a debug build and crashed a release one.
+TEST_F(AggStateFunctionsTest, test_state_function_const_first_arg) {
+    struct Case {
+        std::string name;
+        LogicalType arg_type;
+        LogicalType return_type;
+        LogicalType intermediate_type;
+    };
+    const std::vector<Case> cases = {
+            {"sum", TYPE_BIGINT, TYPE_BIGINT, TYPE_BIGINT},
+            {"avg", TYPE_INT, TYPE_DOUBLE, TYPE_VARBINARY},
+            {"ndv", TYPE_INT, TYPE_BIGINT, TYPE_VARBINARY},
+    };
+    constexpr size_t kRows = 4;
+    for (const auto& c : cases) {
+        SCOPED_TRACE(c.name);
+        TypeDescriptor return_type_desc(c.return_type);
+        std::vector<TypeDescriptor> arg_type_descs = {TypeDescriptor(c.arg_type)};
+        auto utils = std::make_unique<FunctionUtils>(nullptr, return_type_desc, arg_type_descs);
+        auto ctx = utils->get_fn_ctx();
+        ASSERT_NE(get_aggregate_function(c.name, c.arg_type, c.return_type, true), nullptr);
+
+        AggStateDesc agg_state_desc(c.name, return_type_desc, arg_type_descs, true, 1);
+        StateFunction state_func(agg_state_desc, TypeDescriptor(c.intermediate_type), {true});
+
+        auto result = state_func.execute(ctx, {ColumnHelper::create_const_null_column(kRows)});
+        ASSERT_TRUE(result.ok()) << result.status();
+        const auto& column = result.value();
+        ASSERT_EQ(kRows, column->size());
+        for (size_t i = 0; i < kRows; i++) {
+            ASSERT_TRUE(column->is_null(i)) << "row " << i;
+        }
+    }
+
+    // A non-null constant yields its state on every row.
+    TypeDescriptor bigint(TYPE_BIGINT);
+    auto utils = std::make_unique<FunctionUtils>(nullptr, bigint, std::vector<TypeDescriptor>{bigint});
+    AggStateDesc agg_state_desc("sum", bigint, {bigint}, true, 1);
+    StateFunction state_func(agg_state_desc, bigint, {true});
+    auto result = state_func.execute(utils->get_fn_ctx(), {ColumnHelper::create_const_column<TYPE_BIGINT>(7, kRows)});
+    ASSERT_TRUE(result.ok()) << result.status();
+    ASSERT_EQ(kRows, result.value()->size());
+    for (size_t i = 0; i < kRows; i++) {
+        ASSERT_EQ("7", result.value()->debug_item(i)) << "row " << i;
+    }
+}
+
 template <typename T>
 void test_agg_state_union_function_basic(FunctionContext* ctx, const AggregateFunction* func,
                                          const std::string& func_name, const std::vector<TypeDescriptor>& arg_types,

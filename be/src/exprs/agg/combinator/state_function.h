@@ -47,7 +47,13 @@ public:
         Columns new_columns;
         new_columns.reserve(columns.size());
         for (auto i = 0; i < columns.size(); i++) {
-            ASSIGN_OR_RETURN(ColumnPtr new_column, _convert_to_nullable_column(columns[i], _arg_nullables[i], false));
+            // Follow the contract of Aggregator::evaluate_agg_input_column: the first argument is always unpacked,
+            // because aggregate functions read it as a column of its concrete type (or as a NullableColumn when it
+            // is nullable). Only the later arguments, such as the fractions of percentile_disc, may stay constant.
+            // Passing a constant first argument through crashed the BE, e.g. sum_state(7) or
+            // ndv_state(CAST('1970-01-01' AS INT)).
+            const bool unpack = (i == 0);
+            ASSIGN_OR_RETURN(ColumnPtr new_column, _convert_to_nullable_column(columns[i], _arg_nullables[i], unpack));
             new_columns.emplace_back(new_column);
         }
 
