@@ -36,6 +36,7 @@ set(PLATFORM_TEST_FILES
     platform_http_test.cpp
     platform_metrics_test.cpp
     python_env_test.cpp
+    query_timeout_hook_test.cpp
     small_file_mgr_test.cpp
     store_path_test.cpp
     thrift_rpc_helper_test.cpp

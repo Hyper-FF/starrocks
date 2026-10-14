@@ -39,13 +39,6 @@ int jemalloc_purge() {
     return JEMALLOC_CTL(buffer, nullptr, nullptr, nullptr, 0);
 }
 
-int jemalloc_dontdump() {
-    char buffer[100];
-    int res = snprintf(buffer, sizeof(buffer), "arena.%d.dontdump", MALLCTL_ARENAS_ALL);
-    buffer[res] = '\0';
-    return JEMALLOC_CTL(buffer, nullptr, nullptr, nullptr, 0);
-}
-
 std::mutex gcore_mutex;
 bool gcore_done = false;
 
@@ -59,17 +52,25 @@ void hook_on_query_timeout(const TUniqueId& query_id, size_t timeout_seconds) {
             return;
         }
 
+        // Only purge here. Do not mark retained pages MADV_DONTDUMP like the crash handler does: this process keeps
+        // running, nothing ever clears the flag, and the flag splits jemalloc's mappings at every retained/active
+        // boundary for good, which can push the process past vm.max_map_count.
         if (config::enable_core_file_size_optimization) {
             jemalloc_purge();
-            jemalloc_dontdump();
         }
 
         std::string core_file = config::pipeline_gcore_output_dir + "/core-" + print_id(query_id);
-        LOG(WARNING) << "dump gcore via query timeout:" << timeout_seconds;
+        LOG(WARNING) << "dump gcore via query timeout:" << timeout_seconds << ", query_id:" << print_id(query_id)
+                     << ", core_file:" << core_file;
         pid_t pid = getpid();
-        // gcore have too many verbose output. skip them
-        (void)lite_exec({"gcore", "-o", core_file, std::to_string(pid)}, std::numeric_limits<int>::max());
-        LOG(WARNING) << "gcore finished ";
+        // gcore have too many verbose output. keep only the tail so that a failed dump is visible
+        std::string output =
+                lite_exec({"gcore", "-o", core_file, std::to_string(pid)}, std::numeric_limits<int>::max());
+        constexpr size_t kMaxOutputLen = 1024;
+        if (output.size() > kMaxOutputLen) {
+            output = output.substr(output.size() - kMaxOutputLen);
+        }
+        LOG(WARNING) << "gcore finished, output tail:" << output;
         gcore_done = true;
     }
 }
